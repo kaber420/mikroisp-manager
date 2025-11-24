@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Recibo de Pago</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Roboto Mono', monospace;
+            width: 300px; /* Ancho típico para impresora térmica de 80mm */
+            font-size: 12px;
+            line-height: 1.4;
+            color: #000;
+            margin: 0;
+            padding: 10px;
+        }
+        .receipt-container {
+            width: 100%;
+        }
+        .header, .footer {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .header h2 {
+            margin: 0;
+            font-size: 16px;
+        }
+        .item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .item-label {
+            font-weight: bold;
+        }
+        .separator {
+            border-top: 1px dashed #000;
+            margin: 10px 0;
+        }
+        .total {
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .legal {
+            font-size: 10px;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        /* Ocultar elementos que no se deben imprimir */
+        @media print {
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body onload="window.print();">
+
+    <div class="receipt-container">
+        <div class="header">
+            <h2>{{ isp_name | default('Nombre de ISP') }}</h2>
+            <p>{{ isp_address | default('Dirección del ISP') }}</p>
+            <p>{{ isp_phone | default('Teléfono del ISP') }}</p>
+        </div>
+
+        <div class="separator"></div>
+
+        <div class="item">
+            <span class="item-label">Folio:</span>
+            <span>{{ payment.id }}</span>
+        </div>
+        <div class="item">
+            <span class="item-label">Fecha de Pago:</span>
+            <span>{{ payment.fecha_pago.strftime('%d/%m/%Y %H:%M') }}</span>
+        </div>
+        
+        <div class="separator"></div>
+
+        <div class="item">
+            <span class="item_label">Cliente:</span>
+            <span>{{ client.name }} {{ client.last_name }}</span>
+        </div>
+
+        <div class="separator"></div>
+        
+        <div class="item">
+            <span class="item-label">Concepto:</span>
+            <span>Servicio de Internet</span>
+        </div>
+        <div class="item">
+            <span class="item-label">Ciclo de Servicio:</span>
+            <span>{{ start_date }} al {{ end_date }}</span>
+        </div>
+        
+        <div class="separator"></div>
+
+        <div class="item total">
+            <span class="item-label">TOTAL PAGADO:</span>
+            <span>${{ "%.2f"|format(payment.monto) }}</span>
+        </div>
+
+        <div class="separator"></div>
+
+        <div class="item">
+            <span class="item-label">Método de Pago:</span>
+            <span>{{ payment.metodo_pago | default('No especificado') }}</span>
+        </div>
+        <div class="item">
+            <span class="item-label">Consumo:</span>
+            <span>0b/0b</span>
+        </div>
+        
+        <div class="footer">
+            <p>¡Gracias por su pago!</p>
+            <p class="legal">Este pago cubre el servicio entre las fechas indicadas.</p>
+        </div>
+
+    </div>
+
+</body>
+</html>

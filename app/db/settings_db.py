@@ -1,13 +1,15 @@
 # app/db/settings_db.py
 from .base import get_db_connection
 
+
 def get_all_settings() -> dict:
     """Obtiene toda la configuración de la base de datos."""
     conn = get_db_connection()
     cursor = conn.execute("SELECT key, value FROM settings")
-    settings = {row['key']: row['value'] for row in cursor.fetchall()}
+    settings = {row["key"]: row["value"] for row in cursor.fetchall()}
     conn.close()
     return settings
+
 
 def update_settings(settings_to_update: dict):
     """Actualiza una o más configuraciones en la base de datos."""
@@ -17,10 +19,11 @@ def update_settings(settings_to_update: dict):
     conn.commit()
     conn.close()
 
+
 def get_setting(key: str) -> str | None:
     """Obtiene el valor de una clave de configuración específica."""
     conn = get_db_connection()
     cursor = conn.execute("SELECT value FROM settings WHERE key = ?", (key,))
     row = cursor.fetchone()
     conn.close()
-    return row['value'] if row else None
+    return row["value"] if row else None

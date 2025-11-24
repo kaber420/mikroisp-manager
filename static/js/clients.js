@@ -352,7 +352,7 @@ document.addEventListener('alpine:init', () => {
                     profile_name: profileNameOrPlan,
                     plan_id: this.currentService.plan_id || null,
                     ip_address: targetIp,
-                    suspension_method: service_type === 'pppoe' ? 'pppoe_secret_disable' : 'simple_queue_remove'
+                    suspension_method: this.currentService.suspension_method || 'address_list'
                 };
 
                 const serviceRes = await fetch(`/api/clients/${this.currentClient.id}/services`, {

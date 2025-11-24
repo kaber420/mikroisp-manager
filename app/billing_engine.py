@@ -3,56 +3,90 @@ import time
 import logging
 from datetime import datetime
 
-from .db import settings_db
+# --- Imports moved to top-level ---
+from sqlmodel import Session
+from .db.engine_sync import sync_engine
+from .db import settings_db # Legacy settings access
 from .services.billing_service import BillingService
+from .services.router_service import RouterService, get_enabled_routers_sync, RouterConnectionError
 
 # Configuración del Logger
 logger = logging.getLogger("BillingEngine")
 logger.setLevel(logging.INFO)
 if not logger.hasHandlers():
     handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - [BillingEngine] - %(message)s'))
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - [BillingEngine] - %(message)s")
+    )
     logger.addHandler(handler)
+
 
 def run_billing_engine():
     """
     Orquestador que ejecuta las suspensiones diarias utilizando BillingService.
     """
     logger.info("Motor de Facturación iniciado (Refactorizado).")
-    # Instanciamos el servicio una sola vez (o dentro del loop si prefieres stateless total)
-    billing_service = BillingService()
     last_run_date = None
 
     while True:
         try:
-            run_hour_str = settings_db.get_setting('suspension_run_hour') or "02:00"
-            now = datetime.now()
-            current_date = now.date()
-            
-            # Construir la fecha/hora de ejecución para hoy
-            try:
-                run_time_today = datetime.strptime(f"{current_date} {run_hour_str}", "%Y-%m-%d %H:%M")
-            except ValueError:
-                logger.error(f"Formato de hora inválido en configuración: {run_hour_str}. Usando 02:00.")
-                run_time_today = datetime.strptime(f"{current_date} 02:00", "%Y-%m-%d %H:%M")
+            # --- SESSION CONTEXT WRAPS THE ENTIRE LOGIC BLOCK ---
+            with Session(sync_engine) as session:
+                run_hour_str = settings_db.get_setting("suspension_run_hour") or "02:00"
+                now = datetime.now()
+                current_date = now.date()
 
-            # Ejecutar si ya pasó la hora y no se ha ejecutado hoy
-            if now >= run_time_today and current_date != last_run_date:
-                logger.info(f"--- EJECUTANDO AUDITORÍA DE ESTADOS ({current_date}) ---")
-                
-                # Llamamos a la lógica inteligente que creaste en BillingService
-                stats = billing_service.process_daily_suspensions()
-                
-                logger.info(f"--- FIN DEL PROCESO. Resumen: {stats} ---")
-                
-                last_run_date = current_date
+                try:
+                    run_time_today = datetime.strptime(
+                        f"{current_date} {run_hour_str}", "%Y-%m-%d %H:%M"
+                    )
+                except ValueError:
+                    logger.error(
+                        f"Formato de hora inválido en configuración: {run_hour_str}. Usando 02:00."
+                    )
+                    run_time_today = datetime.strptime(
+                        f"{current_date} 02:00", "%Y-%m-%d %H:%M"
+                    )
 
-            # Verificar la hora cada 30 minutos para no saturar el CPU
-            time.sleep(1800) 
-            
+                if now >= run_time_today and current_date != last_run_date:
+                    logger.info(f"--- EJECUTANDO AUDITORÍA DE ESTADOS ({current_date}) ---")
+
+                    # --- 1. LIMPIEZA PREVIA DE ROUTERS ---
+                    try:
+                        routers = get_enabled_routers_sync(session)
+                        logger.info(
+                            f"🧹 Saneando conexiones en {len(routers)} routers antes de facturar..."
+                        )
+                        for router_creds in routers:
+                            try:
+                                # Instantiate service with the full Router object
+                                with RouterService(router_creds.host, router_creds) as rs:
+                                    cleaned_count = rs.cleanup_connections()
+                                    if cleaned_count > 0:
+                                        logger.info(f"   - Limpiadas {cleaned_count} conexiones en {router_creds.host}")
+                            except RouterConnectionError as e:
+                                logger.warning(f"   - No se pudo conectar a {router_creds.host} para limpiar: {e}")
+                            except Exception as e:
+                                logger.error(f"   - Error inesperado limpiando {router_creds.host}: {e}")
+                    except Exception as e:
+                        logger.error(f"Error crítico en la fase de limpieza de routers: {e}")
+
+                    # --- 2. PROCESO DE FACTURACIÓN ---
+                    billing_service = BillingService(session)
+                    stats = billing_service.process_daily_suspensions()
+                    logger.info(f"--- FIN DEL PROCESO. Resumen: {stats} ---")
+
+                    last_run_date = current_date
+
+            # Sleep outside the session context
+            time.sleep(1800)
+
         except KeyboardInterrupt:
             logger.info("Motor detenido manualmente.")
             break
         except Exception as e:
-            logger.critical(f"Error crítico en el motor de facturación: {e}", exc_info=True)
+            logger.critical(
+                f"Error crítico en el bucle principal del motor de facturación: {e}", exc_info=True
+            )
+            # Wait longer after a critical failure
             time.sleep(60)

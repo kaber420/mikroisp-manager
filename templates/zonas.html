@@ -1,73 +1,108 @@
 {% extends "base.html" %}
-
 {% block title %}Manage Zones - µMonitor Pro{% endblock %}
 
 {% block content %}
-<main class="flex-1 p-6 lg:p-8" x-data="zoneManager()" x-init="init()">
-    <div class="max-w-4xl mx-auto">
+<div x-data="zoneManager()" x-init="init()" x-cloak class="flex-1 flex flex-col min-w-0">
+
+    <main class="flex-1 p-6 lg:p-8">
+
         <div class="flex items-center justify-between mb-8">
-            <h1 class="text-4xl font-bold">Manage Zones</h1>
-            <button @click="openAddModal()" class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover">
+            <h1 class="text-4xl font-bold text-white drop-shadow-md">Manage Zones</h1>
+            <button @click="openModal()"
+                class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-transform hover:scale-105">
                 <span class="material-symbols-outlined mr-2">add</span>
-                <span>Add New Zone</span>
+                <span>Add Zone</span>
             </button>
         </div>
 
-        <div class="bg-surface-1 rounded-lg border border-border-color">
+        <div class="bg-surface-1/60 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl">
             
-            <template x-if="isLoading">
-                <p class="p-8 text-center text-text-secondary">Loading zones...</p>
-            </template>
+            <div class="px-6 py-4 border-b border-white/10 flex flex-wrap gap-4 items-center justify-between bg-white/5">
+                <h2 class="text-xl font-bold text-white">All Zones</h2>
 
-            <template x-if="!isLoading && zones.length === 0">
-                <p class="p-8 text-center text-text-secondary">No zones found. Click "Add New Zone" to get started.</p>
-            </template>
-
-            <template x-for="zone in zones" :key="zone.id">
-                <div class="flex items-center justify-between p-4 border-b border-border-color last:border-b-0 hover:bg-surface-2">
-                    <p class="font-semibold text-text-primary" x-text="zone.nombre"></p>
-                    
-                    <div class="flex items-center gap-4">
-                        <a :href="`/zona/${zone.id}`" class="flex items-center justify-center h-9 px-4 text-sm font-semibold rounded-md border border-border-color hover:bg-surface-2" title="Manage Zone Details">
-                            Manage
-                        </a>
-                        <button @click="openEditModal(zone)" title="Edit Zone Name" class="text-text-secondary hover:text-primary">
-                            <span class="material-symbols-outlined">edit</span>
-                        </button>
-                        <button @click="deleteZone(zone)" title="Delete Zone" class="text-text-secondary hover:text-danger">
-                            <span class="material-symbols-outlined">delete</span>
-                        </button>
-                    </div>
+                <div class="relative">
+                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-lg">search</span>
+                    <input type="text" x-model="searchQuery"
+                        placeholder="Search zones..."
+                        class="w-full sm:w-64 pl-10 pr-4 py-2 bg-surface-1/50 border border-white/10 rounded-lg focus:ring-primary focus:border-primary text-white placeholder-text-secondary/50 transition-all">
                 </div>
-            </template>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-white/5">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Name</th>
+                            <th class="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/5">
+                        <template x-if="isLoading">
+                            <tr><td colspan="2" class="p-8 text-center text-text-secondary">Loading zones...</td></tr>
+                        </template>
+
+                        <template x-if="!isLoading && filteredZones.length === 0">
+                            <tr><td colspan="2" class="p-8 text-center text-text-secondary">No zones match your search.</td></tr>
+                        </template>
+
+                        <template x-for="zone in filteredZones" :key="zone.id">
+                            <tr class="hover:bg-white/5 transition-colors duration-200 group">
+                                <td class="px-6 py-4 whitespace-nowrap font-semibold text-white" x-text="zone.nombre"></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right flex justify-end gap-2">
+                                    <a :href="`/zona/${zone.id}`" 
+                                       class="flex items-center justify-center h-8 px-3 text-xs font-semibold rounded-md border border-white/10 hover:bg-white/10 text-text-primary transition-colors">
+                                        Manage
+                                    </a>
+                                    <button @click="openModal(zone)" class="text-text-secondary hover:text-primary p-1 transition-colors">
+                                        <span class="material-symbols-outlined text-[20px]">edit</span>
+                                    </button>
+                                    <button @click="deleteZone(zone)" class="text-text-secondary hover:text-danger p-1 transition-colors">
+                                        <span class="material-symbols-outlined text-[20px]">delete</span>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
+    </main>
 
-    <!-- Modal -->
     <div x-show="isModalOpen" x-cloak
-         class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4">
-        <div @click.away="closeModal()" class="bg-surface-1 rounded-lg shadow-xl w-full max-w-md border border-border-color">
+        class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div @click.away="closeModal()"
+            class="bg-surface-1 border border-white/10 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
+            
             <form @submit.prevent="saveZone()">
-                <div class="p-6 border-b border-border-color">
-                    <h3 class="text-2xl font-bold" x-text="modalMode === 'add' ? 'Add New Zone' : 'Edit Zone Name'"></h3>
+                <div class="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
+                    <h3 class="text-2xl font-bold text-white" x-text="modalMode === 'add' ? 'Add New Zone' : 'Edit Zone'"></h3>
+                    <button type="button" @click="closeModal()" class="text-text-secondary hover:text-white text-2xl transition-colors">&times;</button>
                 </div>
                 
-                <div class="p-6 space-y-4">
+                <div class="p-6 space-y-5">
                     <div>
-                        <label for="zone-name" class="block text-sm font-medium mb-1">Zone Name</label>
-                        <input type="text" id="zone-name" x-model="currentZone.nombre" required class="w-full bg-background border border-border-color rounded-md p-2 focus:ring-primary focus:border-primary">
+                        <label for="nombre" class="block text-sm font-medium mb-1 text-text-secondary">Zone Name</label>
+                        <input type="text" id="nombre" x-model="currentZone.nombre" required
+                            class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2.5 focus:ring-primary focus:border-primary text-white placeholder-gray-500 transition-all">
                     </div>
-                    <div x-show="error" x-text="error" class="form-error-main text-danger text-sm"></div>
-                </div>
-                
-                <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end gap-4">
-                    <button type="button" @click.prevent="closeModal()" class="px-4 py-2 rounded-md text-sm font-semibold hover:bg-surface-1">Cancel</button>
-                    <button type="submit" class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">Save Zone</button>
+
+                    <div x-show="error" x-text="error" class="text-danger text-sm mt-2 p-2 bg-danger/10 rounded border border-danger/20"></div>
+
+                    <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-white/10">
+                        <button type="button" @click="closeModal()"
+                            class="px-4 py-2 rounded-lg text-sm font-semibold text-text-secondary hover:text-white hover:bg-white/10 transition-colors">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                            class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-transform active:scale-95">
+                            Save Zone
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
     </div>
-</main>
+</div>
 {% endblock %}
 
 {% block scripts %}

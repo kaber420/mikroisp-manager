@@ -10,7 +10,6 @@ export class ApiClient {
             ...options,
             headers: { 'Content-Type': 'application/json', ...options.headers },
         };
-        // No enviar Content-Type en GET o DELETE
         if (!options.method || ['GET', 'DELETE'].includes(options.method?.toUpperCase())) {
             delete fetchOptions.headers['Content-Type'];
         }
@@ -18,19 +17,17 @@ export class ApiClient {
         const response = await fetch(CONFIG.API_BASE_URL + url, fetchOptions);
 
         if (!response.ok) {
-            // Manejar 204 (No Content)
             if (response.status === 204) return null;
             
-            // Intentar parsear el error de la API
             const errorData = await response.json().catch(() => ({ detail: response.statusText }));
             let errorMessage = 'Error en la petición';
             
             if (errorData.detail) {
-                if (Array.isArray(errorData.detail)) { // Errores de validación Pydantic
+                if (Array.isArray(errorData.detail)) {
                     errorMessage = errorData.detail
                         .map(err => `${err.loc[err.loc.length - 1]}: ${err.msg}`)
                         .join('; ');
-                } else { // Errores estándar
+                } else {
                     errorMessage = errorData.detail;
                 }
             } else if (response.statusText) {
@@ -38,8 +35,22 @@ export class ApiClient {
             }
             throw new Error(errorMessage);
         }
-        // Manejar 204 (No Content) para DELETE exitoso
-        return response.status === 204 ? null : response.json();
+        
+        if (response.status === 204) return null;
+
+        // --- Defensive JSON parsing ---
+        const responseText = await response.text();
+        if (!responseText) {
+            return { status: 'success', message: 'Operación completada sin respuesta.' };
+        }
+        
+        try {
+            return JSON.parse(responseText);
+        } catch (e) {
+            console.warn("API response was not valid JSON. Treating as plain text.", responseText);
+            // Return a valid object that looks like our other responses
+            return { status: 'success_non_json', message: responseText };
+        }
     }
 }
 

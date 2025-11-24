@@ -1,0 +1,35 @@
+# app/models/payment.py
+"""
+Payment model for client payment tracking.
+"""
+from typing import Optional
+from sqlmodel import Field, SQLModel, Relationship
+from datetime import datetime
+
+
+class Payment(SQLModel, table=True):
+    """
+    Payment model representing client payments.
+    
+    Fields:
+    - id: Auto-increment primary key
+    - client_id: Foreign key to clients table (required)
+    - monto: Payment amount (required)
+    - fecha_pago: Payment date timestamp
+    - mes_correspondiente: Billing cycle (format: 'YYYY-MM', required)
+    - metodo_pago: Payment method (cash, transfer, etc.)
+    - notas: Additional notes
+    """
+    
+    __tablename__ = "pagos"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    client_id: int = Field(foreign_key="clients.id", nullable=False, index=True)
+    monto: float = Field(nullable=False)
+    fecha_pago: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    mes_correspondiente: str = Field(nullable=False)
+    metodo_pago: Optional[str] = Field(default=None)
+    notas: Optional[str] = Field(default=None)
+    
+    # Relationships (commented to avoid circular imports)
+    # client: Optional["Client"] = Relationship(back_populates="payments")

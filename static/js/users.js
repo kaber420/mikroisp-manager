@@ -11,6 +11,7 @@ document.addEventListener('alpine:init', () => {
         
         currentUser: {
             username: '',
+            email: '', 
             password: '',
             role: 'admin',
             telegram_chat_id: '',
@@ -73,6 +74,7 @@ document.addEventListener('alpine:init', () => {
             this.modalMode = 'edit';
             this.currentUser = { 
                 ...user, 
+                email: user.email,
                 password: '', 
                 telegram_chat_id: user.telegram_chat_id || '' 
             };
@@ -125,17 +127,18 @@ document.addEventListener('alpine:init', () => {
             const method = isEditing ? 'PUT' : 'POST';
 
             const data = {
+                email: this.currentUser.email,
                 role: this.currentUser.role,
                 telegram_chat_id: this.currentUser.telegram_chat_id || null, 
                 receive_alerts: this.currentUser.receive_alerts,
                 receive_announcements: this.currentUser.receive_announcements,
-                disabled: this.currentUser.disabled,
             };
 
             if (isEditing) {
                 if (this.currentUser.password) {
                     data.password = this.currentUser.password;
                 }
+                data.disabled = this.currentUser.disabled;
             } else {
                 data.username = this.currentUser.username;
                 data.password = this.currentUser.password;

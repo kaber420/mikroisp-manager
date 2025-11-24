@@ -105,7 +105,8 @@ const handleAddParentQueue = async (e) => {
             body: JSON.stringify(payload)
         });
 
-        DomUtils.updateFeedback(response.message || 'Cola Creada', true);
+        const feedbackMessage = response?.message || 'Cola Creada con éxito';
+        DomUtils.updateFeedback(feedbackMessage, true);
         DOM_ELEMENTS.addParentQueueForm.reset();
         document.getElementById('is-parent-checkbox').checked = true;
 
@@ -128,38 +129,27 @@ const handleDeleteParentQueue = (e) => {
 
 // --- NUEVO: Manejador para crear Plan Local ---
 const handleCreateLocalPlan = async (e) => {
-    e.preventDefault(); // <--- ¡IMPORTANTE! Evita el error SVG/XML
-
+    e.preventDefault();
     DomUtils.updateFeedback("Procesando...", true);
 
-    // 1. Obtener ID del router si no lo tenemos
-    if (!state.routerId) {
-        try {
-            const routerData = await ApiClient.request(`/api/routers/${CONFIG.currentHost}`);
-            if (routerData && routerData.id) {
-                state.routerId = routerData.id;
-            }
-        } catch (err) {
-            console.error("Error obteniendo ID del router:", err);
-        }
-    }
-
-    if (!state.routerId) {
-        DomUtils.updateFeedback("Error: No se pudo obtener el ID interno del router. Verifica la API.", false);
+    // The router host is always known from the page context
+    const routerHost = CONFIG.currentHost;
+    if (!routerHost) {
+        DomUtils.updateFeedback("Error: No se pudo determinar el router actual.", false);
         return;
     }
 
-    // 2. Preparar datos
+    // 1. Preparar datos
     const formData = new FormData(DOM_ELEMENTS.createLocalPlanForm);
     const payload = {
-        router_id: state.routerId,
+        router_host: routerHost, // Use the host string
         name: formData.get('name'),
         max_limit: formData.get('max_limit'),
         parent_queue: formData.get('parent_queue') || null,
         comment: "Creado desde µMonitor UI"
     };
 
-    // 3. Enviar a la API
+    // 2. Enviar a la API
     try {
         await ApiClient.request('/api/plans', {
             method: 'POST',
@@ -191,22 +181,14 @@ const handleDeletePlan = (e) => {
 
 export async function loadQueuesData(fullDetails) {
     try {
-        // Si nos llegan los detalles completos, intentamos sacar el ID del router si viene ahí
-        if (fullDetails && fullDetails.id) state.routerId = fullDetails.id; // Nota: fullDetails de /full-details no suele traer el ID raíz, pero lo dejamos por si acaso
-
         const data = fullDetails || await ApiClient.request(`/api/routers/${CONFIG.currentHost}/full-details`);
         renderParentQueues(data.simple_queues);
         renderQueueTargetOptions(data.interfaces);
 
-        // Cargar también los planes locales desde la BD
-        // Necesitamos el ID numérico para esto. Si no lo tenemos, lo intentamos buscar primero.
-        if (!state.routerId) {
-            const rData = await ApiClient.request(`/api/routers/${CONFIG.currentHost}`);
-            state.routerId = rData.id;
-        }
-
-        if (state.routerId) {
-            const localPlans = await ApiClient.request(`/api/plans/router/${state.routerId}`);
+        // Load local plans using the router's host string
+        const routerHost = CONFIG.currentHost;
+        if (routerHost) {
+            const localPlans = await ApiClient.request(`/api/plans/router/${routerHost}`);
             renderLocalPlans(localPlans);
         }
 

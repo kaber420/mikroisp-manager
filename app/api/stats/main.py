@@ -8,12 +8,13 @@ from typing import List, Dict, Optional
 # --- ¡IMPORTACIONES CORREGIDAS! (Ahora con '...') ---
 from ...auth import User, get_current_active_user
 from ...db.base import get_db_connection, get_stats_db_connection
-from ...db.cpes_db import get_all_cpes_globally # Reutilizamos una función ya creada
+from ...db.cpes_db import get_all_cpes_globally  # Reutilizamos una función ya creada
 
 # --- ¡IMPORTACIÓN CORREGIDA! (Ahora desde '.models') ---
 from .models import TopAP, TopCPE
 
 router = APIRouter()
+
 
 # --- Dependencias de DB (Lógica sin cambios) ---
 def get_inventory_db():
@@ -24,6 +25,7 @@ def get_inventory_db():
         if conn:
             conn.close()
 
+
 def get_stats_db():
     conn = get_stats_db_connection()
     try:
@@ -32,12 +34,13 @@ def get_stats_db():
         if conn:
             conn.close()
 
+
 # --- Endpoints de la API (Lógica sin cambios) ---
 @router.get("/stats/top-aps-by-airtime", response_model=List[TopAP])
 def get_top_aps_by_airtime(
-    limit: int = 5, 
-    conn: sqlite3.Connection = Depends(get_inventory_db), 
-    current_user: User = Depends(get_current_active_user)
+    limit: int = 5,
+    conn: sqlite3.Connection = Depends(get_inventory_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     stats_db_file = f"stats_{datetime.utcnow().strftime('%Y_%m')}.sqlite"
     if not os.path.exists(stats_db_file):
@@ -70,13 +73,13 @@ def get_top_aps_by_airtime(
 
 @router.get("/stats/top-cpes-by-signal", response_model=List[TopCPE])
 def get_top_cpes_by_weak_signal(
-    limit: int = 5, 
-    stats_conn: Optional[sqlite3.Connection] = Depends(get_stats_db), 
-    current_user: User = Depends(get_current_active_user)
+    limit: int = 5,
+    stats_conn: Optional[sqlite3.Connection] = Depends(get_stats_db),
+    current_user: User = Depends(get_current_active_user),
 ):
-    if not stats_conn: 
+    if not stats_conn:
         return []
-    
+
     query = """
         WITH LatestCPEStats AS (
             SELECT 
@@ -98,8 +101,8 @@ def get_top_cpes_by_weak_signal(
 
 @router.get("/stats/cpe-count", response_model=Dict[str, int])
 def get_cpe_total_count(
-    conn: sqlite3.Connection = Depends(get_inventory_db), 
-    current_user: User = Depends(get_current_active_user)
+    conn: sqlite3.Connection = Depends(get_inventory_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     try:
         cursor = conn.execute("SELECT COUNT(*) FROM cpes")
@@ -107,3 +110,37 @@ def get_cpe_total_count(
         return {"total_cpes": count}
     except sqlite3.Error as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
+
+
+from ...db.logs_db import (
+    get_event_logs_paginated,
+    count_event_logs,
+)  # Importamos las nuevas funciones
+
+# ... (otros endpoints) ...
+
+
+@router.get("/stats/events")
+def get_dashboard_events(
+    host: str = None,
+    page: int = 1,  # Nuevo parámetro
+    page_size: int = 10,  # Nuevo parámetro (default 10)
+    conn: Optional[sqlite3.Connection] = Depends(get_stats_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Obtiene los logs paginados.
+    """
+    # Usamos las funciones de DB dedicadas en lugar de SQL crudo aquí
+    logs = get_event_logs_paginated(host, page, page_size)
+    total_records = count_event_logs(host)
+
+    total_pages = (total_records + page_size - 1) // page_size
+
+    return {
+        "items": logs,
+        "total": total_records,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+    }

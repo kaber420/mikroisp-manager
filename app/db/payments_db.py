@@ -3,6 +3,7 @@ import sqlite3
 from typing import List, Dict, Any, Optional
 from .base import get_db_connection
 
+
 def get_payment_by_id(payment_id: int) -> Optional[Dict[str, Any]]:
     """Obtiene un pago específico por su ID."""
     conn = get_db_connection()
@@ -11,16 +12,17 @@ def get_payment_by_id(payment_id: int) -> Optional[Dict[str, Any]]:
     conn.close()
     return dict(row) if row else None
 
+
 def get_payments_for_client(client_id: int) -> List[Dict[str, Any]]:
     """Obtiene todo el historial de pagos de un cliente, del más reciente al más antiguo."""
     conn = get_db_connection()
     cursor = conn.execute(
-        "SELECT * FROM pagos WHERE client_id = ? ORDER BY fecha_pago DESC", 
-        (client_id,)
+        "SELECT * FROM pagos WHERE client_id = ? ORDER BY fecha_pago DESC", (client_id,)
     )
     rows = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return rows
+
 
 def create_payment(client_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -34,11 +36,11 @@ def create_payment(client_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
                VALUES (?, ?, ?, ?, ?, datetime('now', 'localtime'))""",
             (
                 client_id,
-                data['monto'],
-                data['mes_correspondiente'],
-                data.get('metodo_pago'),
-                data.get('notas')
-            )
+                data["monto"],
+                data["mes_correspondiente"],
+                data.get("metodo_pago"),
+                data.get("notas"),
+            ),
         )
         new_payment_id = cursor.lastrowid
         conn.commit()
@@ -52,6 +54,7 @@ def create_payment(client_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
     if not new_payment:
         raise ValueError("No se pudo recuperar el pago después de la creación.")
     return new_payment
+
 
 def update_payment_notes(payment_id: int, notas: str) -> int:
     """Actualiza las notas de un pago existente (para añadir advertencias de error)."""
@@ -69,6 +72,7 @@ def update_payment_notes(payment_id: int, notas: str) -> int:
     finally:
         conn.close()
 
+
 # --- ¡NUEVA FUNCIÓN AÑADIDA PARA EL MOTOR DE FACTURACIÓN! ---
 def check_payment_exists(client_id: int, billing_cycle: str) -> bool:
     """
@@ -77,7 +81,7 @@ def check_payment_exists(client_id: int, billing_cycle: str) -> bool:
     conn = get_db_connection()
     cursor = conn.execute(
         "SELECT 1 FROM pagos WHERE client_id = ? AND mes_correspondiente = ? LIMIT 1",
-        (client_id, billing_cycle)
+        (client_id, billing_cycle),
     )
     payment_exists = cursor.fetchone() is not None
     conn.close()

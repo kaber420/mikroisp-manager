@@ -3,6 +3,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
 
+
 # (Modelos movidos desde cpes_api.py)
 class CPEDetail(BaseModel):
     cpe_mac: str
@@ -23,10 +24,12 @@ class CPEDetail(BaseModel):
     eth_speed: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)
 
+
 class CPEGlobalInfo(CPEDetail):
     ap_host: Optional[str] = None
     ap_hostname: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
+
 
 class AssignedCPE(BaseModel):
     mac: str

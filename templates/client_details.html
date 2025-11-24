@@ -6,11 +6,19 @@
 <link rel="stylesheet" href="/static/css/dashboard-transitions.css">
 <style>
     .tab-button.active {
-        border-bottom-color: #3B82F6; /* primary */
-        color: #F1F5F9; /* text-primary */
+        border-bottom-color: #3B82F6;
+        /* primary */
+        color: #F1F5F9;
+        /* text-primary */
     }
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
+
+    .tab-panel {
+        display: none;
+    }
+
+    .tab-panel.active {
+        display: block;
+    }
 </style>
 {% endblock %}
 
@@ -19,7 +27,8 @@
     <!-- Título -->
     <div class="flex items-center gap-4 mb-8">
         <a href="/clients" title="Back to Clients" class="text-primary hover:opacity-75">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
         </a>
@@ -28,8 +37,10 @@
 
     <!-- Pestañas -->
     <div class="border-b border-border-color flex mb-6">
-        <button type="button" data-tab="info" class="tab-button active py-3 px-6 text-sm font-semibold">Info & Service Status</button>
-        <button type="button" data-tab="billing" class="tab-button py-3 px-6 text-sm font-semibold text-text-secondary">Billing & Payments</button>
+        <button type="button" data-tab="info" class="tab-button active py-3 px-6 text-sm font-semibold">Info & Service
+            Status</button>
+        <button type="button" data-tab="billing"
+            class="tab-button py-3 px-6 text-sm font-semibold text-text-secondary">Billing & Payments</button>
     </div>
 
     <!-- Panel 1: Información y Estado -->
@@ -37,14 +48,18 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Columna de Información del Cliente -->
             <div class="bg-surface-1 rounded-lg border border-border-color">
-                <div class="p-6 border-b border-border-color"><h2 class="text-xl font-bold">Client Information</h2></div>
+                <div class="p-6 border-b border-border-color">
+                    <h2 class="text-xl font-bold">Client Information</h2>
+                </div>
                 <div id="client-info-container" class="p-6 text-sm space-y-2">
                     <p class="text-text-secondary text-center">Loading info...</p>
                 </div>
             </div>
             <!-- Columna de Estado del Servicio -->
             <div class="bg-surface-1 rounded-lg border border-border-color">
-                <div class="p-6 border-b border-border-color"><h2 class="text-xl font-bold">Live Service Status</h2></div>
+                <div class="p-6 border-b border-border-color">
+                    <h2 class="text-xl font-bold">Live Service Status</h2>
+                </div>
                 <div id="service-status-container" class="p-6 text-sm space-y-2">
                     <p class="text-text-secondary text-center">Loading status...</p>
                 </div>
@@ -57,20 +72,48 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Columna para Registrar Pago -->
             <div class="bg-surface-1 rounded-lg border border-border-color">
-                <div class="p-6 border-b border-border-color"><h2 class="text-xl font-bold">Register New Payment</h2></div>
+                <div class="p-6 border-b border-border-color">
+                    <h2 class="text-xl font-bold">Register New Payment</h2>
+                </div>
                 <form id="register-payment-form" class="p-6 space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label for="payment-amount" class="block text-sm font-medium mb-1">Amount</label>
-                            <input type="number" step="0.01" id="payment-amount" required class="w-full bg-background border border-border-color rounded-md p-2">
+                            <input type="number" step="0.01" id="payment-amount" required
+                                class="w-full bg-background border border-border-color rounded-md p-2">
                         </div>
-                        <div>
-                            <label for="payment-month" class="block text-sm font-medium mb-1">Month (YYYY-MM)</label>
-                            <input type="text" id="payment-month" required placeholder="YYYY-MM" class="w-full bg-background border border-border-color rounded-md p-2">
+
+                        <div class="col-span-full">
+                            <label class="block text-sm font-medium mb-2">Seleccionar Mes a Pagar</label>
+
+                            <div class="flex items-center gap-4 mb-3">
+                                <button type="button" id="prev-year-btn" class="p-1 rounded hover:bg-surface-2"><span
+                                        class="material-symbols-outlined">chevron_left</span></button>
+                                <span id="current-year-display" class="font-bold text-lg">2025</span>
+                                <button type="button" id="next-year-btn" class="p-1 rounded hover:bg-surface-2"><span
+                                        class="material-symbols-outlined">chevron_right</span></button>
+                            </div>
+
+                            <div id="months-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                            </div>
+
+                            <input type="hidden" id="payment-month" required>
+
+                            <div id="cycle-info"
+                                class="mt-3 p-3 bg-primary/10 border border-primary/20 rounded-md hidden">
+                                <p class="text-sm text-primary font-semibold flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-sm">date_range</span>
+                                    Ciclo: <span id="cycle-dates">--</span>
+                                </p>
+                                <p class="text-xs text-text-secondary mt-1">Este pago cubre el servicio entre estas
+                                    fechas.</p>
+                            </div>
                         </div>
+
                         <div>
                             <label for="payment-method" class="block text-sm font-medium mb-1">Method</label>
-                            <select id="payment-method" class="w-full bg-background border border-border-color rounded-md p-2">
+                            <select id="payment-method"
+                                class="w-full bg-background border border-border-color rounded-md p-2">
                                 <option value="Efectivo">Cash</option>
                                 <option value="Transferencia">Transfer</option>
                                 <option value="Otro">Other</option>
@@ -79,11 +122,13 @@
                     </div>
                     <div>
                         <label for="payment-notes" class="block text-sm font-medium mb-1">Notes (Optional)</label>
-                        <input type="text" id="payment-notes" placeholder="Reference no., etc." class="w-full bg-background border border-border-color rounded-md p-2">
+                        <input type="text" id="payment-notes" placeholder="Reference no., etc."
+                            class="w-full bg-background border border-border-color rounded-md p-2">
                     </div>
                     <div id="payment-form-error" class="form-error-main text-danger text-sm hidden"></div>
                     <div class="text-right pt-2">
-                        <button type="submit" class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">
+                        <button type="submit"
+                            class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">
                             Register Payment & Reactivate
                         </button>
                     </div>
@@ -91,7 +136,9 @@
             </div>
             <!-- Columna para Historial de Pagos -->
             <div class="bg-surface-1 rounded-lg border border-border-color">
-                <div class="p-6 border-b border-border-color"><h2 class="text-xl font-bold">Payment History</h2></div>
+                <div class="p-6 border-b border-border-color">
+                    <h2 class="text-xl font-bold">Payment History</h2>
+                </div>
                 <div id="payment-history-list" class="p-6 space-y-2 max-h-96 overflow-y-auto">
                     <p class="text-text-secondary">Loading history...</p>
                 </div>

@@ -5,27 +5,36 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from .base import get_db_connection
 
+
 def get_unassigned_cpes() -> List[Dict[str, Any]]:
     """Obtiene una lista de todos los CPEs que no están asignados a ningún cliente."""
     conn = get_db_connection()
-    cursor = conn.execute("SELECT mac, hostname FROM cpes WHERE client_id IS NULL ORDER BY hostname")
+    cursor = conn.execute(
+        "SELECT mac, hostname FROM cpes WHERE client_id IS NULL ORDER BY hostname"
+    )
     rows = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return rows
 
+
 def get_cpe_by_mac(mac: str) -> Optional[Dict[str, Any]]:
     """Obtiene un CPE por su dirección MAC."""
     conn = get_db_connection()
-    cursor = conn.execute("SELECT mac, hostname, client_id FROM cpes WHERE mac = ?", (mac,))
+    cursor = conn.execute(
+        "SELECT mac, hostname, client_id FROM cpes WHERE mac = ?", (mac,)
+    )
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
+
 
 def assign_cpe_to_client(mac: str, client_id: int) -> int:
     """Asigna un CPE a un cliente. Devuelve el número de filas afectadas."""
     conn = get_db_connection()
     try:
-        cursor = conn.execute("UPDATE cpes SET client_id = ? WHERE mac = ?", (client_id, mac))
+        cursor = conn.execute(
+            "UPDATE cpes SET client_id = ? WHERE mac = ?", (client_id, mac)
+        )
         conn.commit()
         return cursor.rowcount
     except sqlite3.IntegrityError:
@@ -33,6 +42,7 @@ def assign_cpe_to_client(mac: str, client_id: int) -> int:
         raise ValueError("El Client ID no fue encontrado.")
     finally:
         conn.close()
+
 
 def unassign_cpe(mac: str) -> int:
     """Desasigna un CPE de cualquier cliente. Devuelve el número de filas afectadas."""
@@ -43,17 +53,18 @@ def unassign_cpe(mac: str) -> int:
     conn.close()
     return rowcount
 
+
 def get_all_cpes_globally() -> List[Dict[str, Any]]:
     """
     Obtiene todos los CPEs con sus datos de estado más recientes y el nombre del AP al que están conectados.
     """
     conn = get_db_connection()
     stats_db_file = f"stats_{datetime.utcnow().strftime('%Y_%m')}.sqlite"
-    
+
     if not os.path.exists(stats_db_file):
         conn.close()
         return []
-        
+
     try:
         conn.execute(f"ATTACH DATABASE '{stats_db_file}' AS stats_db")
         query = """
@@ -74,3 +85,27 @@ def get_all_cpes_globally() -> List[Dict[str, Any]]:
         raise RuntimeError(f"Error al adjuntar la base de datos de estadísticas: {e}")
     finally:
         conn.close()
+
+
+def get_cpes_for_client(client_id: int) -> List[Dict[str, Any]]:
+    """Obtiene los CPEs asignados a un cliente específico."""
+    conn = get_db_connection()
+    cursor = conn.execute(
+        "SELECT mac, hostname, model, ip_address FROM cpes WHERE client_id = ? ORDER BY hostname",
+        (client_id,),
+    )
+    rows = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+def get_cpe_count_for_client(client_id: int) -> int:
+    """Cuenta los CPEs asignados a un cliente específico."""
+    conn = get_db_connection()
+    cursor = conn.execute(
+        "SELECT COUNT(*) FROM cpes WHERE client_id = ?",
+        (client_id,),
+    )
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count

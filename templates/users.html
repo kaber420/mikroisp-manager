@@ -75,6 +75,12 @@
                             <span x-show="errors.username" x-text="errors.username" class="form-error mt-1 text-danger text-sm"></span>
                         </div>
                         <div>
+                            <label for="user-email" class="block text-sm font-medium mb-1">Email (Required)</label>
+                            <input type="email" id="user-email" x-model="currentUser.email" 
+                                   :readonly="modalMode === 'edit'"
+                                   class="w-full bg-background border border-border-color rounded-md p-2 focus:ring-primary focus:border-primary">
+                        </div>
+                        <div>
                             <label for="user-role" class="block text-sm font-medium mb-1">Role</label>
                             <select id="user-role" x-model="currentUser.role" required class="w-full bg-background border border-border-color rounded-md p-2 focus:ring-primary focus:border-primary">
                                 <option value="admin">Admin</option>

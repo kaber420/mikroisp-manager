@@ -9,6 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/theme.css') }}">
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -21,9 +23,12 @@
                 extend: {
                     colors: {
                         primary: { DEFAULT: '#3B82F6', hover: '#2563EB' },
-                        background: '#0F172A', 'surface-1': '#1E293B',
-                        'surface-2': '#334155', 'text-primary': '#F1F5F9',
-                        'text-secondary': '#94A3B8', 'border-color': '#334155',
+                        background: '#0A0A0A', 
+                        'surface-1': '#1E293B',
+                        'surface-2': '#334155', 
+                        'text-primary': '#F1F5F9',
+                        'text-secondary': '#94A3B8', 
+                        'border-color': '#334155',
                         success: '#22C55E', danger: '#EF4444', warning: '#EAB308',
                         orange: '#F97316',
                     },
@@ -33,39 +38,24 @@
         }
     </script>
     
-    <style>
-        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }
-        
-        [x-cloak] {
-            display: none !important;
-        }
-        
-        /* ¡ARREGLADO! Las líneas .modal y .modal.is-open han sido eliminadas */
-        
-        /* Utilidades para la barra de scroll */
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        .form-error { color: #EF4444; font-size: 0.875rem; }
-        .form-error.hidden { display: none; }
-        
-        /* Botones de navegación */
-        .nav-link.active { background-color: rgba(59, 130, 246, 0.1); color: #3B82F6; font-weight: 600; }
-        .nav-link { transition: all 0.2s ease; }
-        .filter-button.active { background-color: #3B82F6; color: white; }
-    </style>
-    
     <script src="/static/js/utils/validators.js"></script>
     {% block scripts %}{% endblock %}
 
     {% block styles %}{% endblock %}
 </head>
-<body class="bg-background text-text-primary font-sans antialiased">
+<body class="dynamic-bg text-text-primary font-sans antialiased relative overflow-x-hidden">
+    
+    <div class="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div class="glow-element glow-1" data-speed="2"></div>
+        <div class="glow-element glow-2" data-speed="-2"></div>
+        <div class="glow-element glow-3" data-speed="1"></div>
+    </div>
+
     <div x-data="{ collapsed: localStorage.getItem('sidebarCollapsed') === 'true' }" 
          x-init="$watch('collapsed', val => localStorage.setItem('sidebarCollapsed', val))"
-         class="flex min-h-screen">
+         class="flex min-h-screen relative z-10">
         
-        <aside class="bg-surface-1 flex-shrink-0 flex flex-col border-r border-border-color transition-all duration-300 ease-in-out relative"
+        <aside class="bg-surface-1 flex-shrink-0 flex flex-col transition-all duration-300 ease-in-out relative"
                :class="collapsed ? 'w-20' : 'w-64'">
             
             <button @click="collapsed = !collapsed" 
@@ -74,7 +64,7 @@
                       :class="collapsed ? 'rotate-180' : ''">chevron_left</span>
             </button>
 
-            <div class="h-20 flex items-center border-b border-border-color overflow-hidden transition-all"
+            <div class="h-20 flex items-center border-b border-white/5 overflow-hidden transition-all"
                  :class="collapsed ? 'justify-center px-0' : 'px-6'">
                 <a href="/" class="flex items-center gap-3 whitespace-nowrap">
                     <span class="material-symbols-outlined text-primary text-3xl">router</span>
@@ -86,19 +76,18 @@
                         µMonitor <span class="text-sm font-medium text-text-secondary">Pro</span>
                     </h1>
                 </a>
-                <div class="d-flex align-items-center ms-3">
-                    <span id="ws-indicator" 
-                          style="height: 12px; width: 12px; background-color: #95a5a6; border-radius: 50%; display: inline-block; transition: background-color 0.3s;"
+                <div class="d-flex align-items-center ms-3" x-show="!collapsed">
+                     <span id="ws-indicator" 
+                          style="height: 8px; width: 8px; background-color: #95a5a6; border-radius: 50%; display: inline-block; transition: background-color 0.3s;"
                           data-bs-toggle="tooltip" title="Conectando...">
                     </span>
-                    <small class="text-muted ms-2" style="font-size: 0.75rem;">En Vivo</small>
                 </div>
             </div>
 
             <div class="p-4 flex-grow overflow-y-auto overflow-x-hidden scrollbar-hide">
                 
                 <h2 x-show="!collapsed" class="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-4 px-2 transition-opacity duration-200">Monitoring</h2>
-                <div x-show="collapsed" class="h-px bg-border-color my-4 mx-2"></div>
+                <div x-show="collapsed" class="h-px bg-white/5 my-4 mx-2"></div>
 
                 <nav class="flex flex-col gap-2">
                     <a href="/" 
@@ -115,7 +104,7 @@
                 </nav>
 
                 <h2 x-show="!collapsed" class="text-xs font-semibold text-text-secondary uppercase tracking-wider my-4 px-2">Management</h2>
-                <div x-show="collapsed" class="h-px bg-border-color my-4 mx-2"></div>
+                <div x-show="collapsed" class="h-px bg-white/5 my-4 mx-2"></div>
 
                 <nav class="flex flex-col gap-2">
                     <a href="/clients" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'clients' %}active{% endif %}"
@@ -128,14 +117,14 @@
                     <a href="/aps" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'aps' %}active{% endif %}"
                        :class="collapsed ? 'justify-center' : ''">
                         <div x-show="collapsed" class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">Manage APs</div>
-                        <span class="material-symbols-outlined text-2xl">wifi</span>
+                        <span class="material-symbols-outlined text-2xl">cell_tower</span>
                         <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap">Access Points</span>
                     </a>
 
                     <a href="/cpes" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'cpes' %}active{% endif %}"
                        :class="collapsed ? 'justify-center' : ''">
                         <div x-show="collapsed" class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">Manage CPEs</div>
-                        <span class="material-symbols-outlined text-2xl">cell_tower</span>
+                        <span class="material-symbols-outlined text-2xl">settings_input_antenna</span>
                         <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap">CPEs</span>
                     </a>
 
@@ -155,7 +144,7 @@
                 </nav>
 
                 <h2 x-show="!collapsed" class="text-xs font-semibold text-text-secondary uppercase tracking-wider my-4 px-2">System</h2>
-                <div x-show="collapsed" class="h-px bg-border-color my-4 mx-2"></div>
+                <div x-show="collapsed" class="h-px bg-white/5 my-4 mx-2"></div>
 
                 <nav class="flex flex-col gap-2">
                     <a href="/users" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'users' %}active{% endif %}"
@@ -174,9 +163,9 @@
                 </nav>
             </div>
 
-            <div class="p-4 border-t border-border-color">
+            <div class="p-4 border-t border-white/5">
                 {% if user %}
-                <div class="flex items-center gap-3 mb-4 px-2 bg-surface-2/50 p-2 rounded-lg transition-all"
+                <div class="flex items-center gap-3 mb-4 px-2 bg-surface-2/30 p-2 rounded-lg transition-all"
                      :class="collapsed ? 'justify-center p-0 bg-transparent' : ''">
                     
                     <div class="size-9 rounded-full bg-primary text-white flex items-center justify-center font-bold shadow-sm flex-shrink-0"
@@ -206,13 +195,30 @@
                 </div>
             </div>
         </aside>
-        {% block content %}{% endblock %}
+        
+        <main class="flex-grow overflow-x-hidden">
+            {% block content %}{% endblock %}
+        </main>
 
     </div>
     
     <script src="{{ url_for('static', path='/js/ws-client.js') }}"></script>
-
     <script src="//unpkg.com/alpinejs" defer></script>
     
+    <script>
+        document.addEventListener('mousemove', (e) => {
+            const glows = document.querySelectorAll('.glow-element');
+            const x = e.clientX;
+            const y = e.clientY;
+            
+            glows.forEach(glow => {
+                const speed = parseFloat(glow.getAttribute('data-speed'));
+                const xOffset = (window.innerWidth - x * speed) / 100;
+                const yOffset = (window.innerHeight - y * speed) / 100;
+                
+                glow.style.transform = `translate(${xOffset}px, ${yOffset}px)`;
+            });
+        });
+    </script>
 </body>
 </html>

@@ -3,19 +3,23 @@ from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from datetime import date, datetime
 
+
 # --- Modelos Pydantic (Movidos) ---
 class Zona(BaseModel):
     id: int
     nombre: str
     model_config = ConfigDict(from_attributes=True)
 
+
 class ZonaCreate(BaseModel):
     nombre: str
+
 
 class ZonaUpdate(BaseModel):
     nombre: Optional[str] = None
     direccion: Optional[str] = None
     coordenadas_gps: Optional[str] = None
+
 
 class ZonaInfra(BaseModel):
     id: Optional[int] = None
@@ -27,6 +31,7 @@ class ZonaInfra(BaseModel):
     equipos_criticos: Optional[str] = None
     proximo_mantenimiento: Optional[date] = None
     model_config = ConfigDict(from_attributes=True)
+
 
 class ZonaDocumento(BaseModel):
 
@@ -47,8 +52,8 @@ class ZonaDocumento(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-
 # --- Modelos de Notas ---
+
 
 class ZonaNoteBase(BaseModel):
 
@@ -59,17 +64,14 @@ class ZonaNoteBase(BaseModel):
     is_encrypted: bool = False
 
 
-
 class ZonaNoteCreate(ZonaNoteBase):
 
     pass
 
 
-
 class ZonaNoteUpdate(ZonaNoteBase):
 
     pass
-
 
 
 class ZonaNote(ZonaNoteBase):
@@ -83,7 +85,6 @@ class ZonaNote(ZonaNoteBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
-
 
 
 class ZonaDetail(Zona):

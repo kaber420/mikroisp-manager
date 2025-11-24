@@ -1,0 +1,42 @@
+# app/db/engine.py
+"""
+SQLModel database engine and session management for FastAPI Users integration.
+Uses AsyncSession for compatibility with fastapi-users-db-sqlalchemy.
+"""
+import os
+from sqlmodel import SQLModel
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from typing import AsyncGenerator
+
+# Read database path from environment or use default
+DATABASE_FILE = os.getenv("INVENTORY_DB_FILE", "inventory.sqlite")
+# Use aiosqlite for async support with SQLite
+DATABASE_URL = f"sqlite+aiosqlite:///{DATABASE_FILE}"
+
+# Create async engine
+engine = create_async_engine(
+    DATABASE_URL, echo=False, connect_args={"check_same_thread": False}
+)
+
+# Create session maker
+async_session_maker = async_sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False
+)
+
+
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Dependency for async SQLModel session injection.
+    Usage: session: AsyncSession = Depends(get_session)
+    """
+    async with async_session_maker() as session:
+        yield session
+
+
+async def create_db_and_tables():
+    """
+    Create all tables defined in SQLModel models.
+    Call this at application startup after importing all models.
+    """
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)

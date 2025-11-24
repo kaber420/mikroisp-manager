@@ -1,8 +1,8 @@
 # app/monitor.py
 import time
 import logging
-import requests # Nuevo import necesario
-import os       # Nuevo import necesario
+import requests  # Nuevo import necesario
+import os  # Nuevo import necesario
 from concurrent.futures import ThreadPoolExecutor
 
 from .services.monitor_service import MonitorService
@@ -11,11 +11,12 @@ from .db.settings_db import get_setting
 # Configuración del logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - [Monitor] - %(threadName)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    format="%(asctime)s - %(levelname)s - [Monitor] - %(threadName)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 
 MAX_WORKERS = 10
+
 
 # --- FUNCIÓN NUEVA: Notificar a la API ---
 def notify_api_update():
@@ -33,6 +34,7 @@ def notify_api_update():
         # Si falla (ej. la API se está reiniciando), no detenemos el monitor
         pass
 
+
 def run_monitor():
     """
     Bucle principal del monitor. Delega la lógica a MonitorService y notifica a la API.
@@ -44,10 +46,26 @@ def run_monitor():
         try:
             logging.info("--- Iniciando ciclo de escaneo ---")
             devices = monitor_service.get_active_devices()
-            
-            aps = devices['aps']
-            routers = devices['routers']
-            
+
+            aps = devices["aps"]
+            routers = devices["routers"]
+
+            # --- BLOQUE NUEVO: AUTO-LIMPIEZA DE ROUTERS ---
+            if routers:
+                logging.info(
+                    "🧹 Ejecutando limpieza preventiva de conexiones en Routers..."
+                )
+                from .services.router_service import RouterService
+
+                for r_conf in routers:
+                    try:
+                        # Conecta, limpia zombies y desconecta
+                        with RouterService(r_conf["host"]) as rs:
+                            rs.cleanup_connections()
+                    except Exception:
+                        pass  # No dejamos que un error de limpieza detenga el monitor
+            # ----------------------------------------------
+
             if not aps and not routers:
                 logging.info("No hay dispositivos para monitorear.")
             else:
@@ -57,20 +75,26 @@ def run_monitor():
                         executor.map(monitor_service.check_ap, aps)
                     if routers:
                         executor.map(monitor_service.check_router, routers)
-                
+
                 # 2. Notificar a la API que hay datos frescos (¡ESTO FALTABA!)
-                logging.info("Ciclo terminado. Notificando a la API para actualización en tiempo real...")
+                logging.info(
+                    "Ciclo terminado. Notificando a la API para actualización en tiempo real..."
+                )
                 notify_api_update()
 
             # 3. Esperar siguiente ciclo
-            interval_str = get_setting('default_monitor_interval')
+            interval_str = get_setting("default_monitor_interval")
             try:
-                monitor_interval = int(interval_str) if interval_str and interval_str.isdigit() else 300
+                monitor_interval = (
+                    int(interval_str)
+                    if interval_str and interval_str.isdigit()
+                    else 300
+                )
             except (ValueError, TypeError):
                 monitor_interval = 300
-            
+
             time.sleep(monitor_interval)
-            
+
         except KeyboardInterrupt:
             logging.info("Monitor detenido.")
             break

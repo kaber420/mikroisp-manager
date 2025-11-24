@@ -1,14 +1,24 @@
 # launcher.py
 import sys
 import os
-import sqlite3
 import getpass
 import multiprocessing
 import logging
 import time
-from dotenv import load_dotenv, find_dotenv
+import uuid
 import secrets
+import sqlite3
+from dotenv import load_dotenv
 from cryptography.fernet import Fernet
+
+# --- Imports de la App ---
+from passlib.context import CryptContext
+from sqlmodel import Session, select
+# Motor Síncrono
+from app.db.engine_sync import sync_engine, create_sync_db_and_tables
+from app.models.user import User
+# Inicializador de tablas Legacy (Vital)
+from app.db.init_db import setup_databases
 
 # --- Constante ---
 ENV_FILE = ".env"
@@ -20,245 +30,172 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
-# ---
-# Las funciones del asistente se quedan aquí, ya que no dependen de la app.
-# ---
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def run_setup_wizard():
     """
-    Guía al usuario para crear o actualizar el archivo .env.
+    Asistente simplificado: Solo pregunta lo importante (Puerto).
     """
-    logging.info(f"Iniciando asistente de configuración para '{ENV_FILE}'...")
-    print("\n--- Asistente de Configuración de µMonitor Pro ---")
+    logging.info(f"Configurando '{ENV_FILE}'...")
+    print("\n--- Configuración de µMonitor Pro ---")
     
-    # Carga valores existentes si el archivo .env ya existe
+    # Cargar valores previos si existen
     load_dotenv(ENV_FILE, encoding="utf-8")
-    existing_port = os.getenv("UVICORN_PORT", "8000")
-    existing_db_file = os.getenv("INVENTORY_DB_FILE", "inventory.sqlite")
-
-    # Preguntar por el puerto
+    default_port = os.getenv("UVICORN_PORT", "8000")
+    
+    # 1. PREGUNTAR PUERTO
     while True:
-        port_prompt = f"¿En qué puerto debe correr la App Web? (Actual: {existing_port}): "
-        port_input = input(port_prompt).strip()
-        port = port_input if port_input else existing_port
-        try:
-            port_num = int(port)
-            if 1024 <= port_num <= 65535:
-                break 
-            else:
-                print("Error: Por favor introduce un número de puerto entre 1024 y 65535.")
-        except ValueError:
-            print("Error: Eso no es un número de puerto válido.")
+        port_input = input(f"¿En qué puerto deseas ejecutar la web? (Default: {default_port}): ").strip()
+        if not port_input:
+            port = default_port
+            break
+        if port_input.isdigit() and 1024 <= int(port_input) <= 65535:
+            port = port_input
+            break
+        print("❌ Puerto inválido. Usa un número entre 1024 y 65535.")
 
-    # Preguntar por el archivo de la base de datos
-    db_prompt = f"¿Nombre del archivo de la base de datos? (Actual: {existing_db_file}): "
-    db_input = input(db_prompt).strip()
-    db_file = db_input if db_input else existing_db_file
-
-    # --- CONFIGURACIÓN DE SEGURIDAD ---
+    # 2. BASE DE DATOS (Fija para evitar errores)
+    db_file = "inventory.sqlite" 
     
-    print("\n--- Configuración de Seguridad ---")
-    print("Define los hosts/puertos permitidos para acceder a la aplicación.")
-    print("Formato: host:puerto (ejemplo: localhost:8000)")
-    print("Para múltiples hosts, sepáralos con comas (ejemplo: localhost:8000,192.168.1.100:8000)")
+    # 3. SEGURIDAD (Automática)
+    print(f"✓ Base de datos configurada en: {db_file}")
     
-    existing_hosts = os.getenv("ALLOWED_HOSTS", f"localhost:{port},127.0.0.1:{port}")
-    hosts_prompt = f"Hosts permitidos (Actual: {existing_hosts}): "
-    hosts_input = input(hosts_prompt).strip()
-    allowed_hosts = hosts_input if hosts_input else existing_hosts
-    
-    # Generar ALLOWED_ORIGINS automáticamente desde ALLOWED_HOSTS
-    # Convertir "localhost:8000,127.0.0.1:8000" a "http://localhost:8000,http://127.0.0.1:8000"
+    allowed_hosts = f"localhost:{port},127.0.0.1:{port}"
+    # Generar orígenes permitidos automáticamente
     hosts_list = [h.strip() for h in allowed_hosts.split(",")]
-    origins_list = [f"http://{host}" for host in hosts_list]
+    origins_list = [f"http://{h}" for h in hosts_list]
     allowed_origins = ",".join(origins_list)
-    
-    print(f"✓ ALLOWED_ORIGINS generado automáticamente: {allowed_origins}")
 
-    # Generar claves de seguridad si no existen
-    secret_key = os.getenv("SECRET_KEY")
-    if not secret_key:
-        print("Generando nueva SECRET_KEY para tokens JWT...")
-        secret_key = secrets.token_hex(32)
-    else:
-        print("Usando SECRET_KEY existente.")
+    # 4. CLAVES (Generar solo si faltan)
+    secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
+    encrypt_key = os.getenv("ENCRYPTION_KEY") or Fernet.generate_key().decode()
 
-    encrypt_key = os.getenv("ENCRYPTION_KEY")
-    if not encrypt_key:
-        print("Generando nueva ENCRYPTION_KEY para cifrado de contraseñas...")
-        encrypt_key = Fernet.generate_key().decode()
-    else:
-        print("Usando ENCRYPTION_KEY existente.")
-
-    # Escribir el archivo .env
+    # Guardar archivo
     try:
         with open(ENV_FILE, "w", encoding="utf-8") as f:
-            f.write(f"# Archivo de configuracion de µMonitor Pro\n")
-            f.write(f"# Clave para firmar tokens JWT\n")
-            f.write(f"SECRET_KEY=\"{secret_key}\"\n\n")
-            f.write(f"# Clave para cifrar contraseñas de dispositivos\n")
-            f.write(f"ENCRYPTION_KEY=\"{encrypt_key}\"\n\n")
-            f.write(f"# Configuración del servidor\n")
-            f.write(f"UVICORN_PORT={port}\n\n")
-            f.write(f"# Configuración de la Base de Datos\n")
-            f.write(f"INVENTORY_DB_FILE=\"{db_file}\"\n\n")
-            
-            # --- NUEVA SECCIÓN DE SEGURIDAD ---
-            f.write(f"# Configuración de Entorno\n")
-            f.write(f"APP_ENV=development\n\n")
-            f.write(f"# ============================================================================\n")
-            f.write(f"# SEGURIDAD: CORS Y VALIDACIÓN DE HOST\n")
-            f.write(f"# ============================================================================\n")
-            f.write(f"# CORS - Bloquea peticiones cross-origin (URLs completas con protocolo)\n")
-            f.write(f"ALLOWED_ORIGINS={allowed_origins}\n\n")
-            f.write(f"# Host Validation - Bloquea acceso directo (host:puerto sin protocolo)\n")
-            f.write(f"ALLOWED_HOSTS={allowed_hosts}\n\n")
-            f.write(f"# Para producción, cambia APP_ENV=production y actualiza los dominios\n")
+            f.write(f"# Configuración de µMonitor Pro\n")
+            f.write(f"UVICORN_PORT={port}\n")
+            f.write(f"INVENTORY_DB_FILE=\"{db_file}\"\n")
+            f.write(f"SECRET_KEY=\"{secret_key}\"\n")
+            f.write(f"ENCRYPTION_KEY=\"{encrypt_key}\"\n")
+            f.write(f"APP_ENV=development\n")
+            f.write(f"ALLOWED_ORIGINS={allowed_origins}\n")
+            f.write(f"ALLOWED_HOSTS={allowed_hosts}\n")
         
-        print(f"\n¡Éxito! Configuración guardada en el archivo '{ENV_FILE}'.")
+        print(f"✅ Configuración guardada. Puerto seleccionado: {port}\n")
     except IOError as e:
-        print(f"\nError Crítico: No se pudo escribir el archivo .env. Causa: {e}")
+        print(f"❌ Error guardando .env: {e}")
         sys.exit(1)
 
-def check_and_create_first_user(db_file, get_pass_hash_func):
+def check_and_create_first_user():
     """
-    Verifica si existe la tabla de usuarios y si hay al menos un usuario.
-    Si no, inicia el asistente para crear el primer administrador.
+    Verifica/Crea el usuario admin (Compatible con SQLModel).
     """
     try:
-        conn = sqlite3.connect(db_file)
-        cursor = conn.cursor()
+        # 1. Crear tablas modernas
+        create_sync_db_and_tables()
+        # 2. Crear tablas legacy (Settings, etc.)
+        setup_databases()
         
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
-        if cursor.fetchone() is None:
-            logging.warning("La tabla 'users' no existe. Ejecutando configuración inicial de la base de datos.")
-            # Importación local para evitar dependencias circulares
-            from app.db.init_db import setup_databases
-            setup_databases()
+        with Session(sync_engine) as session:
+            if session.exec(select(User)).first():
+                logging.info("Sistema validado (Usuarios existentes).")
+                return
 
-        cursor.execute("SELECT COUNT(*) FROM users")
-        user_count = cursor.fetchone()[0]
-        
-        if user_count == 0:
-            logging.warning("No se encontraron usuarios en la base de datos.")
-            print("\n--- Asistente: Creación del Primer Administrador ---")
+            print("=" * 60)
+            print("🔐 CREACIÓN DEL ADMINISTRADOR")
+            print("=" * 60)
             
-            username = input("Introduce el nombre de usuario para el administrador: ").strip()
-            if not username:
-                print("Error: El nombre de usuario no puede estar vacío.")
-                sys.exit(1)
-
+            username = input("👤 Usuario: ").strip()
+            while not username: username = input("👤 Usuario: ").strip()
+            
+            email = input("📧 Email: ").strip()
+            while not email: email = input("📧 Email: ").strip()
+            
             while True:
-                password = getpass.getpass("Introduce la contraseña: ")
-                if not password:
-                    print("La contraseña no puede estar vacía.")
-                    continue
-                password_confirm = getpass.getpass("Confirma la contraseña: ")
-                if password == password_confirm:
-                    break
-                print("Las contraseñas no coinciden. Inténtalo de nuevo.")
+                password = getpass.getpass("🔑 Contraseña: ")
+                if len(password) >= 6:
+                    if getpass.getpass("🔑 Confirmar: ") == password: break
+                    print("❌ No coinciden.")
+                else:
+                    print("❌ Mínimo 6 caracteres.")
 
-            hashed_password = get_pass_hash_func(password)
-            
-            cursor.execute(
-                "INSERT INTO users (username, hashed_password, role) VALUES (?, ?, ?)",
-                (username, hashed_password, 'admin') 
+            hashed_password = pwd_context.hash(password)
+
+            new_user = User(
+                id=uuid.uuid4(),
+                email=email,
+                username=username,
+                hashed_password=hashed_password,
+                role="admin",
+                is_active=True,
+                is_superuser=True,
+                is_verified=True
             )
-            conn.commit()
-            logging.info(f"Usuario administrador '{username}' creado exitosamente.")
-            print(f"\n¡Usuario '{username}' creado! La aplicación ahora se iniciará.")
-        else:
-            logging.info(f"Se encontraron {user_count} usuario(s). Omitiendo la creación del primer usuario.")
-            
-    except sqlite3.Error as e:
-         logging.error(f"Error de base de datos durante la verificación de usuario: {e}")
-         sys.exit(1)
-    finally:
-        if conn:
-            conn.close()
+            session.add(new_user)
+            session.commit()
+            print(f"\n✅ Administrador '{username}' creado exitosamente.\n")
 
+    except Exception as e:
+        logging.critical(f"Error inicializando BD: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 def start_api_server():
-    """
-    Función objetivo para el proceso de la API. Importa sus dependencias localmente.
-    """
     from uvicorn import Config, Server
     from app.main import app as fastapi_app
     
-    server_host = os.getenv("UVICORN_HOST", "0.0.0.0")
-    server_port = int(os.getenv("UVICORN_PORT", 8000))
-
-    config = Config(app=fastapi_app, host=server_host, port=server_port, log_level="info")
-    server = Server(config)
+    # Recargar ENV por si cambió el puerto
+    load_dotenv(ENV_FILE, override=True)
     
-    # Para evitar logs duplicados, reconfiguramos el logger de uvicorn
-    for handler in logging.getLogger().handlers:
-        logging.getLogger("uvicorn").addHandler(handler)
-        logging.getLogger("uvicorn.access").addHandler(handler)
-    
-    server.run()
+    host = os.getenv("UVICORN_HOST", "0.0.0.0")
+    port = int(os.getenv("UVICORN_PORT", 8000))
 
-# ---
-# --- PUNTO DE ENTRADA PRINCIPAL ---
-# ---
+    config = Config(app=fastapi_app, host=host, port=port, log_level="info")
+    Server(config).run()
+
 if __name__ == "__main__":
-    
-    # PASO 1: Manejar la configuración ANTES de importar cualquier cosa de la app
-    if "--config" in sys.argv:
+    # A. Si el usuario pide configurar O si no existe el archivo .env
+    if "--config" in sys.argv or not os.path.exists(ENV_FILE):
         run_setup_wizard()
-        print("\nConfiguración guardada. Por favor, reinicia el launcher para aplicar los cambios.")
-        sys.exit(0)
+        # Si usamos el flag --config, salimos para que el usuario reinicie limpio si quiere
+        if "--config" in sys.argv:
+            print("Reinicia el launcher para aplicar los cambios.")
+            sys.exit(0)
+
+    # B. Cargar configuración
+    load_dotenv(ENV_FILE)
     
-    if not os.path.exists(ENV_FILE):
-        run_setup_wizard()
+    # C. Inicializar BD y Usuario
+    check_and_create_first_user()
 
-    # PASO 2: Cargar las variables de entorno AHORA
-    load_dotenv(ENV_FILE, encoding="utf-8")
-    logging.info(f"Archivo de configuración '{ENV_FILE}' cargado.")
-
-    # PASO 3: AHORA SÍ, importar los módulos de la aplicación
+    # D. Arrancar
+    port = os.getenv("UVICORN_PORT", "8000")
+    print("-" * 50)
+    print(f"🚀 µMonitor Pro arrancando en: http://localhost:{port}")
+    print(f"ℹ️  Para cambiar el puerto, usa: python launcher.py --config")
+    print("-" * 50)
+    
+    # --- CORRECCIÓN AQUÍ: Importar ANTES de definir el proceso ---
     from app.monitor import run_monitor
     from app.billing_engine import run_billing_engine
-    from app.db.base import INVENTORY_DB_FILE 
-    from app.db.init_db import setup_databases
-    from app.auth import get_password_hash
-
-    # PASO 4: Inicializar la DB y el primer usuario (si es necesario)
-    setup_databases()
-    check_and_create_first_user(INVENTORY_DB_FILE, get_password_hash)
-
-    # PASO 5: Iniciar la aplicación y sus procesos
-    server_port = os.getenv("UVICORN_PORT", 8000)
-    logging.info("Todo listo. Lanzando los servicios de la aplicación...")
-    print("-" * 50)
-    print("µMonitor Pro está arrancando...")
-    print(f"API Web disponible en: http://localhost:{server_port}")
-    print("Iniciando procesos en segundo plano: Monitor y Motor de Facturación.")
-    print("Presiona Ctrl+C para detener la aplicación.")
-    print("-" * 50)
     
-    process_monitor = multiprocessing.Process(target=run_monitor, name="MonitorProcess")
-    process_api = multiprocessing.Process(target=start_api_server, name="ApiProcess")
-    process_billing = multiprocessing.Process(target=run_billing_engine, name="BillingProcess")
+    p_mon = multiprocessing.Process(target=run_monitor, name="Monitor")
+    p_api = multiprocessing.Process(target=start_api_server, name="API")
+    p_bil = multiprocessing.Process(target=run_billing_engine, name="Billing")
 
     try:
-        process_monitor.start()
-        process_api.start()
-        process_billing.start()
+        p_api.start()
+        time.sleep(2)
+        p_mon.start()
+        p_bil.start()
         
-        process_monitor.join()
-        process_api.join()
-        process_billing.join()
-
+        p_mon.join()
+        p_api.join()
+        p_bil.join()
     except KeyboardInterrupt:
-        logging.info("Se ha recibido una señal de interrupción (Ctrl+C).")
-        print("\nDeteniendo los servicios de µMonitor Pro... Por favor, espera.")
-        
-        # Terminar procesos de forma segura
-        for process in [process_api, process_monitor, process_billing]:
-            if process.is_alive():
-                process.terminate()
-                process.join(timeout=5)
-            
-        logging.info("Todos los servicios han sido detenidos. Adiós.")
+        print("\n🛑 Apagando...")
+        for p in [p_api, p_mon, p_bil]:
+            if p.is_alive(): p.terminate()
         sys.exit(0)

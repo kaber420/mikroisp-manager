@@ -8,6 +8,7 @@ Este archivo contiene los modelos Pydantic (contratos de datos)
 que la API de APs utiliza.
 """
 
+
 class AP(BaseModel):
     host: str
     username: str
@@ -37,6 +38,7 @@ class AP(BaseModel):
     zona_nombre: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
+
 class APCreate(BaseModel):
     host: str
     username: str
@@ -44,6 +46,9 @@ class APCreate(BaseModel):
     zona_id: int
     is_enabled: bool = True
     monitor_interval: Optional[int] = None
+    port: int = 443
+    http_mode: bool = False
+
 
 class APUpdate(BaseModel):
     username: Optional[str] = None
@@ -51,6 +56,9 @@ class APUpdate(BaseModel):
     zona_id: Optional[int] = None
     is_enabled: Optional[bool] = None
     monitor_interval: Optional[int] = None
+    port: Optional[int] = None
+    http_mode: Optional[bool] = None
+
 
 class CPEDetail(BaseModel):
     timestamp: Optional[datetime] = None
@@ -72,8 +80,10 @@ class CPEDetail(BaseModel):
     eth_speed: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)
 
+
 class APLiveDetail(AP):
     clients: List[CPEDetail]
+
 
 class HistoryDataPoint(BaseModel):
     timestamp: datetime
@@ -82,6 +92,7 @@ class HistoryDataPoint(BaseModel):
     total_throughput_tx: Optional[int] = None
     total_throughput_rx: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)
+
 
 class APHistoryResponse(BaseModel):
     host: str

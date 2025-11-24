@@ -3,9 +3,10 @@ import sqlite3
 import os
 from typing import List, Dict, Any, Optional
 from .base import get_db_connection
-from ..utils.security import encrypt_data, decrypt_data # <-- LÍNEA CAMBIADA
+from ..utils.security import encrypt_data, decrypt_data  # <-- LÍNEA CAMBIADA
 
 # --- Funciones de Zonas (CRUD Básico) ---
+
 
 def create_zona(nombre: str) -> Dict[str, Any]:
     conn = get_db_connection()
@@ -20,6 +21,7 @@ def create_zona(nombre: str) -> Dict[str, Any]:
         conn.close()
     return {"id": new_id, "nombre": nombre}
 
+
 def get_all_zonas() -> List[Dict[str, Any]]:
     conn = get_db_connection()
     cursor = conn.execute("SELECT id, nombre FROM zonas ORDER BY nombre")
@@ -27,18 +29,23 @@ def get_all_zonas() -> List[Dict[str, Any]]:
     conn.close()
     return zonas
 
-def update_zona_details(zona_id: int, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+
+def update_zona_details(
+    zona_id: int, updates: Dict[str, Any]
+) -> Optional[Dict[str, Any]]:
     conn = get_db_connection()
-    
-    if 'notas_sensibles' in updates and updates['notas_sensibles'] is not None:
-        updates['notas_sensibles'] = encrypt_data(updates['notas_sensibles'])
+
+    if "notas_sensibles" in updates and updates["notas_sensibles"] is not None:
+        updates["notas_sensibles"] = encrypt_data(updates["notas_sensibles"])
 
     set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])
     values = list(updates.values())
     values.append(zona_id)
-    
+
     try:
-        cursor = conn.execute(f"UPDATE zonas SET {set_clause} WHERE id = ?", tuple(values))
+        cursor = conn.execute(
+            f"UPDATE zonas SET {set_clause} WHERE id = ?", tuple(values)
+        )
         conn.commit()
         if cursor.rowcount == 0:
             return None
@@ -49,13 +56,16 @@ def update_zona_details(zona_id: int, updates: Dict[str, Any]) -> Optional[Dict[
         conn.close()
     return get_zona_by_id(zona_id)
 
+
 def delete_zona(zona_id: int) -> int:
     conn = get_db_connection()
     cursor_check_aps = conn.execute("SELECT 1 FROM aps WHERE zona_id = ?", (zona_id,))
     if cursor_check_aps.fetchone():
         conn.close()
         raise ValueError("No se puede eliminar la zona porque contiene APs.")
-    cursor_check_routers = conn.execute("SELECT 1 FROM routers WHERE zona_id = ?", (zona_id,))
+    cursor_check_routers = conn.execute(
+        "SELECT 1 FROM routers WHERE zona_id = ?", (zona_id,)
+    )
     if cursor_check_routers.fetchone():
         conn.close()
         raise ValueError("No se puede eliminar la zona porque contiene Routers.")
@@ -66,6 +76,7 @@ def delete_zona(zona_id: int) -> int:
     conn.close()
     return rowcount
 
+
 def get_zona_by_id(zona_id: int) -> Optional[Dict[str, Any]]:
     conn = get_db_connection()
     cursor = conn.execute("SELECT * FROM zonas WHERE id = ?", (zona_id,))
@@ -74,62 +85,86 @@ def get_zona_by_id(zona_id: int) -> Optional[Dict[str, Any]]:
     if not row:
         return None
     data = dict(row)
-    if data.get('notas_sensibles'):
-        data['notas_sensibles'] = decrypt_data(data['notas_sensibles'])
+    if data.get("notas_sensibles"):
+        data["notas_sensibles"] = decrypt_data(data["notas_sensibles"])
     return data
+
 
 # --- Funciones de Infraestructura ---
 
+
 def get_infra_by_zona_id(zona_id: int) -> Optional[Dict[str, Any]]:
     conn = get_db_connection()
-    cursor = conn.execute("SELECT * FROM zona_infraestructura WHERE zona_id = ?", (zona_id,))
+    cursor = conn.execute(
+        "SELECT * FROM zona_infraestructura WHERE zona_id = ?", (zona_id,)
+    )
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
 
+
 def update_or_create_infra(zona_id: int, infra_data: Dict[str, Any]) -> Dict[str, Any]:
     conn = get_db_connection()
     existing_infra = get_infra_by_zona_id(zona_id)
-    
+
     if existing_infra:
         set_clause = ", ".join([f"{key} = ?" for key in infra_data.keys()])
         values = list(infra_data.values())
         values.append(zona_id)
-        conn.execute(f"UPDATE zona_infraestructura SET {set_clause} WHERE zona_id = ?", tuple(values))
+        conn.execute(
+            f"UPDATE zona_infraestructura SET {set_clause} WHERE zona_id = ?",
+            tuple(values),
+        )
     else:
         columns = ", ".join(infra_data.keys())
         placeholders = ", ".join(["?"] * len(infra_data))
         values = list(infra_data.values())
-        conn.execute(f"INSERT INTO zona_infraestructura (zona_id, {columns}) VALUES (?, {placeholders})", (zona_id, *values))
-        
+        conn.execute(
+            f"INSERT INTO zona_infraestructura (zona_id, {columns}) VALUES (?, {placeholders})",
+            (zona_id, *values),
+        )
+
     conn.commit()
     conn.close()
     return get_infra_by_zona_id(zona_id)
 
+
 # --- Funciones de Documentos ---
+
 
 def get_docs_by_zona_id(zona_id: int) -> List[Dict[str, Any]]:
     conn = get_db_connection()
-    cursor = conn.execute("SELECT * FROM zona_documentos WHERE zona_id = ? ORDER BY creado_en DESC", (zona_id,))
+    cursor = conn.execute(
+        "SELECT * FROM zona_documentos WHERE zona_id = ? ORDER BY creado_en DESC",
+        (zona_id,),
+    )
     rows = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return rows
+
 
 def add_document(doc_data: Dict[str, Any]) -> Dict[str, Any]:
     conn = get_db_connection()
     cursor = conn.execute(
         """INSERT INTO zona_documentos (zona_id, tipo, nombre_original, nombre_guardado, descripcion)
            VALUES (?, ?, ?, ?, ?)""",
-        (doc_data['zona_id'], doc_data['tipo'], doc_data['nombre_original'], doc_data['nombre_guardado'], doc_data['descripcion'])
+        (
+            doc_data["zona_id"],
+            doc_data["tipo"],
+            doc_data["nombre_original"],
+            doc_data["nombre_guardado"],
+            doc_data["descripcion"],
+        ),
     )
     new_id = cursor.lastrowid
     conn.commit()
     conn.close()
-    
+
     new_doc = get_document_by_id(new_id)
     if not new_doc:
-         raise ValueError("No se pudo recuperar el documento después de la creación.")
+        raise ValueError("No se pudo recuperar el documento después de la creación.")
     return new_doc
+
 
 def get_document_by_id(doc_id: int) -> Optional[Dict[str, Any]]:
     conn = get_db_connection()
@@ -138,13 +173,16 @@ def get_document_by_id(doc_id: int) -> Optional[Dict[str, Any]]:
     conn.close()
     return dict(row) if row else None
 
+
 def delete_document(doc_id: int) -> int:
     doc_info = get_document_by_id(doc_id)
     if doc_info:
-        file_path = os.path.join("uploads", "zonas", str(doc_info['zona_id']), doc_info['nombre_guardado'])
+        file_path = os.path.join(
+            "uploads", "zonas", str(doc_info["zona_id"]), doc_info["nombre_guardado"]
+        )
         if os.path.exists(file_path):
             os.remove(file_path)
-    
+
     conn = get_db_connection()
     cursor = conn.execute("DELETE FROM zona_documentos WHERE id = ?", (doc_id,))
     rowcount = cursor.rowcount
@@ -152,26 +190,31 @@ def delete_document(doc_id: int) -> int:
     conn.close()
     return rowcount
 
+
 # --- Funciones de Notas ---
 
-def create_note(zona_id: int, title: str, content: str, is_encrypted: bool) -> Dict[str, Any]:
+
+def create_note(
+    zona_id: int, title: str, content: str, is_encrypted: bool
+) -> Dict[str, Any]:
     conn = get_db_connection()
-    
+
     final_content = encrypt_data(content) if is_encrypted else content
-    
+
     cursor = conn.execute(
         """INSERT INTO zona_notes (zona_id, title, content, is_encrypted)
            VALUES (?, ?, ?, ?)""",
-        (zona_id, title, final_content, is_encrypted)
+        (zona_id, title, final_content, is_encrypted),
     )
     new_id = cursor.lastrowid
     conn.commit()
     conn.close()
-    
+
     new_note = get_note_by_id(new_id)
     if not new_note:
         raise ValueError("Could not retrieve note after creation.")
     return new_note
+
 
 def get_note_by_id(note_id: int) -> Optional[Dict[str, Any]]:
     conn = get_db_connection()
@@ -180,42 +223,50 @@ def get_note_by_id(note_id: int) -> Optional[Dict[str, Any]]:
     conn.close()
     if not row:
         return None
-    
+
     data = dict(row)
-    if data['is_encrypted'] and data['content']:
-        data['content'] = decrypt_data(data['content'])
+    if data["is_encrypted"] and data["content"]:
+        data["content"] = decrypt_data(data["content"])
     return data
+
 
 def get_notes_by_zona_id(zona_id: int) -> List[Dict[str, Any]]:
     conn = get_db_connection()
-    cursor = conn.execute("SELECT * FROM zona_notes WHERE zona_id = ? ORDER BY updated_at DESC", (zona_id,))
+    cursor = conn.execute(
+        "SELECT * FROM zona_notes WHERE zona_id = ? ORDER BY updated_at DESC",
+        (zona_id,),
+    )
     rows = [dict(row) for row in cursor.fetchall()]
     conn.close()
-    
+
     for row in rows:
-        if row['is_encrypted'] and row['content']:
-            row['content'] = decrypt_data(row['content'])
-            
+        if row["is_encrypted"] and row["content"]:
+            row["content"] = decrypt_data(row["content"])
+
     return rows
 
-def update_note(note_id: int, title: str, content: str, is_encrypted: bool) -> Optional[Dict[str, Any]]:
+
+def update_note(
+    note_id: int, title: str, content: str, is_encrypted: bool
+) -> Optional[Dict[str, Any]]:
     conn = get_db_connection()
-    
+
     final_content = encrypt_data(content) if is_encrypted else content
-    
+
     cursor = conn.execute(
         """UPDATE zona_notes SET title = ?, content = ?, is_encrypted = ?, updated_at = CURRENT_TIMESTAMP
            WHERE id = ?""",
-        (title, final_content, is_encrypted, note_id)
+        (title, final_content, is_encrypted, note_id),
     )
     conn.commit()
-    
+
     if cursor.rowcount == 0:
         conn.close()
         return None
-        
+
     conn.close()
     return get_note_by_id(note_id)
+
 
 def delete_note(note_id: int) -> int:
     conn = get_db_connection()

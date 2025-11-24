@@ -259,6 +259,23 @@
                                 <span class="font-mono text-sm" x-text="selectedPlan?.parent_queue || 'None'"></span>
                             </div>
                         </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Método de Suspensión</label>
+                            <select x-model="currentService.suspension_method" class="w-full bg-background border border-border-color rounded-md p-2">
+                                <option value="address_list">Address List (Corte con Aviso)</option>
+                                <option value="queue_limit">Limitar Velocidad (1k/1k)</option>
+                                <option value="simple_queue_remove">Eliminar Cola (No recomendado)</option>
+                            </select>
+                            <p class="text-xs text-text-secondary mt-1">
+                                <span x-show="currentService.suspension_method === 'address_list'">
+                                    Agrega la IP a la lista 'MOROSOS' en el Firewall. Requiere regla de Drop o Redirect en el Router.
+                                </span>
+                                <span x-show="currentService.suspension_method === 'queue_limit'">
+                                    Reduce la velocidad de la cola a 1kbps sin borrarla.
+                                </span>
+                            </p>
+                        </div>
                     
                         <div x-show="serviceError" x-text="serviceError" class="form-error-main text-danger text-sm"></div>
                         

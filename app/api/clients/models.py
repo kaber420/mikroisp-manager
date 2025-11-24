@@ -3,6 +3,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 
+
 # --- Modelos Pydantic (Cliente) ---
 class Client(BaseModel):
     id: int
@@ -14,8 +15,9 @@ class Client(BaseModel):
     service_status: str
     billing_day: Optional[int] = None
     created_at: datetime
-    cpe_count: Optional[int] = 0 
+    cpe_count: Optional[int] = 0
     model_config = ConfigDict(from_attributes=True)
+
 
 class ClientCreate(BaseModel):
     name: str
@@ -23,9 +25,10 @@ class ClientCreate(BaseModel):
     phone_number: Optional[str] = None
     whatsapp_number: Optional[str] = None
     email: Optional[str] = None
-    service_status: str = 'active'
+    service_status: str = "active"
     billing_day: Optional[int] = None
     notes: Optional[str] = None
+
 
 class ClientUpdate(BaseModel):
     name: Optional[str] = None
@@ -37,11 +40,13 @@ class ClientUpdate(BaseModel):
     billing_day: Optional[int] = None
     notes: Optional[str] = None
 
+
 class AssignedCPE(BaseModel):
     mac: str
     hostname: Optional[str] = None
     ip_address: Optional[str] = None  # <--- AGREGADO: Ahora la API puede enviar la IP
     model_config = ConfigDict(from_attributes=True)
+
 
 # --- Modelos Pydantic (Servicios) ---
 class ClientServiceBase(BaseModel):
@@ -54,14 +59,17 @@ class ClientServiceBase(BaseModel):
     ip_address: Optional[str] = None
     suspension_method: str
 
+
 class ClientServiceCreate(ClientServiceBase):
     pass
+
 
 class ClientService(ClientServiceBase):
     id: int
     client_id: int
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
 
 # --- Modelos Pydantic (Pagos) ---
 class PaymentBase(BaseModel):
@@ -70,8 +78,10 @@ class PaymentBase(BaseModel):
     metodo_pago: Optional[str] = None
     notas: Optional[str] = None
 
+
 class PaymentCreate(PaymentBase):
     pass
+
 
 class Payment(PaymentBase):
     id: int

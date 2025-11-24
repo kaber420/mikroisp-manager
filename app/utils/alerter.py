@@ -4,6 +4,7 @@ import requests
 
 from ..db.settings_db import get_setting
 
+
 def send_telegram_alert(message: str):
     """
     Envía un mensaje de texto a un chat específico de Telegram a través de un bot.
@@ -12,29 +13,27 @@ def send_telegram_alert(message: str):
     Args:
         message (str): El texto del mensaje que se va a enviar. Soporta formato Markdown.
     """
-    bot_token = get_setting('telegram_bot_token')
-    chat_id = get_setting('telegram_chat_id')
+    bot_token = get_setting("telegram_bot_token")
+    chat_id = get_setting("telegram_chat_id")
 
     if not bot_token or not chat_id:
         print("\n--- ALERTA  ---")
-        print("ADVERTENCIA: Token o Chat ID de Telegram no configurados en la base de datos.")
+        print(
+            "ADVERTENCIA: Token o Chat ID de Telegram no configurados en la base de datos."
+        )
         print("La siguiente alerta solo se mostrará en la consola.")
         print(message)
         print("--------------------------\n")
         return
 
     api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    
-    payload = {
-        'chat_id': chat_id,
-        'text': message,
-        'parse_mode': 'Markdown'
-    }
-    
+
+    payload = {"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}
+
     try:
         response = requests.post(api_url, json=payload, timeout=10)
         response.raise_for_status()
         print(f"Alerta enviada exitosamente a Telegram.")
-        
+
     except requests.exceptions.RequestException as e:
         print(f"Error crítico: No se pudo enviar la alerta de Telegram. Causa: {e}")
