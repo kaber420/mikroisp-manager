@@ -88,6 +88,8 @@ def add_simple_queue(
 ):
     """Crea una nueva Simple Queue (sin PCQ)."""
     res = api.get_resource("/queue/simple")
+    if not parent:
+        parent = "none"
     result = res.add(
         name=name, target=target, max_limit=max_limit, parent=parent, comment=comment
     )

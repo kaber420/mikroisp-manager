@@ -1,22 +1,52 @@
 // static/js/router_details/users.js
 import { ApiClient, DomUtils } from './utils.js';
 import { CONFIG, DOM_ELEMENTS } from './config.js';
+import { TableComponent } from '../components/TableComponent.js';
+
+// --- ESTADO LOCAL ---
+let usersTable = null;
 
 // --- RENDERIZADORES ---
 
 function renderRouterUsers(users) {
-    DOM_ELEMENTS.routerUsersList.innerHTML = (!users || users.length === 0) ? '<p class="text-text-secondary">No hay usuarios.</p>' : '';
-    users?.forEach(user => {
-        // Asumiendo que no se puede borrar 'admin' o el usuario 'api-user'
-        const isSystem = user.name === 'admin' || user.name === 'api-user'; 
-        const delBtn = isSystem ? '' : `<button class="delete-user-btn invisible group-hover:visible text-danger hover:text-red-400" data-id="${user['.id'] || user.id}">${DOM_ELEMENTS.deleteIcon}</button>`;
-        DOM_ELEMENTS.routerUsersList.innerHTML += `
-            <div class="flex justify-between items-center group hover:bg-surface-2 -mx-2 px-2 rounded-md">
-                <span class="font-semibold text-sm">${user.name} (${user.group})</span>
-                ${delBtn}
-            </div>`;
-    });
-    document.querySelectorAll('.delete-user-btn').forEach(btn => btn.addEventListener('click', handleDeleteRouterUser));
+    if (!DOM_ELEMENTS.routerUsersList) return;
+
+    if (!usersTable) {
+        usersTable = new TableComponent({
+            columns: ['Name', 'Group', 'Action'],
+            emptyMessage: 'No hay usuarios.',
+            onAction: (action, payload) => {
+                if (action === 'delete') handleDeleteRouterUser(payload.id);
+            },
+            renderRow: (user) => {
+                // Asumiendo que no se puede borrar 'admin' o el usuario 'api-user'
+                const isSystem = user.name === 'admin' || user.name === 'api-user';
+                const userId = user['.id'] || user.id;
+
+                let actionBtn = '';
+                if (!isSystem) {
+                    actionBtn = `
+                        <button class="btn-action-icon text-danger hover:text-red-400" 
+                                data-action="delete" 
+                                data-id="${userId}"
+                                title="Eliminar Usuario">
+                            ${DOM_ELEMENTS.deleteIcon}
+                        </button>
+                    `;
+                }
+
+                return `
+                    <tr>
+                        <td class="font-semibold">${user.name}</td>
+                        <td><span class="badge bg-light text-dark">${user.group}</span></td>
+                        <td>${actionBtn}</td>
+                    </tr>
+                `;
+            }
+        });
+    }
+
+    usersTable.render(users || [], DOM_ELEMENTS.routerUsersList);
 }
 
 function populateAppUsers(users) {
@@ -43,17 +73,16 @@ const handleAddRouterUser = async (e) => {
         });
         DomUtils.updateFeedback('Usuario creado', true);
         DOM_ELEMENTS.addRouterUserForm.reset();
-        loadUsersData(); // Recargar
+        window.loadFullDetailsData(); // Recargar todo
     } catch (err) { DomUtils.updateFeedback(err.message, false); }
 };
 
-const handleDeleteRouterUser = (e) => {
-    const userId = e.currentTarget.dataset.id;
+const handleDeleteRouterUser = (userId) => {
     DomUtils.confirmAndExecute('¿Borrar Usuario del Router?', async () => {
         try {
             await ApiClient.request(`/api/routers/${CONFIG.currentHost}/system/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
             DomUtils.updateFeedback('Usuario Eliminado', true);
-            loadUsersData(); // Recargar
+            window.loadFullDetailsData(); // Recargar todo
         } catch (err) { DomUtils.updateFeedback(err.message, false); }
     });
 };
@@ -67,24 +96,16 @@ const handleAppUserSelectChange = () => {
 
 // --- CARGADOR DE DATOS ---
 
-export async function loadUsersData() {
-    const safeFetch = (url) => ApiClient.request(url).catch(err => {
-        console.error(`Error fetching ${url}:`, err.message);
-        return null;
-    });
-
-    try {
-        const [routerUsers, appUsers] = await Promise.all([
-            safeFetch(`/api/routers/${CONFIG.currentHost}/system/users`),
-            safeFetch('/api/users')
-        ]);
-        
-        if (routerUsers) renderRouterUsers(routerUsers);
-        if (appUsers) populateAppUsers(appUsers);
-        
-    } catch (e) {
-        console.error("Error en loadUsersData:", e);
+export function loadUsersData(fullDetails) {
+    // La data de usuarios del router ahora viene del loader principal
+    if (fullDetails && fullDetails.users) {
+        renderRouterUsers(fullDetails.users);
     }
+
+    // La carga de usuarios de la app (para el dropdown) es separada y está bien así
+    ApiClient.request('/api/users')
+        .then(populateAppUsers)
+        .catch(err => console.error("Error fetching app users:", err));
 }
 
 // --- INICIALIZADOR ---

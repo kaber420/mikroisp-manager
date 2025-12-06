@@ -90,7 +90,7 @@ def write_add_nat_rule(
 ):
     try:
         api_response = service.add_nat_masquerade(
-            out_interface_or_list=data.out_interface, comment=data.comment
+            out_interface=data.out_interface, comment=data.comment
         )
         if isinstance(api_response, dict) and api_response.get("status") == "warning":
             return api_response

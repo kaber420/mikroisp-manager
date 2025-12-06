@@ -1,6 +1,11 @@
 // static/js/router_details/queues.js
 import { ApiClient, DomUtils } from './utils.js';
-import { CONFIG, DOM_ELEMENTS, state } from './config.js'; // Importamos 'state'
+import { CONFIG, DOM_ELEMENTS, state } from './config.js';
+import { TableComponent } from '../components/TableComponent.js';
+
+// --- ESTADO LOCAL ---
+let parentQueuesTable = null;
+let localPlansTable = null;
 
 // --- RENDERIZADORES ---
 
@@ -17,25 +22,37 @@ function renderParentQueues(queues) {
     // Clasificar colas
     const parentQueues = queues?.filter(q => q.comment && q.comment.includes('[PARENT]')) || [];
 
-    // Renderizar la lista visual de colas padre
-    DOM_ELEMENTS.parentQueueListDisplay.innerHTML = parentQueues.length === 0
-        ? '<p class="text-text-secondary">No hay colas de infraestructura.</p>'
-        : '';
-
-    parentQueues.forEach(queue => {
-        const bw = queue['max-limit'] || '0/0';
-        DOM_ELEMENTS.parentQueueListDisplay.innerHTML += `
-            <div class="flex justify-between items-center group hover:bg-surface-2 -mx-2 px-2 rounded-md">
-                <span class="text-sm">${queue.name}</span>
-                <div class="flex items-center gap-2">
-                    <span class="text-warning font-mono text-xs">${bw}</span>
-                    <button class="delete-queue-btn invisible group-hover:visible text-danger hover:text-red-400" 
-                            data-id="${queue['.id'] || queue.id}">
-                        ${DOM_ELEMENTS.deleteIcon}
-                    </button>
-                </div>
-            </div>`;
-    });
+    // Renderizar la lista visual de colas padre usando TableComponent
+    if (DOM_ELEMENTS.parentQueueListDisplay) {
+        if (!parentQueuesTable) {
+            parentQueuesTable = new TableComponent({
+                columns: ['Name', 'Max Limit', 'Action'],
+                emptyMessage: 'No hay colas de infraestructura.',
+                onAction: (action, payload) => {
+                    if (action === 'delete') handleDeleteParentQueue(payload.id);
+                },
+                renderRow: (queue) => {
+                    const bw = queue['max-limit'] || '0/0';
+                    const queueId = queue['.id'] || queue.id;
+                    return `
+                        <tr>
+                            <td>${queue.name}</td>
+                            <td class="font-mono text-warning text-xs">${bw}</td>
+                            <td>
+                                <button class="btn-action-icon text-danger hover:text-red-400" 
+                                        data-action="delete" 
+                                        data-id="${queueId}"
+                                        title="Eliminar Cola">
+                                    ${DOM_ELEMENTS.deleteIcon}
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+        }
+        parentQueuesTable.render(parentQueues, DOM_ELEMENTS.parentQueueListDisplay);
+    }
 
     // Poblar los <select> de "Cola Padre" solo con las colas de infraestructura
     const parentOptions = parentQueues.map(queue =>
@@ -50,38 +67,44 @@ function renderParentQueues(queues) {
             select.innerHTML = defaultValue + parentOptions;
         }
     });
-
-    document.querySelectorAll('.delete-queue-btn').forEach(btn => btn.addEventListener('click', handleDeleteParentQueue));
 }
 
 // --- NUEVO: Renderizar planes locales ---
 function renderLocalPlans(plans) {
-    const tbody = DOM_ELEMENTS.localPlansTableBody;
-    if (!tbody) return;
-    tbody.innerHTML = '';
+    if (!DOM_ELEMENTS.localPlansTableBody) return;
 
-    if (!plans || plans.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="p-2 text-center text-text-secondary">No hay planes locales definidos.</td></tr>';
-        return;
+    // Buscamos el contenedor .overflow-x-auto que envuelve la tabla original
+    const container = DOM_ELEMENTS.localPlansTableBody.closest('.overflow-x-auto');
+    if (!container) return;
+
+    if (!localPlansTable) {
+        localPlansTable = new TableComponent({
+            columns: ['Nombre', 'Velocidad', 'Padre', 'Acción'],
+            emptyMessage: 'No hay planes locales definidos.',
+            onAction: (action, payload) => {
+                if (action === 'delete') handleDeletePlan(payload.id);
+            },
+            renderRow: (plan) => {
+                return `
+                    <tr>
+                        <td>${plan.name}</td>
+                        <td class="font-mono text-xs">${plan.max_limit}</td>
+                        <td class="text-xs text-text-secondary">${plan.parent_queue || '-'}</td>
+                        <td>
+                            <button class="btn-action-icon text-danger hover:text-red-400" 
+                                    data-action="delete" 
+                                    data-id="${plan.id}"
+                                    title="Eliminar Plan">
+                                ${DOM_ELEMENTS.deleteIcon}
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }
+        });
     }
 
-    plans.forEach(plan => {
-        tbody.innerHTML += `
-            <tr class="hover:bg-surface-1">
-                <td class="p-2">${plan.name}</td>
-                <td class="p-2 font-mono text-xs">${plan.max_limit}</td>
-                <td class="p-2 text-xs text-text-secondary">${plan.parent_queue || '-'}</td>
-                <td class="p-2">
-                    <button class="text-danger hover:text-red-400 delete-plan-btn" data-id="${plan.id}">
-                        ${DOM_ELEMENTS.deleteIcon}
-                    </button>
-                </td>
-            </tr>
-        `;
-    });
-
-    document.querySelectorAll('.delete-plan-btn').forEach(btn =>
-        btn.addEventListener('click', handleDeletePlan));
+    localPlansTable.render(plans || [], container);
 }
 
 // --- MANEJADORES (HANDLERS) ---
@@ -110,19 +133,18 @@ const handleAddParentQueue = async (e) => {
         DOM_ELEMENTS.addParentQueueForm.reset();
         document.getElementById('is-parent-checkbox').checked = true;
 
-        loadQueuesData();
+        await window.loadFullDetailsData();
     } catch (err) {
         DomUtils.updateFeedback(err.message, false);
     }
 };
 
-const handleDeleteParentQueue = (e) => {
-    const queueId = e.currentTarget.dataset.id;
+const handleDeleteParentQueue = (queueId) => {
     DomUtils.confirmAndExecute('¿Borrar esta cola?', async () => {
         try {
             await ApiClient.request(`/api/routers/${CONFIG.currentHost}/write/delete-simple-queue/${encodeURIComponent(queueId)}`, { method: 'DELETE' });
             DomUtils.updateFeedback('Cola Eliminada', true);
-            loadQueuesData();
+            await window.loadFullDetailsData();
         } catch (err) { DomUtils.updateFeedback(err.message, false); }
     });
 };
@@ -158,18 +180,17 @@ const handleCreateLocalPlan = async (e) => {
 
         DomUtils.updateFeedback("Plan guardado correctamente", true);
         DOM_ELEMENTS.createLocalPlanForm.reset();
-        loadQueuesData(); // Recargar listas
+        await window.loadFullDetailsData(); // Recargar listas
     } catch (err) {
         DomUtils.updateFeedback(`Error guardando plan: ${err.message}`, false);
     }
 };
 
-const handleDeletePlan = (e) => {
-    const planId = e.currentTarget.dataset.id;
+const handleDeletePlan = (planId) => {
     DomUtils.confirmAndExecute("¿Eliminar este plan local?", async () => {
         try {
             await ApiClient.request(`/api/plans/${planId}`, { method: 'DELETE' });
-            loadQueuesData();
+            await window.loadFullDetailsData();
             DomUtils.updateFeedback("Plan eliminado", true);
         } catch (err) {
             DomUtils.updateFeedback(err.message, false);
@@ -180,20 +201,21 @@ const handleDeletePlan = (e) => {
 // --- CARGADOR DE DATOS ---
 
 export async function loadQueuesData(fullDetails) {
-    try {
-        const data = fullDetails || await ApiClient.request(`/api/routers/${CONFIG.currentHost}/full-details`);
-        renderParentQueues(data.simple_queues);
-        renderQueueTargetOptions(data.interfaces);
+    // NO hacer llamada API a full-details - usar los datos que ya vienen de main.js
+    if (fullDetails) {
+        renderParentQueues(fullDetails.simple_queues);
+        renderQueueTargetOptions(fullDetails.interfaces);
 
         // Load local plans using the router's host string
         const routerHost = CONFIG.currentHost;
         if (routerHost) {
-            const localPlans = await ApiClient.request(`/api/plans/router/${routerHost}`);
-            renderLocalPlans(localPlans);
+            try {
+                const localPlans = await ApiClient.request(`/api/plans/router/${routerHost}`);
+                renderLocalPlans(localPlans);
+            } catch (e) {
+                console.error("Error cargando planes locales:", e);
+            }
         }
-
-    } catch (e) {
-        console.error("Error cargando datos de colas/planes:", e);
     }
 }
 

@@ -318,7 +318,7 @@ document.addEventListener('alpine:init', () => {
                         return;
                     }
                     
-                    // CORRECCIÓN: Usamos 'username' en lugar de 'name'
+                    
                     const pppoePayload = {
                         username: pppoe_username,
                         password: password,
@@ -327,7 +327,7 @@ document.addEventListener('alpine:init', () => {
                         comment: `Client-ID: ${this.currentClient.id}`
                     };
 
-                    // CORRECCIÓN: Endpoint correcto para PPPoE
+                    
                     const routerRes = await fetch(`/api/routers/${router_host}/pppoe/secrets`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },

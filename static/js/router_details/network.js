@@ -1,39 +1,11 @@
 // static/js/router_details/network.js
 import { ApiClient, DomUtils } from './utils.js';
 import { CONFIG, DOM_ELEMENTS } from './config.js';
+import { TableComponent } from '../components/TableComponent.js';
 
-// --- RENDERIZADORES ---
-
-function renderIpAddresses(ips = []) {
-    DOM_ELEMENTS.ipAddressList.innerHTML = '';
-    ips.forEach(ip => {
-        DOM_ELEMENTS.ipAddressList.innerHTML += `
-            <div class="flex justify-between items-center group hover:bg-surface-2 -mx-2 px-2 rounded-md">
-                <span>${ip.address} <strong>(${ip.interface})</strong></span>
-                <button class="delete-ip-btn invisible group-hover:visible text-danger hover:text-red-400" 
-                        data-address="${ip.address}">
-                    ${DOM_ELEMENTS.deleteIcon}
-                </button>
-            </div>`;
-    });
-    document.querySelectorAll('.delete-ip-btn').forEach(btn => btn.addEventListener('click', handleDeleteIp));
-}
-
-function renderNatRules(rules = []) {
-    DOM_ELEMENTS.natRulesList.innerHTML = '';
-    rules.forEach(rule => {
-        if (rule.action !== 'masquerade') return;
-        DOM_ELEMENTS.natRulesList.innerHTML += `
-             <div class="flex justify-between items-center group hover:bg-surface-2 -mx-2 px-2 rounded-md">
-                <span>${rule.comment || 'NAT Rule'} <strong>(${rule['out-interface']})</strong></span>
-                <button class="delete-nat-btn invisible group-hover:visible text-danger hover:text-red-400" 
-                        data-comment="${rule.comment}">
-                    ${DOM_ELEMENTS.deleteIcon}
-                </button>
-            </div>`;
-    });
-    document.querySelectorAll('.delete-nat-btn').forEach(btn => btn.addEventListener('click', handleDeleteNat));
-}
+// --- ESTADO LOCAL ---
+let ipTable = null;
+let natTable = null;
 
 // --- MANEJADORES (HANDLERS) ---
 
@@ -48,7 +20,7 @@ const handleAddIp = async (e) => {
         });
         DomUtils.updateFeedback('IP Añadida', true);
         DOM_ELEMENTS.addIpForm.reset();
-        loadNetworkData(); // Recargar solo este módulo
+        await window.loadFullDetailsData(); // Recargar todo
     } catch (err) { DomUtils.updateFeedback(err.message, false); }
 };
 
@@ -62,50 +34,110 @@ const handleAddNat = async (e) => {
         });
         DomUtils.updateFeedback('NAT Añadido', true);
         DOM_ELEMENTS.addNatForm.reset();
-        loadNetworkData(); // Recargar solo este módulo
+        await window.loadFullDetailsData(); // Recargar todo
     } catch (err) { DomUtils.updateFeedback(err.message, false); }
 };
 
-const handleDeleteIp = (e) => {
-    const address = e.currentTarget.dataset.address;
+const handleDeleteIp = (address) => {
     DomUtils.confirmAndExecute(`¿Borrar la IP "${address}"?`, async () => {
         try {
             await ApiClient.request(`/api/routers/${CONFIG.currentHost}/write/delete-ip?address=${encodeURIComponent(address)}`, { method: 'DELETE' });
             DomUtils.updateFeedback('IP Eliminada', true);
-            loadNetworkData();
+            await window.loadFullDetailsData();
         } catch (err) { DomUtils.updateFeedback(err.message, false); }
     });
 };
 
-const handleDeleteNat = (e) => {
-    const comment = e.currentTarget.dataset.comment;
+const handleDeleteNat = (comment) => {
     DomUtils.confirmAndExecute(`¿Borrar la regla NAT "${comment}"?`, async () => {
         try {
             await ApiClient.request(`/api/routers/${CONFIG.currentHost}/write/delete-nat?comment=${encodeURIComponent(comment)}`, { method: 'DELETE' });
             DomUtils.updateFeedback('Regla NAT Eliminada', true);
-            loadNetworkData();
+            await window.loadFullDetailsData();
         } catch (err) { DomUtils.updateFeedback(err.message, false); }
     });
 };
 
+// --- RENDERIZADORES ---
+
+function renderIpAddresses(ips = []) {
+    if (!DOM_ELEMENTS.ipAddressList) return;
+
+    if (!ipTable) {
+        ipTable = new TableComponent({
+            columns: ['Address', 'Interface', 'Action'],
+            emptyMessage: 'No IP addresses found.',
+            onAction: (action, payload) => {
+                if (action === 'delete') handleDeleteIp(payload.address);
+            },
+            renderRow: (ip) => {
+                return `
+                    <tr>
+                        <td>${ip.address}</td>
+                        <td>${ip.interface}</td>
+                        <td>
+                            <button class="btn-action-icon text-danger hover:text-red-400" 
+                                    data-action="delete" 
+                                    data-address="${ip.address}"
+                                    title="Eliminar IP">
+                                ${DOM_ELEMENTS.deleteIcon}
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }
+        });
+    }
+
+    // El contenedor original es un div con clases de lista, lo limpiamos y dejamos que la tabla tome control
+    // OJO: Si el CSS espera items flex, la tabla podría verse rara si no quitamos las clases del contenedor padre.
+    // Pero TableComponent reemplaza el innerHTML.
+    ipTable.render(ips, DOM_ELEMENTS.ipAddressList);
+}
+
+function renderNatRules(rules = []) {
+    if (!DOM_ELEMENTS.natRulesList) return;
+
+    if (!natTable) {
+        natTable = new TableComponent({
+            columns: ['Comment', 'Out-Interface', 'Action'],
+            emptyMessage: 'No NAT rules found.',
+            onAction: (action, payload) => {
+                if (action === 'delete') handleDeleteNat(payload.comment);
+            },
+            renderRow: (rule) => {
+                return `
+                    <tr>
+                        <td>${rule.comment || 'NAT Rule'}</td>
+                        <td>${rule['out-interface']}</td>
+                        <td>
+                            <button class="btn-action-icon text-danger hover:text-red-400" 
+                                    data-action="delete" 
+                                    data-comment="${rule.comment}"
+                                    title="Eliminar Regla">
+                                ${DOM_ELEMENTS.deleteIcon}
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }
+        });
+    }
+
+    const filteredRules = rules.filter(r => r.action === 'masquerade');
+    natTable.render(filteredRules, DOM_ELEMENTS.natRulesList);
+}
+
 // --- CARGADOR DE DATOS ---
 
-export async function loadNetworkData(fullDetails) {
-    try {
-        const data = fullDetails || await ApiClient.request(`/api/routers/${CONFIG.currentHost}/full-details`);
-        
-        renderIpAddresses(data.ip_addresses);
-        renderNatRules(data.nat_rules);
-        // Nota: populateInterfaceSelects se llama desde interfaces.js,
-        // pero como los datos están aquí, lo llamamos también.
-        populateInterfaceSelects(data.interfaces);
-
-    } catch (e) {
-        console.error("Error cargando datos de Red:", e);
+export function loadNetworkData(fullDetails) {
+    if (fullDetails) {
+        renderIpAddresses(fullDetails.ip_addresses);
+        renderNatRules(fullDetails.nat_rules);
+        populateInterfaceSelects(fullDetails.interfaces);
     }
 }
 
-// Re-usamos esta función aquí también
 function populateInterfaceSelects(interfaces) {
     const selects = document.querySelectorAll('.interface-select');
     if (!selects.length) return;

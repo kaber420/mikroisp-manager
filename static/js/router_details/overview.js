@@ -155,17 +155,16 @@ function updateDashboardUI(data) {
 
 /**
  * Carga inicial de datos ESTÁTICOS (Modelo, Firmware, Serial).
- * Estos no cambian, así que los pedimos una sola vez por HTTP normal.
+ * AHORA RECIBE LOS DATOS DEL LOADER PRINCIPAL.
  */
-export async function loadOverviewData() {
+export function loadOverviewData(fullDetails) {
     try {
-        const res = await ApiClient.request(`/api/routers/${CONFIG.currentHost}/resources`);
+        const res = fullDetails.static_resources;
 
         DOM_ELEMENTS.mainHostname.textContent = res.name || 'Router';
         DOM_ELEMENTS.resHost.textContent = CONFIG.currentHost;
         DOM_ELEMENTS.resFirmware.textContent = `RouterOS ${res.version || '...'}`;
         
-        // Guardamos el nombre limpio para usarlo en backups
         const cleanName = res.name ? res.name.split(' ')[0].replace(/[^a-zA-Z0-9_-]/g, '') : 'router';
         setCurrentRouterName(cleanName);
 
@@ -192,18 +191,12 @@ export function stopResourceStream() {
 
 /**
  * Carga las estadísticas de PPP (Secretos, Activos) para el Overview.
+ * AHORA RECIBE LOS DATOS DEL LOADER PRINCIPAL.
  */
-export async function loadOverviewStats() {
-     const safeFetch = (url) => ApiClient.request(url).catch(err => {
-        console.error(`Error fetching ${url}:`, err.message);
-        return null; // No fallar todo si una petición falla
-    });
-
+export function loadOverviewStats(fullDetails) {
     try {
-        const [secrets, active] = await Promise.all([
-            safeFetch(`/api/routers/${CONFIG.currentHost}/pppoe/secrets`),
-            safeFetch(`/api/routers/${CONFIG.currentHost}/pppoe/active`)
-        ]);
+        const secrets = fullDetails.pppoe_secrets;
+        const active = fullDetails.pppoe_active;
 
         DOM_ELEMENTS.resActiveUsers.textContent = active ? active.length : '0';
         DOM_ELEMENTS.resSecrets.textContent = secrets ? secrets.length : '0';

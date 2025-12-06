@@ -2,121 +2,97 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Recibo de Pago</title>
+    <title>Recibo de Pago #{{ payment.id }}</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
-
         body {
             font-family: 'Roboto Mono', monospace;
-            width: 300px; /* Ancho típico para impresora térmica de 80mm */
-            font-size: 12px;
-            line-height: 1.4;
+            width: 80mm; /* Ancho estándar de impresoras térmicas */
+            margin: 0 auto;
+            padding: 5px;
             color: #000;
-            margin: 0;
-            padding: 10px;
+            font-size: 13px;
         }
-        .receipt-container {
-            width: 100%;
-        }
-        .header, .footer {
-            text-align: center;
-            margin-bottom: 10px;
-        }
-        .header h2 {
-            margin: 0;
-            font-size: 16px;
-        }
-        .item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
-        }
-        .item-label {
-            font-weight: bold;
-        }
-        .separator {
-            border-top: 1px dashed #000;
-            margin: 10px 0;
-        }
-        .total {
-            font-weight: bold;
-            font-size: 16px;
-        }
-        .legal {
-            font-size: 10px;
-            text-align: center;
-            margin-top: 10px;
-        }
-
-        /* Ocultar elementos que no se deben imprimir */
+        .header { text-align: center; margin-bottom: 15px; }
+        .logo { max-width: 150px; margin-bottom: 10px; }
+        .separator { border-top: 1px dashed #000; margin: 8px 0; }
+        .row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .label { font-weight: bold; }
+        .total { font-size: 16px; font-weight: bold; text-align: right; margin-top: 10px; }
+        .footer { text-align: center; margin-top: 20px; font-size: 10px; }
+        
         @media print {
-            .no-print {
-                display: none;
-            }
+            @page { margin: 0; }
+            body { padding: 10px; }
         }
     </style>
 </head>
 <body onload="window.print();">
 
-    <div class="receipt-container">
-        <div class="header">
-            <h2>{{ isp_name | default('Nombre de ISP') }}</h2>
-            <p>{{ isp_address | default('Dirección del ISP') }}</p>
-            <p>{{ isp_phone | default('Teléfono del ISP') }}</p>
-        </div>
-
-        <div class="separator"></div>
-
-        <div class="item">
-            <span class="item-label">Folio:</span>
-            <span>{{ payment.id }}</span>
-        </div>
-        <div class="item">
-            <span class="item-label">Fecha de Pago:</span>
-            <span>{{ payment.fecha_pago.strftime('%d/%m/%Y %H:%M') }}</span>
-        </div>
+    <div class="header">
+        {% if isp_logo %}
+            <img src="{{ isp_logo }}" alt="Logo" class="logo">
+        {% endif %}
         
-        <div class="separator"></div>
-
-        <div class="item">
-            <span class="item_label">Cliente:</span>
-            <span>{{ client.name }} {{ client.last_name }}</span>
-        </div>
-
-        <div class="separator"></div>
+        <h2 style="margin:0;">{{ isp_name | default('ISP Local') }}</h2>
         
-        <div class="item">
-            <span class="item-label">Concepto:</span>
-            <span>Servicio de Internet</span>
-        </div>
-        <div class="item">
-            <span class="item-label">Ciclo de Servicio:</span>
-            <span>{{ start_date }} al {{ end_date }}</span>
-        </div>
-        
-        <div class="separator"></div>
+        {% if isp_address %}
+            <p style="margin:2px 0;">{{ isp_address }}</p>
+        {% endif %}
+        {% if isp_phone %}
+            <p style="margin:2px 0;">Tel: {{ isp_phone }}</p>
+        {% endif %}
+    </div>
 
-        <div class="item total">
-            <span class="item-label">TOTAL PAGADO:</span>
-            <span>${{ "%.2f"|format(payment.monto) }}</span>
-        </div>
+    <div class="separator"></div>
 
-        <div class="separator"></div>
+    <div class="row">
+        <span class="label">Folio:</span>
+        <span>#{{ payment.id }}</span>
+    </div>
+    <div class="row">
+        <span class="label">Fecha:</span>
+        <span>{{ payment.fecha_pago.strftime('%d/%m/%Y %H:%M') }}</span>
+    </div>
 
-        <div class="item">
-            <span class="item-label">Método de Pago:</span>
-            <span>{{ payment.metodo_pago | default('No especificado') }}</span>
-        </div>
-        <div class="item">
-            <span class="item-label">Consumo:</span>
-            <span>0b/0b</span>
-        </div>
-        
-        <div class="footer">
+    <div class="separator"></div>
+
+    <div class="row">
+        <span class="label">Cliente:</span>
+        <span style="text-align:right; max-width: 60%;">{{ client.name }}</span>
+    </div>
+    <div class="row">
+        <span class="label">Ubicación:</span>
+        <span style="text-align:right; max-width: 60%;">{{ client.address | default('N/A') }}</span>
+    </div>
+
+    <div class="separator"></div>
+
+    <div style="margin: 10px 0;">
+        <p style="margin:0; font-weight:bold;">Concepto:</p>
+        <p style="margin:0;">Servicio de Internet</p>
+        <p style="margin:0; font-size: 11px;">Periodo: {{ start_date }} - {{ end_date }}</p>
+    </div>
+
+    <div class="separator"></div>
+
+    <div class="row total">
+        <span>TOTAL:</span>
+        <span>${{ "%.2f"|format(payment.monto) }}</span>
+    </div>
+    
+    <div class="row">
+        <span>Método:</span>
+        <span>{{ payment.metodo_pago | default('Efectivo') }}</span>
+    </div>
+
+    <div class="footer">
+        {% if ticket_message %}
+            <p>{{ ticket_message }}</p>
+        {% else %}
             <p>¡Gracias por su pago!</p>
-            <p class="legal">Este pago cubre el servicio entre las fechas indicadas.</p>
-        </div>
-
+            <p>Conserve este comprobante para cualquier aclaración.</p>
+        {% endif %}
     </div>
 
 </body>

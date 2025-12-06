@@ -509,8 +509,10 @@ async def read_payment_receipt(
         "payment": payment,
         "client": client,
         "isp_name": settings.get("company_name"),
-        "isp_address": settings.get("billing_address"),
-        "isp_phone": settings.get("billing_phone"),
+        "isp_address": settings.get("billing_address"),  # Ahora toma el campo largo
+        "isp_phone": settings.get("billing_phone") or settings.get("notification_email"),
+        "isp_logo": settings.get("company_logo_url"),  # Nuevo campo
+        "ticket_message": settings.get("ticket_footer_message"),  # Nuevo campo
         "start_date": start_date.strftime("%d de %B de %Y") if start_date else "N/A",
         "end_date": end_date.strftime("%d de %B de %Y") if end_date else "N/A",
     }

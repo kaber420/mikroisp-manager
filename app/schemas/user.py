@@ -13,7 +13,7 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
     Schema for reading user data (API responses).
     Includes all safe-to-expose user fields.
     """
-
+    email: str
     username: str
     role: str
     telegram_chat_id: Optional[str] = None

@@ -47,3 +47,29 @@ class MikrotikInterfaceManager:
 
     def get_bridge_ports(self) -> List[Dict[str, Any]]:
         return self.api.get_resource("/interface/bridge/port").get()
+
+    def remove_interface(self, interface_id: str, interface_type: str):
+        """Elimina una interfaz basada en su tipo."""
+        resource_path = self._get_resource_path(interface_type)
+        resource = self.api.get_resource(resource_path)
+        resource.remove(id=interface_id)
+
+    def set_interface_status(
+        self, interface_id: str, disable: bool, interface_type: str
+    ):
+        """Habilita o deshabilita una interfaz."""
+        resource_path = self._get_resource_path(interface_type)
+        resource = self.api.get_resource(resource_path)
+        resource.set(id=interface_id, disabled=disable)
+
+    def _get_resource_path(self, interface_type: str) -> str:
+        """Determina el path del recurso según el tipo de interfaz."""
+        if interface_type == "vlan":
+            return "/interface/vlan"
+        elif interface_type == "bridge":
+            return "/interface/bridge"
+        elif interface_type == "ether":
+            return "/interface/ethernet"
+        else:
+            # Fallback genérico, aunque podría fallar si el tipo no es exacto
+            return f"/interface/{interface_type}"

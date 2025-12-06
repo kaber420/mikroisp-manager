@@ -9,9 +9,10 @@ from sqlmodel import Session, select
 from app.models import Client
 from ..models.service import ClientService as ClientServiceModel
 from ..models.router import Router
-from ..db import plans_db, cpes_db
+from ..db import cpes_db
 from ..db.base import get_db_connection # Added for legacy DB access
 from ..services.router_service import RouterService
+from .payment_service import PaymentService
 
 logger = logging.getLogger(__name__)
 
@@ -21,14 +22,20 @@ class ClientService:
     Service layer for Client and ClientService operations using SQLModel ORM.
     """
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, payment_service: PaymentService | None = None):
         """
         Initialize with a SQLModel session.
         
         Args:
             session: SQLModel Session instance
+            payment_service: Optional PaymentService instance (auto-created if not provided)
         """
         self.session = session
+        # If no PaymentService is injected, create one with the same Session
+        self.payment_service = payment_service or PaymentService(session=self.session)
+        # Import here to avoid circular dependency
+        from .plan_service import PlanService
+        self.plan_service = PlanService(session)
     
     def get_all_clients(self) -> List[Dict[str, Any]]:
         """
@@ -228,9 +235,9 @@ class ClientService:
         if not plan_id:
             raise ValueError("Se requiere un plan_id para servicios de cola simple")
 
-        plan = plans_db.get_plan_by_id(plan_id)
-        if not plan:
-            raise ValueError(f"Plan con ID {plan_id} no encontrado.")
+        plan_obj = self.plan_service.get_plan_by_id(plan_id)
+        # Convert to dict for compatibility with existing code
+        plan = plan_obj.model_dump()
 
         target_ip = service_input.get("ip_address")
         if not target_ip:
@@ -267,12 +274,13 @@ class ClientService:
         services = self.session.exec(statement).all()
         return [service.model_dump() for service in services]
     
-    # --- Payment Methods (will be moved to PaymentService later) ---
+    # --- Payment Methods ---
     def get_payment_history(self, client_id: int) -> List[Dict[str, Any]]:
         """
-        Get payment history for a client.
-        TODO: Move to PaymentService
+        Get payment history for a client using PaymentService (SQLModel).
+        
+        Returns:
+            List of payment records, most recent first
         """
-        from ..db import payments_db
-        return payments_db.get_payments_for_client(client_id)
+        return self.payment_service.get_payments_for_client(client_id)
 

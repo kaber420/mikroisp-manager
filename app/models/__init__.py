@@ -6,3 +6,4 @@ from .ap import AP
 from .client import Client
 from .service import ClientService
 from .payment import Payment
+from .plan import Plan

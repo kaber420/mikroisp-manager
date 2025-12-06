@@ -8,7 +8,7 @@ from typing import Dict, Any, List
 from datetime import datetime, timedelta
 from sqlmodel import Session
 
-from ..db import settings_db, plans_db  # Keep until migrated
+from ..db import settings_db  # Keep until migrated
 from .router_service import RouterService
 from .client_service import ClientService
 from .payment_service import PaymentService
@@ -32,6 +32,9 @@ class BillingService:
         self.session = session
         self.client_service = ClientService(session)
         self.payment_service = PaymentService(session)
+        # Import here to avoid circular dependency
+        from .plan_service import PlanService
+        self.plan_service = PlanService(session)
 
     def _get_router_by_host(self, host: str) -> Router:
         """Helper to get router credentials from database."""
@@ -89,7 +92,8 @@ class BillingService:
 
                             elif method == "queue_limit" and ip:
                                 # Need to know the original plan speed
-                                plan = plans_db.get_plan_by_id(service["plan_id"])
+                                plan_obj = self.plan_service.get_plan_by_id(service["plan_id"])
+                                plan = plan_obj.model_dump()
                                 if plan:
                                     rs.activate_user_limit(ip, plan["max_limit"])
                                     logger.info(

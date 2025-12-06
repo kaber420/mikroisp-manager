@@ -113,6 +113,18 @@ class RouterService:
         manager.set_bridge_ports(name, ports)
         return bridge
 
+    def remove_interface(self, interface_id: str, interface_type: str):
+        api = self.pool.get_api()
+        manager = MikrotikInterfaceManager(api)
+        manager.remove_interface(interface_id, interface_type)
+
+    def set_interface_status(
+        self, interface_id: str, disable: bool, interface_type: str
+    ):
+        api = self.pool.get_api()
+        manager = MikrotikInterfaceManager(api)
+        manager.set_interface_status(interface_id, disable, interface_type)
+
     def set_pppoe_secret_status(self, secret_id: str, disable: bool):
         return self._execute_command(
             ppp.enable_disable_pppoe_secret, secret_id=secret_id, disable=disable
@@ -194,6 +206,37 @@ class RouterService:
 
     def remove_router_user(self, user_id: str):
         return self._execute_command(system.remove_router_user, user_id=user_id)
+
+    def get_full_details(self) -> Dict[str, Any]:
+        """
+        Obtiene una vista completa de la configuración del router en una sola sesión.
+        """
+        api = None
+        try:
+            # Obtener una única conexión para todas las operaciones
+            api = self.pool.get_api()
+            interface_manager = MikrotikInterfaceManager(api)
+
+            # Ejecutar todos los comandos con la misma conexión
+            details = {
+                "interfaces": api.get_resource("/interface").get(),
+                "ip_addresses": ip.get_ip_addresses(api),
+                "nat_rules": firewall.get_nat_rules(api),
+                "pppoe_servers": ppp.get_pppoe_servers(api),
+                "ppp_profiles": ppp.get_ppp_profiles(api),
+                "simple_queues": queues.get_simple_queues(api),
+                "ip_pools": ip.get_ip_pools(api),
+                "bridge_ports": interface_manager.get_bridge_ports(),
+                "pppoe_secrets": ppp.get_pppoe_secrets(api),
+                "pppoe_active": ppp.get_pppoe_active_connections(api),
+                "users": system.get_router_users(api),
+                "files": system.get_backup_files(api),
+                "static_resources": system.get_system_resources(api),
+            }
+            return details
+        except Exception as e:
+            logger.error(f"Error obteniendo detalles completos de {self.host}: {e}")
+            raise RouterCommandError(f"Error en {self.host}: {e}")
 
     def cleanup_connections(self) -> int:
         """
@@ -290,31 +333,35 @@ from fastapi import Depends
 from ..db.engine import get_session
 
 async def get_router_service(host: str, session: AsyncSession = Depends(get_session)):
+    """
+    Obtiene una instancia de RouterService y asegura que la conexión se cierre correctamente.
+    """
     service = None
     try:
-        # --- FASE 1: PREPARACIÓN (Setup) ---
+        # Obtener credenciales del router desde la BD
         router = await get_router_by_host(session, host)
         if not router:
-             raise RouterConnectionError(f"Router {host} no encontrado en la DB.")
+            raise RouterConnectionError(f"Router {host} no encontrado en la DB.")
         
-        # Initialize service with router model (contains encrypted password)
+        # Crear el servicio (esto abre la conexión al router)
         service = RouterService(host, router)
-
-        # --- PAUSA Y ENTREGA ---
+        
+        # Entregar el servicio al endpoint que lo solicitó
         yield service
-
+        
     except (RouterConnectionError, RouterNotProvisionedError) as e:
+        # Manejo de errores si no se pudo conectar al inicio
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
+        logger.error(f"Error en get_router_service para {host}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-
     finally:
-        # --- FASE 2: LIMPIEZA (Teardown) ---
+        # CRÍTICO: Cerrar la conexión SIEMPRE después de que el endpoint termine
         if service:
             try:
                 service.disconnect()
-                # print(f"Conexión con {host} cerrada correctamente.")
+                logger.debug(f"✅ Conexión con {host} cerrada correctamente.")
             except Exception as e:
-                print(f"Error cerrando conexión: {e}")
+                logger.error(f"❌ Error cerrando conexión con {host}: {e}")

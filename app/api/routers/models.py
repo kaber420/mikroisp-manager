@@ -85,6 +85,11 @@ class RouterFullDetails(BaseModel):
     simple_queues: List[Dict[str, Any]]
     ip_pools: List[Dict[str, Any]]
     bridge_ports: List[Dict[str, Any]]
+    pppoe_secrets: List[Dict[str, Any]]
+    pppoe_active: List[Dict[str, Any]]
+    users: List[Dict[str, Any]]
+    files: List[Dict[str, Any]]
+    static_resources: Dict[str, Any]
 
 
 class CreatePlanRequest(BaseModel):

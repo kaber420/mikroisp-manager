@@ -40,7 +40,7 @@ const handleCreateBackup = async (name, type) => {
             body: JSON.stringify({ backup_name: name, backup_type: type })
         });
         DomUtils.updateFeedback('Backup creado', true);
-        setTimeout(loadBackupData, 2000); // Recarga después de 2 segundos
+        setTimeout(window.loadFullDetailsData, 2000); // Recarga todo después de 2 segundos
     } catch (e) { DomUtils.updateFeedback(e.message, false); }
 };
 
@@ -60,17 +60,19 @@ const handleDeleteBackupFile = (e) => {
         try {
             await ApiClient.request(`/api/routers/${CONFIG.currentHost}/system/files/${encodeURIComponent(fileId)}`, { method: 'DELETE' });
             DomUtils.updateFeedback('Archivo Eliminado', true);
-            loadBackupData(); // Recarga
+            window.loadFullDetailsData(); // Recarga todo
         } catch (err) { DomUtils.updateFeedback(err.message, false); }
     });
 };
 
 // --- CARGADOR DE DATOS ---
 
-export async function loadBackupData() {
+export function loadBackupData(fullDetails) {
     try {
-        const files = await ApiClient.request(`/api/routers/${CONFIG.currentHost}/system/files`);
-        renderBackupFiles(files);
+        // La data de archivos ahora viene del loader principal
+        if (fullDetails && fullDetails.files) {
+            renderBackupFiles(fullDetails.files);
+        }
     } catch (e) {
         console.error("Error en loadBackupData:", e);
         DOM_ELEMENTS.backupFilesList.innerHTML = `<p class="text-danger">${e.message}</p>`;

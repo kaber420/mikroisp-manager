@@ -1,11 +1,11 @@
-// static/js/router_details/main.js
+//static/js/router_details/main.js
 import { ApiClient, DomUtils } from './utils.js';
 import { CONFIG, DOM_ELEMENTS } from './config.js';
 
 // --- IMPORTAR LA NUEVA FUNCIÓN initResourceStream ---
 import { loadOverviewData, loadOverviewStats, initResourceStream } from './overview.js';
 
-// ... (resto de imports: interfaces, network, ppp, etc.) ...
+// Imports de módulos
 import { initInterfacesModule, loadInterfacesData } from './interfaces.js';
 import { initNetworkModule, loadNetworkData } from './network.js';
 import { initPppModule, loadPppData } from './ppp.js';
@@ -14,22 +14,31 @@ import { initUsersModule, loadUsersData } from './users.js';
 import { initBackupModule, loadBackupData } from './backup.js';
 
 async function loadFullDetailsData() {
-    // ... (código existente de loadFullDetailsData sin cambios) ...
     try {
         const data = await ApiClient.request(`/api/routers/${CONFIG.currentHost}/full-details`);
+
+        // Consolidar TODAS las cargas de datos
+        loadOverviewData(data);
         loadInterfacesData(data);
         loadNetworkData(data);
         loadPppData(data);
         loadQueuesData(data);
+        loadUsersData(data);
+        loadBackupData(data);
+        loadOverviewStats(data);
+
     } catch (e) {
-        console.error("Error fatal cargando /full-details:", e);
+        console.error("Error fatal cargando datos del router:", e);
         DomUtils.updateFeedback(`Error al cargar datos del router: ${e.message}`, false);
     }
 }
+// Exponer para que los módulos puedan refrescar
+window.loadFullDetailsData = loadFullDetailsData;
+
 
 document.addEventListener('DOMContentLoaded', async () => {
-    
-    // 1. Inicializar módulos
+
+    // 1. Inicializar módulos de UI (event listeners, etc.)
     initInterfacesModule();
     initNetworkModule();
     initPppModule();
@@ -37,20 +46,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     initUsersModule();
     initBackupModule();
 
-    // 2. Carga de Datos
-    
-    // A. Datos Estáticos (HTTP una sola vez)
-    await loadOverviewData();
-    
-    // B. ¡ENCENDER EL STREAM WEBSOCKET! (Nuevo)
-    // Esto hará que las barras de CPU/RAM cobren vida
-    initResourceStream(); 
+    // 2. Carga ÚNICA de todos los datos pesados y estáticos
+    await loadFullDetailsData();
 
-    await loadOverviewStats(); // Stats de PPP (podríamos mover esto a WS en el futuro)
-    await loadFullDetailsData(); // Tablas pesadas
-    
-    Promise.all([
-        loadUsersData(),
-        loadBackupData()
-    ]);
+    // 3. Iniciar el stream de datos en vivo (CPU, RAM)
+    initResourceStream();
 });

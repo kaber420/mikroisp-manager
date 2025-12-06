@@ -1,12 +1,14 @@
 // static/js/router_details/interfaces.js
 import { ApiClient, DomUtils } from './utils.js';
 import { CONFIG, DOM_ELEMENTS, state, setAllInterfaces } from './config.js';
+import { TableComponent } from '../components/TableComponent.js';
 
 // --- ESTADO LOCAL DEL MÓDULO ---
 let allModuleInterfaces = [];
 let allModuleIps = [];
 let allModuleBridgePorts = [];
 let currentInterfaceFilter = 'general';
+let interfacesTable = null; // Instancia del componente
 
 // Definición de nuestros filtros
 const FILTER_TYPES = {
@@ -16,15 +18,80 @@ const FILTER_TYPES = {
 
 // --- RENDERIZADORES ---
 
-function renderInterfaces() {
-    if (!DOM_ELEMENTS.interfacesTableBody) {
-        console.error("Error: El <tbody> de la tabla de interfaces no existe en el DOM.");
-        return;
-    }
-    
-    DOM_ELEMENTS.interfacesTableBody.innerHTML = '';
-    let filteredInterfaces;
+function initTableComponent() {
+    if (interfacesTable) return;
 
+    interfacesTable = new TableComponent({
+        columns: ['Status', 'Name', 'Type', 'MAC Address', 'IP Address', 'RX Bytes', 'TX Bytes', 'Uptime', 'Acciones'],
+        emptyMessage: 'No se encontraron interfaces para este filtro.',
+        onAction: (action, payload) => {
+            handleInterfaceAction(action, payload.id, payload.name, payload.type);
+        },
+        renderRow: (iface) => {
+            const ip = allModuleIps.find(i => i.interface === iface.name);
+            const interfaceId = iface['.id'] || iface.id;
+            const isDisabled = iface.disabled === 'true' || iface.disabled === true;
+            const isActuallyRunning = (iface.running === 'true' || iface.running === true);
+            const isRunning = isActuallyRunning && !isDisabled;
+            const statusClass = isRunning ? 'status-online' : 'status-offline';
+            const rowClass = isDisabled ? 'opacity-50' : '';
+
+            const canBeDeleted = ['vlan', 'bridge', 'bonding'].includes(iface.type);
+            const canBeDisabled = !['pppoe-out', 'pptp-out', 'l2tp-out'].includes(iface.type);
+            const isManaged = iface.comment && iface.comment.includes('managed by umonitor');
+
+            let actionButtons = '';
+
+            if (isManaged && (iface.type === 'vlan' || iface.type === 'bridge')) {
+                actionButtons += `<button class="btn-action-icon" data-action="edit" data-id="${interfaceId}" data-type="${iface.type}" title="Editar"><span class="material-symbols-outlined text-primary">edit</span></button>`;
+            }
+
+            if (canBeDisabled) {
+                if (isDisabled) {
+                    actionButtons += `<button class="btn-action-icon" data-action="enable" data-id="${interfaceId}" data-type="${iface.type}" title="Habilitar"><span class="material-symbols-outlined text-success">play_circle</span></button>`;
+                } else {
+                    actionButtons += `<button class="btn-action-icon" data-action="disable" data-id="${interfaceId}" data-type="${iface.type}" title="Deshabilitar"><span class="material-symbols-outlined text-warning">pause_circle</span></button>`;
+                }
+            }
+
+            if (canBeDeleted) {
+                actionButtons += `<button class="btn-action-icon" data-action="delete" data-id="${interfaceId}" data-type="${iface.type}" data-name="${iface.name}" title="Eliminar">${DOM_ELEMENTS.deleteIcon}</button>`;
+            }
+
+            const rxBytes = iface['rx-byte'] ? DomUtils.formatBytes(iface['rx-byte']) : '0 Bytes';
+            const txBytes = iface['tx-byte'] ? DomUtils.formatBytes(iface['tx-byte']) : '0 Bytes';
+
+            return `
+                <tr class="${rowClass}">
+                    <td class="text-center"><span class="status-indicator ${statusClass}" title="${isDisabled ? 'Disabled' : (isActuallyRunning ? 'Up' : 'Down')}"></span></td>
+                    <td>${iface.name}</td>
+                    <td><span class="badge bg-light text-dark">${iface.type}</span></td>
+                    <td>${iface['mac-address'] || 'N/A'}</td>
+                    <td>${ip ? ip.address : '(Dinámica)'}</td>
+                    <td class="font-mono">${rxBytes}</td> <td class="font-mono">${txBytes}</td>
+                    <td>${iface.uptime || 'N/A'}</td>
+                    <td class="flex gap-1">${actionButtons}</td>
+                </tr>
+            `;
+        }
+    });
+}
+
+function renderInterfaces() {
+    if (!DOM_ELEMENTS.interfacesTableBody) return;
+
+    // El contenedor ahora debe ser el padre del tbody original, o podemos vaciar el contenedor y dejar que el componente cree la tabla.
+    // Dado que el HTML original tiene una estructura de tabla completa, vamos a reemplazar el contenido del contenedor padre de la tabla.
+    // Pero interfacesTableBody es un TBODY. El componente TableComponent crea una TABLE completa.
+    // ESTRATEGIA: Vamos a apuntar al contenedor de la tabla (el div .overflow-x-auto) en lugar del tbody.
+    // Para no romper referencias, buscaremos el padre.
+
+    const tableContainer = DOM_ELEMENTS.interfacesTableBody.closest('.overflow-x-auto');
+    if (!tableContainer) return;
+
+    initTableComponent();
+
+    let filteredInterfaces;
     switch (currentInterfaceFilter) {
         case 'general':
             filteredInterfaces = allModuleInterfaces.filter(iface => FILTER_TYPES.general.includes(iface.type));
@@ -36,84 +103,30 @@ function renderInterfaces() {
             filteredInterfaces = allModuleInterfaces.filter(iface => iface.name !== 'none');
             break;
     }
-    
+
     DOM_ELEMENTS.resInterfaces.textContent = filteredInterfaces.length;
 
-    if (filteredInterfaces.length === 0) {
-        const message = currentInterfaceFilter === 'ppp' 
-            ? 'No hay túneles o clientes PPPoE conectados.' 
-            : 'No se encontraron interfaces para este filtro.';
-        DOM_ELEMENTS.interfacesTableBody.innerHTML = `<tr><td colspan="9" class="text-center p-4 text-text-secondary">${message}</td></tr>`;
-        return;
-    }
+    // Actualizar mensaje vacío dinámicamente
+    interfacesTable.emptyMessage = currentInterfaceFilter === 'ppp'
+        ? 'No hay túneles o clientes PPPoE conectados.'
+        : 'No se encontraron interfaces para este filtro.';
 
     filteredInterfaces.sort((a, b) => {
         if (a.type !== b.type) return a.type.localeCompare(b.type);
         return a.name.localeCompare(b.name);
     });
 
-    const rowsHtml = filteredInterfaces.map(iface => {
-        
-        const ip = allModuleIps.find(i => i.interface === iface.name);
-        const interfaceId = iface['.id'] || iface.id;
-        const isDisabled = iface.disabled === 'true' || iface.disabled === true;
-        const isActuallyRunning = (iface.running === 'true' || iface.running === true);
-        
-        const isRunning = isActuallyRunning && !isDisabled;
-        const statusClass = isRunning ? 'status-online' : 'status-offline';
-        
-        const rowClass = isDisabled ? 'opacity-50' : '';
-
-        const canBeDeleted = ['vlan', 'bridge', 'bonding'].includes(iface.type);
-        const canBeDisabled = !['pppoe-out', 'pptp-out', 'l2tp-out'].includes(iface.type);
-        const isManaged = iface.comment && iface.comment.includes('managed by umonitor');
-
-        let actionButtons = '';
-        
-        if (isManaged && (iface.type === 'vlan' || iface.type === 'bridge')) {
-            actionButtons += `<button class="btn-action-icon" data-action="edit" data-id="${interfaceId}" data-type="${iface.type}" title="Editar"><span class="material-symbols-outlined text-primary">edit</span></button>`;
-        }
-
-        if (canBeDisabled) {
-            if (isDisabled) {
-                actionButtons += `<button class="btn-action-icon" data-action="enable" data-id="${interfaceId}" data-type="${iface.type}" title="Habilitar"><span class="material-symbols-outlined text-success">play_circle</span></button>`;
-            } else {
-                actionButtons += `<button class="btn-action-icon" data-action="disable" data-id="${interfaceId}" data-type="${iface.type}" title="Deshabilitar"><span class="material-symbols-outlined text-warning">pause_circle</span></button>`;
-            }
-        }
-        
-        if (canBeDeleted) {
-            actionButtons += `<button class="btn-action-icon" data-action="delete" data-id="${interfaceId}" data-type="${iface.type}" data-name="${iface.name}" title="Eliminar">${DOM_ELEMENTS.deleteIcon}</button>`;
-        }
-
-        const rxBytes = iface['rx-byte'] ? DomUtils.formatBytes(iface['rx-byte']) : '0 Bytes';
-        const txBytes = iface['tx-byte'] ? DomUtils.formatBytes(iface['tx-byte']) : '0 Bytes';
-
-        return `
-            <tr class="${rowClass}">
-                <td class="text-center"><span class="status-indicator ${statusClass}" title="${isDisabled ? 'Disabled' : (isActuallyRunning ? 'Up' : 'Down')}"></span></td>
-                <td>${iface.name}</td>
-                <td><span class="badge bg-light text-dark">${iface.type}</span></td>
-                <td>${iface['mac-address'] || 'N/A'}</td>
-                <td>${ip ? ip.address : '(Dinámica)'}</td>
-                <td class="font-mono">${rxBytes}</td> <td class="font-mono">${txBytes}</td>
-                <td>${iface.uptime || 'N/A'}</td>
-                <td class="flex gap-1">${actionButtons}</td>
-            </tr>
-        `;
-    }).join('');
-
-    DOM_ELEMENTS.interfacesTableBody.innerHTML = rowsHtml;
+    interfacesTable.render(filteredInterfaces, tableContainer);
 }
 
 export function populateInterfaceSelects(interfaces) {
     const selects = document.querySelectorAll('.interface-select');
     if (!selects.length) return;
-    
+
     const options = interfaces.length ? '<option value="">Seleccionar...</option>' + interfaces
-        .filter(i => ['ether', 'bridge', 'vlan', 'wlan'].includes(i.type)) 
+        .filter(i => ['ether', 'bridge', 'vlan', 'wlan'].includes(i.type))
         .map(i => `<option value="${i.name}">${i.name}</option>`).join('') : '<option value="">Error</option>';
-    
+
     selects.forEach(s => s.innerHTML = options);
 }
 
@@ -178,15 +191,9 @@ function closeBridgeModal() {
 
 async function refreshInterfaceData() {
     try {
-        const data = await ApiClient.request(`/api/routers/${CONFIG.currentHost}/full-details`);
-        
-        allModuleInterfaces = data.interfaces || [];
-        allModuleIps = data.ip_addresses || [];
-        allModuleBridgePorts = data.bridge_ports || [];
-        setAllInterfaces(allModuleInterfaces);
-        
-        renderInterfaces();
-        populateInterfaceSelects(allModuleInterfaces); 
+        // En lugar de hacer nuestra propia llamada a full-details,
+        // usamos la función central que ya maneja todo correctamente
+        await window.loadFullDetailsData();
 
     } catch (e) {
         console.error("Error recargando datos de interfaces:", e);
@@ -199,7 +206,7 @@ export async function loadInterfacesData(fullDetails) {
     allModuleIps = fullDetails.ip_addresses || [];
     allModuleBridgePorts = fullDetails.bridge_ports || [];
     setAllInterfaces(allModuleInterfaces);
-    
+
     renderInterfaces();
     populateInterfaceSelects(allModuleInterfaces);
 }
@@ -227,7 +234,7 @@ async function handleInterfaceAction(action, interfaceId, interfaceName = '', in
         switch (action) {
             case 'disable':
                 confirmMessage = `¿Estás seguro de que quieres DESHABILITAR la interfaz ${interfaceName}?`;
-                requestOptions = { method: 'PATCH', body: JSON.stringify({ disable: true }) }; 
+                requestOptions = { method: 'PATCH', body: JSON.stringify({ disable: true }) };
                 successMessage = 'Interfaz deshabilitada con éxito.';
                 break;
             case 'enable':
@@ -245,15 +252,15 @@ async function handleInterfaceAction(action, interfaceId, interfaceName = '', in
         }
 
         DomUtils.confirmAndExecute(confirmMessage, async () => {
-           
+
             const encodedId = encodeURIComponent(interfaceId);
             const encodedType = encodeURIComponent(interfaceType);
             const url = `/api/routers/${host}/interfaces/${encodedId}?type=${encodedType}`;
-            
+
             await ApiClient.request(url, requestOptions);
-            
+
             DomUtils.updateFeedback(successMessage, true);
-            await refreshInterfaceData(); 
+            await refreshInterfaceData();
         });
 
     } catch (e) {
@@ -292,7 +299,7 @@ async function handleBridgeFormSubmit(e) {
     const id = formData.get('id');
     const name = formData.get('name');
     const ports = formData.getAll('ports');
-    
+
     const data = {
         name: name,
         ports: ports,
@@ -329,20 +336,8 @@ export function initInterfacesModule() {
         });
     }
 
-    if (DOM_ELEMENTS.interfacesTableBody) {
-        DOM_ELEMENTS.interfacesTableBody.addEventListener('click', (e) => {
-            const button = e.target.closest('button[data-action]');
-            if (!button) return;
+    // Event delegation for table actions is now handled by TableComponent internally.
 
-            e.preventDefault();
-            const action = button.dataset.action;
-            const id = button.dataset.id;
-            const name = button.dataset.name || id;
-            const type = button.dataset.type; 
-
-            handleInterfaceAction(action, id, name, type);
-        });
-    }
 
     // New event listeners
     DOM_ELEMENTS.addVlanBtn.addEventListener('click', () => openVlanModal());
