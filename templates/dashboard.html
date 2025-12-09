@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - µMonitor Pro{% endblock %}
+
+{% block content %}
+<div class="p-6 lg:p-8 space-y-8">
+
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-3xl font-bold text-text-primary tracking-tight">Dashboard</h2>
+            <p class="text-text-secondary text-sm mt-1">Vista general de la red </p>
+        </div>
+        
+        <button onclick="location.reload()" 
+                class="flex items-center gap-2 px-4 py-2 bg-surface-1 hover:bg-surface-2 border border-border-color rounded-lg text-text-primary text-sm transition-all shadow-lg hover:shadow-primary/20">
+            <span class="material-symbols-outlined text-[20px]">refresh</span>
+            <span>Actualizar</span>
+        </button>
+    </div>
+
+    <div id="summary-cards" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <div class="relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-xl group">
+            <span class="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-primary/5 group-hover:text-primary/10 transition-colors select-none">
+                cell_tower
+            </span>
+
+            <div class="relative z-10 flex justify-between items-start mb-6">
+                <div>
+                    <div class="flex items-center gap-2 text-text-secondary text-sm font-medium uppercase tracking-wider mb-2">
+                        <span class="material-symbols-outlined text-primary">cell_tower</span>
+                        Access Points
+                    </div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="total-aps" class="text-4xl font-bold text-text-primary">--</span>
+                        <span class="text-xs text-text-secondary">Total</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="relative z-10 grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
+                <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
+                    <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Online</p>
+                    <div class="flex items-center gap-2">
+                        <span class="size-2 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
+                        <p id="aps-online" class="text-lg font-bold text-success">--</p>
+                    </div>
+                </div>
+                <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
+                    <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Offline</p>
+                    <div class="flex items-center gap-2">
+                        <span class="size-2 rounded-full bg-danger"></span>
+                        <p id="aps-offline" class="text-lg font-bold text-danger">--</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-xl group">
+            <span class="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-orange/5 group-hover:text-orange/10 transition-colors select-none">
+                router
+            </span>
+
+            <div class="relative z-10 flex justify-between items-start mb-6">
+                <div>
+                    <div class="flex items-center gap-2 text-text-secondary text-sm font-medium uppercase tracking-wider mb-2">
+                        <span class="material-symbols-outlined text-orange">router</span>
+                        CPEs (Clientes)
+                    </div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="total-cpes" class="text-4xl font-bold text-text-primary">--</span>
+                        <span class="text-xs text-text-secondary">Total</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="relative z-10 grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
+                <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
+                    <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Online</p>
+                    <div class="flex items-center gap-2">
+                        <span class="size-2 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
+                        <p id="cpes-online" class="text-lg font-bold text-success">--</p>
+                    </div>
+                </div>
+                <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
+                    <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Offline</p>
+                    <div class="flex items-center gap-2">
+                        <span class="size-2 rounded-full bg-danger"></span>
+                        <p id="cpes-offline" class="text-lg font-bold text-danger">--</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <div class="rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md flex flex-col h-full shadow-lg">
+            <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-surface-1/40">
+                <h3 class="text-lg font-semibold text-text-primary flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">donut_large</span>
+                    Uso de Airtime (Top 5)
+                </h3>
+            </div>
+            <div id="top-airtime-list" class="p-6 space-y-5">
+                <div class="animate-pulse space-y-4 opacity-50">
+                    <div class="h-4 bg-surface-2 rounded w-3/4"></div>
+                    <div class="h-2 bg-surface-2 rounded w-full"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md flex flex-col h-full shadow-lg">
+            <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-surface-1/40">
+                <h3 class="text-lg font-semibold text-text-primary flex items-center gap-2">
+                    <span class="material-symbols-outlined text-warning">signal_wifi_bad</span>
+                    Señal Débil (Top 5)
+                </h3>
+            </div>
+            <div id="top-signal-list" class="p-4">
+                 <div class="animate-pulse space-y-2 opacity-50">
+                    <div class="h-12 bg-surface-2 rounded-lg w-full"></div>
+                    <div class="h-12 bg-surface-2 rounded-lg w-full"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-8 rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-lg">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-white/5 pb-4">
+            
+            <h3 class="text-lg font-semibold text-text-primary flex items-center gap-2">
+                <span class="material-symbols-outlined text-text-secondary">history</span>
+                Bitácora de Eventos
+            </h3>
+
+            <div class="flex items-center gap-2">
+                <label for="log-filter" class="text-xs text-text-secondary uppercase font-bold">Filtrar:</label>
+                <div class="relative">
+                    <select id="log-filter" onchange="loadEventLogs(this.value)" 
+                            class="pl-3 pr-8 py-1.5 bg-surface-2 border border-white/10 rounded-lg text-sm text-text-primary focus:outline-none focus:border-primary appearance-none cursor-pointer w-48 transition-colors hover:border-white/20">
+                        <option value="all">Todos los Dispositivos</option>
+                        </select>
+                    <span class="material-symbols-outlined absolute right-2 top-1.5 text-[18px] pointer-events-none text-text-secondary">arrow_drop_down</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left text-text-secondary">
+            <tbody id="events-log-body">
+                </tbody>
+        </table>
+    </div>
+
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-white/5 px-2">
+        
+        <div class="flex items-center gap-2 text-xs text-text-secondary">
+            <span>Mostrar</span>
+            <select id="logs-page-size" onchange="changeLogPageSize(this.value)" 
+                    class="bg-surface-2 border border-white/10 rounded px-2 py-1 text-text-primary focus:border-primary focus:ring-0 cursor-pointer">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+            </select>
+            <span>por pág.</span>
+        </div>
+
+        <span id="logs-pagination-info" class="text-xs text-text-secondary">
+            Cargando...
+        </span>
+
+        <div class="flex items-center gap-1">
+            <button id="btn-prev-page" onclick="changeLogPage(-1)" disabled
+                    class="p-1 rounded-md hover:bg-surface-2 text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                <span class="material-symbols-outlined">chevron_left</span>
+            </button>
+            <button id="btn-next-page" onclick="changeLogPage(1)" disabled
+                    class="p-1 rounded-md hover:bg-surface-2 text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                <span class="material-symbols-outlined">chevron_right</span>
+            </button>
+        </div>
+    </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/dashboard.js"></script>
+{% endblock %}
