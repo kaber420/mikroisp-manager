@@ -49,7 +49,7 @@ document.addEventListener('alpine:init', () => {
             this.isLoading = false;
 
             // ELIMINADO: this.startAutoRefresh(); 
-            
+
             // NUEVO: Escucha Reactiva Global
             window.addEventListener('data-refresh-needed', () => {
                 // Solo recargamos si el usuario NO está interactuando con un modal
@@ -256,7 +256,7 @@ document.addEventListener('alpine:init', () => {
 
             } catch (error) {
                 console.error('Delete AP error:', error);
-                alert(error.message);
+                showToast(error.message, 'danger');
             }
         },
 

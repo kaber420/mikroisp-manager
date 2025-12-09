@@ -201,7 +201,35 @@
         </main>
 
     </div>
+
+    <!-- Toast Container -->
+    <div x-data x-show="$store.toasts.items.length > 0" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+        <template x-for="toast in $store.toasts.items" :key="toast.id">
+            <div x-show="true"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 transform translate-x-8"
+                 x-transition:enter-end="opacity-100 transform translate-x-0"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 transform translate-x-0"
+                 x-transition:leave-end="opacity-0 transform translate-x-8"
+                 class="pointer-events-auto px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-[280px] max-w-sm backdrop-blur-sm border"
+                 :class="{
+                    'bg-success/90 border-success/50 text-white': toast.type === 'success',
+                    'bg-danger/90 border-danger/50 text-white': toast.type === 'danger',
+                    'bg-warning/90 border-warning/50 text-black': toast.type === 'warning',
+                    'bg-primary/90 border-primary/50 text-white': toast.type === 'primary'
+                 }">
+                <span class="material-symbols-outlined text-xl"
+                      x-text="toast.type === 'success' ? 'check_circle' : toast.type === 'danger' ? 'error' : toast.type === 'warning' ? 'warning' : 'info'"></span>
+                <span class="text-sm font-medium flex-1" x-text="toast.message"></span>
+                <button @click="$store.toasts.remove(toast.id)" class="hover:opacity-70 transition-opacity">
+                    <span class="material-symbols-outlined text-lg">close</span>
+                </button>
+            </div>
+        </template>
+    </div>
     
+    <script src="{{ url_for('static', path='/js/utils/toast.js') }}"></script>
     <script src="{{ url_for('static', path='/js/ws-client.js') }}"></script>
     <script src="//unpkg.com/alpinejs" defer></script>
     

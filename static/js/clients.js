@@ -5,7 +5,7 @@ document.addEventListener('alpine:init', () => {
         isLoading: true,
         isModalOpen: false,
         currentTab: 'info',
-        
+
         // Filtering
         searchQuery: '',
         statusFilter: 'all',
@@ -28,7 +28,7 @@ document.addEventListener('alpine:init', () => {
         pppoePasswordVisible: false,
         servicePlans: [],
         selectedPlan: null,
-        
+
         // --- COMPUTED ---
         get filteredClients() {
             return this.allClients.filter(client => {
@@ -62,7 +62,7 @@ document.addEventListener('alpine:init', () => {
                 this.allClients = await (await fetch('/api/clients')).json();
             } catch (error) {
                 console.error('Failed to load clients', error);
-                alert('Error: Could not load clients.');
+                showToast('Error: Could not load clients.', 'danger');
             }
         },
 
@@ -85,7 +85,7 @@ document.addEventListener('alpine:init', () => {
             this.resetModalState();
             this.loadClients();
         },
-        
+
         resetModalState() {
             this.currentTab = 'info';
             this.isEditing = false;
@@ -98,7 +98,7 @@ document.addEventListener('alpine:init', () => {
             this.routersForSelect = [];
             this.profilesForSelect = [];
             this.pppoePasswordVisible = false;
-            this.servicePlans = []; 
+            this.servicePlans = [];
             this.selectedPlan = null;
         },
 
@@ -128,7 +128,7 @@ document.addEventListener('alpine:init', () => {
 
             const url = this.isEditing ? `/api/clients/${this.currentClient.id}` : '/api/clients';
             const method = this.isEditing ? 'PUT' : 'POST';
-            
+
             try {
                 const response = await fetch(url, {
                     method,
@@ -153,7 +153,7 @@ document.addEventListener('alpine:init', () => {
                 this.clientError = error.message;
             }
         },
-        
+
         async deleteClient(clientId, clientName) {
             if (!confirm(`Are you sure you want to delete client "${clientName}"?`)) return;
             try {
@@ -161,7 +161,7 @@ document.addEventListener('alpine:init', () => {
                 if (!response.ok) throw new Error((await response.json()).detail);
                 this.allClients = this.allClients.filter(c => c.id !== clientId);
             } catch (error) {
-                alert(`Error: ${error.message}`);
+                showToast(`Error: ${error.message}`, 'danger');
             }
         },
 
@@ -182,9 +182,9 @@ document.addEventListener('alpine:init', () => {
                 await fetch(`/api/cpes/${this.selectedCpeToAssign}/assign/${this.currentClient.id}`, { method: 'POST' });
                 await this.loadAssignedCpes(this.currentClient.id);
                 await this.loadUnassignedCpes();
-                await this.loadClients(); 
+                await this.loadClients();
                 this.selectedCpeToAssign = '';
-            } catch (error) { alert(`Error: ${error.message}`); }
+            } catch (error) { showToast(`Error: ${error.message}`, 'danger'); }
         },
         async unassignCpe(cpeMac) {
             if (!confirm('Unassign this CPE?')) return;
@@ -193,7 +193,7 @@ document.addEventListener('alpine:init', () => {
                 await this.loadAssignedCpes(this.currentClient.id);
                 await this.loadUnassignedCpes();
                 await this.loadClients();
-            } catch (error) { alert(`Error: ${error.message}`); }
+            } catch (error) { showToast(`Error: ${error.message}`, 'danger'); }
         },
 
         // Service Form (Tab 2)
@@ -211,7 +211,7 @@ document.addEventListener('alpine:init', () => {
                         this.handlePlanChange();
                     }
                 } else {
-                     this.currentService.pppoe_username = this.currentClient.name.trim().replace(/\s+/g, '.').toLowerCase();
+                    this.currentService.pppoe_username = this.currentClient.name.trim().replace(/\s+/g, '.').toLowerCase();
                 }
             } catch (e) { console.error('Failed to load client service', e); }
         },
@@ -235,14 +235,14 @@ document.addEventListener('alpine:init', () => {
         async loadServicePlans() {
             try {
                 const response = await fetch('/api/plans');
-                if(response.ok) {
-                    this.servicePlans = await response.json(); 
+                if (response.ok) {
+                    this.servicePlans = await response.json();
                 } else {
                     console.error('API endpoint /api/plans failed with status:', response.status);
                     this.servicePlans = [];
                 }
-            } catch (e) { 
-                console.error('Failed to load service plans', e); 
+            } catch (e) {
+                console.error('Failed to load service plans', e);
                 this.servicePlans = [];
             }
         },
@@ -303,22 +303,22 @@ document.addEventListener('alpine:init', () => {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(queuePayload)
                     });
-                    
+
                     if (!routerRes.ok) throw new Error(`Router Error: ${(await routerRes.json()).detail}`);
-                    
+
                     const newQueue = await routerRes.json();
-                    routerResourceId = newQueue.id || newQueue['.id'] || targetIp; 
+                    routerResourceId = newQueue.id || newQueue['.id'] || targetIp;
                     profileNameOrPlan = this.selectedPlan.name;
 
-                // LÓGICA PPPoE (Usa Router Profiles)
+                    // LÓGICA PPPoE (Usa Router Profiles)
                 } else if (service_type === 'pppoe') {
                     const { pppoe_username, password, profile_name } = this.currentService;
                     if (!pppoe_username || !password) {
                         this.serviceError = 'PPPoE Username and Password are required.';
                         return;
                     }
-                    
-                    
+
+
                     const pppoePayload = {
                         username: pppoe_username,
                         password: password,
@@ -327,7 +327,7 @@ document.addEventListener('alpine:init', () => {
                         comment: `Client-ID: ${this.currentClient.id}`
                     };
 
-                    
+
                     const routerRes = await fetch(`/api/routers/${router_host}/pppoe/secrets`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -338,7 +338,7 @@ document.addEventListener('alpine:init', () => {
                         const err = await routerRes.json().catch(() => ({ detail: 'Unknown Router Error' }));
                         throw new Error(`Router Error: ${err.detail}`);
                     }
-                    
+
                     const newSecret = await routerRes.json();
                     routerResourceId = newSecret['.id'];
                     profileNameOrPlan = pppoePayload.profile;
@@ -363,7 +363,7 @@ document.addEventListener('alpine:init', () => {
 
                 if (!serviceRes.ok) throw new Error(`API Error: ${(await serviceRes.json()).detail}`);
 
-                alert('Service saved successfully!');
+                showToast('Service saved successfully!', 'success');
                 this.closeClientModal();
 
             } catch (error) {
@@ -371,7 +371,7 @@ document.addEventListener('alpine:init', () => {
                 this.serviceError = error.message;
             }
         },
-        
+
         getStatusBadgeClass(status) {
             return {
                 'active': 'bg-success/20 text-success',

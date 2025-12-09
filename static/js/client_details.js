@@ -50,14 +50,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const grid = document.getElementById('months-grid');
         const yearDisplay = document.getElementById('current-year-display');
         const hiddenInput = document.getElementById('payment-month');
-        
+
         if (!grid || !yearDisplay) return;
 
         yearDisplay.textContent = currentYear;
         grid.innerHTML = '';
 
         const months = [
-            "Ene", "Feb", "Mar", "Abr", "May", "Jun", 
+            "Ene", "Feb", "Mar", "Abr", "May", "Jun",
             "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
         ];
 
@@ -65,17 +65,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const monthNum = String(index + 1).padStart(2, '0');
             const value = `${currentYear}-${monthNum}`;
             const isPaid = paidMonthsSet.has(value);
-            
+
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = `
                 py-2 px-1 rounded-md text-sm font-semibold border transition-all relative overflow-hidden
-                ${isPaid 
-                    ? 'bg-success/20 border-success text-success cursor-not-allowed opacity-60' 
+                ${isPaid
+                    ? 'bg-success/20 border-success text-success cursor-not-allowed opacity-60'
                     : 'bg-surface-2 border-border-color hover:border-primary hover:text-primary'
                 }
             `;
-            
+
             // Contenido del botón
             if (isPaid) {
                 btn.innerHTML = `${name} <span class="block text-[10px] uppercase">Pagado</span>`;
@@ -87,11 +87,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     grid.querySelectorAll('.selected-month').forEach(b => {
                         b.classList.remove('ring-2', 'ring-primary', 'bg-primary/20', 'selected-month');
                     });
-                    
+
                     // Seleccionar actual
                     btn.classList.add('ring-2', 'ring-primary', 'bg-primary/20', 'selected-month');
                     hiddenInput.value = value;
-                    
+
                     // Calcular y mostrar ciclo
                     calculateCycleDates(value, billingDay);
                 };
@@ -103,25 +103,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LÓGICA DE NEGOCIO: CALCULAR FECHAS ---
     function calculateCycleDates(yearMonth, billingDay) {
         if (!billingDay) billingDay = 1; // Default día 1
-        
+
         // Parsear "2025-11"
         const [year, month] = yearMonth.split('-').map(Number);
-        
+
         // Fecha Inicio: El día de corte del mes seleccionado
         // Nota: En Javascript los meses son 0-index (Enero=0)
         const startDate = new Date(year, month - 1, billingDay);
-        
+
         // Fecha Fin: El día de corte del mes siguiente
         const endDate = new Date(year, month, billingDay);
-        
+
         // Formatear bonito
         const options = { day: 'numeric', month: 'long', year: 'numeric' };
         const startStr = startDate.toLocaleDateString('es-ES', options);
         const endStr = endDate.toLocaleDateString('es-ES', options);
-        
+
         const cycleDatesEl = document.getElementById('cycle-dates');
         const cycleInfoEl = document.getElementById('cycle-info');
-        
+
         if (cycleDatesEl) cycleDatesEl.textContent = `${startStr} al ${endStr}`;
         if (cycleInfoEl) cycleInfoEl.classList.remove('hidden');
     }
@@ -202,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = '<p class="text-text-secondary">Loading history...</p>';
         try {
             const payments = await fetchJSON(`/api/clients/${clientId}/payments`);
-            
+
             // LIMPIAR Y LLENAR EL SET
             paidMonthsSet.clear();
             if (payments) {
@@ -278,12 +278,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify(data)
             });
 
-            alert('Payment registered and service reactivated successfully!');
+            showToast('Payment registered and service reactivated successfully!', 'success');
             document.getElementById('register-payment-form').reset();
             // Resetear selección visual
             document.getElementById('payment-month').value = '';
             document.getElementById('cycle-info').classList.add('hidden');
-            
+
             // Reload both dynamic parts of the page
             loadServiceStatus();
             loadPaymentHistory();
@@ -297,14 +297,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Listeners para cambio de año
     const prevYearBtn = document.getElementById('prev-year-btn');
     const nextYearBtn = document.getElementById('next-year-btn');
-    
+
     if (prevYearBtn) {
         prevYearBtn.addEventListener('click', () => {
             currentYear--;
             renderMonthSelector(clientData?.billing_day);
         });
     }
-    
+
     if (nextYearBtn) {
         nextYearBtn.addEventListener('click', () => {
             currentYear++;
@@ -323,7 +323,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             document.title = `${clientData.name} - Client Details`;
             document.getElementById('main-clientname').textContent = clientData.name;
-            
+
             // Renderizar info básica
             renderClientInfo(clientData);
 
@@ -340,7 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error(error);
             const nameEl = document.getElementById('main-clientname');
             if (nameEl) nameEl.textContent = 'Error Loading Client';
-            alert(`Failed to initialize page: ${error.message}`);
+            showToast(`Failed to initialize page: ${error.message}`, 'danger');
         }
     }
 

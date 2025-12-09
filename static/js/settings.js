@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(errorData.detail || "Failed to load settings");
             }
             const settings = await response.json();
-            
+
             for (const [key, value] of Object.entries(settings)) {
                 const inputElement = document.getElementById(key);
                 if (inputElement) {
@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error("Error loading settings:", error);
-            alert("Could not load settings. Please check the API connection.");
+            showToast("Could not load settings. Please check the API connection.", 'danger');
         }
     }
 
@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const formData = new FormData(settingsForm);
         const settingsData = Object.fromEntries(formData.entries());
-        
+
         try {
             const response = await fetch(`${API_BASE_URL}/api/settings`, {
                 method: 'PUT',
@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 saveStatus.classList.add('hidden');
             }, 3000);
-            
+
         } catch (error) {
             console.error("Error saving settings:", error);
             saveStatus.textContent = `Error: ${error.message}`;
@@ -68,30 +68,30 @@ document.addEventListener('DOMContentLoaded', () => {
             saveSpinner.classList.add('hidden');
         }
     }
-    
+
     // --- Manejo del Botón de Fuerza (Fase 6) ---
     if (forceBillingBtn) {
         forceBillingBtn.addEventListener('click', async () => {
-            if(!confirm("Are you sure? This will update statuses (Active/Pending/Suspended) for ALL clients based on their payments.")) return;
-            
+            if (!confirm("Are you sure? This will update statuses (Active/Pending/Suspended) for ALL clients based on their payments.")) return;
+
             const originalText = forceBillingBtn.innerHTML;
             forceBillingBtn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Processing...';
             forceBillingBtn.disabled = true;
-            
+
             try {
                 const res = await fetch(`${API_BASE_URL}/api/settings/force-billing`, { method: 'POST' });
                 if (!res.ok) throw new Error('Request failed');
                 const data = await res.json();
-                alert(`Done! \nProcessed: ${data.stats.processed}\nActive: ${data.stats.active || 0}\nPending: ${data.stats.pendiente || 0}\nSuspended: ${data.stats.suspended || 0}`);
+                showToast(`Done! Processed: ${data.stats.processed}, Active: ${data.stats.active || 0}, Pending: ${data.stats.pendiente || 0}, Suspended: ${data.stats.suspended || 0}`, 'success', 5000);
             } catch (e) {
-                alert("Error updating statuses: " + e.message);
+                showToast("Error updating statuses: " + e.message, 'danger');
             } finally {
                 forceBillingBtn.innerHTML = originalText;
                 forceBillingBtn.disabled = false;
             }
         });
     }
-    
+
     if (settingsForm) {
         settingsForm.addEventListener('submit', handleSettingsSubmit);
         loadSettings();

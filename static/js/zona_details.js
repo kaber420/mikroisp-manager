@@ -40,14 +40,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`${API_BASE_URL}/api/zonas/${zonaId}/details`);
             if (!response.ok) throw new Error('Zone not found');
             zonaData = await response.json();
-            
+
             renderGeneralInfo();
             renderInfraInfo();
             renderDocuments();
             renderNotes();
         } catch (error) {
             mainZoneName.textContent = 'Error';
-            alert(`Failed to load zone details: ${error.message}`);
+            showToast(`Failed to load zone details: ${error.message}`, 'danger');
         }
     }
 
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('zona-coordenadas').value = zonaData.coordenadas_gps || '';
         document.getElementById('zona-direccion').value = zonaData.direccion || '';
     }
-    
+
     function renderInfraInfo() {
         if (!zonaData || !zonaData.infraestructura) return;
         const infra = zonaData.infraestructura;
@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('infra-equipos').value = infra.equipos_criticos || '';
         document.getElementById('infra-mantenimiento').value = infra.proximo_mantenimiento || '';
     }
-    
+
     function renderDocuments() {
         const gallery = document.getElementById('document-gallery');
         gallery.innerHTML = '';
@@ -80,19 +80,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const grid = document.createElement('div');
         grid.className = 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4';
-        
+
         zonaData.documentos.forEach(doc => {
             const isImage = doc.tipo === 'image';
             const fileUrl = `/uploads/zonas/${doc.zona_id}/${doc.nombre_guardado}`;
-            
+
             const card = document.createElement('div');
             card.className = 'bg-surface-2 rounded-lg p-3 text-center space-y-2';
             card.innerHTML = `
                 <div class="flex items-center justify-center h-24 bg-background rounded-md">
-                    ${isImage ? 
-                        `<img src="${fileUrl}" alt="${doc.descripcion || 'Image'}" class="max-h-full max-w-full object-contain">` :
-                        `<span class="material-symbols-outlined text-5xl text-text-secondary">description</span>`
-                    }
+                    ${isImage ?
+                    `<img src="${fileUrl}" alt="${doc.descripcion || 'Image'}" class="max-h-full max-w-full object-contain">` :
+                    `<span class="material-symbols-outlined text-5xl text-text-secondary">description</span>`
+                }
                 </div>
                 <p class="text-sm font-medium truncate" title="${doc.nombre_original}">${doc.nombre_original}</p>
                 <div class="flex justify-center gap-2">
@@ -118,8 +118,8 @@ document.addEventListener('DOMContentLoaded', () => {
         zonaData.notes.forEach(note => {
             const card = document.createElement('div');
             card.className = 'bg-surface-1 rounded-lg border border-border-color p-4 flex justify-between items-start';
-            
-            const contentPreview = note.is_encrypted 
+
+            const contentPreview = note.is_encrypted
                 ? '<p class="text-text-secondary italic">This note is encrypted.</p>'
                 : marked.parse(note.content.substring(0, 200) + (note.content.length > 200 ? '...' : ''));
 
@@ -196,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
             is_encrypted: noteIsEncryptedInput.checked,
         };
 
-        const url = noteId 
+        const url = noteId
             ? `${API_BASE_URL}/api/zonas/notes/${noteId}`
             : `${API_BASE_URL}/api/zonas/${zonaId}/notes`;
         const method = noteId ? 'PUT' : 'POST';
@@ -211,13 +211,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const err = await response.json();
                 throw new Error(err.detail || 'Failed to save note');
             }
-            
+
             closeNoteModal();
             await loadAllDetails(); // Reload all data to get the updated notes list
-            alert('Note saved successfully!');
+            showToast('Note saved successfully!', 'success');
 
         } catch (error) {
-            alert(`Error saving note: ${error.message}`);
+            showToast(`Error saving note: ${error.message}`, 'danger');
         }
     });
 
@@ -231,9 +231,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(err.detail || 'Failed to delete note');
             }
             await loadAllDetails();
-            alert('Note deleted successfully!');
+            showToast('Note deleted successfully!', 'success');
         } catch (error) {
-            alert(`Error deleting note: ${error.message}`);
+            showToast(`Error deleting note: ${error.message}`, 'danger');
         }
     }
 
@@ -241,17 +241,17 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const formData = new FormData(e.target);
         const data = Object.fromEntries(formData.entries());
-        
+
         try {
             await fetch(`${API_BASE_URL}/api/zonas/${zonaId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            alert('General info saved!');
+            showToast('General info saved!', 'success');
             loadAllDetails();
         } catch (error) {
-            alert(`Error saving: ${error.message}`);
+            showToast(`Error saving: ${error.message}`, 'danger');
         }
     });
 
@@ -260,24 +260,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData(e.target);
         const data = Object.fromEntries(formData.entries());
         data.zona_id = zonaId; // La API lo requiere en el body
-        
+
         try {
             await fetch(`${API_BASE_URL}/api/zonas/${zonaId}/infraestructura`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            alert('Infrastructure data saved!');
+            showToast('Infrastructure data saved!', 'success');
             loadAllDetails();
         } catch (error) {
-            alert(`Error saving: ${error.message}`);
+            showToast(`Error saving: ${error.message}`, 'danger');
         }
     });
 
     document.getElementById('form-docs').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
-        
+
         try {
             const response = await fetch(`${API_BASE_URL}/api/zonas/${zonaId}/documentos`, {
                 method: 'POST',
@@ -288,13 +288,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(err.detail || 'Failed to upload');
             }
             e.target.reset();
-            alert('File uploaded successfully!');
+            showToast('File uploaded successfully!', 'success');
             loadAllDetails();
         } catch (error) {
-            alert(`Error uploading file: ${error.message}`);
+            showToast(`Error uploading file: ${error.message}`, 'danger');
         }
     });
-    
+
     // --- Event Delegation for Delete Buttons ---
     document.getElementById('document-gallery').addEventListener('click', async (e) => {
         if (e.target.classList.contains('delete-doc-btn')) {
@@ -302,10 +302,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (confirm('Are you sure you want to delete this document?')) {
                 try {
                     await fetch(`${API_BASE_URL}/api/documentos/${docId}`, { method: 'DELETE' });
-                    alert('Document deleted.');
+                    showToast('Document deleted.', 'success');
                     loadAllDetails();
                 } catch (error) {
-                    alert(`Error deleting document: ${error.message}`);
+                    showToast(`Error deleting document: ${error.message}`, 'danger');
                 }
             }
         }
