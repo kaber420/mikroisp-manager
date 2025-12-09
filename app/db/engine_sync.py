@@ -2,9 +2,11 @@
 """
 MOTOR SÍNCRONO - Para toda la aplicación existente.
 Este es el engine que usa SQLite de forma síncrona como antes.
+Configurado con WAL mode para mejorar concurrencia.
 """
 import os
 from sqlmodel import SQLModel, Session, create_engine
+from sqlalchemy import event
 from typing import Generator
 
 # Read database path from environment or use default
@@ -15,6 +17,14 @@ DATABASE_URL = f"sqlite:///{DATABASE_FILE}"
 sync_engine = create_engine(
     DATABASE_URL, echo=False, connect_args={"check_same_thread": False}
 )
+
+
+# Activar WAL mode para mejorar concurrencia y evitar "database is locked"
+@event.listens_for(sync_engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL;")
+    cursor.close()
 
 
 def get_sync_session() -> Generator[Session, None, None]:
