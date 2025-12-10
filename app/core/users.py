@@ -119,3 +119,39 @@ fastapi_users = FastAPIUsers[User, uuid.UUID](
 current_active_user = fastapi_users.current_user(active=True)
 current_superuser = fastapi_users.current_user(active=True, superuser=True)
 current_verified_user = fastapi_users.current_user(active=True, verified=True)
+
+
+# --- Role-Based Access Control ---
+# Valid role values (use lowercase strings for DB compatibility)
+VALID_ROLES = ["admin", "technician", "billing"]
+
+
+class RoleChecker:
+    """
+    Dependency class to check if the current user has one of the allowed roles.
+    
+    Usage:
+        @router.get("/admin-only")
+        def admin_endpoint(user: User = Depends(RoleChecker(["admin"]))):
+            ...
+    """
+    
+    def __init__(self, allowed_roles: list[str]):
+        self.allowed_roles = allowed_roles
+    
+    def __call__(self, user: User = Depends(current_active_user)) -> User:
+        from fastapi import HTTPException, status
+        
+        if user.role not in self.allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Required role: {', '.join(self.allowed_roles)}. Your role: {user.role}"
+            )
+        return user
+
+
+# Pre-configured role checkers for common use cases
+require_admin = RoleChecker(["admin"])
+require_technician = RoleChecker(["admin", "technician"])
+require_billing = RoleChecker(["admin", "billing"])
+

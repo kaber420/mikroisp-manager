@@ -3,10 +3,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlmodel import Session
 
-from ...auth import User as AuthUser, get_current_active_user
+from ...core.users import require_admin
 from ...db.engine_sync import get_sync_session
 from ...services.user_service import UserService
 from ...schemas.user import UserRead, UserCreate, UserUpdate
+from ...models.user import User
 
 router = APIRouter()
 
@@ -20,7 +21,7 @@ def get_user_service(session: Session = Depends(get_sync_session)) -> UserServic
 @router.get("/users", response_model=List[UserRead])
 def api_get_all_users(
     service: UserService = Depends(get_user_service),
-    current_user: AuthUser = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
 ):
     return service.get_all_users()
 
@@ -29,7 +30,7 @@ def api_get_all_users(
 def api_create_user(
     user_data: UserCreate,
     service: UserService = Depends(get_user_service),
-    current_user: AuthUser = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
 ):
     try:
         return service.create_user(user_data)
@@ -42,7 +43,7 @@ def api_update_user(
     username: str,
     user_data: UserUpdate,
     service: UserService = Depends(get_user_service),
-    current_user: AuthUser = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
 ):
     try:
         return service.update_user(username, user_data)
@@ -54,7 +55,7 @@ def api_update_user(
 def api_delete_user(
     username: str,
     service: UserService = Depends(get_user_service),
-    current_user: AuthUser = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
 ):
     if username == current_user.username:
         raise HTTPException(
