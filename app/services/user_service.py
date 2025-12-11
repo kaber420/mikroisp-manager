@@ -6,7 +6,7 @@ from fastapi import HTTPException
 # Importamos los modelos y esquemas modernos
 from ..models.user import User
 from ..schemas.user import UserCreate, UserUpdate
-from ..auth import get_password_hash
+from fastapi_users.password import PasswordHelper
 
 
 class UserService:
@@ -26,7 +26,7 @@ class UserService:
         if existing_user:
             raise ValueError("El nombre de usuario ya existe.")
 
-        hashed_password = get_password_hash(user_create.password)
+        hashed_password = PasswordHelper().hash(user_create.password)
 
         # Crear instancia del modelo manualmente
         db_user = User(
@@ -62,7 +62,7 @@ class UserService:
             db_user.is_active = not is_disabled
 
         if "password" in update_data and update_data["password"]:
-            hashed = get_password_hash(update_data.pop("password"))
+            hashed = PasswordHelper().hash(update_data.pop("password"))
             db_user.hashed_password = hashed
 
         for key, value in update_data.items():

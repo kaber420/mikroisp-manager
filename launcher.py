@@ -171,7 +171,7 @@ if __name__ == "__main__":
     check_and_create_first_user()
 
     # D. Arrancar
-    port = os.getenv("UVICORN_PORT", "8000")
+    port = os.getenv("UVICORN_PORT", "7777")
     print("-" * 50)
     print(f"🚀 µMonitor Pro arrancando en: http://localhost:{port}")
     print(f"ℹ️  Para cambiar el puerto, usa: python launcher.py --config")

@@ -8,7 +8,8 @@ from ...services.router_service import (
     get_router_service,
     RouterCommandError,
 )  # <-- LÍNEA CAMBIADA
-from ...auth import User, get_current_active_user
+from ...models.user import User
+from ...core.users import current_active_user as get_current_active_user
 
 # --- FIN DE CORRECCIÓN ---
 
