@@ -177,7 +177,7 @@ if __name__ == "__main__":
     print(f"ℹ️  Para cambiar el puerto, usa: python launcher.py --config")
     print("-" * 50)
     
-    # --- CORRECCIÓN AQUÍ: Importar ANTES de definir el proceso ---
+    
     from app.scheduler import run_scheduler
     
     p_api = multiprocessing.Process(target=start_api_server, name="API")

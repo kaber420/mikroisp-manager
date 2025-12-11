@@ -119,7 +119,7 @@ const handleAddParentQueue = async (e) => {
             name: formData.get('name'),
             max_limit: formData.get('max_limit'),
             target: formData.get('target'),
-            comment: `Managed by µMonitor: ${formData.get('name')}`,
+            comment: `Managed by µMonitor: ${formData.get('name')}${isParent ? ' [PARENT]' : ''}`,
             is_parent: isParent
         };
 
