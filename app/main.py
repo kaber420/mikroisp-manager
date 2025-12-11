@@ -113,6 +113,58 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
 
 # ============================================================================
+# --- SEGURIDAD: ORIGIN SHIELD (Protección CSRF por verificación de origen)
+# ============================================================================
+from starlette.middleware.base import BaseHTTPMiddleware
+from urllib.parse import urlparse
+
+
+class TrustedOriginMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware that enforces origin checking for state-changing HTTP methods.
+    Blocks POST, PUT, DELETE, PATCH requests that don't originate from trusted origins.
+    This provides CSRF protection without requiring tokens in the frontend.
+    """
+
+    UNSAFE_METHODS = {"POST", "PUT", "DELETE", "PATCH"}
+
+    async def dispatch(self, request: Request, call_next):
+        if request.method in self.UNSAFE_METHODS:
+            origin = request.headers.get("origin")
+            referer = request.headers.get("referer")
+
+            # Determine the source of the request
+            request_origin = None
+            if origin:
+                request_origin = origin
+            elif referer:
+                parsed = urlparse(referer)
+                request_origin = f"{parsed.scheme}://{parsed.netloc}"
+
+            # If no origin info at all (e.g., direct curl without headers), allow.
+            # This is for internal/API tools. Browser attacks ALWAYS send Origin/Referer.
+            if request_origin:
+                # Normalize and check against allowed origins
+                is_trusted = False
+                for allowed in origins:  # 'origins' from CORS config
+                    if request_origin == allowed or request_origin.rstrip("/") == allowed.rstrip("/"):
+                        is_trusted = True
+                        break
+
+                if not is_trusted:
+                    print(f"🛡️ [Origin Shield] BLOCKED request from untrusted origin: {request_origin}")
+                    return JSONResponse(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        content={"detail": "Forbidden: Invalid origin"}
+                    )
+
+        return await call_next(request)
+
+
+app.add_middleware(TrustedOriginMiddleware)
+
+
+# ============================================================================
 # --- SEGURIDAD: CABECERAS DE SEGURIDAD HTTP ---
 # ============================================================================
 @app.middleware("http")
