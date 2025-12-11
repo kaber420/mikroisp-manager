@@ -55,7 +55,7 @@
 
     <div x-data="{ collapsed: localStorage.getItem('sidebarCollapsed') === 'true' }"
         x-init="$watch('collapsed', val => localStorage.setItem('sidebarCollapsed', val))"
-        class="flex min-h-screen relative z-10">
+        class="flex h-screen overflow-hidden relative z-10">
 
         <aside class="bg-surface-1 flex-shrink-0 flex flex-col transition-all duration-300 ease-in-out relative"
             :class="collapsed ? 'w-20' : 'w-64'">
@@ -237,7 +237,7 @@
             </div>
         </aside>
 
-        <main class="flex-grow overflow-x-hidden">
+        <main class="flex-grow overflow-x-hidden overflow-y-auto">
             {% block content %}{% endblock %}
         </main>
 
