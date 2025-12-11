@@ -1,5 +1,5 @@
 # app/api/zonas/main.py
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, Request
 from typing import List, Optional
 
 from ...core.users import require_technician
@@ -82,13 +82,16 @@ def update_zona(
 @router.delete("/zonas/{zona_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_zona(
     zona_id: int,
+    request: Request,
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
 ):
+    from ...core.audit import log_action
     try:
         service.delete_zona(zona_id)
+        log_action("DELETE", "zona", str(zona_id), user=current_user, request=request)
         return
-    except ValueError as e:  # Constraint error
+    except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -180,11 +183,14 @@ def update_note(
 @router.delete("/zonas/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_note(
     note_id: int,
+    request: Request,
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
 ):
+    from ...core.audit import log_action
     try:
         service.delete_note(note_id)
+        log_action("DELETE", "zona_note", str(note_id), user=current_user, request=request)
         return
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -195,11 +201,14 @@ def delete_note(
 @router.delete("/documentos/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_documento(
     doc_id: int,
+    request: Request,
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
 ):
+    from ...core.audit import log_action
     try:
         service.delete_documento(doc_id)
+        log_action("DELETE", "documento", str(doc_id), user=current_user, request=request)
         return
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))

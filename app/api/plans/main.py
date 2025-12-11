@@ -1,5 +1,5 @@
 # app/api/plans/main.py
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from typing import List, Optional
 from pydantic import BaseModel
 from sqlmodel import Session
@@ -68,9 +68,12 @@ def create_plan(
 
 @router.delete("/plans/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_plan(
-    plan_id: int, 
+    plan_id: int,
+    request: Request,
     service: PlanService = Depends(get_plan_service),
     current_user: User = Depends(require_admin)
 ):
+    from ...core.audit import log_action
     service.delete_plan(plan_id)
+    log_action("DELETE", "plan", str(plan_id), user=current_user, request=request)
     return

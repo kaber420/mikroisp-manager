@@ -6,6 +6,7 @@ from fastapi import (
     status,
     WebSocket,
     WebSocketDisconnect,
+    Request,
 )
 from typing import List
 import ssl
@@ -188,12 +189,15 @@ async def update_router(
 @router.delete("/routers/{host}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_router(
     host: str, 
+    request: Request,
     current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session)
 ):
+    from ...core.audit import log_action
     success = await delete_router_service(session, host)
     if not success:
         raise HTTPException(status_code=404, detail="Router not found to delete.")
+    log_action("DELETE", "router", host, user=current_user, request=request)
     return
 
 

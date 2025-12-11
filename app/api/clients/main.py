@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from typing import List
 from sqlmodel import Session
 
@@ -93,11 +93,14 @@ def api_update_client(
 @router.delete("/clients/{client_id}", status_code=status.HTTP_204_NO_CONTENT)
 def api_delete_client(
     client_id: int,
+    request: Request,
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
 ):
+    from ...core.audit import log_action
     try:
         service.delete_client(client_id)
+        log_action("DELETE", "client", str(client_id), user=current_user, request=request)
         return
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))

@@ -1,5 +1,5 @@
 # app/api/routers/system.py
-from fastapi import APIRouter, Depends, HTTPException, status, Query  # <-- AÑADIR Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from typing import List, Dict, Any
 
 from ...services.router_service import (
@@ -84,11 +84,15 @@ def api_create_backup(
 @router.delete("/system/files/{file_id:path}", status_code=status.HTTP_204_NO_CONTENT)
 def api_remove_backup_file(
     file_id: str,
+    host: str,
+    request: Request,
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
 ):
+    from ...core.audit import log_action
     try:
         service.remove_file(file_id)
+        log_action("DELETE", "backup_file", f"{host}/{file_id}", user=user, request=request)
         return
     except RouterCommandError as e:
         raise HTTPException(
@@ -124,11 +128,15 @@ def api_create_router_user(
 @router.delete("/system/users/{user_id:path}", status_code=status.HTTP_204_NO_CONTENT)
 def api_remove_router_user(
     user_id: str,
+    host: str,
+    request: Request,
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
 ):
+    from ...core.audit import log_action
     try:
         service.remove_router_user(user_id)
+        log_action("DELETE", "router_user", f"{host}/{user_id}", user=user, request=request)
         return
     except RouterCommandError as e:
         raise HTTPException(
@@ -168,16 +176,19 @@ def api_set_interface_status(
 )
 def api_remove_interface(
     interface_id: str,
+    host: str,
+    request: Request,
     type: str = Query(
         ..., description="El tipo de interfaz, ej. 'vlan', 'bridge'"
-    ),  # <-- AÑADIDO
+    ),
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
 ):
     """Elimina una interfaz (VLAN, Bridge, etc.)."""
+    from ...core.audit import log_action
     try:
-        # Pasar el tipo al servicio
-        service.remove_interface(interface_id, interface_type=type)  # <-- AÑADIDO
+        service.remove_interface(interface_id, interface_type=type)
+        log_action("DELETE", "interface", f"{host}/{interface_id}", user=user, request=request, details={"type": type})
         return
     except (RouterCommandError, ValueError) as e:
         raise HTTPException(

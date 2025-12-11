@@ -1,5 +1,5 @@
 # app/api/users/main.py
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from typing import List
 from sqlmodel import Session
 
@@ -54,14 +54,17 @@ def api_update_user(
 @router.delete("/users/{username}", status_code=status.HTTP_204_NO_CONTENT)
 def api_delete_user(
     username: str,
+    request: Request,
     service: UserService = Depends(get_user_service),
     current_user: User = Depends(require_admin),
 ):
+    from ...core.audit import log_action
     if username == current_user.username:
         raise HTTPException(
             status_code=403, detail="No puedes eliminar tu propia cuenta."
         )
     try:
         service.delete_user(username)
+        log_action("DELETE", "user", username, user=current_user, request=request)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")

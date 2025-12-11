@@ -1,5 +1,5 @@
 # app/api/aps/main.py
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -94,11 +94,14 @@ async def update_ap(
 @router.delete("/aps/{host}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_ap(
     host: str,
+    request: Request,
     service: APService = Depends(get_ap_service),
     current_user: User = Depends(require_technician),
 ):
+    from ...core.audit import log_action
     try:
         await service.delete_ap(host)
+        log_action("DELETE", "ap", host, user=current_user, request=request)
         return
     except APNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
