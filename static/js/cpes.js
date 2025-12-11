@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 cpe.cpe_mac.toLowerCase().includes(term) ||
                 (cpe.ip_address && cpe.ip_address.toLowerCase().includes(term));
         });
-        
+
         // Ordenamos los CPEs por señal, de más débil a más fuerte
         filteredCPEs.sort((a, b) => (a.signal || -100) - (b.signal || -100));
 
@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const status = getStatusFromSignal(cpe.signal);
                 const signalStrength = cpe.signal != null ? `${cpe.signal} dBm` : 'N/A';
-                
+
                 const apLink = cpe.ap_host ? `<a href="/ap/${cpe.ap_host}" class="text-primary hover:underline">${cpe.ap_hostname || cpe.ap_host}</a>` : 'N/A';
 
                 row.innerHTML = `
@@ -112,25 +112,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }, 300);
     }
-    
-    async function initializeAutoRefresh() {
-        try {
-            const settingsResponse = await fetch(`${API_BASE_URL}/api/settings`);
-            if (!settingsResponse.ok) throw new Error('Could not fetch settings');
-            const settings = await settingsResponse.json();
-            const refreshIntervalSeconds = parseInt(settings.dashboard_refresh_interval, 10);
 
-            if (refreshIntervalSeconds && refreshIntervalSeconds > 0) {
-                if (refreshIntervalId) clearInterval(refreshIntervalId);
-                refreshIntervalId = setInterval(loadAllCPEs, refreshIntervalSeconds * 1000);
-                console.log(`CPEs page auto-refresh configured for every ${refreshIntervalSeconds} seconds.`);
-            } else {
-                console.log('CPEs page auto-refresh is disabled.');
-            }
-        } catch (error) {
-            console.error("Could not load settings for auto-refresh. It will be disabled.", error);
-        }
-    }
+    // --- ESCUCHA REACTIVA: Actualizar solo cuando el monitor guarda nuevos datos ---
+    window.addEventListener('data-refresh-needed', () => {
+        console.log("⚡ CPEs: Recargando lista por actualización en vivo.");
+        loadAllCPEs();
+    });
 
     // --- INICIALIZACIÓN ---
     if (searchInput) {
@@ -141,5 +128,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     loadAllCPEs();
-    initializeAutoRefresh();
 });

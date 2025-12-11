@@ -324,6 +324,9 @@ def _setup_stats_db():
         "CREATE INDEX IF NOT EXISTS idx_cpe_stats_mac ON cpe_stats_history (cpe_mac);"
     )
     cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_cpe_stats_mac_ts ON cpe_stats_history (cpe_mac, timestamp DESC);"
+    )
+    cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_cpe_stats_ip ON cpe_stats_history (ip_address);"
     )
     cursor.execute(
