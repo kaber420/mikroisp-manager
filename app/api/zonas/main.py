@@ -2,7 +2,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
 from typing import List, Optional
 
-from ...auth import User, get_current_active_user
+from ...core.users import require_technician
+from ...models.user import User
 from ...services.zone_service import ZoneService
 from ...db.engine_sync import get_sync_session
 from sqlmodel import Session
@@ -31,7 +32,7 @@ def get_zone_service(session: Session = Depends(get_sync_session)) -> ZoneServic
 def create_zona(
     zona: ZonaCreate,
     service: ZoneService = Depends(get_zone_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         new_zona = service.create_zona(zona.nombre)
@@ -43,7 +44,7 @@ def create_zona(
 @router.get("/zonas", response_model=List[Zona])
 def get_all_zonas(
     service: ZoneService = Depends(get_zone_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     return service.get_all_zonas()
 
@@ -52,7 +53,7 @@ def get_all_zonas(
 def get_zona(
     zona_id: int,
     service: ZoneService = Depends(get_zone_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         zona = service.get_zona(zona_id)
@@ -66,7 +67,7 @@ def update_zona(
     zona_id: int,
     zona_update: ZonaUpdate,
     service: ZoneService = Depends(get_zone_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     updates = zona_update.model_dump(exclude_unset=True)
     try:
@@ -82,7 +83,7 @@ def update_zona(
 def delete_zona(
     zona_id: int,
     service: ZoneService = Depends(get_zone_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         service.delete_zona(zona_id)
@@ -98,7 +99,7 @@ def delete_zona(
 def get_zona_details(
     zona_id: int,
     service: ZoneService = Depends(get_zone_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         return service.get_zona_details(zona_id)
@@ -111,7 +112,7 @@ def update_infraestructura(
     zona_id: int,
     infra_update: ZonaInfra,
     service: ZoneService = Depends(get_zone_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     update_data = infra_update.model_dump(exclude={"id", "zona_id"}, exclude_unset=True)
     updated_infra = service.update_infraestructura(zona_id, update_data)
@@ -128,7 +129,7 @@ async def upload_documento(
     file: UploadFile = File(...),
     descripcion: Optional[str] = Form(None),
     service: ZoneService = Depends(get_zone_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         new_doc = await service.upload_documento(zona_id, file, descripcion)
@@ -147,7 +148,7 @@ def create_note(
     zona_id: int,
     note: ZonaNoteCreate,
     service: ZoneService = Depends(get_zone_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         new_note = service.create_note_for_zona(
@@ -163,7 +164,7 @@ def update_note(
     note_id: int,
     note: ZonaNoteUpdate,
     service: ZoneService = Depends(get_zone_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         updated_note = service.update_note(
@@ -180,7 +181,7 @@ def update_note(
 def delete_note(
     note_id: int,
     service: ZoneService = Depends(get_zone_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         service.delete_note(note_id)
@@ -195,7 +196,7 @@ def delete_note(
 def delete_documento(
     doc_id: int,
     service: ZoneService = Depends(get_zone_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         service.delete_documento(doc_id)

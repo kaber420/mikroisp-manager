@@ -5,8 +5,9 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...db.engine import get_session
 
-# --- ¡IMPORTACIONES CORREGIDAS! (Ahora con '...') ---
-from ...auth import User, get_current_active_user
+# --- RBAC: Use require_technician for all AP operations ---
+from ...core.users import require_technician
+from ...models.user import User
 from ...services.ap_service import (
     APService,
     APNotFoundError,
@@ -41,7 +42,7 @@ async def get_ap_service(session: AsyncSession = Depends(get_session)) -> APServ
 async def create_ap(
     ap: APCreate,
     service: APService = Depends(get_ap_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         new_ap_data = await service.create_ap(ap)
@@ -55,7 +56,7 @@ async def create_ap(
 @router.get("/aps", response_model=List[AP])
 async def get_all_aps(
     service: APService = Depends(get_ap_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     aps_data = await service.get_all_aps()
     return [AP(**ap) for ap in aps_data]
@@ -65,7 +66,7 @@ async def get_all_aps(
 async def get_ap(
     host: str,
     service: APService = Depends(get_ap_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         ap_data = await service.get_ap_by_host(host)
@@ -79,7 +80,7 @@ async def update_ap(
     host: str,
     ap_update: APUpdate,
     service: APService = Depends(get_ap_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         updated_ap_data = await service.update_ap(host, ap_update)
@@ -94,7 +95,7 @@ async def update_ap(
 async def delete_ap(
     host: str,
     service: APService = Depends(get_ap_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         await service.delete_ap(host)
@@ -107,7 +108,7 @@ async def delete_ap(
 def get_cpes_for_ap(
     host: str,
     service: APService = Depends(get_ap_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     cpes_data = service.get_cpes_for_ap(host)
     return [CPEDetail(**cpe) for cpe in cpes_data]
@@ -117,7 +118,7 @@ def get_cpes_for_ap(
 async def get_ap_live_data(
     host: str,
     service: APService = Depends(get_ap_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         return await service.get_live_data(host)
@@ -132,7 +133,7 @@ async def get_ap_history(
     host: str,
     period: str = "24h",
     service: APService = Depends(get_ap_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         return await service.get_ap_history(host, period)

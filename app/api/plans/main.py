@@ -4,7 +4,8 @@ from typing import List, Optional
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from ...auth import User, get_current_active_user
+from ...core.users import require_admin, require_technician
+from ...models.user import User
 from ...db.engine_sync import get_sync_session
 from ...services.plan_service import PlanService
 from ...models.plan import Plan as PlanModel  # Importamos el modelo de DB
@@ -35,7 +36,7 @@ def get_plan_service(session: Session = Depends(get_sync_session)) -> PlanServic
 @router.get("/plans", response_model=List[PlanResponse])
 def get_all_plans(
     service: PlanService = Depends(get_plan_service),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(require_technician)
 ):
     """Obtiene todos los planes de la base de datos."""
     return service.get_all_plans()
@@ -44,7 +45,7 @@ def get_all_plans(
 def get_plans_by_router(
     router_host: str, 
     service: PlanService = Depends(get_plan_service),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(require_technician)
 ):
     plans = service.get_plans_by_router(router_host)
     # Mapeamos manualmente router_name si es necesario, o dejamos que sea null
@@ -56,7 +57,7 @@ def get_plans_by_router(
 def create_plan(
     plan: PlanCreate, 
     service: PlanService = Depends(get_plan_service),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(require_admin)
 ):
     try:
         new_plan = service.create_plan(plan.model_dump())
@@ -69,7 +70,7 @@ def create_plan(
 def delete_plan(
     plan_id: int, 
     service: PlanService = Depends(get_plan_service),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(require_admin)
 ):
     service.delete_plan(plan_id)
     return

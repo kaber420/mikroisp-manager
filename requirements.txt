@@ -19,3 +19,5 @@ google-auth-httplib2
 google-auth-oauthlib
 slowapi
 python-dateutil
+fastapi-csrf-protect
+pydantic-settings

@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlmodel import Session
 
-from ...auth import User, get_current_active_user
+from ...core.users import require_billing
+from ...models.user import User
 from ...db.engine_sync import get_sync_session
 
 # Import service classes
@@ -42,7 +43,7 @@ def get_billing_service(session: Session = Depends(get_sync_session)) -> Billing
 @router.get("/clients", response_model=List[Client])
 def api_get_all_clients(
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     return service.get_all_clients()
 
@@ -51,7 +52,7 @@ def api_get_all_clients(
 def api_get_client(
     client_id: int,
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     try:
         return service.get_client_by_id(client_id)
@@ -63,7 +64,7 @@ def api_get_client(
 def api_create_client(
     client: ClientCreate,
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     try:
         new_client = service.create_client(client.model_dump())
@@ -77,7 +78,7 @@ def api_update_client(
     client_id: int,
     client_update: ClientUpdate,
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     update_fields = client_update.model_dump(exclude_unset=True)
     try:
@@ -93,7 +94,7 @@ def api_update_client(
 def api_delete_client(
     client_id: int,
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     try:
         service.delete_client(client_id)
@@ -106,7 +107,7 @@ def api_delete_client(
 def api_get_cpes_for_client(
     client_id: int,
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     return service.get_cpes_for_client(client_id)
 
@@ -122,7 +123,7 @@ def api_create_client_service(
     client_id: int,
     service_data: ClientServiceCreate,
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     try:
         new_service = service.create_client_service(
@@ -139,7 +140,7 @@ def api_create_client_service(
 def api_get_client_services(
     client_id: int,
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     return service.get_client_services(client_id)
 
@@ -156,7 +157,7 @@ def api_register_payment_and_reactivate(
     payment: PaymentCreate,
     billing_service: BillingService = Depends(get_billing_service),
     payment_service: PaymentService = Depends(get_payment_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     """
     Register a payment and execute reactivation logic (if applicable).
@@ -186,7 +187,7 @@ def api_register_payment_and_reactivate(
 def api_get_payment_history(
     client_id: int,
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     return service.get_payment_history(client_id)
 

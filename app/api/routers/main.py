@@ -13,8 +13,8 @@ from routeros_api import RouterOsApiPool
 import asyncio
 import logging
 
-from ...auth import User, get_current_active_user
-from ...auth import User, get_current_active_user
+from ...core.users import require_admin, require_technician
+from ...models.user import User
 from ...db import settings_db
 from ...db.engine import get_session
 from ...services.monitor_service import MonitorService
@@ -129,7 +129,7 @@ async def router_resources_stream(websocket: WebSocket, host: str):
 # --- Endpoints CRUD (Gestión de Routers en BD) ---
 @router.get("/routers", response_model=List[RouterResponse])
 async def get_all_routers(
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
     session: AsyncSession = Depends(get_session)
 ):
     return await get_all_routers_service(session)
@@ -138,7 +138,7 @@ async def get_all_routers(
 @router.get("/routers/{host}", response_model=RouterResponse)
 async def get_router(
     host: str, 
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
     session: AsyncSession = Depends(get_session)
 ):
     router_data = await get_router_by_host_service(session, host)
@@ -152,7 +152,7 @@ async def get_router(
 )
 async def create_router(
     router_data: RouterCreate, 
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session)
 ):
     try:
@@ -168,7 +168,7 @@ async def create_router(
 async def update_router(
     host: str,
     router_data: RouterUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session)
 ):
     update_fields = router_data.model_dump(exclude_unset=True)
@@ -188,7 +188,7 @@ async def update_router(
 @router.delete("/routers/{host}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_router(
     host: str, 
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session)
 ):
     success = await delete_router_service(session, host)
@@ -201,7 +201,7 @@ async def delete_router(
 async def provision_router_endpoint(
     host: str,
     data: ProvisionRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session)
 ):
     creds = await get_router_by_host_service(session, host)
@@ -266,7 +266,7 @@ router.include_router(interfaces.router, prefix="/routers/{host}")
 @router.post("/routers/{host}/check", status_code=status.HTTP_200_OK)
 async def check_router_status_manual(
     host: str, 
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
     session: AsyncSession = Depends(get_session)
 ):
     """

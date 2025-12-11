@@ -32,6 +32,11 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
+# CSRF Protection
+from fastapi_csrf_protect import CsrfProtect
+from fastapi_csrf_protect.exceptions import CsrfProtectError
+from pydantic_settings import BaseSettings
+
 # FastAPI Users imports (replaces manual auth.py)
 from .core.users import (
     fastapi_users,
@@ -103,6 +108,33 @@ async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
 
 APP_ENV = os.getenv("APP_ENV", "development")
+
+
+# ============================================================================
+# --- SEGURIDAD: CSRF PROTECTION (Cross-Site Request Forgery) ---
+# ============================================================================
+class CsrfSettings(BaseSettings):
+    secret_key: str = os.getenv("SECRET_KEY", "changeme")
+    cookie_samesite: str = "lax"
+    cookie_secure: bool = APP_ENV == "production"
+    cookie_key: str = "fastapi-csrf-token"
+    header_name: str = "X-CSRF-Token"
+    header_type: str = ""  # Empty string = no Bearer prefix
+    token_location: str = "body"  # Look for token in form body
+    token_key: str = "csrf-token"  # Field name in HTML form
+
+
+@CsrfProtect.load_config
+def get_csrf_config():
+    return CsrfSettings()
+
+
+@app.exception_handler(CsrfProtectError)
+def csrf_protect_exception_handler(request: Request, exc: CsrfProtectError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": f"CSRF validation failed: {exc.message}"}
+    )
 
 # ============================================================================
 # --- SEGURIDAD: CONFIGURACIÓN CORS ESTRICTA ---
@@ -267,8 +299,15 @@ async def notify_monitor_update():
 
 
 @app.get("/login", response_class=HTMLResponse, tags=["Auth & Pages"])
-async def read_login_form(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+async def read_login_form(request: Request, csrf_protect: CsrfProtect = Depends()):
+    """Login page with CSRF token generation"""
+    csrf_token, signed_token = csrf_protect.generate_csrf_tokens()
+    response = templates.TemplateResponse(
+        "login.html", 
+        {"request": request, "csrf_token": csrf_token}
+    )
+    csrf_protect.set_csrf_cookie(signed_token, response)
+    return response
 
 
 # ⚠️  LEGACY ENDPOINT - Bridges old auth with new FastAPI Users system
@@ -278,12 +317,16 @@ async def read_login_form(request: Request):
 async def login_for_web_ui(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    session: Session = Depends(get_sync_session),  # Usar sesión SYNC
+    session: Session = Depends(get_sync_session),
+    csrf_protect: CsrfProtect = Depends(),
 ):
     """
-    Legacy login endpoint for Web UI.
+    Legacy login endpoint for Web UI with CSRF protection.
     Uses SYNC session to query users, then creates async-compatible token.
     """
+    # Validate CSRF token
+    await csrf_protect.validate_csrf(request)
+    
     from fastapi_users.password import PasswordHelper
 
     password_helper = PasswordHelper()
