@@ -4,11 +4,9 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from fastapi import APIRouter, Request, Depends, status, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
-from fastapi.security import OAuth2PasswordRequestForm
-from fastapi_csrf_protect import CsrfProtect
-from sqlmodel import Session, select as sync_select
+from sqlmodel import Session
 
-from .core.users import current_active_user, ACCESS_TOKEN_COOKIE_NAME, auth_backend_cookie
+from .core.users import current_active_user, ACCESS_TOKEN_COOKIE_NAME
 from .core.templates import templates
 from .db.engine_sync import get_sync_session
 from .models.user import User
@@ -18,7 +16,7 @@ from .services.settings_service import SettingsService
 
 router = APIRouter()
 
-APP_ENV = os.getenv("APP_ENV", "development")
+
 
 # --- Dependency ---
 async def get_current_user_or_redirect(
@@ -29,97 +27,9 @@ async def get_current_user_or_redirect(
 # --- Auth Routes (Web UI) ---
 
 @router.get("/login", response_class=HTMLResponse, tags=["Auth & Pages"])
-async def read_login_form(request: Request, csrf_protect: CsrfProtect = Depends()):
-    """Login page with CSRF token generation"""
-    csrf_token, signed_token = csrf_protect.generate_csrf_tokens()
-    response = templates.TemplateResponse(
-        "login.html", 
-        {"request": request, "csrf_token": csrf_token}
-    )
-    csrf_protect.set_csrf_cookie(signed_token, response)
-    return response
-
-# ⚠️  LEGACY ENDPOINT - Bridges old auth with new FastAPI Users system
-# Uses SYNC database for login, then creates FastAPI Users compatible token
-@router.post("/token", tags=["Auth & Pages"], include_in_schema=False)
-async def login_for_web_ui(
-    request: Request,
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    session: Session = Depends(get_sync_session),
-    csrf_protect: CsrfProtect = Depends(),
-):
-    """
-    Legacy login endpoint for Web UI with CSRF protection.
-    Uses SYNC session to query users, then creates async-compatible token.
-    """
-    # Validate CSRF token
-    await csrf_protect.validate_csrf(request)
-    
-    from fastapi_users.password import PasswordHelper
-
-    password_helper = PasswordHelper()
-
-    # Buscar usuario por username en la tabla nueva (SYNC)
-    statement = sync_select(User).where(User.username == form_data.username)
-    user = session.exec(statement).first()
-
-    # Validar credenciales
-    if not user:
-        return templates.TemplateResponse(
-            "login.html",
-            {"request": request, "error_message": "Usuario o contraseña incorrectos"},
-            status_code=status.HTTP_401_UNAUTHORIZED,
-        )
-
-    # Verificar contraseña
-    verified, updated_hash = password_helper.verify_and_update(
-        form_data.password, user.hashed_password
-    )
-
-    if not verified:
-        return templates.TemplateResponse(
-            "login.html",
-            {"request": request, "error_message": "Usuario o contraseña incorrectos"},
-            status_code=status.HTTP_401_UNAUTHORIZED,
-        )
-
-    # Actualizar hash si es necesario
-    if updated_hash:
-        user.hashed_password = updated_hash
-        session.add(user)
-        session.commit()
-
-    # Verificar que el usuario esté activo
-    if not user.is_active:
-        return templates.TemplateResponse(
-            "login.html",
-            {"request": request, "error_message": "Usuario inactivo"},
-            status_code=status.HTTP_401_UNAUTHORIZED,
-        )
-
-    # Generar token usando la estrategia de FastAPI Users
-    from fastapi_users.authentication import Strategy
-
-    strategy: Strategy = auth_backend_cookie.get_strategy()
-    token = await strategy.write_token(user)
-
-    # Crear respuesta de redirección
-    response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
-
-    # Establecer cookie
-    is_secure_cookie = APP_ENV == "production"
-    response.set_cookie(
-        key=ACCESS_TOKEN_COOKIE_NAME,
-        value=token,
-        httponly=True,
-        max_age=1800,
-        samesite="lax",
-        secure=is_secure_cookie,
-    )
-
-    print(f"🔐 User logged in: {user.username} (ID: {user.id})")
-
-    return response
+async def read_login_form(request: Request):
+    """Login page"""
+    return templates.TemplateResponse("login.html", {"request": request})
 
 @router.get("/logout", tags=["Auth & Pages"], include_in_schema=False)
 async def logout_and_redirect():

@@ -152,9 +152,11 @@
                 </div>
                 {% endif %}
 
-                <form action="/token" method="post" class="space-y-5">
-                    <!-- CSRF Protection Token -->
-                    <input type="hidden" name="csrf-token" value="{{ csrf_token | default('') }}">
+                <form id="login-form" class="space-y-5">
+                    <div id="error-container" class="hidden bg-danger/10 border border-danger/20 text-danger text-sm rounded-lg p-3 mb-6 text-center flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm">error</span>
+                        <span id="error-message-text"></span>
+                    </div>
 
                     <div>
                         <label for="username"
@@ -177,12 +179,70 @@
                         </div>
                     </div>
                     <div class="pt-2">
-                        <button type="submit"
+                        <button type="submit" id="submit-btn"
                             class="w-full h-11 px-4 text-sm font-bold text-white rounded-xl bg-primary hover:bg-primary-hover focus:outline-none focus:ring-4 focus:ring-primary/20 transition-all shadow-lg shadow-primary/20">
                             Iniciar Sesión
                         </button>
                     </div>
                 </form>
+
+                <script>
+                    document.getElementById('login-form').addEventListener('submit', async function(e) {
+                        e.preventDefault();
+
+                        const errorContainer = document.getElementById('error-container');
+                        const errorMessageText = document.getElementById('error-message-text');
+                        const submitBtn = document.getElementById('submit-btn');
+
+                        errorContainer.classList.add('hidden');
+                        submitBtn.disabled = true;
+                        submitBtn.textContent = 'Ingresando...';
+
+                        const username = document.getElementById('username').value;
+                        const password = document.getElementById('password').value;
+
+                        const formData = new URLSearchParams();
+                        formData.append('username', username);
+                        formData.append('password', password);
+
+                        try {
+                            const response = await fetch('/auth/cookie/login', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                },
+                                body: formData,
+                                credentials: 'same-origin'
+                            });
+
+                            if (response.ok || response.status === 204) {
+                                window.location.href = '/';
+                            } else {
+                                let errorMsg = 'Usuario o contraseña incorrectos';
+                                if (response.status === 429) {
+                                    errorMsg = '⚠️ Demasiados intentos. Por favor, espera un momento.';
+                                } else {
+                                    try {
+                                        const data = await response.json();
+                                        if (data.detail) {
+                                            errorMsg = typeof data.detail === 'string' ? data.detail : 'Credenciales inválidas';
+                                        }
+                                    } catch (jsonErr) {
+                                        // Use default error message
+                                    }
+                                }
+                                errorMessageText.textContent = errorMsg;
+                                errorContainer.classList.remove('hidden');
+                            }
+                        } catch (error) {
+                            errorMessageText.textContent = 'Error de conexión. Intenta de nuevo.';
+                            errorContainer.classList.remove('hidden');
+                        } finally {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = 'Iniciar Sesión';
+                        }
+                    });
+                </script>
             </div>
 
             <p class="text-center text-text-secondary text-xs mt-8 opacity-60">

@@ -27,10 +27,6 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-# CSRF Protection
-from fastapi_csrf_protect import CsrfProtect
-from fastapi_csrf_protect.exceptions import CsrfProtectError
-
 # FastAPI Users imports
 from .core.users import (
     fastapi_users,
@@ -75,7 +71,7 @@ app.state.limiter = limiter
 
 
 async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
-    if request.url.path == "/token":
+    if request.url.path == "/auth/cookie/login":
         # Note: This handler relies on templates. login.html is used here.
         return templates.TemplateResponse(
             "login.html",
@@ -93,33 +89,6 @@ async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
 
 APP_ENV = os.getenv("APP_ENV", "development")
-
-
-# ============================================================================
-# --- SEGURIDAD: CSRF PROTECTION (Cross-Site Request Forgery) ---
-# ============================================================================
-class CsrfSettings(BaseSettings):
-    secret_key: str = os.getenv("SECRET_KEY", "changeme")
-    cookie_samesite: str = "lax"
-    cookie_secure: bool = APP_ENV == "production"
-    cookie_key: str = "fastapi-csrf-token"
-    header_name: str = "X-CSRF-Token"
-    header_type: str = ""  # Empty string = no Bearer prefix
-    token_location: str = "body"  # Look for token in form body
-    token_key: str = "csrf-token"  # Field name in HTML form
-
-
-@CsrfProtect.load_config
-def get_csrf_config():
-    return CsrfSettings()
-
-
-@app.exception_handler(CsrfProtectError)
-def csrf_protect_exception_handler(request: Request, exc: CsrfProtectError):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": f"CSRF validation failed: {exc.message}"}
-    )
 
 
 # ============================================================================
