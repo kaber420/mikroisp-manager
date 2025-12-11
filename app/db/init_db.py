@@ -40,7 +40,7 @@ def _setup_inventory_db():
         ("telegram_chat_id", ""),
         ("days_before_due", "5"),
         ("default_monitor_interval", "300"),
-        ("dashboard_refresh_interval", "300"),
+        ("dashboard_refresh_interval", "5"),
         ("suspension_run_hour", "02:00"),
     ]
     cursor.executemany(
@@ -95,7 +95,7 @@ def _setup_inventory_db():
     )
     """
     )
-    # Migraciones de zonas (columnas nuevas)
+    
     zona_columns = [
         col[1] for col in cursor.execute("PRAGMA table_info(zonas)").fetchall()
     ]
