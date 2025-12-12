@@ -36,6 +36,8 @@ export const DOM_ELEMENTS = {
     pppoeSecretsList: document.getElementById('pppoe-secrets-list'),
     pppoeActiveList: document.getElementById('pppoe-active-list'),
     backupFilesList: document.getElementById('backup-files-list'),
+    localBackupFilesList: document.getElementById('local-backup-files-list'),
+    refreshLocalBackupsBtn: document.getElementById('refresh-local-backups-btn'),
     routerUsersList: document.getElementById('router-users-list'),
 
     // --- NUEVO: Tabla para planes locales ---

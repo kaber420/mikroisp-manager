@@ -195,3 +195,114 @@ def api_remove_interface(
             status_code=400,
             detail=f"No se pudo eliminar la interfaz {interface_id}. Causa: {e}",
         )
+
+
+# --- LOCAL BACKUP FILES (Server-side) ---
+
+import os
+from pathlib import Path
+from fastapi.responses import FileResponse
+
+# Base path for backups
+BACKUP_BASE_DIR = Path(os.getcwd()) / "data"
+
+
+@router.get("/system/local-backups", response_model=List[Dict[str, Any]])
+def api_get_local_backup_files(
+    host: str,
+    user: User = Depends(get_current_active_user),
+):
+    """
+    Lista archivos de backup locales (en el servidor) para un router específico.
+    """
+    # Obtener datos del router para encontrar su carpeta
+    router_info = router_db.get_router_by_host(host)
+    if not router_info:
+        raise HTTPException(status_code=404, detail="Router no encontrado")
+    
+    # Determinar la carpeta del router
+    zona_id = router_info.get("zona_id")
+    hostname = router_info.get("hostname") or host
+    
+    # Buscar la carpeta por zona
+    zona_folder = None
+    if zona_id:
+        # Buscar en zonas por id
+        from ..db.base import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.execute("SELECT nombre FROM zonas WHERE id = ?", (zona_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            zona_folder = row["nombre"].replace(" ", "_").replace("/", "-")
+    
+    if not zona_folder:
+        zona_folder = f"Zona_{zona_id}" if zona_id else "Sin_Zona"
+    
+    router_folder = hostname.replace(" ", "_").replace("/", "-")
+    backup_path = BACKUP_BASE_DIR / zona_folder / router_folder
+    
+    files = []
+    if backup_path.exists() and backup_path.is_dir():
+        for f in sorted(backup_path.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
+            if f.is_file() and (f.suffix in [".backup", ".rsc"]):
+                stat = f.stat()
+                files.append({
+                    "name": f.name,
+                    "size": stat.st_size,
+                    "modified": stat.st_mtime,
+                    "type": "backup" if f.suffix == ".backup" else "script",
+                    "path": str(f.relative_to(BACKUP_BASE_DIR))
+                })
+    
+    return files
+
+
+@router.get("/system/local-backups/download")
+def api_download_local_backup(
+    host: str,
+    filename: str = Query(..., description="Nombre del archivo a descargar"),
+    user: User = Depends(get_current_active_user),
+):
+    """
+    Descarga un archivo de backup local.
+    """
+    # Obtener datos del router para encontrar su carpeta
+    router_info = router_db.get_router_by_host(host)
+    if not router_info:
+        raise HTTPException(status_code=404, detail="Router no encontrado")
+    
+    zona_id = router_info.get("zona_id")
+    hostname = router_info.get("hostname") or host
+    
+    # Determinar carpeta de zona
+    zona_folder = None
+    if zona_id:
+        from ..db.base import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.execute("SELECT nombre FROM zonas WHERE id = ?", (zona_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            zona_folder = row["nombre"].replace(" ", "_").replace("/", "-")
+    
+    if not zona_folder:
+        zona_folder = f"Zona_{zona_id}" if zona_id else "Sin_Zona"
+    
+    router_folder = hostname.replace(" ", "_").replace("/", "-")
+    file_path = BACKUP_BASE_DIR / zona_folder / router_folder / filename
+    
+    # Validación de seguridad: asegurar que el archivo está dentro de BACKUP_BASE_DIR
+    try:
+        file_path.resolve().relative_to(BACKUP_BASE_DIR.resolve())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Ruta de archivo inválida")
+    
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    
+    return FileResponse(
+        path=str(file_path),
+        filename=filename,
+        media_type="application/octet-stream"
+    )

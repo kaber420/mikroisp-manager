@@ -647,7 +647,8 @@
             <h2 class="text-xl font-bold mb-4">Gestión de Backups</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
-                    <h4 class="text-base font-semibold">Archivos Existentes</h4>
+                    <h4 class="text-base font-semibold">Archivos en Router</h4>
+                    <p class="text-xs text-text-secondary mb-2">Archivos almacenados en el dispositivo.</p>
                     <div id="backup-files-list" class="text-sm space-y-1 font-mono max-h-60 overflow-y-auto"></div>
                 </div>
                 <div>
@@ -667,6 +668,27 @@
                 </div>
             </div>
 
+            <!-- Sección de Backups Locales (Servidor) -->
+            <div class="mt-6 pt-6 border-t border-border-color">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">cloud_done</span>
+                            Respaldos en Servidor
+                        </h3>
+                        <p class="text-xs text-text-secondary">Archivos de backup descargados automáticamente al
+                            servidor.</p>
+                    </div>
+                    <button id="refresh-local-backups-btn"
+                        class="flex items-center gap-1 px-3 py-1 rounded text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors">
+                        <span class="material-symbols-outlined text-base">refresh</span>
+                        Actualizar
+                    </button>
+                </div>
+                <div id="local-backup-files-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    <p class="text-text-secondary col-span-full">Cargando...</p>
+                </div>
+            </div>
         </div>
 
     </div>
