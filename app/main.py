@@ -47,6 +47,7 @@ from .api.routers import main as routers_main_api
 from .api.clients import main as clients_main_api
 from .api.cpes import main as cpes_main_api
 from .api.zonas import main as zonas_main_api
+from .api.zonas import infra as zonas_infra_api
 from .api.users import main as users_main_api
 from .api.settings import main as settings_main_api
 from .api.aps import main as aps_main_api
@@ -269,6 +270,7 @@ app.include_router(aps_main_api.router, prefix="/api", tags=["APs"])
 app.include_router(cpes_main_api.router, prefix="/api", tags=["CPEs"])
 app.include_router(clients_main_api.router, prefix="/api", tags=["Clients"])
 app.include_router(zonas_main_api.router, prefix="/api", tags=["Zonas"])
+app.include_router(zonas_infra_api.router, prefix="/api", tags=["Zonas Infrastructure"])
 app.include_router(users_main_api.router, prefix="/api", tags=["Users"])
 app.include_router(settings_main_api.router, prefix="/api", tags=["Settings"])
 app.include_router(stats_main_api.router, prefix="/api", tags=["Stats"])
