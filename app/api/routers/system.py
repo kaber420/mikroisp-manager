@@ -224,11 +224,10 @@ def api_get_local_backup_files(
     zona_id = router_info.get("zona_id")
     hostname = router_info.get("hostname") or host
     
-    # Buscar la carpeta por zona
+    # Buscar la carpeta por zona (misma lógica que backup_service)
     zona_folder = None
     if zona_id:
-        # Buscar en zonas por id
-        from ..db.base import get_db_connection
+        from ...db.base import get_db_connection
         conn = get_db_connection()
         cursor = conn.execute("SELECT nombre FROM zonas WHERE id = ?", (zona_id,))
         row = cursor.fetchone()
@@ -242,6 +241,10 @@ def api_get_local_backup_files(
     router_folder = hostname.replace(" ", "_").replace("/", "-")
     backup_path = BACKUP_BASE_DIR / zona_folder / router_folder
     
+    # Debug logging
+    import logging
+    logging.info(f"Looking for backups in: {backup_path}")
+    
     files = []
     if backup_path.exists() and backup_path.is_dir():
         for f in sorted(backup_path.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
@@ -254,6 +257,8 @@ def api_get_local_backup_files(
                     "type": "backup" if f.suffix == ".backup" else "script",
                     "path": str(f.relative_to(BACKUP_BASE_DIR))
                 })
+    else:
+        logging.warning(f"Backup path does not exist: {backup_path}")
     
     return files
 
@@ -278,7 +283,7 @@ def api_download_local_backup(
     # Determinar carpeta de zona
     zona_folder = None
     if zona_id:
-        from ..db.base import get_db_connection
+        from ...db.base import get_db_connection
         conn = get_db_connection()
         cursor = conn.execute("SELECT nombre FROM zonas WHERE id = ?", (zona_id,))
         row = cursor.fetchone()
