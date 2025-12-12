@@ -97,9 +97,43 @@ document.addEventListener('DOMContentLoaded', () => {
         loadSettings();
     }
 
-    // --- AUDIT LOGS FUNCTIONALITY ---
-    initAuditLogs();
+    // --- TAB NAVIGATION ---
+    initTabs();
+
+    // --- AUDIT LOGS FUNCTIONALITY (lazy load when tab is clicked) ---
+    // Don't init immediately, wait for tab switch
 });
+
+// === TAB NAVIGATION ===
+let auditLogsInitialized = false;
+
+function initTabs() {
+    const tabButtons = document.querySelectorAll('.tab-button[data-tab]');
+    const tabPanels = document.querySelectorAll('.tab-panel');
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const targetTab = button.dataset.tab;
+
+            // Remove active class from all buttons and panels
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabPanels.forEach(panel => panel.classList.remove('active'));
+
+            // Add active class to clicked button and corresponding panel
+            button.classList.add('active');
+            const targetPanel = document.getElementById(`tab-${targetTab}`);
+            if (targetPanel) {
+                targetPanel.classList.add('active');
+            }
+
+            // Lazy load audit logs when switching to audit tab
+            if (targetTab === 'audit' && !auditLogsInitialized) {
+                initAuditLogs();
+                auditLogsInitialized = true;
+            }
+        });
+    });
+}
 
 // === AUDIT LOGS MODULE ===
 
