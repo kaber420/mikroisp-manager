@@ -17,18 +17,27 @@ function renderBackupFiles(files) {
                 <p class="text-sm font-medium truncate" title="${file.name}">${file.name}</p>
                 <p class="text-xs text-text-secondary ml-2">${DomUtils.formatBytes(file.size)}</p>
             </div>
-            <button data-id="${file['.id'] || file.id}"
-                    class="delete-backup-btn flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold
-                           bg-danger/10 text-danger
-                           hover:bg-danger hover:text-white
-                           transition-colors">
-                <span class="material-symbols-outlined text-sm">delete</span>
-                <span>Delete</span>
-            </button>
+            <div class="flex items-center gap-1">
+                <button data-filename="${file.name}" title="Guardar en servidor"
+                        class="save-to-server-btn flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold
+                               bg-primary/10 text-primary
+                               hover:bg-primary hover:text-white
+                               transition-colors">
+                    <span class="material-symbols-outlined text-sm">cloud_upload</span>
+                </button>
+                <button data-id="${file['.id'] || file.id}"
+                        class="delete-backup-btn flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold
+                               bg-danger/10 text-danger
+                               hover:bg-danger hover:text-white
+                               transition-colors">
+                    <span class="material-symbols-outlined text-sm">delete</span>
+                </button>
+            </div>
         `;
         DOM_ELEMENTS.backupFilesList.appendChild(card);
     });
     document.querySelectorAll('.delete-backup-btn').forEach(btn => btn.addEventListener('click', handleDeleteBackupFile));
+    document.querySelectorAll('.save-to-server-btn').forEach(btn => btn.addEventListener('click', handleSaveToServer));
 }
 
 // --- RENDERIZADOR PARA BACKUPS LOCALES (SERVIDOR) ---
@@ -60,17 +69,27 @@ function renderLocalBackupFiles(files) {
                     <span>${dateStr} ${timeStr}</span>
                 </div>
             </div>
-            <a href="/api/routers/${CONFIG.currentHost}/system/local-backups/download?host=${CONFIG.currentHost}&filename=${encodeURIComponent(file.name)}"
-               class="download-local-backup-btn flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs font-semibold
-                      bg-primary/10 text-primary
-                      hover:bg-primary hover:text-white
-                      transition-colors"
-               download="${file.name}">
-                <span class="material-symbols-outlined text-sm">download</span>
-                <span>Descargar</span>
-            </a>
+            <div class="flex gap-2">
+                <a href="/api/routers/${CONFIG.currentHost}/system/local-backups/download?host=${CONFIG.currentHost}&filename=${encodeURIComponent(file.name)}"
+                   class="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs font-semibold
+                          bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors"
+                   download="${file.name}">
+                    <span class="material-symbols-outlined text-sm">download</span>
+                    <span>Descargar</span>
+                </a>
+                <button data-filename="${file.name}"
+                   class="delete-local-backup-btn flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs font-semibold
+                          bg-danger/10 text-danger hover:bg-danger hover:text-white transition-colors">
+                    <span class="material-symbols-outlined text-sm">delete</span>
+                </button>
+            </div>
         `;
         DOM_ELEMENTS.localBackupFilesList.appendChild(card);
+    });
+
+    // Add delete event listeners
+    document.querySelectorAll('.delete-local-backup-btn').forEach(btn => {
+        btn.addEventListener('click', handleDeleteLocalBackup);
     });
 }
 
@@ -106,6 +125,44 @@ const handleDeleteBackupFile = (e) => {
             window.loadFullDetailsData(); // Recarga todo
         } catch (err) { DomUtils.updateFeedback(err.message, false); }
     });
+};
+
+const handleDeleteLocalBackup = (e) => {
+    const filename = e.currentTarget.dataset.filename;
+    DomUtils.confirmAndExecute(`¿Eliminar el respaldo "${filename}" del servidor?`, async () => {
+        try {
+            await ApiClient.request(
+                `/api/routers/${CONFIG.currentHost}/system/local-backups?host=${CONFIG.currentHost}&filename=${encodeURIComponent(filename)}`,
+                { method: 'DELETE' }
+            );
+            DomUtils.updateFeedback('Respaldo eliminado del servidor', true);
+            loadLocalBackupData(); // Recarga solo los backups locales
+        } catch (err) { DomUtils.updateFeedback(err.message, false); }
+    });
+};
+
+const handleSaveToServer = async (e) => {
+    const filename = e.currentTarget.dataset.filename;
+    const btn = e.currentTarget;
+
+    // Mostrar estado de carga
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span>';
+    btn.disabled = true;
+
+    try {
+        await ApiClient.request(
+            `/api/routers/${CONFIG.currentHost}/system/save-to-server?host=${CONFIG.currentHost}&filename=${encodeURIComponent(filename)}`,
+            { method: 'POST' }
+        );
+        DomUtils.updateFeedback(`"${filename}" guardado en servidor`, true);
+        loadLocalBackupData(); // Actualizar la lista de backups locales
+    } catch (err) {
+        DomUtils.updateFeedback(err.message, false);
+    } finally {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+    }
 };
 
 // --- CARGADOR DE DATOS ---

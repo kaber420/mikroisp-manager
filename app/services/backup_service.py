@@ -142,3 +142,72 @@ def process_router_backup(router_data: dict):
         if ssh:
             ssh.close()
         return {"status": "error", "message": str(e)}
+
+
+def save_file_to_server(host: str, username: str, password: str, remote_filename: str, 
+                        zona_name: str, hostname: str) -> dict:
+    """
+    Descarga un archivo específico del router al servidor local.
+    
+    Args:
+        host: IP del router
+        username: Usuario para SSH
+        password: Contraseña para SSH
+        remote_filename: Nombre del archivo en el router (ej: 'backup-2024.backup')
+        zona_name: Nombre de la zona para la estructura de carpetas
+        hostname: Nombre del router para la estructura de carpetas
+    
+    Returns:
+        dict con status y mensaje
+    """
+    # Limpiar nombres para rutas seguras
+    zona_folder = zona_name.replace(" ", "_").replace("/", "-")
+    router_folder = hostname.replace(" ", "_").replace("/", "-")
+    
+    save_path = os.path.join(BACKUP_BASE_DIR, zona_folder, router_folder)
+    os.makedirs(save_path, exist_ok=True)
+    
+    local_filepath = os.path.join(save_path, remote_filename)
+    
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    
+    try:
+        # Conectar SSH
+        ssh.connect(
+            hostname=host,
+            username=username,
+            password=password,
+            port=22,
+            timeout=20
+        )
+        
+        # Abrir SFTP y descargar
+        sftp = ssh.open_sftp()
+        
+        # Intentar descargar desde raíz primero, luego flash/
+        try:
+            sftp.get(remote_filename, local_filepath)
+        except FileNotFoundError:
+            # Intentar en flash/ (común en algunos modelos)
+            try:
+                sftp.get(f"flash/{remote_filename}", local_filepath)
+            except FileNotFoundError:
+                sftp.close()
+                ssh.close()
+                return {"status": "error", "message": f"Archivo '{remote_filename}' no encontrado en el router"}
+        
+        sftp.close()
+        ssh.close()
+        
+        return {
+            "status": "success",
+            "message": f"Archivo guardado en servidor",
+            "local_path": local_filepath,
+            "filename": remote_filename
+        }
+        
+    except Exception as e:
+        if ssh:
+            ssh.close()
+        return {"status": "error", "message": str(e)}
