@@ -78,8 +78,15 @@ def log_action(
     if details:
         log_entry["details"] = details
     
-    # Write as JSON line
+    # Write as JSON line (forensic backup)
     audit_logger.info(json.dumps(log_entry, ensure_ascii=False))
+    
+    # Also persist to SQLite for web UI access
+    try:
+        from app.db.audit_db import save_audit_log
+        save_audit_log(log_entry)
+    except Exception as e:
+        print(f"⚠️ Could not save audit log to DB: {e}")
     
     # Also print to console for visibility during development
     emoji = "✅" if status == "success" else "❌"

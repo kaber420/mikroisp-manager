@@ -63,3 +63,52 @@ def force_monitor_scan(current_user: User = Depends(require_admin)):
     return {
         "message": "El monitor continuará su ciclo en segundo plano (intervalo normal)."
     }
+
+
+# --- AUDIT LOGS ENDPOINTS (Admin Only) ---
+
+from ...db.audit_db import (
+    get_audit_logs_paginated,
+    count_audit_logs,
+    get_distinct_usernames,
+    get_distinct_actions,
+)
+
+
+@router.get("/settings/audit-logs")
+def get_audit_logs(
+    page: int = 1,
+    page_size: int = 20,
+    action: str = None,
+    username: str = None,
+    current_user: User = Depends(require_admin),
+):
+    """
+    Retrieves paginated audit logs for admin review.
+    Supports filtering by action type and username.
+    """
+    logs = get_audit_logs_paginated(page, page_size, action, username)
+    total_records = count_audit_logs(action, username)
+    total_pages = (total_records + page_size - 1) // page_size if total_records > 0 else 1
+
+    return {
+        "items": logs,
+        "total": total_records,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+    }
+
+
+@router.get("/settings/audit-logs/filters")
+def get_audit_log_filters(
+    current_user: User = Depends(require_admin),
+):
+    """
+    Returns available filter options for audit logs.
+    """
+    return {
+        "actions": get_distinct_actions(),
+        "usernames": get_distinct_usernames(),
+    }
+
