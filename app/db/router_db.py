@@ -193,3 +193,43 @@ def get_enabled_routers_from_db() -> List[Dict[str, Any]]:
             f"No se pudo obtener la lista de Routers de la base de datos: {e}"
         )
     return routers_to_monitor
+
+
+def get_routers_for_backup() -> List[Dict[str, Any]]:
+    """
+    Obtiene routers activos con datos necesarios para backup (incluye nombre de zona).
+    """
+    routers = []
+    try:
+        conn = get_db_connection()
+        # Query con JOIN para obtener nombre de zona
+        cursor = conn.execute(
+            """
+            SELECT r.host, r.username, r.password, r.hostname, r.zona_id, z.nombre as zona_nombre
+            FROM routers r
+            LEFT JOIN zonas z ON r.zona_id = z.id
+            WHERE r.is_enabled = 1
+            """
+        )
+        
+        for row in cursor.fetchall():
+            data = dict(row)
+            # Decrypt password
+            if data["password"]:
+                try:
+                    data["password"] = decrypt_data(data["password"])
+                except Exception:
+                    # Si falla desencriptar, probablemente ya estaba en texto plano o corrupta
+                    pass
+                    
+            # Fallback si no tiene zona
+            if not data["zona_nombre"]:
+                data["zona_nombre"] = f"Zona_{data.get('zona_id') or 'General'}"
+                
+            routers.append(data)
+
+        conn.close()
+    except sqlite3.Error as e:
+        logging.error(f"Error fetching routers for backup: {e}")
+        
+    return routers

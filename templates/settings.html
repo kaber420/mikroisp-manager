@@ -137,20 +137,29 @@
                     </div>
 
                     <div class="pt-6 border-t border-white/10">
-                        <h3 class="text-lg font-semibold text-white">Monitoring</h3>
+                        <h3 class="text-lg font-semibold text-white">Monitoring & Backups</h3>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/10 pt-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-white/10 pt-6">
                         <div>
                             <label for="default_monitor_interval"
-                                class="block text-sm font-medium mb-2 text-text-secondary">Monitor Interval</label>
+                                class="block text-sm font-medium mb-2 text-text-secondary">Monitor Interval
+                                (seg)</label>
                             <input type="number" id="default_monitor_interval" name="default_monitor_interval"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
                         </div>
                         <div>
                             <label for="dashboard_refresh_interval"
-                                class="block text-sm font-medium mb-2 text-text-secondary">Live Interval</label>
+                                class="block text-sm font-medium mb-2 text-text-secondary">Live Interval (seg)</label>
                             <input type="number" id="dashboard_refresh_interval" name="dashboard_refresh_interval"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                        </div>
+                        <div>
+                            <label for="backup_run_hour" class="block text-sm font-medium mb-2 text-text-secondary">Hora
+                                Backup Diario</label>
+                            <input type="time" id="backup_run_hour" name="backup_run_hour"
+                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                            <p class="text-xs text-text-secondary mt-1">Hora a la que se respaldarán los routers
+                                automáticamente.</p>
                         </div>
                     </div>
 

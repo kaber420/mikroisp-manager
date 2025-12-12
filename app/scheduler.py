@@ -86,6 +86,27 @@ def run_scheduler():
         name='Daily Billing Check',
         replace_existing=True
     )
+
+    # --- Job 3: Respaldo Diario de Routers ---
+    from .services.backup_service import run_backup_cycle
+    
+    # Obtener hora desde la configuración (default 03:00)
+    backup_run_hour = get_setting("backup_run_hour") or "03:00"
+    try:
+        b_hour, b_minute = backup_run_hour.split(":")
+        b_hour = int(b_hour)
+        b_minute = int(b_minute)
+    except (ValueError, AttributeError):
+        b_hour, b_minute = 3, 0
+        
+    logger.info(f"Programando Respaldo Diario a las {b_hour:02d}:{b_minute:02d}")
+    scheduler.add_job(
+        run_backup_cycle,
+        trigger=CronTrigger(hour=b_hour, minute=b_minute),
+        id='backup_job',
+        name='Daily Router Backup',
+        replace_existing=True
+    )
     
     # Iniciar el scheduler
     scheduler.start()
