@@ -76,27 +76,20 @@ class MikrotikInterfaceManager:
 
     def get_ethernet_detailed_status(self) -> Dict[str, Dict[str, Any]]:
         """
-        Obtiene estado detallado de todos los puertos ethernet.
-        Consolida información de múltiples fuentes:
-        - /interface/ethernet: Configuración (poe-out setting)
-        - /interface/ethernet/monitor: Velocidad real negociada
-        - /interface/ethernet/poe: Estado PoE actual (powered-on, etc)
+        Consolida estado de puertos ethernet desde configuración, monitor de tráfico y PoE.
         
         Returns:
-            Dict con nombre de interfaz como key y dict con detalles como value:
-            {
-                "ether1": {
-                    "poe_config": "auto-on",
-                    "rate": "100Mbps",
-                    "status": "link-ok",
-                    "full_duplex": "true",
-                    "poe_status": "powered-on",
-                    "poe_voltage": "24",
-                    "poe_current": "150",
-                    "poe_power": "3.6"
-                }
-            }
+            Dict[interface_name, {
+                "poe_config": str,      # auto-on, off, etc
+                "rate": str,            # 100Mbps, 1Gbps
+                "status": str,          # link-ok, no-link
+                "poe_status": str,      # powered-on, short-circuit
+                "poe_voltage": str,     # Voltaje en V
+                "poe_power": str        # Potencia en W
+            }]
         """
+    
+        
         result = {}
         
         # Get all interfaces first to know which are running
@@ -123,7 +116,7 @@ class MikrotikInterfaceManager:
         except Exception:
             pass
         
-        # Get real link speed using ethernet monitor (only for running interfaces)
+        # Get real link speed using ethernet monitor 
         try:
             ethernet_resource = self.api.get_resource("/interface/ethernet")
             for iface_name, is_running in running_ethers.items():

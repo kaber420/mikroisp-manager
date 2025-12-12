@@ -44,6 +44,10 @@ async def create_ap(
     service: APService = Depends(get_ap_service),
     current_user: User = Depends(require_technician),
 ):
+    """
+    Registra un nuevo Access Point en el sistema.
+    Valida que la IP/Host no esté duplicada.
+    """
     try:
         new_ap_data = await service.create_ap(ap)
         return AP(**new_ap_data)
@@ -58,6 +62,9 @@ async def get_all_aps(
     service: APService = Depends(get_ap_service),
     current_user: User = Depends(require_technician),
 ):
+    """
+    Obtiene la lista completa de APs registrados.
+    """
     aps_data = await service.get_all_aps()
     return [AP(**ap) for ap in aps_data]
 
@@ -68,6 +75,9 @@ async def get_ap(
     service: APService = Depends(get_ap_service),
     current_user: User = Depends(require_technician),
 ):
+    """
+    Obtiene detalles de un AP específico por su Host/IP.
+    """
     try:
         ap_data = await service.get_ap_by_host(host)
         return AP(**ap_data)
@@ -82,6 +92,10 @@ async def update_ap(
     service: APService = Depends(get_ap_service),
     current_user: User = Depends(require_technician),
 ):
+    """
+    Actualiza la configuración de un AP existente.
+    Si se cambia la IP, se actualizan también sus referencias.
+    """
     try:
         updated_ap_data = await service.update_ap(host, ap_update)
         return AP(**updated_ap_data)
@@ -98,6 +112,9 @@ async def delete_ap(
     service: APService = Depends(get_ap_service),
     current_user: User = Depends(require_technician),
 ):
+    """
+    Elimina un AP del sistema y registra la acción en auditoría.
+    """
     from ...core.audit import log_action
     try:
         await service.delete_ap(host)
@@ -113,6 +130,9 @@ def get_cpes_for_ap(
     service: APService = Depends(get_ap_service),
     current_user: User = Depends(require_technician),
 ):
+    """
+    Lista todos los CPEs (clientes) conectados a este AP.
+    """
     cpes_data = service.get_cpes_for_ap(host)
     return [CPEDetail(**cpe) for cpe in cpes_data]
 
@@ -123,6 +143,9 @@ async def get_ap_live_data(
     service: APService = Depends(get_ap_service),
     current_user: User = Depends(require_technician),
 ):
+    """
+    Obtiene métricas en tiempo real (CPU, RAM, uso de frecuencias) conectando directamente al dispositivo.
+    """
     try:
         return await service.get_live_data(host)
     except APNotFoundError as e:
@@ -138,6 +161,10 @@ async def get_ap_history(
     service: APService = Depends(get_ap_service),
     current_user: User = Depends(require_technician),
 ):
+    """
+    Obtiene historial de métricas (tráfico, señal, clientes conectados) para gráficos.
+    Periodos soportados: '24h', '7d', '30d'.
+    """
     try:
         return await service.get_ap_history(host, period)
     except APNotFoundError as e:
