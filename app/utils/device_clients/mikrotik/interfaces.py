@@ -73,3 +73,96 @@ class MikrotikInterfaceManager:
         else:
             # Fallback genérico, aunque podría fallar si el tipo no es exacto
             return f"/interface/{interface_type}"
+
+    def get_ethernet_detailed_status(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Obtiene estado detallado de todos los puertos ethernet.
+        Consolida información de múltiples fuentes:
+        - /interface/ethernet: Configuración (poe-out setting)
+        - /interface/ethernet/monitor: Velocidad real negociada
+        - /interface/ethernet/poe: Estado PoE actual (powered-on, etc)
+        
+        Returns:
+            Dict con nombre de interfaz como key y dict con detalles como value:
+            {
+                "ether1": {
+                    "poe_config": "auto-on",
+                    "rate": "100Mbps",
+                    "status": "link-ok",
+                    "full_duplex": "true",
+                    "poe_status": "powered-on",
+                    "poe_voltage": "24",
+                    "poe_current": "150",
+                    "poe_power": "3.6"
+                }
+            }
+        """
+        result = {}
+        
+        # Get all interfaces first to know which are running
+        try:
+            interfaces = self.api.get_resource("/interface").get()
+            running_ethers = {
+                iface.get("name"): iface.get("running") == "true"
+                for iface in interfaces
+                if iface.get("name", "").startswith("ether")
+            }
+        except Exception:
+            running_ethers = {}
+        
+        # Get ethernet configuration (poe-out setting)
+        try:
+            ethernet_list = self.api.get_resource("/interface/ethernet").get()
+            for eth in ethernet_list:
+                name = eth.get("name", "")
+                if name:
+                    result[name] = {
+                        "poe_config": eth.get("poe-out"),
+                        "speed_config": eth.get("speed"),
+                    }
+        except Exception:
+            pass
+        
+        # Get real link speed using ethernet monitor (only for running interfaces)
+        try:
+            ethernet_resource = self.api.get_resource("/interface/ethernet")
+            for iface_name, is_running in running_ethers.items():
+                if is_running:
+                    try:
+                        monitor_result = ethernet_resource.call(
+                            "monitor",
+                            {"numbers": iface_name, "once": ""}
+                        )
+                        if monitor_result and len(monitor_result) > 0:
+                            mon = monitor_result[0]
+                            if iface_name not in result:
+                                result[iface_name] = {}
+                            result[iface_name].update({
+                                "rate": mon.get("rate"),
+                                "status": mon.get("status"),
+                                "full_duplex": mon.get("full-duplex"),
+                                "auto_negotiation": mon.get("auto-negotiation"),
+                            })
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        
+        # Get PoE status
+        try:
+            poe_list = self.api.get_resource("/interface/ethernet/poe").get()
+            for poe in poe_list:
+                name = poe.get("name", "")
+                if name:
+                    if name not in result:
+                        result[name] = {}
+                    result[name].update({
+                        "poe_status": poe.get("poe-out-status"),
+                        "poe_voltage": poe.get("poe-out-voltage"),
+                        "poe_current": poe.get("poe-out-current"),
+                        "poe_power": poe.get("poe-out-power"),
+                    })
+        except Exception:
+            pass
+        
+        return result
