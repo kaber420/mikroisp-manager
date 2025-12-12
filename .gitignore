@@ -184,3 +184,5 @@ cython_debug/
 inventory.sqlite-wal
 inventory.sqlite-shm
 .env
+*.backup
+*.rsc
