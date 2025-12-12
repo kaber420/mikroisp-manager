@@ -256,7 +256,7 @@
                     <div class="flex items-center gap-2">
                         <label for="audit-action-filter"
                             class="text-xs text-text-secondary uppercase font-bold">Acción:</label>
-                        <select id="audit-action-filter" onchange="loadAuditLogs()"
+                        <select id="audit-action-filter" onchange="filterAuditLogs()"
                             class="bg-surface-2 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-text-primary focus:border-primary cursor-pointer min-w-[120px]">
                             <option value="all">Todas</option>
                         </select>
@@ -264,7 +264,7 @@
                     <div class="flex items-center gap-2">
                         <label for="audit-user-filter"
                             class="text-xs text-text-secondary uppercase font-bold">Usuario:</label>
-                        <select id="audit-user-filter" onchange="loadAuditLogs()"
+                        <select id="audit-user-filter" onchange="filterAuditLogs()"
                             class="bg-surface-2 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-text-primary focus:border-primary cursor-pointer min-w-[120px]">
                             <option value="all">Todos</option>
                         </select>

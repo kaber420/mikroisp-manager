@@ -172,10 +172,17 @@ const API_AUDIT_URL = window.location.origin;
 window.loadAuditLogs = loadAuditLogs;
 window.changeAuditPageSize = changeAuditPageSize;
 window.changeAuditPage = changeAuditPage;
+window.filterAuditLogs = filterAuditLogs;
+
+function filterAuditLogs() {
+    // Reset to page 1 when filters change
+    auditCurrentPage = 1;
+    loadAuditLogs();
+}
 
 async function initAuditLogs() {
-    const auditSection = document.getElementById('audit-section');
-    if (!auditSection) return;
+    const auditPanel = document.getElementById('tab-audit');
+    if (!auditPanel) return;
 
     // Load filter options first
     await loadAuditFilters();
