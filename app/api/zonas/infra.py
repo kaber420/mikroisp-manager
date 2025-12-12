@@ -118,6 +118,8 @@ def get_router_ports(
                         "running": iface.get("running") == "true",
                         "disabled": iface.get("disabled") == "true",
                         "mac_address": iface.get("mac-address"),
+                        "rate": iface.get("rate"),  # e.g., "1Gbps", "100Mbps"
+                        "speed": iface.get("speed"),  # fallback field
                         "vlans": port_vlans,
                         "bridge": bridge_membership,
                     })

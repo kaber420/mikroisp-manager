@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Render an SVG router diagram
+     * Render an SVG router diagram with RJ45-style ports
      */
     function renderRouterSVG(container, data) {
         const ports = data.ports || [];
@@ -177,35 +177,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Calculate dimensions
-        const portWidth = 50;
-        const portHeight = 40;
-        const portGap = 8;
-        const padding = 16;
+        const portWidth = 44;
+        const portHeight = 56; // Taller to fit VLAN LEDs
+        const portGap = 10;
+        const padding = 20;
         const portsPerRow = Math.min(ports.length, 12);
         const rows = Math.ceil(ports.length / portsPerRow);
 
         const svgWidth = (portWidth + portGap) * portsPerRow + padding * 2 - portGap;
-        const svgHeight = (portHeight + portGap) * rows + padding * 2 + 60; // Extra space for legend
+        const svgHeight = (portHeight + portGap) * rows + padding * 2 + 50;
+
+        // Generate unique ID for this SVG (for tooltip)
+        const svgId = `svg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
         let svgContent = `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${svgHeight}" 
+            <svg id="${svgId}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${svgHeight}" 
                  class="w-full max-w-4xl" style="background: var(--background); border-radius: 8px;">
+                
+                <!-- Defs for RJ45 shape -->
+                <defs>
+                    <clipPath id="rj45-clip">
+                        <path d="M4,0 L36,0 L40,4 L40,28 L0,28 L0,4 Z"/>
+                    </clipPath>
+                </defs>
+                
                 <!-- Router chassis -->
                 <rect x="0" y="0" width="${svgWidth}" height="${svgHeight - 40}" rx="8" 
                       fill="var(--surface-1)" stroke="var(--border-color)" stroke-width="1"/>
         `;
 
-        // VLAN color legend
-        const vlanColors = new Map();
-        ports.forEach(port => {
-            if (port.vlans && port.vlans.length > 0) {
-                port.vlans.forEach(v => {
-                    if (!vlanColors.has(v.id)) {
-                        vlanColors.set(v.id, vlanIdToColor(v.id));
-                    }
-                });
+        // Speed to color mapping
+        function getSpeedColor(rate) {
+            if (!rate) return { fill: '#374151', stroke: '#6B7280', label: '?' }; // Unknown - grey
+            const speed = rate.toLowerCase();
+            if (speed.includes('10g') || speed.includes('10000')) {
+                return { fill: '#3B82F6', stroke: '#60A5FA', label: '10G' }; // Blue - 10Gbps+
+            } else if (speed.includes('1g') || speed.includes('1000')) {
+                return { fill: '#10B981', stroke: '#34D399', label: '1G' }; // Green - 1Gbps
+            } else if (speed.includes('100m') || speed.includes('100')) {
+                return { fill: '#F59E0B', stroke: '#FBBF24', label: '100M' }; // Yellow - 100Mbps
+            } else if (speed.includes('10m') || speed.includes('10')) {
+                return { fill: '#EF4444', stroke: '#F87171', label: '10M' }; // Red - 10Mbps
             }
-        });
+            return { fill: '#374151', stroke: '#6B7280', label: '?' }; // Unknown
+        }
 
         // Render ports
         ports.forEach((port, index) => {
@@ -214,73 +229,103 @@ document.addEventListener('DOMContentLoaded', () => {
             const x = padding + col * (portWidth + portGap);
             const y = padding + row * (portHeight + portGap);
 
-            // Determine port color
-            let fillColor = '#374151'; // Default dark grey
-            let strokeColor = '#6B7280';
-            let statusIndicator = '';
+            // Get speed color
+            const speedInfo = getSpeedColor(port.rate || port.speed);
+
+            // Override colors for disabled/down ports
+            let fillColor = speedInfo.fill;
+            let strokeColor = speedInfo.stroke;
 
             if (port.disabled) {
                 fillColor = '#1F2937';
-                strokeColor = '#4B5563';
+                strokeColor = '#374151';
             } else if (!port.running) {
                 fillColor = '#292524';
-                strokeColor = '#78716C';
-            } else if (port.vlans && port.vlans.length > 0) {
-                // Use first VLAN color for port fill
-                fillColor = vlanIdToColor(port.vlans[0].id);
-                strokeColor = fillColor;
-            } else if (port.bridge) {
-                fillColor = '#3B82F6';
-                strokeColor = '#60A5FA';
-            } else {
-                fillColor = '#10B981';
-                strokeColor = '#34D399';
+                strokeColor = '#44403C';
             }
 
-            // Status LED
-            const ledColor = port.running && !port.disabled ? '#10B981' : '#6B7280';
+            // RJ45 silhouette shape
+            const rj45Height = 28;
+            const rj45Y = y + 8;
 
-            const vlanLabel = port.vlans && port.vlans.length > 0
-                ? port.vlans.map(v => v.id).join(',')
-                : (port.bridge ? port.bridge : '');
+            // VLAN LEDs - max 4 top, 4 bottom
+            const portVlans = port.vlans || [];
+            const topLeds = portVlans.slice(0, 4);
+            const bottomLeds = portVlans.slice(4, 8);
+            const extraVlans = portVlans.length > 8 ? portVlans.length - 8 : 0;
+
+            // Status indicator (link up/down)
+            const statusColor = port.running && !port.disabled ? '#10B981' : '#6B7280';
 
             svgContent += `
-                <g class="port-group" data-port="${port.name}">
-                    <!-- Port body -->
-                    <rect x="${x}" y="${y}" width="${portWidth}" height="${portHeight}" rx="4"
-                          fill="${fillColor}" stroke="${strokeColor}" stroke-width="2"/>
+                <g class="port-group" data-port="${port.name}" data-port-index="${index}" style="cursor: pointer;">
+                    <!-- Top VLAN LEDs -->
+                    <g class="vlan-leds-top">
+                        ${topLeds.map((v, i) => `
+                            <circle cx="${x + 6 + i * 10}" cy="${y + 3}" r="3" fill="${vlanIdToColor(v.id)}"/>
+                        `).join('')}
+                        ${extraVlans > 0 ? `<text x="${x + portWidth - 4}" y="${y + 6}" font-size="6" fill="var(--text-secondary)" text-anchor="end">+${extraVlans}</text>` : ''}
+                    </g>
+                    
+                    <!-- RJ45 Port Shape -->
+                    <g transform="translate(${x + 2}, ${rj45Y})">
+                        <!-- Outer housing -->
+                        <path d="M0,4 L0,26 L40,26 L40,4 L36,0 L4,0 Z" 
+                              fill="${fillColor}" stroke="${strokeColor}" stroke-width="1.5"/>
+                        <!-- Inner connector area -->
+                        <rect x="4" y="4" width="32" height="14" rx="1" fill="rgba(0,0,0,0.3)"/>
+                        <!-- Connector pins -->
+                        <g fill="rgba(255,255,255,0.4)">
+                            <rect x="7" y="6" width="2" height="8"/>
+                            <rect x="11" y="6" width="2" height="8"/>
+                            <rect x="15" y="6" width="2" height="8"/>
+                            <rect x="19" y="6" width="2" height="8"/>
+                            <rect x="23" y="6" width="2" height="8"/>
+                            <rect x="27" y="6" width="2" height="8"/>
+                            <rect x="31" y="6" width="2" height="8"/>
+                            <rect x="35" y="6" width="2" height="3"/>
+                        </g>
+                        <!-- Link status LED -->
+                        <circle cx="36" cy="22" r="2.5" fill="${statusColor}"/>
+                    </g>
+                    
+                    <!-- Bottom VLAN LEDs -->
+                    <g class="vlan-leds-bottom">
+                        ${bottomLeds.map((v, i) => `
+                            <circle cx="${x + 6 + i * 10}" cy="${y + rj45Height + 14}" r="3" fill="${vlanIdToColor(v.id)}"/>
+                        `).join('')}
+                    </g>
+                    
                     <!-- Port name -->
-                    <text x="${x + portWidth / 2}" y="${y + 15}" 
-                          text-anchor="middle" font-size="9" fill="white" font-weight="600">
-                        ${port.name}
+                    <text x="${x + portWidth / 2 + 1}" y="${y + portHeight - 2}" 
+                          text-anchor="middle" font-size="8" fill="var(--text-secondary)" font-weight="500">
+                        ${port.name.replace('ether', 'e').replace('sfp-sfpplus', 'sfp+')}
                     </text>
-                    <!-- VLAN/Bridge label -->
-                    <text x="${x + portWidth / 2}" y="${y + 28}" 
-                          text-anchor="middle" font-size="7" fill="rgba(255,255,255,0.7)">
-                        ${vlanLabel}
-                    </text>
-                    <!-- Status LED -->
-                    <circle cx="${x + portWidth - 6}" cy="${y + 6}" r="3" fill="${ledColor}"/>
-                    <!-- Tooltip area -->
-                    <title>${port.name}${port.running ? ' (UP)' : ' (DOWN)'}${port.vlans && port.vlans.length > 0 ? '\nVLANs: ' + port.vlans.map(v => v.id + ' - ' + v.name).join(', ') : ''}${port.bridge ? '\nBridge: ' + port.bridge : ''}</title>
                 </g>
             `;
         });
 
         // Legend
-        const legendY = svgHeight - 30;
+        const legendY = svgHeight - 32;
         svgContent += `
-            <g class="legend">
-                <rect x="${padding}" y="${legendY}" width="12" height="12" rx="2" fill="#10B981"/>
-                <text x="${padding + 16}" y="${legendY + 10}" font-size="9" fill="var(--text-secondary)">Active</text>
+            <g class="legend" font-size="8" fill="var(--text-secondary)">
+                <!-- Speed Legend -->
+                <text x="${padding}" y="${legendY}" font-weight="600">Speed:</text>
+                <rect x="${padding + 35}" y="${legendY - 9}" width="10" height="10" rx="2" fill="#EF4444"/>
+                <text x="${padding + 48}" y="${legendY}">10M</text>
+                <rect x="${padding + 70}" y="${legendY - 9}" width="10" height="10" rx="2" fill="#F59E0B"/>
+                <text x="${padding + 83}" y="${legendY}">100M</text>
+                <rect x="${padding + 112}" y="${legendY - 9}" width="10" height="10" rx="2" fill="#10B981"/>
+                <text x="${padding + 125}" y="${legendY}">1G</text>
+                <rect x="${padding + 142}" y="${legendY - 9}" width="10" height="10" rx="2" fill="#3B82F6"/>
+                <text x="${padding + 155}" y="${legendY}">10G+</text>
                 
-                <rect x="${padding + 60}" y="${legendY}" width="12" height="12" rx="2" fill="#3B82F6"/>
-                <text x="${padding + 76}" y="${legendY + 10}" font-size="9" fill="var(--text-secondary)">Bridge</text>
-                
-                <rect x="${padding + 120}" y="${legendY}" width="12" height="12" rx="2" fill="#6B7280"/>
-                <text x="${padding + 136}" y="${legendY + 10}" font-size="9" fill="var(--text-secondary)">Down</text>
-                
-                <text x="${padding + 180}" y="${legendY + 10}" font-size="9" fill="var(--text-secondary)">VLANs: color-coded</text>
+                <!-- Status Legend -->
+                <text x="${padding + 200}" y="${legendY}" font-weight="600">Status:</text>
+                <circle cx="${padding + 240}" cy="${legendY - 4}" r="4" fill="#10B981"/>
+                <text x="${padding + 248}" y="${legendY}">Link Up</text>
+                <circle cx="${padding + 290}" cy="${legendY - 4}" r="4" fill="#6B7280"/>
+                <text x="${padding + 298}" y="${legendY}">Down</text>
             </g>
         `;
 
@@ -304,7 +349,83 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
 
-        container.innerHTML = svgContent + bridgeSummary;
+        // Store port data for tooltip
+        container._portData = ports;
+
+        // Tooltip popup element
+        const tooltipHtml = `
+            <div id="port-tooltip" class="fixed z-50 hidden bg-surface-1 border border-border-color rounded-lg shadow-xl p-3 min-w-48 max-w-64 text-sm pointer-events-none">
+                <div class="font-semibold text-base mb-2" id="tooltip-port-name">ether1</div>
+                <div class="space-y-1 text-text-secondary" id="tooltip-content"></div>
+            </div>
+        `;
+
+        container.innerHTML = svgContent + bridgeSummary + tooltipHtml;
+
+        // Add hover event listeners
+        const svg = container.querySelector('svg');
+        const tooltip = container.querySelector('#port-tooltip');
+        const tooltipName = container.querySelector('#tooltip-port-name');
+        const tooltipContent = container.querySelector('#tooltip-content');
+
+        svg.querySelectorAll('.port-group').forEach(group => {
+            group.addEventListener('mouseenter', (e) => {
+                const portIndex = parseInt(group.dataset.portIndex);
+                const port = container._portData[portIndex];
+                if (!port) return;
+
+                // Build tooltip content
+                const speedInfo = getSpeedColor(port.rate || port.speed);
+                let html = `
+                    <div class="flex items-center gap-2">
+                        <span class="inline-block w-2 h-2 rounded-full" style="background: ${port.running && !port.disabled ? '#10B981' : '#6B7280'}"></span>
+                        <span>${port.running && !port.disabled ? 'Link Up' : (port.disabled ? 'Disabled' : 'Link Down')}</span>
+                    </div>
+                `;
+
+                if (port.rate || port.speed) {
+                    html += `<div>Speed: ${port.rate || port.speed}</div>`;
+                }
+
+                if (port.mac_address) {
+                    html += `<div class="text-xs opacity-70">MAC: ${port.mac_address}</div>`;
+                }
+
+                if (port.bridge) {
+                    html += `<div>Bridge: <span class="text-blue-400">${port.bridge}</span></div>`;
+                }
+
+                const portVlans = port.vlans || [];
+                if (portVlans.length > 0) {
+                    html += `
+                        <div class="mt-2 pt-2 border-t border-border-color">
+                            <div class="font-medium mb-1">VLANs (${portVlans.length}):</div>
+                            <div class="flex flex-wrap gap-1">
+                                ${portVlans.map(v => `
+                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs" style="background: ${vlanIdToColor(v.id)}20; color: ${vlanIdToColor(v.id)}">
+                                        <span class="w-2 h-2 rounded-full" style="background: ${vlanIdToColor(v.id)}"></span>
+                                        ${v.id}${v.name ? ' - ' + v.name : ''}
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                tooltipName.textContent = port.name;
+                tooltipContent.innerHTML = html;
+
+                // Position tooltip
+                const rect = group.getBoundingClientRect();
+                tooltip.style.left = `${rect.right + 10}px`;
+                tooltip.style.top = `${rect.top}px`;
+                tooltip.classList.remove('hidden');
+            });
+
+            group.addEventListener('mouseleave', () => {
+                tooltip.classList.add('hidden');
+            });
+        });
     }
 
     // Refresh button handler
