@@ -89,6 +89,62 @@ def get_router_ports(
             # Get bridge ports
             bridge_ports = api.get_resource("/interface/bridge/port").get()
             
+            # Get ethernet details (includes speed and PoE settings)
+            ethernet_details = {}
+            try:
+                ethernet_list = api.get_resource("/interface/ethernet").get()
+                for eth in ethernet_list:
+                    name = eth.get("name", "")
+                    ethernet_details[name] = {
+                        "speed": eth.get("speed"),  # Configured speed
+                        "poe_out": eth.get("poe-out"),  # PoE config: auto-on, off, forced-on
+                    }
+            except Exception:
+                pass  # Not all routers support this
+            
+            # Get real link speed using ethernet monitor
+            # This gives us the actual negotiated speed, not just the configured one
+            link_speeds = {}
+            try:
+                ethernet_resource = api.get_resource("/interface/ethernet")
+                # Monitor each ethernet interface that is running
+                for iface in interfaces:
+                    iface_name = iface.get("name", "")
+                    if iface_name.startswith("ether") and iface.get("running") == "true":
+                        try:
+                            # Use call to run monitor command with once=true
+                            monitor_result = ethernet_resource.call(
+                                "monitor",
+                                {"numbers": iface_name, "once": ""}
+                            )
+                            if monitor_result and len(monitor_result) > 0:
+                                mon = monitor_result[0]
+                                link_speeds[iface_name] = {
+                                    "rate": mon.get("rate"),  # e.g., "100Mbps", "1Gbps"
+                                    "status": mon.get("status"),  # e.g., "link-ok"
+                                    "full_duplex": mon.get("full-duplex"),
+                                    "auto_negotiation": mon.get("auto-negotiation"),
+                                }
+                        except Exception:
+                            pass  # Individual interface monitoring failed
+            except Exception as e:
+                logger.debug(f"Could not monitor ethernet interfaces: {e}")
+            
+            # Get PoE status (for devices with PoE)
+            poe_status = {}
+            try:
+                poe_list = api.get_resource("/interface/ethernet/poe").get()
+                for poe in poe_list:
+                    name = poe.get("name", "")
+                    poe_status[name] = {
+                        "poe_out_status": poe.get("poe-out-status"),  # powered-on, waiting-for-load, short-circuit, overload, off
+                        "poe_out_voltage": poe.get("poe-out-voltage"),
+                        "poe_out_current": poe.get("poe-out-current"),
+                        "poe_out_power": poe.get("poe-out-power"),
+                    }
+            except Exception:
+                pass  # Not all routers have PoE
+            
             # Process interfaces for visualization
             physical_ports = []
             for iface in interfaces:
@@ -111,6 +167,17 @@ def get_router_ports(
                             bridge_membership = bp.get("bridge")
                             break
                     
+                    # Get Ethernet details for this interface
+                    eth_info = ethernet_details.get(iface_name, {})
+                    poe_info = poe_status.get(iface_name, {})
+                    link_info = link_speeds.get(iface_name, {})
+                    
+                    # Determine PoE status - prioritize poe-out-status from PoE resource
+                    poe_out_val = poe_info.get("poe_out_status") or eth_info.get("poe_out") or iface.get("poe-out")
+                    
+                    # Determine speed - prioritize monitor rate (actual), then interface rate, then config
+                    speed_val = link_info.get("rate") or iface.get("rate") or eth_info.get("speed")
+                    
                     physical_ports.append({
                         "id": iface.get(".id"),
                         "name": iface_name,
@@ -118,8 +185,12 @@ def get_router_ports(
                         "running": iface.get("running") == "true",
                         "disabled": iface.get("disabled") == "true",
                         "mac_address": iface.get("mac-address"),
-                        "rate": iface.get("rate"),  # e.g., "1Gbps", "100Mbps"
-                        "speed": iface.get("speed"),  # fallback field
+                        "rate": speed_val,  # e.g., "1Gbps", "100Mbps"
+                        "speed": speed_val,  # Same for compatibility
+                        "poe": poe_out_val,  # PoE status: "powered-on", "off", "waiting-for-load", etc.
+                        "poe_voltage": poe_info.get("poe_out_voltage"),
+                        "poe_current": poe_info.get("poe_out_current"),
+                        "poe_power": poe_info.get("poe_out_power"),
                         "vlans": port_vlans,
                         "bridge": bridge_membership,
                     })

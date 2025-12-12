@@ -168,6 +168,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Render an SVG router diagram with RJ45-style ports
+     * Design: 8 pins inside RJ45 represent VLANs (color-coded)
+     * 2 LEDs at bottom: Left = Link status, Right = PoE status
      */
     function renderRouterSVG(container, data) {
         const ports = data.ports || [];
@@ -177,50 +179,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Calculate dimensions
-        const portWidth = 44;
-        const portHeight = 56; // Taller to fit VLAN LEDs
-        const portGap = 10;
-        const padding = 20;
+        const portWidth = 48;
+        const portHeight = 52;
+        const portGap = 8;
+        const padding = 16;
         const portsPerRow = Math.min(ports.length, 12);
         const rows = Math.ceil(ports.length / portsPerRow);
 
         const svgWidth = (portWidth + portGap) * portsPerRow + padding * 2 - portGap;
-        const svgHeight = (portHeight + portGap) * rows + padding * 2 + 50;
+        const svgHeight = (portHeight + portGap) * rows + padding * 2 + 36;
 
-        // Generate unique ID for this SVG (for tooltip)
+        // Generate unique ID for this SVG
         const svgId = `svg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
         let svgContent = `
             <svg id="${svgId}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${svgHeight}" 
                  class="w-full max-w-4xl" style="background: var(--background); border-radius: 8px;">
                 
-                <!-- Defs for RJ45 shape -->
-                <defs>
-                    <clipPath id="rj45-clip">
-                        <path d="M4,0 L36,0 L40,4 L40,28 L0,28 L0,4 Z"/>
-                    </clipPath>
-                </defs>
-                
                 <!-- Router chassis -->
-                <rect x="0" y="0" width="${svgWidth}" height="${svgHeight - 40}" rx="8" 
+                <rect x="0" y="0" width="${svgWidth}" height="${svgHeight - 28}" rx="8" 
                       fill="var(--surface-1)" stroke="var(--border-color)" stroke-width="1"/>
         `;
-
-        // Speed to color mapping
-        function getSpeedColor(rate) {
-            if (!rate) return { fill: '#374151', stroke: '#6B7280', label: '?' }; // Unknown - grey
-            const speed = rate.toLowerCase();
-            if (speed.includes('10g') || speed.includes('10000')) {
-                return { fill: '#3B82F6', stroke: '#60A5FA', label: '10G' }; // Blue - 10Gbps+
-            } else if (speed.includes('1g') || speed.includes('1000')) {
-                return { fill: '#10B981', stroke: '#34D399', label: '1G' }; // Green - 1Gbps
-            } else if (speed.includes('100m') || speed.includes('100')) {
-                return { fill: '#F59E0B', stroke: '#FBBF24', label: '100M' }; // Yellow - 100Mbps
-            } else if (speed.includes('10m') || speed.includes('10')) {
-                return { fill: '#EF4444', stroke: '#F87171', label: '10M' }; // Red - 10Mbps
-            }
-            return { fill: '#374151', stroke: '#6B7280', label: '?' }; // Unknown
-        }
 
         // Render ports
         ports.forEach((port, index) => {
@@ -229,75 +208,60 @@ document.addEventListener('DOMContentLoaded', () => {
             const x = padding + col * (portWidth + portGap);
             const y = padding + row * (portHeight + portGap);
 
-            // Get speed color
-            const speedInfo = getSpeedColor(port.rate || port.speed);
+            // Disabled/down styling
+            const isActive = port.running && !port.disabled;
+            const portFill = port.disabled ? '#1F2937' : '#374151';
+            const portStroke = port.disabled ? '#374151' : (isActive ? '#6B7280' : '#4B5563');
 
-            // Override colors for disabled/down ports
-            let fillColor = speedInfo.fill;
-            let strokeColor = speedInfo.stroke;
-
-            if (port.disabled) {
-                fillColor = '#1F2937';
-                strokeColor = '#374151';
-            } else if (!port.running) {
-                fillColor = '#292524';
-                strokeColor = '#44403C';
+            // VLAN pins (8 pins, color-coded by VLAN if assigned)
+            const portVlans = port.vlans || [];
+            const pinColors = [];
+            for (let i = 0; i < 8; i++) {
+                if (i < portVlans.length) {
+                    pinColors.push(vlanIdToColor(portVlans[i].id));
+                } else {
+                    // Default pin color (metallic/copper look)
+                    pinColors.push(isActive ? '#D4AF37' : '#6B7280');
+                }
             }
 
-            // RJ45 silhouette shape
-            const rj45Height = 28;
-            const rj45Y = y + 8;
-
-            // VLAN LEDs - max 4 top, 4 bottom
-            const portVlans = port.vlans || [];
-            const topLeds = portVlans.slice(0, 4);
-            const bottomLeds = portVlans.slice(4, 8);
-            const extraVlans = portVlans.length > 8 ? portVlans.length - 8 : 0;
-
-            // Status indicator (link up/down)
-            const statusColor = port.running && !port.disabled ? '#10B981' : '#6B7280';
+            // LED colors
+            const linkLedColor = isActive ? '#10B981' : '#6B7280';
+            // PoE states: 'powered-on', 'auto-on', 'forced-on' are active; 'off', 'waiting-for-load' are not
+            const isPoeActive = port.poe && ['powered-on', 'auto-on', 'forced-on'].includes(port.poe);
+            const isPoeConfigured = port.poe && port.poe !== 'off' && port.poe !== null;
+            // Yellow = active, Orange = configured but not powering, Gray = off/none
+            const poeLedColor = isPoeActive ? '#F59E0B' : (isPoeConfigured ? '#F97316' : '#374151');
 
             svgContent += `
                 <g class="port-group" data-port="${port.name}" data-port-index="${index}" style="cursor: pointer;">
-                    <!-- Top VLAN LEDs -->
-                    <g class="vlan-leds-top">
-                        ${topLeds.map((v, i) => `
-                            <circle cx="${x + 6 + i * 10}" cy="${y + 3}" r="3" fill="${vlanIdToColor(v.id)}"/>
+                    <!-- RJ45 Port Housing -->
+                    <g transform="translate(${x}, ${y})">
+                        <!-- Outer frame (rounded rectangle like reference) -->
+                        <rect x="0" y="0" width="${portWidth}" height="38" rx="4" 
+                              fill="${portFill}" stroke="${portStroke}" stroke-width="1.5"/>
+                        
+                        <!-- Inner slot (where pins are) -->
+                        <rect x="4" y="4" width="${portWidth - 8}" height="22" rx="2" 
+                              fill="#1a1a1a" stroke="#2a2a2a" stroke-width="0.5"/>
+                        
+                        <!-- 8 Connector Pins (VLAN colored) -->
+                        ${pinColors.map((color, i) => `
+                            <rect x="${6 + i * 4.5}" y="6" width="3" height="16" rx="0.5" 
+                                  fill="${color}" opacity="${isActive ? 1 : 0.5}"/>
                         `).join('')}
-                        ${extraVlans > 0 ? `<text x="${x + portWidth - 4}" y="${y + 6}" font-size="6" fill="var(--text-secondary)" text-anchor="end">+${extraVlans}</text>` : ''}
+                        
+                        <!-- Clip/latch at bottom of socket -->
+                        <path d="M${portWidth / 2 - 8},26 L${portWidth / 2 - 4},30 L${portWidth / 2 + 4},30 L${portWidth / 2 + 8},26" 
+                              fill="none" stroke="${portStroke}" stroke-width="1"/>
+                        
+                        <!-- Two LEDs at bottom corners -->
+                        <circle cx="8" cy="33" r="3" fill="${linkLedColor}"/>
+                        <circle cx="${portWidth - 8}" cy="33" r="3" fill="${poeLedColor}"/>
                     </g>
                     
-                    <!-- RJ45 Port Shape -->
-                    <g transform="translate(${x + 2}, ${rj45Y})">
-                        <!-- Outer housing -->
-                        <path d="M0,4 L0,26 L40,26 L40,4 L36,0 L4,0 Z" 
-                              fill="${fillColor}" stroke="${strokeColor}" stroke-width="1.5"/>
-                        <!-- Inner connector area -->
-                        <rect x="4" y="4" width="32" height="14" rx="1" fill="rgba(0,0,0,0.3)"/>
-                        <!-- Connector pins -->
-                        <g fill="rgba(255,255,255,0.4)">
-                            <rect x="7" y="6" width="2" height="8"/>
-                            <rect x="11" y="6" width="2" height="8"/>
-                            <rect x="15" y="6" width="2" height="8"/>
-                            <rect x="19" y="6" width="2" height="8"/>
-                            <rect x="23" y="6" width="2" height="8"/>
-                            <rect x="27" y="6" width="2" height="8"/>
-                            <rect x="31" y="6" width="2" height="8"/>
-                            <rect x="35" y="6" width="2" height="3"/>
-                        </g>
-                        <!-- Link status LED -->
-                        <circle cx="36" cy="22" r="2.5" fill="${statusColor}"/>
-                    </g>
-                    
-                    <!-- Bottom VLAN LEDs -->
-                    <g class="vlan-leds-bottom">
-                        ${bottomLeds.map((v, i) => `
-                            <circle cx="${x + 6 + i * 10}" cy="${y + rj45Height + 14}" r="3" fill="${vlanIdToColor(v.id)}"/>
-                        `).join('')}
-                    </g>
-                    
-                    <!-- Port name -->
-                    <text x="${x + portWidth / 2 + 1}" y="${y + portHeight - 2}" 
+                    <!-- Port name below -->
+                    <text x="${x + portWidth / 2}" y="${y + 48}" 
                           text-anchor="middle" font-size="8" fill="var(--text-secondary)" font-weight="500">
                         ${port.name.replace('ether', 'e').replace('sfp-sfpplus', 'sfp+')}
                     </text>
@@ -306,26 +270,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Legend
-        const legendY = svgHeight - 32;
+        const legendY = svgHeight - 20;
         svgContent += `
-            <g class="legend" font-size="8" fill="var(--text-secondary)">
-                <!-- Speed Legend -->
-                <text x="${padding}" y="${legendY}" font-weight="600">Speed:</text>
-                <rect x="${padding + 35}" y="${legendY - 9}" width="10" height="10" rx="2" fill="#EF4444"/>
-                <text x="${padding + 48}" y="${legendY}">10M</text>
-                <rect x="${padding + 70}" y="${legendY - 9}" width="10" height="10" rx="2" fill="#F59E0B"/>
-                <text x="${padding + 83}" y="${legendY}">100M</text>
-                <rect x="${padding + 112}" y="${legendY - 9}" width="10" height="10" rx="2" fill="#10B981"/>
-                <text x="${padding + 125}" y="${legendY}">1G</text>
-                <rect x="${padding + 142}" y="${legendY - 9}" width="10" height="10" rx="2" fill="#3B82F6"/>
-                <text x="${padding + 155}" y="${legendY}">10G+</text>
+            <g class="legend" font-size="7" fill="var(--text-secondary)">
+                <!-- Link LED -->
+                <circle cx="${padding + 5}" cy="${legendY}" r="3" fill="#10B981"/>
+                <text x="${padding + 12}" y="${legendY + 3}">Link</text>
                 
-                <!-- Status Legend -->
-                <text x="${padding + 200}" y="${legendY}" font-weight="600">Status:</text>
-                <circle cx="${padding + 240}" cy="${legendY - 4}" r="4" fill="#10B981"/>
-                <text x="${padding + 248}" y="${legendY}">Link Up</text>
-                <circle cx="${padding + 290}" cy="${legendY - 4}" r="4" fill="#6B7280"/>
-                <text x="${padding + 298}" y="${legendY}">Down</text>
+                <!-- PoE Active LED -->
+                <circle cx="${padding + 42}" cy="${legendY}" r="3" fill="#F59E0B"/>
+                <text x="${padding + 49}" y="${legendY + 3}">PoE Active</text>
+                
+                <!-- PoE Configured LED -->
+                <circle cx="${padding + 100}" cy="${legendY}" r="3" fill="#F97316"/>
+                <text x="${padding + 107}" y="${legendY + 3}">PoE Waiting</text>
+                
+                <!-- Down indicator -->
+                <circle cx="${padding + 170}" cy="${legendY}" r="3" fill="#6B7280"/>
+                <text x="${padding + 177}" y="${legendY + 3}">Down/Off</text>
+                
+                <!-- VLAN info -->
+                <text x="${padding + 225}" y="${legendY + 3}">Pins = VLANs (hover for details)</text>
             </g>
         `;
 
@@ -354,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Tooltip popup element
         const tooltipHtml = `
-            <div id="port-tooltip" class="fixed z-50 hidden bg-surface-1 border border-border-color rounded-lg shadow-xl p-3 min-w-48 max-w-64 text-sm pointer-events-none">
+            <div id="port-tooltip" class="fixed z-50 hidden bg-surface-1 border border-border-color rounded-lg shadow-xl p-3 min-w-52 max-w-72 text-sm pointer-events-none">
                 <div class="font-semibold text-base mb-2" id="tooltip-port-name">ether1</div>
                 <div class="space-y-1 text-text-secondary" id="tooltip-content"></div>
             </div>
@@ -374,17 +339,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 const port = container._portData[portIndex];
                 if (!port) return;
 
+                const isActive = port.running && !port.disabled;
+
                 // Build tooltip content
-                const speedInfo = getSpeedColor(port.rate || port.speed);
                 let html = `
-                    <div class="flex items-center gap-2">
-                        <span class="inline-block w-2 h-2 rounded-full" style="background: ${port.running && !port.disabled ? '#10B981' : '#6B7280'}"></span>
-                        <span>${port.running && !port.disabled ? 'Link Up' : (port.disabled ? 'Disabled' : 'Link Down')}</span>
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="inline-block w-2 h-2 rounded-full" style="background: ${isActive ? '#10B981' : '#6B7280'}"></span>
+                        <span class="font-medium">${isActive ? 'Link Up' : (port.disabled ? 'Disabled' : 'Link Down')}</span>
                     </div>
                 `;
 
                 if (port.rate || port.speed) {
-                    html += `<div>Speed: ${port.rate || port.speed}</div>`;
+                    html += `<div>Speed: <span class="font-medium text-green-400">${port.rate || port.speed}</span></div>`;
+                } else if (isActive) {
+                    html += `<div>Speed: <span class="text-text-secondary italic">Unknown</span></div>`;
+                }
+
+                if (port.poe) {
+                    const isPoeActive = ['powered-on', 'auto-on', 'forced-on'].includes(port.poe);
+                    const poeStatusText = port.poe === 'powered-on' ? 'Supplying Power' :
+                        port.poe === 'auto-on' ? 'Auto (Supplying)' :
+                            port.poe === 'forced-on' ? 'Forced On' :
+                                port.poe === 'waiting-for-load' ? 'Waiting for Load' :
+                                    port.poe;
+                    html += `<div class="flex items-center gap-2">PoE: <span class="${isPoeActive ? 'text-yellow-400 font-medium' : 'text-text-secondary'}">${poeStatusText}</span></div>`;
+
+                    // Show power details if available
+                    if (isPoeActive && (port.poe_voltage || port.poe_power)) {
+                        html += `<div class="text-xs pl-4 text-text-secondary">`;
+                        if (port.poe_voltage) html += `${port.poe_voltage}V`;
+                        if (port.poe_current) html += ` / ${port.poe_current}mA`;
+                        if (port.poe_power) html += ` / ${port.poe_power}W`;
+                        html += `</div>`;
+                    }
+                } else {
+                    html += `<div>PoE: <span class="text-text-secondary">Not available</span></div>`;
                 }
 
                 if (port.mac_address) {
@@ -399,17 +388,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (portVlans.length > 0) {
                     html += `
                         <div class="mt-2 pt-2 border-t border-border-color">
-                            <div class="font-medium mb-1">VLANs (${portVlans.length}):</div>
-                            <div class="flex flex-wrap gap-1">
-                                ${portVlans.map(v => `
-                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs" style="background: ${vlanIdToColor(v.id)}20; color: ${vlanIdToColor(v.id)}">
-                                        <span class="w-2 h-2 rounded-full" style="background: ${vlanIdToColor(v.id)}"></span>
-                                        ${v.id}${v.name ? ' - ' + v.name : ''}
-                                    </span>
+                            <div class="font-medium mb-2">VLANs (${portVlans.length}):</div>
+                            <div class="grid grid-cols-2 gap-1">
+                                ${portVlans.map((v, i) => `
+                                    <div class="flex items-center gap-1.5 text-xs">
+                                        <span class="inline-block w-2 h-2 rounded-sm flex-shrink-0" style="background: ${vlanIdToColor(v.id)}"></span>
+                                        <span class="opacity-60">Pin ${i + 1}:</span>
+                                        <span>${v.id}${v.name ? ' (' + v.name + ')' : ''}</span>
+                                    </div>
                                 `).join('')}
                             </div>
                         </div>
                     `;
+                } else {
+                    html += `<div class="text-xs opacity-50 mt-1">No VLANs assigned (untagged)</div>`;
                 }
 
                 tooltipName.textContent = port.name;
@@ -417,7 +409,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Position tooltip
                 const rect = group.getBoundingClientRect();
-                tooltip.style.left = `${rect.right + 10}px`;
+                const tooltipWidth = 288; // max-w-72 = 18rem = 288px
+
+                // Try right side first, if not enough space use left
+                if (window.innerWidth - rect.right > tooltipWidth + 20) {
+                    tooltip.style.left = `${rect.right + 10}px`;
+                } else {
+                    tooltip.style.left = `${rect.left - tooltipWidth - 10}px`;
+                }
                 tooltip.style.top = `${rect.top}px`;
                 tooltip.classList.remove('hidden');
             });
