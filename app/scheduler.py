@@ -87,24 +87,39 @@ def run_scheduler():
         replace_existing=True
     )
 
-    # --- Job 3: Respaldo Diario de Routers ---
+    # --- Job 3: Respaldo de Routers (Diario/Semanal) ---
     from .services.backup_service import run_backup_cycle
     
-    # Obtener hora desde la configuración (default 03:00)
+    # Obtener configuración de respaldo
+    backup_frequency = get_setting("backup_frequency") or "daily"
+    backup_day_of_week = get_setting("backup_day_of_week") or "mon"
     backup_run_hour = get_setting("backup_run_hour") or "03:00"
+    
+    # Debug: mostrar valores leídos
+    logger.info(f"   [DEBUG] backup_frequency = '{backup_frequency}'")
+    logger.info(f"   [DEBUG] backup_day_of_week = '{backup_day_of_week}'")
+    logger.info(f"   [DEBUG] backup_run_hour = '{backup_run_hour}'")
+    
     try:
         b_hour, b_minute = backup_run_hour.split(":")
         b_hour = int(b_hour)
         b_minute = int(b_minute)
     except (ValueError, AttributeError):
         b_hour, b_minute = 3, 0
-        
-    logger.info(f"Programando Respaldo Diario a las {b_hour:02d}:{b_minute:02d}")
+    
+    # Configurar trigger según frecuencia
+    if backup_frequency == "weekly":
+        backup_trigger = CronTrigger(day_of_week=backup_day_of_week, hour=b_hour, minute=b_minute)
+        logger.info(f"Programando Respaldo Semanal: {backup_day_of_week.upper()} a las {b_hour:02d}:{b_minute:02d}")
+    else:
+        backup_trigger = CronTrigger(hour=b_hour, minute=b_minute)
+        logger.info(f"Programando Respaldo Diario a las {b_hour:02d}:{b_minute:02d}")
+    
     scheduler.add_job(
         run_backup_cycle,
-        trigger=CronTrigger(hour=b_hour, minute=b_minute),
+        trigger=backup_trigger,
         id='backup_job',
-        name='Daily Router Backup',
+        name='Router Backup',
         replace_existing=True
     )
     

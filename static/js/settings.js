@@ -24,10 +24,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     inputElement.value = value;
                 }
             }
+
+            // Toggle day-of-week visibility based on frequency
+            toggleBackupDayVisibility();
         } catch (error) {
             console.error("Error loading settings:", error);
             showToast("Could not load settings. Please check the API connection.", 'danger');
         }
+    }
+
+    // Toggle backup day visibility based on frequency
+    function toggleBackupDayVisibility() {
+        const frequencySelect = document.getElementById('backup_frequency');
+        const dayContainer = document.getElementById('backup-day-container');
+        if (frequencySelect && dayContainer) {
+            if (frequencySelect.value === 'weekly') {
+                dayContainer.classList.remove('hidden');
+            } else {
+                dayContainer.classList.add('hidden');
+            }
+        }
+    }
+
+    // Listen for frequency change
+    const backupFrequencySelect = document.getElementById('backup_frequency');
+    if (backupFrequencySelect) {
+        backupFrequencySelect.addEventListener('change', toggleBackupDayVisibility);
     }
 
     async function handleSettingsSubmit(event) {

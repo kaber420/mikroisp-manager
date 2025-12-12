@@ -154,8 +154,32 @@
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
                         </div>
                         <div>
+                            <label for="backup_frequency"
+                                class="block text-sm font-medium mb-2 text-text-secondary">Frecuencia de
+                                Respaldo</label>
+                            <select id="backup_frequency" name="backup_frequency"
+                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white cursor-pointer">
+                                <option value="daily">Diario</option>
+                                <option value="weekly">Semanal</option>
+                            </select>
+                        </div>
+                        <div id="backup-day-container" class="hidden">
+                            <label for="backup_day_of_week"
+                                class="block text-sm font-medium mb-2 text-text-secondary">Día de la Semana</label>
+                            <select id="backup_day_of_week" name="backup_day_of_week"
+                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white cursor-pointer">
+                                <option value="mon">Lunes</option>
+                                <option value="tue">Martes</option>
+                                <option value="wed">Miércoles</option>
+                                <option value="thu">Jueves</option>
+                                <option value="fri">Viernes</option>
+                                <option value="sat">Sábado</option>
+                                <option value="sun">Domingo</option>
+                            </select>
+                        </div>
+                        <div>
                             <label for="backup_run_hour" class="block text-sm font-medium mb-2 text-text-secondary">Hora
-                                Backup Diario</label>
+                                de Respaldo</label>
                             <input type="time" id="backup_run_hour" name="backup_run_hour"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
                             <p class="text-xs text-text-secondary mt-1">Hora a la que se respaldarán los routers
