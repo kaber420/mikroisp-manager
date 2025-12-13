@@ -8,7 +8,7 @@ from typing import List, Dict, Optional
 # --- RBAC: Stats is read-only, allow all authenticated users ---
 from ...core.users import current_active_user
 from ...models.user import User
-from ...db.base import get_db_connection, get_stats_db_connection
+from ...db.base import get_db_connection, get_stats_db_connection, get_stats_db_file
 from ...db.cpes_db import get_all_cpes_globally  # Reutilizamos una función ya creada
 
 # --- ¡IMPORTACIÓN CORREGIDA! (Ahora desde '.models') ---
@@ -43,7 +43,7 @@ def get_top_aps_by_airtime(
     conn: sqlite3.Connection = Depends(get_inventory_db),
     current_user: User = Depends(current_active_user),
 ):
-    stats_db_file = f"stats_{datetime.utcnow().strftime('%Y_%m')}.sqlite"
+    stats_db_file = get_stats_db_file()
     if not os.path.exists(stats_db_file):
         return []
 

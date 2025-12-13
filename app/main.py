@@ -181,9 +181,10 @@ async def add_security_headers(request: Request, call_next):
 # --- Configuración de Directorios ---
 current_dir = os.path.dirname(__file__)
 static_dir = os.path.join(current_dir, "..", "static")
+uploads_dir = os.path.join(current_dir, "..", "data", "uploads")
 
-os.makedirs("uploads", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+os.makedirs(uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Note: templates are now handled in .core.templates, imported above.

@@ -3,15 +3,12 @@ import sqlite3
 from datetime import datetime
 import os
 
-
-def _get_current_stats_db_path():
-    """Genera la ruta del archivo de estadísticas del mes actual."""
-    return f"stats_{datetime.utcnow().strftime('%Y_%m')}.sqlite"
+from .base import get_stats_db_file
 
 
 def get_log_connection():
     """Conecta a la DB de estadísticas del mes actual."""
-    db_file = _get_current_stats_db_path()
+    db_file = get_stats_db_file()
     conn = sqlite3.connect(db_file, check_same_thread=False)
     conn.row_factory = sqlite3.Row
 

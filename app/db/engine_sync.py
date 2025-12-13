@@ -9,8 +9,9 @@ from sqlmodel import SQLModel, Session, create_engine
 from sqlalchemy import event
 from typing import Generator
 
-# Read database path from environment or use default
-DATABASE_FILE = os.getenv("INVENTORY_DB_FILE", "inventory.sqlite")
+# Database path is fixed in data/db/
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+DATABASE_FILE = os.path.join(DATA_DIR, "db", "inventory.sqlite")
 DATABASE_URL = f"sqlite:///{DATABASE_FILE}"
 
 # Create SYNC engine (como antes)

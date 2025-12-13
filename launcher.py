@@ -54,11 +54,10 @@ def run_setup_wizard():
             break
         print("❌ Puerto inválido. Usa un número entre 1024 y 65535.")
 
-    # 2. BASE DE DATOS (Fija para evitar errores)
-    db_file = "inventory.sqlite" 
-    
-    # 3. SEGURIDAD (Automática)
-    print(f"✓ Base de datos configurada en: {db_file}")
+    # 2. BASE DE DATOS (Fija en data/db/)
+    db_dir = os.path.join("data", "db")
+    os.makedirs(db_dir, exist_ok=True)
+    print(f"✓ Base de datos configurada en: data/db/inventory.sqlite")
     
     allowed_hosts = f"localhost:{port},127.0.0.1:{port}"
     # Generar orígenes permitidos automáticamente
@@ -70,12 +69,11 @@ def run_setup_wizard():
     secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
     encrypt_key = os.getenv("ENCRYPTION_KEY") or Fernet.generate_key().decode()
 
-    # Guardar archivo
+    # Guardar archivo (sin INVENTORY_DB_FILE ya que está hardcodeado en el código)
     try:
         with open(ENV_FILE, "w", encoding="utf-8") as f:
             f.write(f"# Configuración de µMonitor Pro\n")
             f.write(f"UVICORN_PORT={port}\n")
-            f.write(f"INVENTORY_DB_FILE=\"{db_file}\"\n")
             f.write(f"SECRET_KEY=\"{secret_key}\"\n")
             f.write(f"ENCRYPTION_KEY=\"{encrypt_key}\"\n")
             f.write(f"APP_ENV=development\n")

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 import logging
 
-from .base import get_db_connection
+from .base import get_db_connection, get_stats_db_file
 
 # --- CAMBIO: Importar las funciones de cifrado ---
 from ..utils.security import encrypt_data, decrypt_data  # <-- LÍNEA CAMBIADA
@@ -134,7 +134,7 @@ def create_ap_in_db(ap_data: Dict[str, Any]) -> Dict[str, Any]:
 def get_all_aps_with_stats() -> List[Dict[str, Any]]:
     """Obtiene todos los APs, uniendo los datos de estado más recientes de la DB de estadísticas."""
     conn = get_db_connection()
-    stats_db_file = f"stats_{datetime.utcnow().strftime('%Y_%m')}.sqlite"
+    stats_db_file = get_stats_db_file()
 
     if os.path.exists(stats_db_file):
         try:
@@ -166,7 +166,7 @@ def get_all_aps_with_stats() -> List[Dict[str, Any]]:
 def get_ap_by_host_with_stats(host: str) -> Optional[Dict[str, Any]]:
     """Obtiene un AP específico, uniendo sus datos de estado más recientes."""
     conn = get_db_connection()
-    stats_db_file = f"stats_{datetime.utcnow().strftime('%Y_%m')}.sqlite"
+    stats_db_file = get_stats_db_file()
 
     if os.path.exists(stats_db_file):
         try:

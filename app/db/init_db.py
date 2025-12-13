@@ -1,12 +1,8 @@
 # app/db/init_db.py
 import sqlite3
+import os
 from datetime import datetime
-from .base import get_db_connection, INVENTORY_DB_FILE
-
-
-def _get_current_stats_db_file() -> str:
-    now = datetime.utcnow()
-    return f"stats_{now.strftime('%Y_%m')}.sqlite"
+from .base import get_db_connection, INVENTORY_DB_FILE, get_stats_db_file
 
 
 def setup_databases():
@@ -263,7 +259,7 @@ def _setup_inventory_db():
 
 
 def _setup_stats_db():
-    stats_db_file = _get_current_stats_db_file()
+    stats_db_file = get_stats_db_file()
     stats_conn = sqlite3.connect(stats_db_file)
     stats_conn.row_factory = sqlite3.Row
     cursor = stats_conn.cursor()
