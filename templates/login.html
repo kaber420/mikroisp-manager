@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - µMonitor Pro</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', path='/img/favicon.ico') }}">
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
@@ -153,7 +154,8 @@
                 {% endif %}
 
                 <form id="login-form" class="space-y-5">
-                    <div id="error-container" class="hidden bg-danger/10 border border-danger/20 text-danger text-sm rounded-lg p-3 mb-6 text-center flex items-center justify-center gap-2">
+                    <div id="error-container"
+                        class="hidden bg-danger/10 border border-danger/20 text-danger text-sm rounded-lg p-3 mb-6 text-center flex items-center justify-center gap-2">
                         <span class="material-symbols-outlined text-sm">error</span>
                         <span id="error-message-text"></span>
                     </div>
@@ -187,7 +189,7 @@
                 </form>
 
                 <script>
-                    document.getElementById('login-form').addEventListener('submit', async function(e) {
+                    document.getElementById('login-form').addEventListener('submit', async function (e) {
                         e.preventDefault();
 
                         const errorContainer = document.getElementById('error-container');
