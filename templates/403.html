@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso Denegado - µMonitor Pro</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', path='/img/favicon.ico') }}">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { DEFAULT: '#3B82F6', hover: '#2563EB' },
+                        background: '#0A0A0A',
+                        'surface-1': '#1E293B',
+                        'text-primary': '#F1F5F9',
+                        'text-secondary': '#94A3B8',
+                        'border-color': '#252525',
+                        danger: '#EF4444',
+                        warning: '#F59E0B',
+                    },
+                    fontFamily: { sans: ["Inter", "sans-serif"] },
+                },
+            },
+        }
+    </script>
+    <style>
+        .dynamic-bg {
+            background: linear-gradient(125deg, #0a0a0a 0%, #1a1a2e 25%, #16213e 50%, #0f0f0f 75%, #0a0a0a 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+        }
+
+        .glow-element {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.12) 0%, transparent 70%);
+            border-radius: 50%;
+            filter: blur(40px);
+            opacity: 0.7;
+            animation: float 8s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translate(0, 0);
+            }
+
+            50% {
+                transform: translate(20px, -20px);
+            }
+        }
+
+        .glow-1 {
+            top: 10%;
+            left: 5%;
+            animation-delay: 0s;
+        }
+
+        .glow-2 {
+            bottom: 15%;
+            right: 8%;
+            animation-delay: -2s;
+        }
+
+        @keyframes pulse-slow {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.8;
+                transform: scale(1.05);
+            }
+        }
+
+        .pulse-icon {
+            animation: pulse-slow 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+
+<body class="dynamic-bg text-text-primary font-sans antialiased relative overflow-hidden">
+
+    <!-- Dynamic glowing elements -->
+    <div class="glow-element glow-1"></div>
+    <div class="glow-element glow-2"></div>
+
+    <div class="flex min-h-screen items-center justify-center p-4 relative z-10">
+        <div class="w-full max-w-lg">
+            <div class="glass-card rounded-2xl p-10 text-center">
+                <!-- Icon -->
+                <div class="flex justify-center mb-6">
+                    <div class="p-5 bg-warning/10 rounded-2xl border border-warning/20 pulse-icon">
+                        <span class="material-symbols-outlined text-warning text-6xl">block</span>
+                    </div>
+                </div>
+
+                <!-- Error Code -->
+                <h1 class="text-7xl font-extrabold text-warning/80 mb-2">403</h1>
+
+                <!-- Title -->
+                <h2 class="text-2xl font-bold text-text-primary mb-3">Acceso Denegado</h2>
+
+                <!-- Description -->
+                <p class="text-text-secondary mb-8 leading-relaxed">
+                    No tienes los permisos necesarios para acceder a esta sección.<br>
+                    <span class="text-sm opacity-75">Si crees que esto es un error, contacta al administrador del
+                        sistema.</span>
+                </p>
+
+                <!-- Action Buttons -->
+                <div class="flex flex-col gap-3 justify-center">
+                    <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                        <a href="/"
+                            class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white rounded-xl bg-primary hover:bg-primary-hover focus:outline-none focus:ring-4 focus:ring-primary/20 transition-all shadow-lg shadow-primary/20">
+                            <span class="material-symbols-outlined text-lg">home</span>
+                            Ir al Dashboard
+                        </a>
+                        <button onclick="history.back()"
+                            class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-text-secondary rounded-xl border border-white/10 hover:bg-white/5 hover:text-text-primary focus:outline-none transition-all">
+                            <span class="material-symbols-outlined text-lg">arrow_back</span>
+                            Volver Atrás
+                        </button>
+                    </div>
+
+                    <!-- Logout option -->
+                    <div class="pt-2 border-t border-white/5 mt-2">
+                        <a href="/logout"
+                            class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-danger transition-colors">
+                            <span class="material-symbols-outlined text-lg">logout</span>
+                            Cerrar sesión y entrar con otra cuenta
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <p class="text-center text-text-secondary text-xs mt-8 opacity-60">
+                &copy; 2025 µISP Monitor System
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -193,14 +193,51 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 # ============================================================================
 # --- GLOBAL EXCEPTION HANDLER ---
 # ============================================================================
+def _is_web_request(request: Request) -> bool:
+    """
+    Determine if the request is a browser/web request vs an API call.
+    Web requests typically Accept HTML and don't start with /api/.
+    """
+    if request.url.path.startswith("/api/"):
+        return False
+    accept_header = request.headers.get("accept", "")
+    # Browser requests typically include text/html in Accept header
+    return "text/html" in accept_header or "*/*" in accept_header
+
+
+# Handler for Starlette HTTP Exceptions
 @app.exception_handler(StarletteHTTPException)
-async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    # Redirect to login for 401 on pages (not API)
-    if exc.status_code == 401 and not request.url.path.startswith("/api/"):
+async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPException):
+    return await _handle_http_exception(request, exc.status_code, exc.detail)
+
+
+# Handler for FastAPI HTTP Exceptions (raised by dependencies like RoleChecker)
+from fastapi import HTTPException as FastAPIHTTPException
+
+@app.exception_handler(FastAPIHTTPException)
+async def fastapi_http_exception_handler(request: Request, exc: FastAPIHTTPException):
+    return await _handle_http_exception(request, exc.status_code, exc.detail)
+
+
+async def _handle_http_exception(request: Request, status_code: int, detail: str):
+    """Common handler for both Starlette and FastAPI HTTP exceptions."""
+    is_web = _is_web_request(request)
+
+    # Redirect to login for 401 on web pages
+    if status_code == 401 and is_web:
         response = RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
         response.delete_cookie(ACCESS_TOKEN_COOKIE_NAME)
         return response
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+    # Show friendly 403 page for web requests
+    if status_code == 403 and is_web:
+        return templates.TemplateResponse(
+            "403.html",
+            {"request": request},
+            status_code=403,
+        )
+
+    return JSONResponse(status_code=status_code, content={"detail": detail})
 
 
 # ============================================================================

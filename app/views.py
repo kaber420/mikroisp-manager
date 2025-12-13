@@ -6,7 +6,7 @@ from fastapi import APIRouter, Request, Depends, status, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from sqlmodel import Session
 
-from .core.users import current_active_user, ACCESS_TOKEN_COOKIE_NAME
+from .core.users import current_active_user, ACCESS_TOKEN_COOKIE_NAME, require_technician, require_admin
 from .core.templates import templates
 from .db.engine_sync import get_sync_session
 from .models.user import User
@@ -31,6 +31,11 @@ async def read_login_form(request: Request):
     """Login page"""
     return templates.TemplateResponse("login.html", {"request": request})
 
+@router.get("/403", response_class=HTMLResponse, tags=["Auth & Pages"])
+async def read_forbidden_page(request: Request):
+    """403 Forbidden error page"""
+    return templates.TemplateResponse("403.html", {"request": request}, status_code=403)
+
 @router.get("/logout", tags=["Auth & Pages"], include_in_schema=False)
 async def logout_and_redirect():
     response = RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
@@ -50,7 +55,7 @@ async def read_dashboard(
 
 @router.get("/aps", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_aps_page(
-    request: Request, current_user: User = Depends(get_current_user_or_redirect)
+    request: Request, current_user: User = Depends(require_technician)
 ):
     return templates.TemplateResponse(
         "aps.html", {"request": request, "active_page": "aps", "user": current_user}
@@ -60,7 +65,7 @@ async def read_aps_page(
 async def read_ap_details_page(
     request: Request,
     host: str,
-    current_user: User = Depends(get_current_user_or_redirect),
+    current_user: User = Depends(require_technician),
 ):
     return templates.TemplateResponse(
         "ap_details.html",
@@ -74,7 +79,7 @@ async def read_ap_details_page(
 
 @router.get("/zonas", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_zones_page(
-    request: Request, current_user: User = Depends(current_active_user)
+    request: Request, current_user: User = Depends(require_technician)
 ):
     return templates.TemplateResponse(
         "zonas.html", {"request": request, "active_page": "zonas", "user": current_user}
@@ -84,7 +89,7 @@ async def read_zones_page(
 async def read_zona_details_page(
     request: Request,
     zona_id: int,
-    current_user: User = Depends(get_current_user_or_redirect),
+    current_user: User = Depends(require_technician),
 ):
     return templates.TemplateResponse(
         "zona_details.html",
@@ -98,7 +103,7 @@ async def read_zona_details_page(
 
 @router.get("/settings", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_settings_page(
-    request: Request, current_user: User = Depends(get_current_user_or_redirect)
+    request: Request, current_user: User = Depends(require_admin)
 ):
     return templates.TemplateResponse(
         "settings.html",
@@ -107,7 +112,7 @@ async def read_settings_page(
 
 @router.get("/users", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_users_page(
-    request: Request, current_user: User = Depends(get_current_user_or_redirect)
+    request: Request, current_user: User = Depends(require_admin)
 ):
     return templates.TemplateResponse(
         "users.html", {"request": request, "active_page": "users", "user": current_user}
@@ -115,7 +120,7 @@ async def read_users_page(
 
 @router.get("/cpes", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_cpes_page(
-    request: Request, current_user: User = Depends(current_active_user)
+    request: Request, current_user: User = Depends(require_technician)
 ):
     return templates.TemplateResponse(
         "cpes.html", {"request": request, "active_page": "cpes", "user": current_user}
@@ -191,7 +196,7 @@ async def read_payment_receipt(
 
 @router.get("/routers", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_routers_page(
-    request: Request, current_user: User = Depends(get_current_user_or_redirect)
+    request: Request, current_user: User = Depends(require_technician)
 ):
     return templates.TemplateResponse(
         "routers.html",
@@ -202,7 +207,7 @@ async def read_routers_page(
 async def read_router_details_page(
     request: Request,
     host: str,
-    current_user: User = Depends(get_current_user_or_redirect),
+    current_user: User = Depends(require_technician),
 ):
     return templates.TemplateResponse(
         "router_details.html",
