@@ -6,80 +6,79 @@
 <link rel="stylesheet" href="/static/css/dashboard-transitions.css">
 <link rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.1/github-markdown-dark.min.css">
-<style>
-    .tab-button.active {
-        border-bottom-color: #3B82F6;
-        color: #F1F5F9;
-    }
-
-    .tab-panel {
-        display: none;
-    }
-
-    .tab-panel.active {
-        display: block;
-    }
-</style>
 {% endblock %}
 
 {% block content %}
-<main class="flex-1 p-6 lg:p-8">
+<main class="flex-1 p-6 lg:p-8" x-data="zonaDetails">
+    <!-- Header -->
     <div class="flex items-center gap-4 mb-8">
         <a href="/zonas" title="Back to Zones" class="text-primary hover:opacity-75">
-            <svg xmlns="http://www.w.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                stroke-width="2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
         </a>
-        <h1 id="main-zonaname" class="text-4xl font-bold">Loading Zone...</h1>
+        <h1 class="text-4xl font-bold" x-text="zona.nombre || 'Loading Zone...'"></h1>
     </div>
 
+    <!-- Tab Navigation -->
     <div class="border-b border-border-color flex mb-6">
-        <button type="button" data-tab="general"
-            class="tab-button active py-3 px-6 text-sm font-semibold border-b-2 border-transparent text-text-secondary hover:text-text-primary">General
-            Info</button>
-        <button type="button" data-tab="infra"
-            class="tab-button py-3 px-6 text-sm font-semibold border-b-2 border-transparent text-text-secondary hover:text-text-primary">Infrastructure</button>
-        <button type="button" data-tab="docs"
-            class="tab-button py-3 px-6 text-sm font-semibold border-b-2 border-transparent text-text-secondary hover:text-text-primary">Documentation</button>
-        <button type="button" data-tab="notes"
-            class="tab-button py-3 px-6 text-sm font-semibold border-b-2 border-transparent text-text-secondary hover:text-text-primary">Notes
-            & Diagrams</button>
+        <button type="button" @click="switchTab('general')"
+            :class="isActiveTab('general') ? 'border-primary text-text-primary' : 'border-transparent text-text-secondary'"
+            class="py-3 px-6 text-sm font-semibold border-b-2 hover:text-text-primary transition-colors">
+            General Info
+        </button>
+        <button type="button" @click="switchTab('infra')"
+            :class="isActiveTab('infra') ? 'border-primary text-text-primary' : 'border-transparent text-text-secondary'"
+            class="py-3 px-6 text-sm font-semibold border-b-2 hover:text-text-primary transition-colors">
+            Infrastructure
+        </button>
+        <button type="button" @click="switchTab('docs')"
+            :class="isActiveTab('docs') ? 'border-primary text-text-primary' : 'border-transparent text-text-secondary'"
+            class="py-3 px-6 text-sm font-semibold border-b-2 hover:text-text-primary transition-colors">
+            Documentation
+        </button>
+        <button type="button" @click="switchTab('notes')"
+            :class="isActiveTab('notes') ? 'border-primary text-text-primary' : 'border-transparent text-text-secondary'"
+            class="py-3 px-6 text-sm font-semibold border-b-2 hover:text-text-primary transition-colors">
+            Notes & Diagrams
+        </button>
     </div>
 
-    <!-- Pestaña 1: Información General -->
-    <div id="tab-general" class="tab-panel active">
-        <form id="form-general" class="bg-surface-1 rounded-lg border border-border-color">
+    <!-- Tab 1: General Info -->
+    <div x-show="isActiveTab('general')" x-cloak>
+        <form @submit.prevent="saveGeneralInfo" class="bg-surface-1 rounded-lg border border-border-color">
             <div class="p-8 space-y-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label for="zona-nombre" class="block text-sm font-medium mb-1">Zone Name</label>
-                        <input type="text" id="zona-nombre" name="nombre"
+                        <input type="text" id="zona-nombre" x-model="zona.nombre"
                             class="w-full bg-background border border-border-color rounded-md p-2">
                     </div>
                     <div>
                         <label for="zona-coordenadas" class="block text-sm font-medium mb-1">GPS Coordinates</label>
-                        <input type="text" id="zona-coordenadas" name="coordenadas_gps"
+                        <input type="text" id="zona-coordenadas" x-model="zona.coordenadas_gps"
                             placeholder="e.g., 40.7128, -74.0060"
                             class="w-full bg-background border border-border-color rounded-md p-2">
                     </div>
                 </div>
                 <div>
                     <label for="zona-direccion" class="block text-sm font-medium mb-1">Address / Location</label>
-                    <textarea id="zona-direccion" name="direccion" rows="3"
+                    <textarea id="zona-direccion" x-model="zona.direccion" rows="3"
                         class="w-full bg-background border border-border-color rounded-md p-2"></textarea>
                 </div>
             </div>
             <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end gap-4">
                 <button type="submit"
-                    class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">Save
-                    General Info</button>
+                    class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">
+                    Save General Info
+                </button>
             </div>
         </form>
     </div>
 
-    <!-- Pestaña 2: Infraestructura (Visualización) -->
-    <div id="tab-infra" class="tab-panel">
+    <!-- Tab 2: Infrastructure (Vanilla JS) -->
+    <div x-show="isActiveTab('infra')" x-cloak>
         <div class="bg-surface-1 rounded-lg border border-border-color">
             <div class="p-6 border-b border-border-color flex justify-between items-center">
                 <h3 class="text-lg font-semibold">Network Infrastructure</h3>
@@ -92,106 +91,149 @@
                     </button>
                 </div>
             </div>
-
-            <!-- Router Diagrams Container -->
             <div id="router-diagrams" class="p-6 space-y-6">
                 <p class="text-text-secondary">Loading infrastructure data...</p>
             </div>
         </div>
     </div>
 
-    <!-- Pestaña 3: Documentación -->
-    <div id="tab-docs" class="tab-panel">
+    <!-- Tab 3: Documentation -->
+    <div x-show="isActiveTab('docs')" x-cloak>
         <div class="bg-surface-1 rounded-lg border border-border-color">
             <div class="p-6">
                 <h3 class="text-lg font-semibold mb-4">Upload New Document</h3>
-                <form id="form-docs" class="space-y-4">
-                    <input type="file" id="doc-file" name="file" required
+                <form @submit.prevent="uploadDocument($event)" class="space-y-4">
+                    <input type="file" name="file" required
                         class="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30">
-                    <input type="text" id="doc-descripcion" name="descripcion" placeholder="Optional description..."
+                    <input type="text" name="descripcion" placeholder="Optional description..."
                         class="w-full bg-background border border-border-color rounded-md p-2">
                     <button type="submit"
-                        class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">Upload
-                        File</button>
+                        class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">
+                        Upload File
+                    </button>
                 </form>
             </div>
-            <div id="document-gallery" class="p-6 border-t border-border-color">
-                <p class="text-text-secondary">Loading documents...</p>
+            <div class="p-6 border-t border-border-color">
+                <template x-if="zona.documentos.length === 0">
+                    <p class="text-text-secondary">No documents uploaded for this zone.</p>
+                </template>
+                <div x-show="zona.documentos.length > 0" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <template x-for="doc in zona.documentos" :key="doc.id">
+                        <div class="bg-surface-2 rounded-lg p-3 text-center space-y-2">
+                            <div class="flex items-center justify-center h-24 bg-background rounded-md">
+                                <template x-if="doc.tipo === 'image'">
+                                    <img :src="getDocumentUrl(doc)" :alt="doc.descripcion || 'Image'"
+                                        class="max-h-full max-w-full object-contain">
+                                </template>
+                                <template x-if="doc.tipo !== 'image'">
+                                    <span
+                                        class="material-symbols-outlined text-5xl text-text-secondary">description</span>
+                                </template>
+                            </div>
+                            <p class="text-sm font-medium truncate" :title="doc.nombre_original"
+                                x-text="doc.nombre_original"></p>
+                            <div class="flex justify-center gap-2">
+                                <a :href="getDocumentUrl(doc)" target="_blank"
+                                    class="text-primary hover:underline text-xs">View</a>
+                                <a :href="getDocumentUrl(doc)" :download="doc.nombre_original"
+                                    class="text-primary hover:underline text-xs">Download</a>
+                                <button @click="deleteDocument(doc.id)"
+                                    class="text-danger hover:underline text-xs">Delete</button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Pestaña 4: Notas y Diagramas -->
-    <div id="tab-notes" class="tab-panel">
+    <!-- Tab 4: Notes & Diagrams -->
+    <div x-show="isActiveTab('notes')" x-cloak>
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-semibold">Notes</h3>
-            <button id="new-note-btn"
-                class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">New
-                Note</button>
+            <button @click="openNewNote()"
+                class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">
+                New Note
+            </button>
         </div>
-        <div id="notes-list" class="space-y-4">
-            <!-- Notes will be rendered here by JavaScript -->
+        <div class="space-y-4">
+            <template x-if="zona.notes.length === 0">
+                <p class="text-text-secondary">No notes for this zone yet.</p>
+            </template>
+            <template x-for="note in zona.notes" :key="note.id">
+                <div class="bg-surface-1 rounded-lg border border-border-color p-4 flex justify-between items-start">
+                    <div class="prose prose-invert max-w-none">
+                        <h4 class="font-bold text-lg mb-2 flex items-center gap-2">
+                            <span x-show="note.is_encrypted" class="material-symbols-outlined text-base">lock</span>
+                            <span x-text="note.title"></span>
+                        </h4>
+                        <div class="text-sm text-text-secondary" x-html="getNotePreviewHtml(note)"></div>
+                    </div>
+                    <div class="flex-shrink-0 ml-4">
+                        <button @click="openEditNote(note)" class="text-primary hover:underline text-sm">Edit</button>
+                        <button @click="deleteNote(note.id)"
+                            class="text-danger hover:underline text-sm ml-2">Delete</button>
+                    </div>
+                </div>
+            </template>
         </div>
     </div>
 
-</main>
-
-<!-- Note Modal -->
-<div id="note-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center">
-    <div class="bg-surface-1 rounded-lg shadow-xl w-full max-w-4xl">
-        <div class="p-6 border-b border-border-color flex justify-between items-center">
-            <h4 id="note-modal-title" class="text-xl font-bold">New Note</h4>
-            <button id="close-note-modal-btn" class="text-text-secondary hover:text-text-primary">&times;</button>
-        </div>
-        <div class="p-6">
-            <form id="note-form">
-                <input type="hidden" id="note-id" name="id">
-                <div class="mb-4">
-                    <label for="note-title" class="block text-sm font-medium mb-1">Title</label>
-                    <input type="text" id="note-title" name="title"
-                        class="w-full bg-background border border-border-color rounded-md p-2" required>
-                </div>
-                <div class="mb-4">
-                    <label for="note-content" class="block text-sm font-medium mb-1">Content (Markdown)</label>
-                    <div class="border border-border-color rounded-lg">
-                        <div class="grid grid-cols-1 md:grid-cols-2">
-                            <div class="relative">
-                                <textarea id="note-editor"
-                                    class="w-full h-96 bg-background p-4 border-r border-border-color rounded-l-lg"
-                                    placeholder="Write your notes in Markdown..."></textarea>
-                            </div>
-                            <div id="note-preview"
-                                class="markdown-body p-4 bg-background overflow-auto h-96 rounded-r-lg">
-                                <p class="text-text-secondary">Markdown preview</p>
+    <!-- Note Modal -->
+    <div x-show="noteModal.open" x-cloak
+        class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"
+        @keydown.escape.window="closeNoteModal()">
+        <div class="bg-surface-1 rounded-lg shadow-xl w-full max-w-4xl" @click.away="closeNoteModal()">
+            <div class="p-6 border-b border-border-color flex justify-between items-center">
+                <h4 class="text-xl font-bold" x-text="noteModal.isEdit ? 'Edit Note' : 'New Note'"></h4>
+                <button @click="closeNoteModal()"
+                    class="text-text-secondary hover:text-text-primary text-2xl">&times;</button>
+            </div>
+            <div class="p-6">
+                <form @submit.prevent="saveNote()">
+                    <div class="mb-4">
+                        <label for="note-title" class="block text-sm font-medium mb-1">Title</label>
+                        <input type="text" id="note-title" x-model="noteModal.title"
+                            class="w-full bg-background border border-border-color rounded-md p-2" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">Content (Markdown)</label>
+                        <div class="border border-border-color rounded-lg">
+                            <div class="grid grid-cols-1 md:grid-cols-2">
+                                <div class="relative">
+                                    <textarea x-model="noteModal.content"
+                                        class="w-full h-96 bg-background p-4 border-r border-border-color rounded-l-lg"
+                                        placeholder="Write your notes in Markdown..."></textarea>
+                                </div>
+                                <div class="markdown-body p-4 bg-background overflow-auto h-96 rounded-r-lg"
+                                    x-html="notePreview"></div>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="mb-4">
-                    <label class="flex items-center">
-                        <input type="checkbox" id="note-is-encrypted" name="is_encrypted"
-                            class="rounded bg-background border-border-color text-primary focus:ring-primary">
-                        <span class="ml-2">Encrypt this note</span>
-                    </label>
-                </div>
-                <div class="flex justify-end gap-4">
-                    <button type="button" id="cancel-note-btn"
-                        class="px-4 py-2 rounded-md text-sm font-semibold">Cancel</button>
-                    <button type="submit"
-                        class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">Save
-                        Note</button>
-                </div>
-            </form>
+                    <div class="mb-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" x-model="noteModal.is_encrypted"
+                                class="rounded bg-background border-border-color text-primary focus:ring-primary">
+                            <span class="ml-2">Encrypt this note</span>
+                        </label>
+                    </div>
+                    <div class="flex justify-end gap-4">
+                        <button type="button" @click="closeNoteModal()"
+                            class="px-4 py-2 rounded-md text-sm font-semibold">Cancel</button>
+                        <button type="submit"
+                            class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">
+                            Save Note
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
-</div>
+</main>
 {% endblock %}
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="/static/js/zona_details/infra.js" defer></script>
-<script src="/static/js/zona_details/general.js" defer></script>
-<script src="/static/js/zona_details/documents.js" defer></script>
-<script src="/static/js/zona_details/notes.js" defer></script>
-<script src="/static/js/zona_details/main.js" defer></script>
+<script src="/static/js/zona_details/infra.js"></script>
+<script src="/static/js/zona_details/app.js"></script>
 {% endblock %}
