@@ -109,8 +109,11 @@ class RouterService:
     def update_bridge(self, bridge_id: str, name: str, ports: List[str]):
         api = self.pool.get_api()
         manager = MikrotikInterfaceManager(api)
-        bridge = manager.update_bridge(bridge_id, name)
-        manager.set_bridge_ports(name, ports)
+        # update_bridge returns the bridge object (possibly renamed)
+        bridge = manager.update_bridge(bridge_id, new_name=name)
+        # Use the actual name from the bridge (in case rename was skipped)
+        actual_name = bridge.get("name", name)
+        manager.set_bridge_ports(actual_name, ports)
         return bridge
 
     def remove_interface(self, interface_id: str, interface_type: str):

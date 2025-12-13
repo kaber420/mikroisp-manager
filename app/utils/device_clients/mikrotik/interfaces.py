@@ -1,5 +1,6 @@
 from routeros_api.api import RouterOsApi
 from typing import List, Dict, Any
+from .base import get_id
 
 
 class MikrotikInterfaceManager:
@@ -29,20 +30,68 @@ class MikrotikInterfaceManager:
         bridge_resource.add(name=name, comment=comment)
         return bridge_resource.get(name=name)[0]
 
-    def update_bridge(self, bridge_id: str, name: str) -> Dict[str, Any]:
+    def update_bridge(self, bridge_id: str, new_name: str = None) -> Dict[str, Any]:
+        """
+        Update a bridge. We return the bridge so the caller can use its name for port updates.
+        If new_name matches existing name, no rename is done (just return the bridge).
+        """
         bridge_resource = self.api.get_resource("/interface/bridge")
-        bridge_resource.set(id=bridge_id, name=name)
-        return bridge_resource.get(id=bridge_id)[0]
+        
+        # First try to find by name (new_name) since that's what we usually have
+        bridges_by_name = bridge_resource.get(name=new_name) if new_name else []
+        
+        if bridges_by_name:
+            # Bridge already exists with this name - no rename needed
+            return bridges_by_name[0]
+        
+        # If not found by name, search all bridges to find by ID
+        all_bridges = bridge_resource.get()
+        current = None
+        for b in all_bridges:
+            bid = b.get(".id") or b.get("id")
+            if bid == bridge_id:
+                current = b
+                break
+        
+        if not current:
+            raise ValueError(f"Bridge {bridge_id} not found")
+        
+        current_name = current.get("name")
+        
+        # If new_name is different and not already taken, rename
+        if new_name and new_name != current_name:
+            actual_id = current.get(".id") or current.get("id")
+            bridge_resource.set(id=actual_id, name=new_name)
+            return bridge_resource.get(name=new_name)[0]
+        
+        return current
 
     def set_bridge_ports(self, bridge_name: str, ports: List[str]):
+        """
+        Update bridge ports using a diff approach:
+        - Remove only ports that are no longer in the desired list
+        - Add only ports that are new in the desired list
+        This prevents accidentally removing ports not shown in the UI.
+        """
         bridge_port_resource = self.api.get_resource("/interface/bridge/port")
-
-        # Remove existing ports
-        for port in bridge_port_resource.get(bridge=bridge_name):
-            bridge_port_resource.remove(id=port[".id"])
-
-        # Add new ports
-        for port_name in ports:
+        
+        # Get current ports for this bridge
+        current_ports = bridge_port_resource.get(bridge=bridge_name)
+        current_port_names = {p.get("interface") for p in current_ports}
+        desired_port_names = set(ports)
+        
+        # Calculate differences
+        ports_to_remove = current_port_names - desired_port_names
+        ports_to_add = desired_port_names - current_port_names
+        
+        # Remove only the ports that need to be removed
+        for port in current_ports:
+            if port.get("interface") in ports_to_remove:
+                port_id = get_id(port)
+                bridge_port_resource.remove(id=port_id)
+        
+        # Add only the new ports
+        for port_name in ports_to_add:
             bridge_port_resource.add(bridge=bridge_name, interface=port_name)
 
     def get_bridge_ports(self) -> List[Dict[str, Any]]:

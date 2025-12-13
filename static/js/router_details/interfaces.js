@@ -42,8 +42,9 @@ function initTableComponent() {
 
             let actionButtons = '';
 
-            if (isManaged && (iface.type === 'vlan' || iface.type === 'bridge')) {
-                actionButtons += `<button class="btn-action-icon" data-action="edit" data-id="${interfaceId}" data-type="${iface.type}" title="Editar"><span class="material-symbols-outlined text-primary">edit</span></button>`;
+            // Allow edit for all bridges, and for VLANs only if managed
+            if (iface.type === 'bridge' || (isManaged && iface.type === 'vlan')) {
+                actionButtons += `<button class="btn-action-icon" data-action="edit" data-id="${interfaceId}" data-name="${iface.name}" data-type="${iface.type}" title="Editar"><span class="material-symbols-outlined text-primary">edit</span></button>`;
             }
 
             if (canBeDisabled) {
@@ -157,26 +158,57 @@ function closeVlanModal() {
 
 function openBridgeModal(bridge = null) {
     DOM_ELEMENTS.bridgeForm.reset();
-    const physicalInterfaces = state.allInterfaces.filter(i => ['ether', 'wlan', 'vlan'].includes(i.type));
-    DOM_ELEMENTS.bridgePortsContainer.innerHTML = physicalInterfaces.map(i => `
-        <label class="flex items-center space-x-2">
-            <input type="checkbox" name="ports" value="${i.name}" class="rounded bg-background border-border-color text-primary focus:ring-primary">
-            <span>${i.name}</span>
-        </label>
-    `).join('');
+
+    // Include all interface types that can be bridge ports
+    // Types: ether, wlan, wifi, vlan, bonding (exclude bridge itself, loopback, ppp types)
+    const portCapableTypes = ['ether', 'wlan', 'wifi', 'vlan', 'bonding'];
+    const physicalInterfaces = state.allInterfaces.filter(i => portCapableTypes.includes(i.type));
+
+
+    // Build a map of interface -> bridge name for ports already assigned
+    const portToBridgeMap = {};
+    allModuleBridgePorts.forEach(p => {
+        portToBridgeMap[p.interface] = p.bridge;
+    });
+
+    // Ports assigned to the bridge being edited (if any)
+    const currentBridgeName = bridge ? bridge.name : null;
+
+    DOM_ELEMENTS.bridgePortsContainer.innerHTML = physicalInterfaces.map(i => {
+        const assignedTo = portToBridgeMap[i.name];
+        const isAssignedToThis = assignedTo === currentBridgeName;
+        const isAssignedToOther = assignedTo && assignedTo !== currentBridgeName;
+
+        let labelText = i.name;
+        let disabledAttr = '';
+        let checkedAttr = '';
+        let labelClass = 'flex items-center space-x-2';
+
+        if (isAssignedToThis) {
+            checkedAttr = 'checked';
+        } else if (isAssignedToOther) {
+            labelText = `${i.name} <span class="text-xs text-muted">(${assignedTo})</span>`;
+            disabledAttr = 'disabled';
+            labelClass += ' opacity-50 cursor-not-allowed';
+        }
+
+        return `
+            <label class="${labelClass}">
+                <input type="checkbox" name="ports" value="${i.name}" ${checkedAttr} ${disabledAttr} class="rounded bg-background border-border-color text-primary focus:ring-primary">
+                <span>${labelText}</span>
+            </label>
+        `;
+    }).join('');
 
     if (bridge) {
-        DOM_ELEMENTS.bridgeModalTitle.textContent = 'Edit Bridge';
-        DOM_ELEMENTS.bridgeForm.querySelector('#bridge-id').value = bridge['.id'];
+        DOM_ELEMENTS.bridgeModalTitle.textContent = 'Editar Bridge';
+        // Handle both .id and id formats from Mikrotik API
+        const bridgeId = bridge['.id'] || bridge.id;
+        DOM_ELEMENTS.bridgeForm.querySelector('#bridge-id').value = bridgeId;
         DOM_ELEMENTS.bridgeNameInput.value = bridge.name;
-        const assignedPorts = allModuleBridgePorts.filter(p => p.bridge === bridge.name).map(p => p.interface);
-        DOM_ELEMENTS.bridgePortsContainer.querySelectorAll('input').forEach(input => {
-            if (assignedPorts.includes(input.value)) {
-                input.checked = true;
-            }
-        });
     } else {
-        DOM_ELEMENTS.bridgeModalTitle.textContent = 'Add Bridge';
+        DOM_ELEMENTS.bridgeModalTitle.textContent = 'Agregar Bridge';
+        DOM_ELEMENTS.bridgeForm.querySelector('#bridge-id').value = '';
     }
     DOM_ELEMENTS.bridgeModal.classList.remove('hidden');
     DOM_ELEMENTS.bridgeModal.classList.add('flex');
@@ -216,7 +248,19 @@ export async function loadInterfacesData(fullDetails) {
 
 async function handleInterfaceAction(action, interfaceId, interfaceName = '', interfaceType) {
     if (action === 'edit') {
-        const item = allModuleInterfaces.find(i => i['.id'] === interfaceId);
+        // Search by .id, id, or name - Mikrotik API can return IDs in different formats
+        const item = allModuleInterfaces.find(i =>
+            i['.id'] === interfaceId ||
+            i.id === interfaceId ||
+            i.name === interfaceName
+        );
+
+        if (!item) {
+            console.error('Interface not found:', interfaceId, interfaceName);
+            DomUtils.updateFeedback('Error: No se encontró la interfaz para editar.', false);
+            return;
+        }
+
         if (interfaceType === 'vlan') {
             openVlanModal(item);
         } else if (interfaceType === 'bridge') {
