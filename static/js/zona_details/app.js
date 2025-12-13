@@ -106,8 +106,8 @@ document.addEventListener('alpine:init', () => {
                     })
                 });
                 if (!response.ok) throw new Error('Failed to save');
+                // Local state is already updated via x-model binding. Just show toast.
                 showToast('General info saved!', 'success');
-                await this.loadZonaDetails();
             } catch (error) {
                 showToast(`Error saving: ${error.message}`, 'danger');
             }
@@ -127,9 +127,11 @@ document.addEventListener('alpine:init', () => {
                     const err = await response.json();
                     throw new Error(err.detail || 'Failed to upload');
                 }
+                const newDoc = await response.json();
+                // Add the new document to the local state
+                this.zona.documentos.push(newDoc);
                 form.reset();
                 showToast('File uploaded successfully!', 'success');
-                await this.loadZonaDetails();
             } catch (error) {
                 showToast(`Error uploading file: ${error.message}`, 'danger');
             }
@@ -141,8 +143,9 @@ document.addEventListener('alpine:init', () => {
             try {
                 const response = await fetch(`/api/documentos/${docId}`, { method: 'DELETE' });
                 if (!response.ok) throw new Error('Failed to delete');
+                // Remove document from local state
+                this.zona.documentos = this.zona.documentos.filter(doc => doc.id !== docId);
                 showToast('Document deleted.', 'success');
-                await this.loadZonaDetails();
             } catch (error) {
                 showToast(`Error deleting document: ${error.message}`, 'danger');
             }
@@ -199,9 +202,21 @@ document.addEventListener('alpine:init', () => {
                     const err = await response.json();
                     throw new Error(err.detail || 'Failed to save note');
                 }
+                const savedNote = await response.json();
+
+                if (this.noteModal.isEdit) {
+                    // Update existing note in local state
+                    const index = this.zona.notes.findIndex(n => n.id === savedNote.id);
+                    if (index !== -1) {
+                        this.zona.notes[index] = savedNote;
+                    }
+                } else {
+                    // Add new note to the beginning of the list
+                    this.zona.notes.unshift(savedNote);
+                }
+
                 this.closeNoteModal();
                 showToast('Note saved successfully!', 'success');
-                await this.loadZonaDetails();
             } catch (error) {
                 showToast(`Error saving note: ${error.message}`, 'danger');
             }
@@ -216,8 +231,9 @@ document.addEventListener('alpine:init', () => {
                     const err = await response.json();
                     throw new Error(err.detail || 'Failed to delete note');
                 }
+                // Remove note from local state
+                this.zona.notes = this.zona.notes.filter(n => n.id !== noteId);
                 showToast('Note deleted successfully!', 'success');
-                await this.loadZonaDetails();
             } catch (error) {
                 showToast(`Error deleting note: ${error.message}`, 'danger');
             }
