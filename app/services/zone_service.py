@@ -96,6 +96,11 @@ class ZoneService:
         
         if zona.notas_sensibles:
             zona.notas_sensibles = decrypt_data(zona.notas_sensibles)
+
+        # Decrypt note content for encrypted notes
+        for note in zona.notes:
+            if note.is_encrypted and note.content:
+                note.content = decrypt_data(note.content)
             
         return zona
 

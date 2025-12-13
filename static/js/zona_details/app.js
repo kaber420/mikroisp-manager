@@ -224,9 +224,8 @@ document.addEventListener('alpine:init', () => {
         },
 
         getNotePreviewHtml(note) {
-            if (note.is_encrypted) {
-                return '<p class="text-text-secondary italic">This note is encrypted.</p>';
-            }
+            // The backend already decrypts the content, so we just render it.
+            // The 'is_encrypted' flag is only for database storage.
             if (typeof marked !== 'undefined') {
                 const preview = note.content.substring(0, 200) + (note.content.length > 200 ? '...' : '');
                 return marked.parse(preview);
