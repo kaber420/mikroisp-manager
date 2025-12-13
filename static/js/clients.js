@@ -274,7 +274,10 @@ document.addEventListener('alpine:init', () => {
                 this.selectedPlan = null;
                 return;
             }
-            this.selectedPlan = this.servicePlans.find(p => p.id == this.currentService.plan_id);
+            // Parse plan_id as integer for comparison (dropdown returns string)
+            const planIdInt = parseInt(this.currentService.plan_id, 10);
+            this.selectedPlan = this.servicePlans.find(p => p.id === planIdInt);
+            console.log('handlePlanChange:', planIdInt, 'selectedPlan:', this.selectedPlan);
         },
 
         async saveService() {
