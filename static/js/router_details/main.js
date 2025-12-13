@@ -10,6 +10,7 @@ import { initInterfacesModule, loadInterfacesData } from './interfaces.js';
 import { initNetworkModule, loadNetworkData } from './network.js';
 import { initPppModule, loadPppData } from './ppp.js';
 import { initQueuesModule, loadQueuesData } from './queues.js';
+import { initPlansModule, loadPlansData } from './plans.js';
 import { initUsersModule, loadUsersData } from './users.js';
 import { initBackupModule, loadBackupData } from './backup.js';
 
@@ -23,6 +24,7 @@ async function loadFullDetailsData() {
         loadNetworkData(data);
         loadPppData(data);
         loadQueuesData(data);
+        loadPlansData(data);
         loadUsersData(data);
         loadBackupData(data);
         loadOverviewStats(data);
@@ -43,6 +45,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initNetworkModule();
     initPppModule();
     initQueuesModule();
+    initPlansModule();
     initUsersModule();
     initBackupModule();
 

@@ -224,6 +224,8 @@
                     class="tab-button">PPP</button>
                 <button @click="activeTab = 'queues'" :class="activeTab === 'queues' ? 'active' : ''"
                     class="tab-button">Queues</button>
+                <button @click="activeTab = 'plans'" :class="activeTab === 'plans' ? 'active' : ''"
+                    class="tab-button">Planes</button>
                 <button @click="activeTab = 'users'" :class="activeTab === 'users' ? 'active' : ''"
                     class="tab-button">Users</button>
                 <button @click="activeTab = 'backup'" :class="activeTab === 'backup' ? 'active' : ''"
@@ -547,7 +549,10 @@
                     </div>
                 </div>
             </div>
+        </div>
 
+        <!-- NEW: Plans Tab -->
+        <div x-show="activeTab === 'plans'" class="space-y-6">
             <div class="card">
                 <h2 class="text-xl font-bold mb-4 text-primary">Planes de Servicio (Definiciones Locales)</h2>
                 <p class="text-sm text-text-secondary mb-4">Estos planes se guardan en la Base de Datos y se usan para
