@@ -231,6 +231,28 @@ def _setup_inventory_db():
     if "ip_address" not in service_columns:
         cursor.execute("ALTER TABLE client_services ADD COLUMN ip_address TEXT;")
 
+    # --- Migración de Plans: nuevos campos para unificar PPPoE y Simple Queue ---
+    plan_columns = [
+        col[1]
+        for col in cursor.execute("PRAGMA table_info(plans)").fetchall()
+    ]
+    if "plan_type" not in plan_columns:
+        print("Migrando plans: Agregando plan_type...")
+        cursor.execute("ALTER TABLE plans ADD COLUMN plan_type TEXT DEFAULT 'simple_queue';")
+    if "profile_name" not in plan_columns:
+        print("Migrando plans: Agregando profile_name...")
+        cursor.execute("ALTER TABLE plans ADD COLUMN profile_name TEXT;")
+    if "suspension_method" not in plan_columns:
+        print("Migrando plans: Agregando suspension_method...")
+        cursor.execute("ALTER TABLE plans ADD COLUMN suspension_method TEXT DEFAULT 'queue_limit';")
+    if "address_list_strategy" not in plan_columns:
+        print("Migrando plans: Agregando address_list_strategy...")
+        cursor.execute("ALTER TABLE plans ADD COLUMN address_list_strategy TEXT DEFAULT 'blacklist';")
+    if "address_list_name" not in plan_columns:
+        print("Migrando plans: Agregando address_list_name...")
+        cursor.execute("ALTER TABLE plans ADD COLUMN address_list_name TEXT DEFAULT 'morosos';")
+
+
     cursor.execute(
         """
     CREATE TABLE IF NOT EXISTS pagos (

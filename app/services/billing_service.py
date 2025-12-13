@@ -77,15 +77,34 @@ class BillingService:
                 for service in services:
                     try:
                         host = service["router_host"]
-                        method = service["suspension_method"]
                         ip = service.get("ip_address")
+                        
+                        # Get suspension method from PLAN (not service)
+                        method = None
+                        plan_obj = None
+                        if service.get("plan_id"):
+                            plan_obj = self.plan_service.get_plan_by_id(service["plan_id"])
+                            if plan_obj:
+                                method = getattr(plan_obj, "suspension_method", None)
+                        
+                        # Fallback to service's method for backward compatibility
+                        if not method:
+                            method = service.get("suspension_method", "queue_limit")
                         
                         # Get router credentials
                         router = self._get_router_by_host(host)
 
                         with RouterService(host, router) as rs:
                             if method == "address_list" and ip:
-                                rs.activate_user_address_list(ip)
+                                # Get address list config from plan
+                                plan_strategy = getattr(plan_obj, "address_list_strategy", "blacklist") if plan_obj else "blacklist"
+                                plan_list_name = getattr(plan_obj, "address_list_name", "morosos") if plan_obj else "morosos"
+
+                                rs.activate_user_address_list(
+                                    ip,
+                                    list_name=plan_list_name,
+                                    strategy=plan_strategy
+                                )
                                 logger.info(
                                     f"Servicio {service['id']} (IP: {ip}) reactivado via Address List."
                                 )
@@ -212,9 +231,21 @@ class BillingService:
         for service in services:
             try:
                 host = service["router_host"]
-                method = service["suspension_method"]
                 ip = service.get("ip_address")
                 secret_id = service.get("router_secret_id")
+                pppoe_username = service.get("pppoe_username")
+                
+                # Get suspension method from PLAN (not service)
+                method = None
+                plan_obj = None
+                if service.get("plan_id"):
+                    plan_obj = self.plan_service.get_plan_by_id(service["plan_id"])
+                    if plan_obj:
+                        method = getattr(plan_obj, "suspension_method", None)
+                
+                # Fallback to service's method for backward compatibility
+                if not method:
+                    method = service.get("suspension_method", "queue_limit")
                 
                 logger.info(f"🔴 Processing service {service['id']}: method={method}, host={host}, ip={ip}, secret_id={secret_id}")
 
@@ -226,8 +257,16 @@ class BillingService:
 
                     # CASE 1: Address List (Total cut with warning)
                     if method == "address_list" and ip:
-                        logger.info(f"🔴 Suspending via address_list: {ip}")
-                        rs.suspend_user_address_list(ip)
+                        # Get address list config from plan
+                        plan_strategy = getattr(plan_obj, "address_list_strategy", "blacklist") if plan_obj else "blacklist"
+                        plan_list_name = getattr(plan_obj, "address_list_name", "morosos") if plan_obj else "morosos"
+
+                        logger.info(f"🔴 Suspending via address_list: {ip} (Plan: {plan_list_name}/{plan_strategy})")
+                        rs.suspend_user_address_list(
+                            ip, 
+                            list_name=plan_list_name, 
+                            strategy=plan_strategy
+                        )
                         logger.info(f"✅ Address list suspension completed for {ip}")
 
                     # CASE 2: Queue Limit (Extreme slowness)
@@ -248,6 +287,12 @@ class BillingService:
                             logger.warning(f"⚠️ No router_secret_id found for service {service['id']}")
                     else:
                         logger.warning(f"⚠️ Suspension method '{method}' not handled or missing required data")
+
+                    # Kill active PPPoE connection to force immediate disconnect
+                    if pppoe_username:
+                        logger.info(f"🔪 Killing active PPPoE connection for {pppoe_username}")
+                        kill_result = rs.kill_pppoe_connection(pppoe_username)
+                        logger.info(f"✅ PPPoE connection kill result: {kill_result}")
 
             except Exception as e:
                 logger.error(f"❌ Error suspendiendo servicio {service['id']}: {e}", exc_info=True)

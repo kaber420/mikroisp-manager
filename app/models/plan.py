@@ -12,5 +12,21 @@ class Plan(SQLModel, table=True):
     parent_queue: Optional[str] = Field(default="none")
     comment: Optional[str] = Field(default=None)
 
+    # Plan type: "pppoe" or "simple_queue"
+    plan_type: str = Field(default="simple_queue")
+    
+    # For PPPoE: name of the profile in the router
+    profile_name: Optional[str] = Field(default=None)
+    
+    # Suspension method: "pppoe_secret_disable", "address_list", "queue_limit"
+    suspension_method: str = Field(default="queue_limit")
+
+    # Suspension Configuration (Address List)
+    # Options: "blacklist" or "whitelist"
+    address_list_strategy: Optional[str] = Field(default="blacklist")
+    # Custom list name (e.g. "morosos", "authorized_users")
+    address_list_name: Optional[str] = Field(default="morosos")
+
     # Relaciones (Opcional, ayuda a obtener datos del router automáticamente)
     # router: Optional["Router"] = Relationship(back_populates="plans")
+

@@ -60,7 +60,10 @@ document.addEventListener('alpine:init', () => {
                 this.isEditing = true;
                 this.currentRouter = {
                     ...router,
-                    password: '' // Clear password for security
+                    password: '', // Clear password for security
+                    suspension_type: router.suspension_type || 'address_list',
+                    address_list_strategy: router.address_list_strategy || 'blacklist',
+                    address_list_name: router.address_list_name || 'morosos'
                 };
             } else {
                 this.isEditing = false;
@@ -69,7 +72,10 @@ document.addEventListener('alpine:init', () => {
                     zona_id: '',
                     api_port: 8728,
                     username: 'admin',
-                    password: ''
+                    password: '',
+                    suspension_type: 'address_list',
+                    address_list_strategy: 'blacklist',
+                    address_list_name: 'morosos'
                 };
             }
             this.isRouterModalOpen = true;

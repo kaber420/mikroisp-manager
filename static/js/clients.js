@@ -29,6 +29,14 @@ document.addEventListener('alpine:init', () => {
         servicePlans: [],
         selectedPlan: null,
 
+        // --- COMPUTED: Filtrar planes por tipo ---
+        get pppoeePlansFiltered() {
+            return this.servicePlans.filter(p => p.plan_type === 'pppoe');
+        },
+        get simpleQueuePlansFiltered() {
+            return this.servicePlans.filter(p => p.plan_type === 'simple_queue' || !p.plan_type);
+        },
+
         // --- COMPUTED ---
         get filteredClients() {
             return this.allClients.filter(client => {
@@ -228,17 +236,22 @@ document.addEventListener('alpine:init', () => {
             this.profilesForSelect = [];
             if (!host) return;
             try {
+                // Load PPPoE profiles from router (for reference)
                 this.profilesForSelect = await (await fetch(`/api/routers/${host}/pppoe/profiles`)).json();
+                // Reload plans filtered by this router
+                await this.loadServicePlans(host);
             } catch (e) { console.error('Failed to load profiles'); }
         },
 
-        async loadServicePlans() {
+        async loadServicePlans(routerHost = null) {
             try {
-                const response = await fetch('/api/plans');
+                // If router specified, load only plans for that router
+                const url = routerHost ? `/api/plans/router/${routerHost}` : '/api/plans';
+                const response = await fetch(url);
                 if (response.ok) {
                     this.servicePlans = await response.json();
                 } else {
-                    console.error('API endpoint /api/plans failed with status:', response.status);
+                    console.error('API endpoint failed with status:', response.status);
                     this.servicePlans = [];
                 }
             } catch (e) {
@@ -310,23 +323,31 @@ document.addEventListener('alpine:init', () => {
                     routerResourceId = newQueue.id || newQueue['.id'] || targetIp;
                     profileNameOrPlan = this.selectedPlan.name;
 
-                    // LÓGICA PPPoE (Usa Router Profiles)
+                    // LÓGICA PPPoE (Usa Plan con profile_name)
                 } else if (service_type === 'pppoe') {
-                    const { pppoe_username, password, profile_name } = this.currentService;
+                    const { pppoe_username, password } = this.currentService;
+
+                    // Validar que se haya seleccionado un plan
+                    if (!this.selectedPlan) {
+                        this.serviceError = 'Please select a PPPoE Plan.';
+                        return;
+                    }
+
                     if (!pppoe_username || !password) {
                         this.serviceError = 'PPPoE Username and Password are required.';
                         return;
                     }
 
+                    // Obtener el profile_name del plan seleccionado
+                    const profileFromPlan = this.selectedPlan.profile_name || 'default';
 
                     const pppoePayload = {
                         username: pppoe_username,
                         password: password,
                         service: 'pppoe',
-                        profile: profile_name || 'default',
-                        comment: `Client-ID: ${this.currentClient.id}`
+                        profile: profileFromPlan,
+                        comment: `Client-ID: ${this.currentClient.id} | Plan: ${this.selectedPlan.name}`
                     };
-
 
                     const routerRes = await fetch(`/api/routers/${router_host}/pppoe/secrets`, {
                         method: 'POST',
@@ -341,7 +362,7 @@ document.addEventListener('alpine:init', () => {
 
                     const newSecret = await routerRes.json();
                     routerResourceId = newSecret['.id'];
-                    profileNameOrPlan = pppoePayload.profile;
+                    profileNameOrPlan = profileFromPlan;
                 }
 
                 const serviceData = {

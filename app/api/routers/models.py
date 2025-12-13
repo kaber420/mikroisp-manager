@@ -146,6 +146,44 @@ class PppoeSecretDisable(BaseModel):
     disable: bool
 
 
+# --- NEW: Service Management Models ---
+class SuspendServiceRequest(BaseModel):
+    """Request to suspend a client's service via address list."""
+    address: str
+    list_name: str
+    strategy: str = "blacklist"  # 'blacklist' or 'whitelist'
+    pppoe_username: Optional[str] = None  # If provided, also kills PPPoE session
+    comment: str = "Suspended by UManager"
+
+
+class RestoreServiceRequest(BaseModel):
+    """Request to restore a suspended service."""
+    address: str
+    list_name: str
+    strategy: str = "blacklist"
+    comment: str = "Restored by UManager"
+
+
+class ChangePlanRequest(BaseModel):
+    """Request to change a PPPoE user's plan."""
+    pppoe_username: str
+    new_profile: str
+    kill_connection: bool = True  # Force re-auth after profile change
+
+
+class KillConnectionRequest(BaseModel):
+    """Request to terminate an active PPPoE session."""
+    username: str
+
+
+class AddressListActionRequest(BaseModel):
+    """Request for direct address list manipulation."""
+    list_name: str
+    address: str
+    action: str  # 'add', 'remove', 'disable'
+    comment: str = ""
+
+
 # --- Models from system.py ---
 class SystemResource(BaseModel):
     uptime: Optional[str] = None

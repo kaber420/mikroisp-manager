@@ -45,7 +45,9 @@ def create_service_plan(
                 # 'remote_address' se añadirá abajo
                 "dns_server": "8.8.8.8,1.1.1.1",
                 "comment": profile_comment,
-                "queue-type": "cake-ul/cake-dl",
+                # NOTE: Removed hardcoded queue-type="cake-ul/cake-dl" as CAKE queue
+                # types may not exist on all routers. Queue types should be configured
+                # separately if needed.
             }
 
             # --- INICIO DE LA NUEVA LÓGICA DE POOL ---
@@ -216,3 +218,68 @@ def enable_disable_pppoe_secret(
 
 def remove_pppoe_secret(api: RouterOsApi, secret_id: str) -> None:
     api.get_resource("/ppp/secret").remove(id=secret_id)
+
+
+def kill_active_pppoe_connection(api: RouterOsApi, username: str) -> Dict[str, Any]:
+    """
+    Terminates an active PPPoE connection for a specific user.
+    This forces the user to re-authenticate, picking up any profile/queue changes.
+    
+    Args:
+        api: RouterOS API connection
+        username: The PPPoE username to disconnect
+    
+    Returns:
+        dict with status and message
+    """
+    try:
+        resource = api.get_resource("/ppp/active")
+        active_sessions = resource.get(name=username)
+        
+        if not active_sessions:
+            return {"status": "warning", "message": f"No active session for {username}"}
+        
+        killed_count = 0
+        for session in active_sessions:
+            resource.remove(id=session[".id"])
+            killed_count += 1
+        
+        return {
+            "status": "success", 
+            "message": f"Terminated {killed_count} session(s) for {username}"
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+def update_pppoe_secret_profile(
+    api: RouterOsApi, username: str, new_profile: str
+) -> Dict[str, Any]:
+    """
+    Updates the profile for a PPPoE secret by username.
+    Used when changing a user's plan.
+    
+    Args:
+        api: RouterOS API connection
+        username: The PPPoE username to update
+        new_profile: Name of the new PPP profile to assign
+    
+    Returns:
+        dict with status and the updated secret data
+    """
+    try:
+        resource = api.get_resource("/ppp/secret")
+        secrets = resource.get(name=username)
+        
+        if not secrets:
+            return {"status": "error", "message": f"Secret '{username}' not found"}
+        
+        secret_id = secrets[0][".id"]
+        resource.set(id=secret_id, profile=new_profile)
+        
+        # Return updated secret
+        updated = resource.get(name=username)
+        return {"status": "success", "data": updated[0] if updated else None}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+

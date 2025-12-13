@@ -197,6 +197,175 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- Services List Management ---
+    let allServices = [];
+    let allPlans = [];
+
+    async function loadClientServices() {
+        const container = document.getElementById('services-list-container');
+        container.innerHTML = '<p class="text-text-secondary text-center">Loading services...</p>';
+
+        try {
+            allServices = await fetchJSON(`/api/clients/${clientId}/services`);
+            renderServicesList();
+        } catch (e) {
+            container.innerHTML = `<p class="text-danger text-center">Error loading services: ${e.message}</p>`;
+        }
+    }
+
+    function renderServicesList() {
+        const container = document.getElementById('services-list-container');
+
+        if (!allServices || allServices.length === 0) {
+            container.innerHTML = '<p class="text-text-secondary text-center">No network services configured for this client.</p>';
+            return;
+        }
+
+        let html = '<div class="space-y-3">';
+        for (const service of allServices) {
+            const serviceIdentifier = service.pppoe_username || service.ip_address || 'N/A';
+            const serviceTypeLabel = service.service_type === 'pppoe' ? 'PPPoE' : 'Simple Queue';
+            const typeClass = service.service_type === 'pppoe' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400';
+
+            html += `
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-surface-2 rounded-lg gap-4">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${typeClass}">${serviceTypeLabel}</span>
+                        <span class="font-mono text-sm font-semibold">${serviceIdentifier}</span>
+                    </div>
+                    <div class="text-xs text-text-secondary space-x-4">
+                        <span>Router: <span class="font-mono">${service.router_host || 'N/A'}</span></span>
+                        ${service.profile_name ? `<span>Profile: <span class="font-mono">${service.profile_name}</span></span>` : ''}
+                        <span>Method: <span class="font-mono">${service.suspension_method || 'N/A'}</span></span>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="openPlanChangeModal(${service.id}, '${serviceIdentifier}')" 
+                            class="px-3 py-1.5 text-xs font-semibold rounded-md bg-primary/20 text-primary hover:bg-primary/30 flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">swap_horiz</span>
+                        Change Plan
+                    </button>
+                    <button onclick="deleteService(${service.id}, '${serviceIdentifier}')" 
+                            class="px-3 py-1.5 text-xs font-semibold rounded-md bg-danger/20 text-danger hover:bg-danger/30 flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">delete</span>
+                        Delete
+                    </button>
+                </div>
+            </div>`;
+        }
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    // --- Plan Change Modal Functions ---
+    let currentServiceForPlanChange = null;
+
+    async function loadPlansForSelect(serviceType, routerHost) {
+        const select = document.getElementById('new-plan-select');
+        select.innerHTML = '<option value="">Loading...</option>';
+
+        try {
+            if (serviceType === 'pppoe' && routerHost) {
+                // For PPPoE: Load profiles from the router
+                const profiles = await fetchJSON(`/api/routers/${routerHost}/pppoe/profiles`);
+                select.innerHTML = '<option value="">Select a profile...</option>';
+                for (const profile of profiles) {
+                    const rateLimit = profile['rate-limit'] || 'Unlimited';
+                    select.innerHTML += `<option value="${profile.name}">${profile.name} (${rateLimit})</option>`;
+                }
+            } else {
+                // For Simple Queue: Load plans from database (filtered by router)
+                const plans = await fetchJSON(`/api/plans/router/${routerHost}`);
+                select.innerHTML = '<option value="">Select a plan...</option>';
+                for (const plan of plans) {
+                    select.innerHTML += `<option value="${plan.id}">${plan.name} (${plan.max_limit || 'N/A'})</option>`;
+                }
+            }
+        } catch (e) {
+            console.error('Error loading plans/profiles:', e);
+            select.innerHTML = '<option value="">Error loading options</option>';
+        }
+    }
+
+    // Global functions for modal (must be accessible from onclick)
+    window.openPlanChangeModal = async function (serviceId, serviceName) {
+        // Find the service details from allServices array
+        currentServiceForPlanChange = allServices.find(s => s.id === serviceId);
+
+        if (!currentServiceForPlanChange) {
+            showToast('Service not found', 'danger');
+            return;
+        }
+
+        document.getElementById('plan-change-service-id').value = serviceId;
+        document.getElementById('plan-change-service-name').textContent = serviceName;
+        document.getElementById('plan-change-error').classList.add('hidden');
+        document.getElementById('new-plan-select').value = '';
+
+        await loadPlansForSelect(currentServiceForPlanChange.service_type, currentServiceForPlanChange.router_host);
+        document.getElementById('plan-change-modal').classList.remove('hidden');
+    };
+
+    window.closePlanChangeModal = function () {
+        document.getElementById('plan-change-modal').classList.add('hidden');
+    };
+
+    async function handlePlanChangeSubmit(e) {
+        e.preventDefault();
+        const errorEl = document.getElementById('plan-change-error');
+        errorEl.classList.add('hidden');
+
+        const serviceId = document.getElementById('plan-change-service-id').value;
+        const newValue = document.getElementById('new-plan-select').value;
+
+        if (!newValue) {
+            errorEl.textContent = 'Please select a plan/profile.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
+        try {
+            let url;
+            if (currentServiceForPlanChange && currentServiceForPlanChange.service_type === 'pppoe') {
+                // For PPPoE: Use pppoe-profile endpoint with profile name
+                url = `/api/services/${serviceId}/pppoe-profile?new_profile=${encodeURIComponent(newValue)}`;
+            } else {
+                // For Simple Queue: Use plan endpoint with plan ID
+                url = `/api/services/${serviceId}/plan?new_plan_id=${newValue}`;
+            }
+
+            await fetchJSON(url, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            showToast('Plan changed successfully!', 'success');
+            closePlanChangeModal();
+            loadClientServices();
+            loadServiceStatus();
+        } catch (error) {
+            errorEl.textContent = `Error: ${error.message}`;
+            errorEl.classList.remove('hidden');
+        }
+    }
+
+    // --- Delete Service ---
+    window.deleteService = async function (serviceId, serviceName) {
+        if (!confirm(`Are you sure you want to delete the service "${serviceName}"?\n\nThis will also remove the PPPoE secret from the router if applicable.`)) {
+            return;
+        }
+
+        try {
+            await fetchJSON(`/api/services/${serviceId}`, { method: 'DELETE' });
+            showToast('Service deleted successfully!', 'success');
+            loadClientServices();
+            loadServiceStatus();
+        } catch (error) {
+            showToast(`Error deleting service: ${error.message}`, 'danger');
+        }
+    };
+
     async function loadPaymentHistory() {
         const container = document.getElementById('payment-history-list');
         container.innerHTML = '<p class="text-text-secondary">Loading history...</p>';
@@ -329,11 +498,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Las otras cargas siguen igual, ya que dependen del ID
             loadServiceStatus();
+            loadClientServices();
             loadPaymentHistory();
 
             const paymentForm = document.getElementById('register-payment-form');
             if (paymentForm) {
                 paymentForm.addEventListener('submit', handleRegisterPayment);
+            }
+
+            const planChangeForm = document.getElementById('plan-change-form');
+            if (planChangeForm) {
+                planChangeForm.addEventListener('submit', handlePlanChangeSubmit);
             }
 
         } catch (error) {

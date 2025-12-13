@@ -19,6 +19,13 @@ class PlanBase(BaseModel):
     parent_queue: Optional[str] = None
     comment: Optional[str] = None
     router_host: str
+    # New fields for unified plan management
+    plan_type: Optional[str] = "simple_queue"  # "pppoe" or "simple_queue"
+    profile_name: Optional[str] = None  # For PPPoE: router profile name
+    suspension_method: Optional[str] = "queue_limit"  # "pppoe_secret_disable", "address_list", "queue_limit"
+    # Address list configuration
+    address_list_strategy: Optional[str] = "blacklist"
+    address_list_name: Optional[str] = "morosos"
 
 class PlanCreate(PlanBase):
     pass

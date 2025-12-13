@@ -148,6 +148,91 @@ def api_get_client_services(
     return service.get_client_services(client_id)
 
 
+@router.put("/services/{service_id}/plan")
+def api_change_service_plan(
+    service_id: int,
+    new_plan_id: int,
+    service: ClientManagerService = Depends(get_client_service),
+    current_user: User = Depends(require_billing),
+):
+    """
+    Change the plan for an existing client service.
+    
+    This endpoint:
+    - Updates the plan_id in the database
+    - For PPPoE: Updates the profile on the router
+    - For Simple Queue: Updates the queue limit on the router
+    - Kills active PPPoE connection to force re-auth with new settings
+    """
+    try:
+        result = service.change_client_service_plan(service_id, new_plan_id)
+        return result
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Error changing plan: {e}")
+        raise HTTPException(status_code=500, detail=f"Error changing plan: {e}")
+
+
+@router.put("/services/{service_id}", response_model=ClientService)
+def api_update_client_service(
+    service_id: int,
+    service_update: ClientServiceCreate,
+    service: ClientManagerService = Depends(get_client_service),
+    current_user: User = Depends(require_billing),
+):
+    """Update an existing client service."""
+    try:
+        return service.update_client_service(
+            service_id, service_update.model_dump(exclude_unset=True)
+        )
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/services/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
+def api_delete_client_service(
+    service_id: int,
+    service: ClientManagerService = Depends(get_client_service),
+    current_user: User = Depends(require_billing),
+):
+    """Delete a client service."""
+    try:
+        service.delete_client_service(service_id)
+        return
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.put("/services/{service_id}/pppoe-profile")
+def api_change_pppoe_profile(
+    service_id: int,
+    new_profile: str,
+    service: ClientManagerService = Depends(get_client_service),
+    current_user: User = Depends(require_billing),
+):
+    """
+    Change the PPPoE profile for a service.
+    
+    This endpoint is used for PPPoE services where the profile is selected
+    from the router's available profiles rather than from the local plans database.
+    """
+    try:
+        result = service.change_pppoe_service_profile(service_id, new_profile)
+        return result
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Error changing PPPoE profile: {e}")
+        raise HTTPException(status_code=500, detail=f"Error changing profile: {e}")
+
+
 # --- Payment Endpoints ---
 
 @router.post(
