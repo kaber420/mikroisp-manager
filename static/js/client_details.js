@@ -150,50 +150,135 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const pppoeService = services.find(s => s.service_type === 'pppoe');
-            if (!pppoeService) {
-                container.innerHTML = '<p class="text-text-secondary text-center font-semibold">Service is not PPPoE.</p>';
-                return;
+            let statusHtml = '<div class="space-y-4">';
+
+            for (const service of services) {
+                const planLabel = service.plan_name || service.profile_name || 'N/A';
+                const routerHost = service.router_host;
+
+                if (service.service_type === 'pppoe') {
+                    // PPPoE Service
+                    statusHtml += await renderPPPoEStatus(service, planLabel, routerHost);
+                } else if (service.service_type === 'simple_queue') {
+                    // Simple Queue Service
+                    statusHtml += await renderSimpleQueueStatus(service, planLabel, routerHost);
+                }
             }
 
-            const username = pppoeService.pppoe_username;
-            const routerHost = pppoeService.router_host;
-
-            const secretData = await fetchJSON(`/api/routers/${routerHost}/pppoe/secrets?name=${encodeURIComponent(username)}`);
-
-            let statusHtml = '';
-            if (!secretData || secretData.length === 0) {
-                statusHtml = `
-                    <div class="flex justify-between"><span class="text-text-secondary">Status:</span> <span class="font-semibold text-danger">User Not Found on Router</span></div>
-                    <div class="flex justify-between"><span class="text-text-secondary">PPPoE User:</span> <span class="font-mono">${username}</span></div>
-                    <div class="flex justify-between"><span class="text-text-secondary">Router:</span> <span class="font-mono">${routerHost}</span></div>
-                `;
-            } else {
-                const secret = secretData[0];
-                const isDisabled = secret.disabled === 'true';
-                const statusClass = isDisabled ? 'text-danger' : 'text-success';
-                const statusText = isDisabled ? 'Suspended' : 'Active';
-
-                const activeConnections = await fetchJSON(`/api/routers/${routerHost}/pppoe/active?name=${encodeURIComponent(username)}`);
-                const isOnline = activeConnections && activeConnections.length > 0;
-                const onlineText = isOnline ? `Online (<span class="text-success">${activeConnections[0].address}</span>)` : 'Offline';
-
-                statusHtml = `
-                    <div class="flex justify-between"><span>Account Status:</span> <span class="font-semibold ${statusClass}">${statusText}</span></div>
-                    <div class="flex justify-between"><span>Network Status:</span> <span class="font-semibold">${onlineText}</span></div>
-                    <div class="flex justify-between"><span>PPPoE User:</span> <span class="font-mono">${secret.name}</span></div>
-                    <div class="flex justify-between"><span>Router:</span> <span class="font-mono">${routerHost}</span></div>
-                    <div class="flex justify-between"><span>Uptime:</span> <span>${isOnline ? activeConnections[0].uptime : 'N/A'}</span></div>
-                    <div class="flex justify-between"><span>Plan:</span> <span>${secret.profile || 'N/A'}</span></div>
-                    <div class="flex justify-between"><span>Usage (Up/Down):</span> 
-                        <span class="font-semibold">${formatBytes(secret['bytes-out'])} / ${formatBytes(secret['bytes-in'])}</span>
-                    </div>
-                `;
-            }
+            statusHtml += '</div>';
             container.innerHTML = statusHtml;
 
         } catch (e) {
             container.innerHTML = `<p class="text-danger text-center">Error loading live status: ${e.message}</p>`;
+        }
+    }
+
+    async function renderPPPoEStatus(service, planLabel, routerHost) {
+        const username = service.pppoe_username;
+        const typeClass = 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+
+        try {
+            const secretData = await fetchJSON(`/api/routers/${routerHost}/pppoe/secrets?name=${encodeURIComponent(username)}`);
+
+            if (!secretData || secretData.length === 0) {
+                return `
+                    <div class="p-4 rounded-lg border ${typeClass}">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">PPPoE</span>
+                            <span class="font-mono text-sm">${username}</span>
+                        </div>
+                        <div class="flex justify-between"><span>Status:</span> <span class="font-semibold text-danger">User Not Found on Router</span></div>
+                        <div class="flex justify-between"><span>Router:</span> <span class="font-mono">${routerHost}</span></div>
+                    </div>`;
+            }
+
+            const secret = secretData[0];
+            const isDisabled = secret.disabled === 'true';
+            const statusClass = isDisabled ? 'text-danger' : 'text-success';
+            const statusText = isDisabled ? 'Suspended' : 'Active';
+
+            const activeConnections = await fetchJSON(`/api/routers/${routerHost}/pppoe/active?name=${encodeURIComponent(username)}`);
+            const isOnline = activeConnections && activeConnections.length > 0;
+            const onlineText = isOnline ? `Online (<span class="text-success">${activeConnections[0].address}</span>)` : 'Offline';
+
+            return `
+                <div class="p-4 rounded-lg border ${typeClass}">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">PPPoE</span>
+                        <span class="font-mono text-sm font-semibold">${secret.name}</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div class="flex justify-between"><span>Account:</span> <span class="font-semibold ${statusClass}">${statusText}</span></div>
+                        <div class="flex justify-between"><span>Network:</span> <span class="font-semibold">${onlineText}</span></div>
+                        <div class="flex justify-between"><span>Router:</span> <span class="font-mono">${routerHost}</span></div>
+                        <div class="flex justify-between"><span>Uptime:</span> <span>${isOnline ? activeConnections[0].uptime : 'N/A'}</span></div>
+                        <div class="flex justify-between"><span>Plan:</span> <span class="font-semibold text-primary">${planLabel}</span></div>
+                        <div class="flex justify-between"><span>Profile:</span> <span class="font-mono text-text-secondary">${secret.profile || 'N/A'}</span></div>
+                        <div class="flex justify-between col-span-2"><span>Usage (Up/Down):</span> 
+                            <span class="font-semibold">${formatBytes(secret['bytes-out'])} / ${formatBytes(secret['bytes-in'])}</span>
+                        </div>
+                    </div>
+                </div>`;
+        } catch (e) {
+            return `
+                <div class="p-4 rounded-lg border ${typeClass}">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">PPPoE</span>
+                        <span class="font-mono text-sm">${username}</span>
+                    </div>
+                    <p class="text-danger">Error: ${e.message}</p>
+                </div>`;
+        }
+    }
+
+    async function renderSimpleQueueStatus(service, planLabel, routerHost) {
+        const ipAddress = service.ip_address;
+        const typeClass = 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+
+        try {
+            const queueData = await fetchJSON(`/api/routers/${routerHost}/queue/stats?target=${encodeURIComponent(ipAddress)}`);
+
+            if (!queueData || queueData.status === 'not_found') {
+                return `
+                    <div class="p-4 rounded-lg border ${typeClass}">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400">Simple Queue</span>
+                            <span class="font-mono text-sm">${ipAddress}</span>
+                        </div>
+                        <div class="flex justify-between"><span>Status:</span> <span class="font-semibold text-warning">Queue Not Found on Router</span></div>
+                        <div class="flex justify-between"><span>Router:</span> <span class="font-mono">${routerHost}</span></div>
+                    </div>`;
+            }
+
+            // Parse bytes (format: "upload/download")
+            const bytesStr = queueData.bytes || '0/0';
+            const [bytesUp, bytesDown] = bytesStr.split('/').map(b => parseInt(b, 10) || 0);
+
+            return `
+                <div class="p-4 rounded-lg border ${typeClass}">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400">Simple Queue</span>
+                        <span class="font-mono text-sm font-semibold">${queueData.name || ipAddress}</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div class="flex justify-between"><span>Target:</span> <span class="font-mono">${queueData.target || ipAddress}</span></div>
+                        <div class="flex justify-between"><span>Max Limit:</span> <span class="font-semibold">${queueData['max-limit'] || 'N/A'}</span></div>
+                        <div class="flex justify-between"><span>Router:</span> <span class="font-mono">${routerHost}</span></div>
+                        <div class="flex justify-between"><span>Plan:</span> <span class="font-semibold text-primary">${planLabel}</span></div>
+                        <div class="flex justify-between col-span-2"><span>Usage (Up/Down):</span> 
+                            <span class="font-semibold">${formatBytes(bytesUp)} / ${formatBytes(bytesDown)}</span>
+                        </div>
+                    </div>
+                </div>`;
+        } catch (e) {
+            return `
+                <div class="p-4 rounded-lg border ${typeClass}">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400">Simple Queue</span>
+                        <span class="font-mono text-sm">${ipAddress}</span>
+                    </div>
+                    <p class="text-danger">Error: ${e.message}</p>
+                </div>`;
         }
     }
 
@@ -226,6 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const serviceIdentifier = service.pppoe_username || service.ip_address || 'N/A';
             const serviceTypeLabel = service.service_type === 'pppoe' ? 'PPPoE' : 'Simple Queue';
             const typeClass = service.service_type === 'pppoe' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400';
+            const planDisplay = service.plan_name || service.profile_name || 'No Plan';
 
             html += `
             <div class="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-surface-2 rounded-lg gap-4">
@@ -236,8 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="text-xs text-text-secondary space-x-4">
                         <span>Router: <span class="font-mono">${service.router_host || 'N/A'}</span></span>
-                        ${service.profile_name ? `<span>Profile: <span class="font-mono">${service.profile_name}</span></span>` : ''}
-                        <span>Method: <span class="font-mono">${service.suspension_method || 'N/A'}</span></span>
+                        <span>Plan: <span class="font-semibold text-primary">${planDisplay}</span></span>
                     </div>
                 </div>
                 <div class="flex gap-2">
@@ -266,24 +351,22 @@ document.addEventListener('DOMContentLoaded', () => {
         select.innerHTML = '<option value="">Loading...</option>';
 
         try {
-            if (serviceType === 'pppoe' && routerHost) {
-                // For PPPoE: Load profiles from the router
-                const profiles = await fetchJSON(`/api/routers/${routerHost}/pppoe/profiles`);
-                select.innerHTML = '<option value="">Select a profile...</option>';
-                for (const profile of profiles) {
-                    const rateLimit = profile['rate-limit'] || 'Unlimited';
-                    select.innerHTML += `<option value="${profile.name}">${profile.name} (${rateLimit})</option>`;
-                }
-            } else {
-                // For Simple Queue: Load plans from database (filtered by router)
-                const plans = await fetchJSON(`/api/plans/router/${routerHost}`);
-                select.innerHTML = '<option value="">Select a plan...</option>';
-                for (const plan of plans) {
-                    select.innerHTML += `<option value="${plan.id}">${plan.name} (${plan.max_limit || 'N/A'})</option>`;
-                }
+            // Load plans from database for ALL service types (PPPoE and Simple Queue)
+            // Filter by plan_type matching the service type
+            const plans = await fetchJSON(`/api/plans/router/${routerHost}`);
+            const filteredPlans = plans.filter(p => p.plan_type === serviceType);
+
+            select.innerHTML = '<option value="">Select a plan...</option>';
+            for (const plan of filteredPlans) {
+                const speedDisplay = plan.max_limit || 'N/A';
+                select.innerHTML += `<option value="${plan.id}">${plan.name} (${speedDisplay})</option>`;
+            }
+
+            if (filteredPlans.length === 0) {
+                select.innerHTML = '<option value="">No plans available for this service type</option>';
             }
         } catch (e) {
-            console.error('Error loading plans/profiles:', e);
+            console.error('Error loading plans:', e);
             select.innerHTML = '<option value="">Error loading options</option>';
         }
     }
@@ -317,23 +400,17 @@ document.addEventListener('DOMContentLoaded', () => {
         errorEl.classList.add('hidden');
 
         const serviceId = document.getElementById('plan-change-service-id').value;
-        const newValue = document.getElementById('new-plan-select').value;
+        const newPlanId = document.getElementById('new-plan-select').value;
 
-        if (!newValue) {
-            errorEl.textContent = 'Please select a plan/profile.';
+        if (!newPlanId) {
+            errorEl.textContent = 'Please select a plan.';
             errorEl.classList.remove('hidden');
             return;
         }
 
         try {
-            let url;
-            if (currentServiceForPlanChange && currentServiceForPlanChange.service_type === 'pppoe') {
-                // For PPPoE: Use pppoe-profile endpoint with profile name
-                url = `/api/services/${serviceId}/pppoe-profile?new_profile=${encodeURIComponent(newValue)}`;
-            } else {
-                // For Simple Queue: Use plan endpoint with plan ID
-                url = `/api/services/${serviceId}/plan?new_plan_id=${newValue}`;
-            }
+            // Always use the /plan endpoint which handles both PPPoE and Simple Queue
+            const url = `/api/services/${serviceId}/plan?new_plan_id=${newPlanId}`;
 
             await fetchJSON(url, {
                 method: 'PUT',

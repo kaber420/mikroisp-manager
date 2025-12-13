@@ -68,6 +68,7 @@ class ClientService(ClientServiceBase):
     id: int
     client_id: int
     created_at: datetime
+    plan_name: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 

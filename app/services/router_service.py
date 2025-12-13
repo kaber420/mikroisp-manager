@@ -184,6 +184,20 @@ class RouterService:
     def remove_simple_queue(self, queue_id: str):
         return self._execute_command(queues.remove_simple_queue, queue_id=queue_id)
 
+    def get_simple_queue_stats(self, target: str) -> Optional[Dict[str, Any]]:
+        """
+        Gets live stats for a Simple Queue by target IP.
+        Returns bytes-in, bytes-out, max-limit, name, etc.
+        """
+        all_queues = self._execute_command(queues.get_simple_queues)
+        # Search for queue by target (may have /32 suffix)
+        target_variations = [target, f"{target}/32"]
+        for queue in all_queues:
+            queue_target = queue.get("target", "")
+            if queue_target in target_variations:
+                return queue
+        return None
+
     # --- NEW: Service Suspension & Connection Management Methods ---
 
     def update_address_list(

@@ -259,6 +259,41 @@ async def provision_router_endpoint(
             admin_pool.disconnect()
 
 
+# --- Simple Queue Stats Endpoint ---
+@router.get("/routers/{host}/queue/stats")
+async def get_queue_stats(
+    host: str,
+    target: str,
+    current_user: User = Depends(require_technician),
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Get live stats for a Simple Queue by target IP.
+    Returns bytes-in, bytes-out, max-limit, etc.
+    """
+    from ...utils.security import decrypt_data
+    
+    creds = await get_router_by_host_service(session, host)
+    if not creds:
+        raise HTTPException(status_code=404, detail="Router not found")
+    
+    try:
+        password = decrypt_data(creds.password)
+        with RouterService(host, creds, decrypted_password=password) as rs:
+            stats = rs.get_simple_queue_stats(target)
+            if not stats:
+                return {"status": "not_found", "message": f"No queue found for target {target}"}
+            return {
+                "status": "success",
+                "name": stats.get("name"),
+                "target": stats.get("target"),
+                "max-limit": stats.get("max-limit"),
+                "bytes": stats.get("bytes"),  # "upload/download" format
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching queue stats: {e}")
+
+
 # --- Inclusión de los otros módulos de la API de routers ---
 router.include_router(config.router, prefix="/routers/{host}")
 router.include_router(pppoe.router, prefix="/routers/{host}")

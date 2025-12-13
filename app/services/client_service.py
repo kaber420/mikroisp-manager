@@ -266,14 +266,29 @@ class ClientService:
             )
     
     def get_client_services(self, client_id: int) -> List[Dict[str, Any]]:
-        """Get all services for a specific client."""
+        """Get all services for a specific client, including plan names."""
         statement = (
             select(ClientServiceModel)
             .where(ClientServiceModel.client_id == client_id)
             .order_by(ClientServiceModel.created_at.desc())
         )
         services = self.session.exec(statement).all()
-        return [service.model_dump() for service in services]
+        
+        result = []
+        for service in services:
+            service_dict = service.model_dump()
+            # Fetch plan name if plan_id is set
+            if service.plan_id:
+                try:
+                    plan = self.plan_service.get_plan_by_id(service.plan_id)
+                    service_dict["plan_name"] = plan.name
+                except Exception:
+                    service_dict["plan_name"] = None
+            else:
+                service_dict["plan_name"] = None
+            result.append(service_dict)
+        
+        return result
     
     # --- Payment Methods ---
     def get_payment_history(self, client_id: int) -> List[Dict[str, Any]]:
