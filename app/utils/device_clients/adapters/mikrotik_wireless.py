@@ -183,6 +183,7 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                     wireless_interfaces = api.get_resource(wireless_path).get()
                     if wireless_interfaces:
                         wlan = wireless_interfaces[0]
+                        interface_name = wlan.get("name") or wlan.get("default-name")
                         
                         # Field names differ between packages:
                         # - wireless (legacy ROS6): ssid, frequency, channel-width, mac-address
@@ -192,10 +193,6 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                         ssid = (wlan.get("configuration.ssid") or 
                                 wlan.get("ssid") or 
                                 wlan.get("name"))
-                        
-                        # Frequency - ROS7 wifi doesn't have it directly
-                        frequency = (wlan.get("channel.frequency") or 
-                                    wlan.get("frequency"))
                         
                         # Channel width: ROS7 uses channel.width
                         channel_width = (wlan.get("channel.width") or 
@@ -210,6 +207,35 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                         # Mode: ROS7 uses configuration.mode
                         mode = wlan.get("configuration.mode") or wlan.get("mode")
                         
+                        # Get actual frequency from monitor (ROS7)
+                        # Monitor returns channel like "5220/ax/eeCe" where 5220 is the frequency
+                        frequency = None
+                        tx_power = None
+                        if wireless_type in ["wifi", "wifiwave2"] and interface_name:
+                            try:
+                                # Use call to get monitor data
+                                monitor_result = api.get_resource(wireless_path).call(
+                                    "monitor", {"numbers": interface_name, "once": ""}
+                                )
+                                if monitor_result:
+                                    monitor_data = monitor_result[0] if isinstance(monitor_result, list) else monitor_result
+                                    channel_info = monitor_data.get("channel", "")
+                                    # Parse frequency from channel string (e.g., "5220/ax/eeCe")
+                                    if channel_info and "/" in channel_info:
+                                        freq_str = channel_info.split("/")[0]
+                                        try:
+                                            frequency = int(freq_str)
+                                        except ValueError:
+                                            pass
+                                    tx_power = monitor_data.get("tx-power")
+                                    logger.debug(f"Monitor data: channel={channel_info}, tx_power={tx_power}")
+                            except Exception as e:
+                                logger.debug(f"Could not get monitor data for {interface_name}: {e}")
+                        
+                        # Fallback to legacy frequency field
+                        if not frequency:
+                            frequency = self._parse_frequency(wlan.get("frequency"))
+                        
                         wireless_info = {
                             "ssid": ssid,
                             "frequency": frequency,
@@ -218,6 +244,7 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                             "mac": mac or system_mac,
                             "mode": mode,
                             "noise_floor": self._parse_signal(wlan.get("noise-floor")),
+                            "tx_power": tx_power,
                         }
                         logger.debug(f"Parsed wireless_info: {wireless_info}")
                 except Exception as e:
