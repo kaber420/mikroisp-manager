@@ -159,6 +159,19 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
             # Use existing system utilities (same as RouterService does)
             system_data = mikrotik_system.get_system_resources(api)
             
+            # Get system MAC address as fallback
+            system_mac = None
+            try:
+                interfaces = api.get_resource("/interface").get()
+                # Find first ethernet or bridge interface for MAC
+                for iface in interfaces:
+                    if iface.get("type") in ["ether", "bridge"]:
+                        system_mac = iface.get("mac-address")
+                        if system_mac:
+                            break
+            except Exception as e:
+                logger.debug(f"Could not get system MAC: {e}")
+            
             # Detect wireless type
             wireless_type = self._detect_wireless_type(api)
             
@@ -170,20 +183,68 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                     wireless_interfaces = api.get_resource(wireless_path).get()
                     if wireless_interfaces:
                         wlan = wireless_interfaces[0]
-                        # Field names may differ between packages
+                        
+                        # Field names differ between packages:
+                        # - wireless (legacy ROS6): ssid, frequency, channel-width, mac-address
+                        # - wifi/wifiwave2 (ROS7+): configuration.ssid, channel.width, mac-address
+                        
+                        # Try ROS7 wifi format first, then legacy
+                        ssid = (wlan.get("configuration.ssid") or 
+                                wlan.get("ssid") or 
+                                wlan.get("name"))
+                        
+                        # Frequency - ROS7 wifi doesn't have it directly
+                        frequency = (wlan.get("channel.frequency") or 
+                                    wlan.get("frequency"))
+                        
+                        # Channel width: ROS7 uses channel.width
+                        channel_width = (wlan.get("channel.width") or 
+                                        wlan.get("channel-width"))
+                        
+                        # MAC address
+                        mac = wlan.get("mac-address")
+                        
+                        # Band info - ROS7 uses channel.band
+                        band = wlan.get("channel.band") or wlan.get("band")
+                        
+                        # Mode: ROS7 uses configuration.mode
+                        mode = wlan.get("configuration.mode") or wlan.get("mode")
+                        
                         wireless_info = {
-                            "ssid": wlan.get("ssid") or wlan.get("configuration.ssid"),
-                            "frequency": wlan.get("frequency"),
-                            "band": wlan.get("band"),
-                            "channel_width": wlan.get("channel-width"),
-                            "mac": wlan.get("mac-address"),
-                            "mode": wlan.get("mode"),
+                            "ssid": ssid,
+                            "frequency": frequency,
+                            "band": band,
+                            "channel_width": channel_width,
+                            "mac": mac or system_mac,
+                            "mode": mode,
+                            "noise_floor": self._parse_signal(wlan.get("noise-floor")),
                         }
+                        logger.debug(f"Parsed wireless_info: {wireless_info}")
                 except Exception as e:
-                    logger.debug(f"Could not get wireless interface info: {e}")
+                    logger.warning(f"Could not get wireless interface info: {e}")
             
             # Get connected clients
             clients = self._get_clients_internal(api)
+            
+            # Calculate aggregate stats from clients
+            total_tx_bytes = 0
+            total_rx_bytes = 0
+            avg_noise_floor = None
+            noise_samples = []
+            
+            for client in clients:
+                if client.tx_bytes:
+                    total_tx_bytes += client.tx_bytes
+                if client.rx_bytes:
+                    total_rx_bytes += client.rx_bytes
+                if client.noisefloor:
+                    noise_samples.append(client.noisefloor)
+            
+            # Use average noise floor from clients if interface doesn't provide it
+            if noise_samples:
+                avg_noise_floor = sum(noise_samples) // len(noise_samples)
+            
+            noise_floor = wireless_info.get("noise_floor") or avg_noise_floor
             
             # Parse uptime from system data
             uptime_seconds = self._parse_uptime(system_data.get("uptime", "0s"))
@@ -201,7 +262,10 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                 frequency=self._parse_frequency(wireless_info.get("frequency")),
                 channel_width=self._parse_channel_width(wireless_info.get("channel_width")),
                 essid=wireless_info.get("ssid"),
+                noise_floor=noise_floor,
                 client_count=len(clients),
+                tx_bytes=total_tx_bytes if total_tx_bytes > 0 else None,
+                rx_bytes=total_rx_bytes if total_rx_bytes > 0 else None,
                 clients=clients,
                 extra={
                     "cpu_load": system_data.get("cpu-load"),

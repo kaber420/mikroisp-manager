@@ -104,17 +104,47 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // Track current vendor for conditional rendering
+    let currentVendor = 'ubiquiti';
+
     function updatePageWithLiveData(ap) {
+        // Store vendor for use in renderCPEList
+        currentVendor = ap.vendor || 'ubiquiti';
+
+        // Update status indicator
         document.getElementById('detail-status').innerHTML = `<div class="flex items-center gap-2 font-semibold text-orange animate-pulse"><div class="size-2 rounded-full bg-orange"></div><span>Live</span></div>`;
+
+        // Update device info fields that come from live data
+        if (ap.model) document.getElementById('detail-model').textContent = ap.model;
+        if (ap.mac) document.getElementById('detail-mac').textContent = ap.mac;
+        if (ap.firmware) document.getElementById('detail-firmware').textContent = ap.firmware;
+        if (ap.essid) document.getElementById('detail-essid').textContent = ap.essid;
+        if (ap.hostname) document.getElementById('main-hostname').textContent = ap.hostname;
+
+        // Frequency and channel width
+        if (ap.frequency != null || ap.chanbw != null) {
+            const freq = ap.frequency != null ? `${ap.frequency} MHz` : 'N/A';
+            const width = ap.chanbw != null ? ` / ${ap.chanbw}` : '';
+            document.getElementById('detail-frequency').textContent = `${freq}${width}`;
+        }
+
         document.getElementById('detail-clients').textContent = ap.client_count != null ? ap.client_count : 'N/A';
         document.getElementById('detail-noise').textContent = ap.noise_floor != null ? `${ap.noise_floor} dBm` : 'N/A';
-        const airtimeTotal = ap.airtime_total_usage != null ? `${(ap.airtime_total_usage / 10.0).toFixed(1)}%` : 'N/A';
-        const airtimeTx = ap.airtime_tx_usage != null ? `${(ap.airtime_tx_usage / 10.0).toFixed(1)}%` : 'N/A';
-        const airtimeRx = ap.airtime_rx_usage != null ? `${(ap.airtime_rx_usage / 10.0).toFixed(1)}%` : 'N/A';
-        document.getElementById('detail-airtime').textContent = `${airtimeTotal} (Tx: ${airtimeTx} / Rx: ${airtimeRx})`;
+
+        // Airtime is Ubiquiti-specific; for MikroTik show CPU Load if available
+        if (currentVendor === 'mikrotik') {
+            const cpuLoad = ap.extra?.cpu_load;
+            document.getElementById('detail-airtime').textContent = cpuLoad != null ? `CPU: ${cpuLoad}%` : 'N/A (MikroTik)';
+        } else {
+            const airtimeTotal = ap.airtime_total_usage != null ? `${(ap.airtime_total_usage / 10.0).toFixed(1)}%` : 'N/A';
+            const airtimeTx = ap.airtime_tx_usage != null ? `${(ap.airtime_tx_usage / 10.0).toFixed(1)}%` : 'N/A';
+            const airtimeRx = ap.airtime_rx_usage != null ? `${(ap.airtime_rx_usage / 10.0).toFixed(1)}%` : 'N/A';
+            document.getElementById('detail-airtime').textContent = `${airtimeTotal} (Tx: ${airtimeTx} / Rx: ${airtimeRx})`;
+        }
+
         document.getElementById('detail-throughput').textContent = `${formatThroughput(ap.total_throughput_rx)} / ${formatThroughput(ap.total_throughput_tx)}`;
         document.getElementById('detail-total-data').textContent = `${formatBytes(ap.total_rx_bytes)} / ${formatBytes(ap.total_tx_bytes)}`;
-        renderCPEList(ap.clients, ap.clients);
+        renderCPEList(ap.clients, ap.clients, currentVendor);
         updateChartsWithLiveData(ap);
     }
 
@@ -130,7 +160,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    function renderCPEList(historicalCPEs, liveCPEs = null) {
+    function renderCPEList(historicalCPEs, liveCPEs = null, vendor = 'ubiquiti') {
         const cpeListDiv = document.getElementById('client-list');
         if (!historicalCPEs || historicalCPEs.length === 0) {
             cpeListDiv.innerHTML = '<p class="text-text-secondary col-span-full text-center py-8">No CPE data available for this AP.</p>';
@@ -144,6 +174,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const timeFormatter = new Intl.DateTimeFormat(navigator.language, {
             day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
         });
+
+        const isMikroTik = vendor === 'mikrotik';
 
         historicalCPEs.forEach(cpe => {
             const card = document.createElement('div');
@@ -164,9 +196,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             const t_rx = displayCPE.throughput_rx_kbps != null ? `${displayCPE.throughput_rx_kbps.toFixed(1)}` : 'N/A';
             const t_tx = displayCPE.throughput_tx_kbps != null ? `${displayCPE.throughput_tx_kbps.toFixed(1)}` : 'N/A';
             const chains = displayCPE.signal_chain0 != null && displayCPE.signal_chain1 != null ? `(${displayCPE.signal_chain0}/${displayCPE.signal_chain1})` : '';
-            const c_dl = displayCPE.dl_capacity ? (displayCPE.dl_capacity / 1000).toFixed(0) : 'N/A';
-            const c_ul = displayCPE.ul_capacity ? (displayCPE.ul_capacity / 1000).toFixed(0) : 'N/A';
             const cableStatus = displayCPE.eth_speed != null ? `${displayCPE.eth_speed} Mbps` : 'N/A';
+
+            // Vendor-specific metrics
+            let vendorSpecificRow;
+            if (isMikroTik) {
+                // MikroTik: Show CCQ and TX/RX Rate
+                const ccq = displayCPE.ccq != null ? `${displayCPE.ccq}%` : 'N/A';
+                // tx_rate and rx_rate come in bps, convert to Mbps
+                const txRate = displayCPE.tx_rate != null ? `${(displayCPE.tx_rate / 1000000).toFixed(1)} Mbps` : 'N/A';
+                const rxRate = displayCPE.rx_rate != null ? `${(displayCPE.rx_rate / 1000000).toFixed(1)} Mbps` : 'N/A';
+                vendorSpecificRow = `
+                    <span>CCQ:</span><span class="font-semibold text-text-primary text-right">${ccq}</span>
+                    <span>TX/RX Rate:</span><span class="font-semibold text-text-primary text-right">${txRate} / ${rxRate}</span>
+                `;
+            } else {
+                // Ubiquiti: Show Capacity
+                const c_dl = displayCPE.dl_capacity ? (displayCPE.dl_capacity / 1000).toFixed(0) : 'N/A';
+                const c_ul = displayCPE.ul_capacity ? (displayCPE.ul_capacity / 1000).toFixed(0) : 'N/A';
+                vendorSpecificRow = `
+                    <span>Capacity (DL/UL):</span><span class="font-semibold text-text-primary text-right">${c_dl} / ${c_ul} Mbps</span>
+                `;
+            }
 
             const lastSeenDate = new Date(cpe.timestamp);
             const lastSeenHtml = !isOnline
@@ -187,7 +238,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-text-secondary">
                     <span>Signal / Chains:</span><span class="font-semibold text-text-primary text-right">${displayCPE.signal || 'N/A'} dBm ${chains}</span>
                     <span>Noise Floor:</span><span class="font-semibold text-text-primary text-right">${displayCPE.noisefloor || 'N/A'} dBm</span>
-                    <span>Capacity (DL/UL):</span><span class="font-semibold text-text-primary text-right">${c_dl} / ${c_ul} Mbps</span>
+                    ${vendorSpecificRow}
                     <span>Throughput (DL/UL):</span><span class="font-semibold text-text-primary text-right">${t_rx} / ${t_tx} kbps</span>
                     <span>Total Data (DL/UL):</span><span class="font-semibold text-text-primary text-right">${formatBytes(displayCPE.total_rx_bytes)} / ${formatBytes(displayCPE.total_tx_bytes)}</span>
                     ${lastSeenHtml}
@@ -208,14 +259,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             const historicalCPEs = await historyResponse.json();
 
             let liveCPEs = null;
+            let vendor = currentVendor; // Use cached vendor
             if (liveResponse.ok) {
                 const liveData = await liveResponse.json();
                 liveCPEs = liveData.clients;
+                vendor = liveData.vendor || 'ubiquiti';
+                currentVendor = vendor; // Update cached vendor
             } else {
                 console.warn("Could not fetch live CPE data. Offline status may not be accurate.");
             }
 
-            renderCPEList(historicalCPEs, liveCPEs);
+            renderCPEList(historicalCPEs, liveCPEs, vendor);
 
         } catch (error) {
             console.error("Error loading CPE data:", error);
