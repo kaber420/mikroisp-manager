@@ -178,47 +178,51 @@ def validate_ap_connection(ap_data: APCreate):
     """
     Intenta conectar con el AP usando las credenciales proporcionadas.
     No guarda nada en la BD. Retorna éxito o error.
+    Soporta múltiples vendors (ubiquiti, mikrotik).
     """
-    # Importación local para usar el proveedor de clientes
-    from ...utils.device_clients.client_provider import (
-        get_ubiquiti_client,
-        remove_ubiquiti_client,
-    )
+    from ...utils.device_clients.adapter_factory import get_device_adapter
 
+    adapter = None
     try:
-        # Usamos el proveedor para obtener un cliente.
-        client = get_ubiquiti_client(
+        # Use adapter factory to get the appropriate adapter for the vendor
+        adapter = get_device_adapter(
             host=ap_data.host,
             username=ap_data.username,
             password=ap_data.password,
-            port=ap_data.port,
-            http_mode=ap_data.http_mode,
+            vendor=ap_data.vendor,
+            port=ap_data.api_port,
         )
 
-        # Intentamos obtener datos. Si falla la autenticación o conexión, get_status_data suele retornar None.
-        status_data = client.get_status_data()
+        # Get device status to validate connection
+        status = adapter.get_status()
 
-        if status_data:
-            # Extraemos info básica para confirmar al usuario
-            hostname = status_data.get("host", {}).get("hostname", "Unknown")
-            model = status_data.get("host", {}).get("devmodel", "Unknown")
-
-            # Importante: Como esta es una validación, no queremos dejar la sesión
-            # en la caché si la configuración del AP no se guarda.
-            # La eliminamos explícitamente.
-            remove_ubiquiti_client(ap_data.host)
+        if status.is_online:
+            # Extract basic info to confirm to the user
+            hostname = status.hostname or "Unknown"
+            model = status.model or "Unknown"
+            vendor_display = ap_data.vendor.capitalize()
 
             return {
                 "status": "success",
-                "message": f"Conexión Exitosa: {hostname} ({model})",
+                "message": f"Conexión Exitosa ({vendor_display}): {hostname} ({model})",
             }
         else:
-            # Si get_status_data retorna None (fallo auth/red manejado internamente)
+            # Device offline or connection failed
+            error_msg = status.last_error or "No se pudo obtener datos del dispositivo"
             raise HTTPException(
                 status_code=400,
-                detail="No se pudo conectar. Verifique IP/Credenciales o que el dispositivo esté online.",
+                detail=f"No se pudo conectar: {error_msg}",
             )
 
+    except ValueError as e:
+        # Unsupported vendor
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
-        # Captura cualquier error de conexión no manejado
+        # Catch any unhandled connection errors
         raise HTTPException(status_code=400, detail=f"Error de conexión: {str(e)}")
+    finally:
+        # Always cleanup the adapter connection
+        if adapter:
+            adapter.disconnect()

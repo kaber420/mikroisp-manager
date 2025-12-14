@@ -22,7 +22,9 @@ document.addEventListener('alpine:init', () => {
             zona_id: '',
             username: 'ubnt',
             password: '',
-            monitor_interval: ''
+            monitor_interval: '',
+            vendor: 'ubiquiti',
+            api_port: ''
         },
         error: '',
         searchQuery: '',
@@ -123,10 +125,45 @@ document.addEventListener('alpine:init', () => {
                     zona_id: '',
                     username: 'ubnt',
                     password: '',
-                    monitor_interval: ''
+                    monitor_interval: '',
+                    vendor: 'ubiquiti',
+                    api_port: ''
                 };
             }
             this.isModalOpen = true;
+        },
+
+        // Multi-vendor helper methods
+        getDefaultPort() {
+            return this.currentAp.vendor === 'mikrotik' ? '8729' : '443';
+        },
+
+        getPortHint() {
+            if (this.currentAp.vendor === 'mikrotik') {
+                return 'Default: 8729 (API-SSL). Requires API-SSL enabled on MikroTik.';
+            }
+            return 'Default: 443 (HTTPS). Standard AirOS port.';
+        },
+
+        onVendorChange() {
+            // Clear api_port to use the new default when vendor changes
+            // Only if creating a new AP or port wasn't manually set
+            if (!this.isEditing) {
+                this.currentAp.api_port = '';
+                // Update default username for common vendors
+                if (this.currentAp.vendor === 'mikrotik' && this.currentAp.username === 'ubnt') {
+                    this.currentAp.username = 'admin';
+                } else if (this.currentAp.vendor === 'ubiquiti' && this.currentAp.username === 'admin') {
+                    this.currentAp.username = 'ubnt';
+                }
+            }
+        },
+
+        renderVendorBadge(vendor) {
+            if (vendor === 'mikrotik') {
+                return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">MikroTik</span>`;
+            }
+            return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">Ubiquiti</span>`;
         },
 
         async testConnection() {
@@ -148,7 +185,9 @@ document.addEventListener('alpine:init', () => {
                     username: this.currentAp.username,
                     password: this.currentAp.password,
                     zona_id: this.currentAp.zona_id || 0,
-                    is_enabled: true
+                    is_enabled: true,
+                    vendor: this.currentAp.vendor || 'ubiquiti',
+                    api_port: parseInt(this.currentAp.api_port) || (this.currentAp.vendor === 'mikrotik' ? 8729 : 443)
                 };
 
                 const response = await fetch('/api/aps/validate', {
@@ -201,10 +240,13 @@ document.addEventListener('alpine:init', () => {
             const method = this.isEditing ? 'PUT' : 'POST';
 
             // Preparar payload
+            const defaultPort = this.currentAp.vendor === 'mikrotik' ? 8729 : 443;
             const payload = {
                 ...this.currentAp,
                 zona_id: parseInt(this.currentAp.zona_id),
-                monitor_interval: this.currentAp.monitor_interval ? parseInt(this.currentAp.monitor_interval) : null
+                monitor_interval: this.currentAp.monitor_interval ? parseInt(this.currentAp.monitor_interval) : null,
+                api_port: this.currentAp.api_port ? parseInt(this.currentAp.api_port) : defaultPort,
+                vendor: this.currentAp.vendor || 'ubiquiti'
             };
 
             // Limpieza para actualización

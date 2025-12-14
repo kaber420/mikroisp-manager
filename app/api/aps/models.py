@@ -36,6 +36,10 @@ class AP(BaseModel):
     gps_lon: Optional[float] = None
     gps_sats: Optional[int] = None
     zona_nombre: Optional[str] = None
+    # Multi-vendor support
+    vendor: Optional[str] = "ubiquiti"  # "ubiquiti" or "mikrotik"
+    role: Optional[str] = "access_point"  # "access_point" or "switch"
+    api_port: Optional[int] = 443
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -46,8 +50,9 @@ class APCreate(BaseModel):
     zona_id: int
     is_enabled: bool = True
     monitor_interval: Optional[int] = None
-    port: int = 443
-    http_mode: bool = False
+    api_port: int = 443
+    vendor: str = "ubiquiti"  # "ubiquiti" or "mikrotik"
+    role: str = "access_point"  # "access_point" or "switch"
 
 
 class APUpdate(BaseModel):
@@ -56,8 +61,9 @@ class APUpdate(BaseModel):
     zona_id: Optional[int] = None
     is_enabled: Optional[bool] = None
     monitor_interval: Optional[int] = None
-    port: Optional[int] = None
-    http_mode: Optional[bool] = None
+    api_port: Optional[int] = None
+    vendor: Optional[str] = None
+    role: Optional[str] = None
 
 
 class CPEDetail(BaseModel):
@@ -69,8 +75,8 @@ class CPEDetail(BaseModel):
     signal_chain0: Optional[int] = None
     signal_chain1: Optional[int] = None
     noisefloor: Optional[int] = None
-    dl_capacity: Optional[int] = None
-    ul_capacity: Optional[int] = None
+    dl_capacity: Optional[int] = None  # Ubiquiti AirMax
+    ul_capacity: Optional[int] = None  # Ubiquiti AirMax
     throughput_rx_kbps: Optional[int] = None
     throughput_tx_kbps: Optional[int] = None
     total_rx_bytes: Optional[int] = None
@@ -78,6 +84,10 @@ class CPEDetail(BaseModel):
     cpe_uptime: Optional[int] = None
     eth_plugged: Optional[bool] = None
     eth_speed: Optional[int] = None
+    # MikroTik-specific fields
+    ccq: Optional[int] = None  # Client Connection Quality (%)
+    tx_rate: Optional[int] = None  # TX rate in Mbps
+    rx_rate: Optional[int] = None  # RX rate in Mbps
     model_config = ConfigDict(from_attributes=True)
 
 

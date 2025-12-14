@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from ..models.ap import AP
 from ..utils.security import encrypt_data, decrypt_data
-from ..utils.device_clients.client_provider import get_ubiquiti_client
+from ..utils.device_clients.adapter_factory import get_device_adapter
+from ..utils.device_clients.adapters.base import DeviceStatus, ConnectedClient
 from ..db import settings_db, stats_db
 from ..db.base import get_stats_db_connection
 
@@ -214,85 +215,85 @@ class APService:
             raise APNotFoundError(f"AP no encontrado en el inventario: {host}")
             
         password = decrypt_data(ap.password)
-
-        client = get_ubiquiti_client(
+        
+        # Get the appropriate adapter based on vendor
+        vendor = ap.vendor or "ubiquiti"
+        port = ap.api_port or (443 if vendor == "ubiquiti" else 8729)
+        
+        adapter = get_device_adapter(
             host=host,
             username=ap.username,
             password=password,
-            port=443, # Default port, or add to model if needed. Model doesn't have port currently.
-            http_mode=False, # Default
+            vendor=vendor,
+            port=port,
         )
-        status_data = client.get_status_data()
-
-        if not status_data:
-            raise APUnreachableError(
-                f"No se pudo obtener datos del AP {host}. Puede estar offline."
-            )
-
-        # --- INICIO DE LÓGICA DE TRANSFORMACIÓN (movida desde la API) ---
-        host_info = status_data.get("host", {})
-        wireless_info = status_data.get("wireless", {})
-        ath0_status = status_data.get("interfaces", [{}, {}])[1].get("status", {})
-        gps_info = status_data.get("gps", {})
-        throughput_info = wireless_info.get("throughput", {})
-        polling_info = wireless_info.get("polling", {})
-
-        clients_list = []
-        for cpe_data in wireless_info.get("sta", []):
-            remote = cpe_data.get("remote", {})
-            stats_data = cpe_data.get("stats", {})
-            airmax = cpe_data.get("airmax", {})
-            eth_info = remote.get("ethlist", [{}])[0]
-            chainrssi = cpe_data.get("chainrssi", [None, None, None])
-
-            clients_list.append(
-                CPEDetail(
-                    cpe_mac=cpe_data.get("mac"),
-                    cpe_hostname=remote.get("hostname"),
-                    ip_address=cpe_data.get("lastip"),
-                    signal=cpe_data.get("signal"),
-                    signal_chain0=chainrssi[0],
-                    signal_chain1=chainrssi[1],
-                    noisefloor=cpe_data.get("noisefloor"),
-                    dl_capacity=airmax.get("dl_capacity"),
-                    ul_capacity=airmax.get("ul_capacity"),
-                    throughput_rx_kbps=remote.get("rx_throughput"),
-                    throughput_tx_kbps=remote.get("tx_throughput"),
-                    total_rx_bytes=stats_data.get("rx_bytes"),
-                    total_tx_bytes=stats_data.get("tx_bytes"),
-                    cpe_uptime=remote.get("uptime"),
-                    eth_plugged=eth_info.get("plugged"),
-                    eth_speed=eth_info.get("speed"),
+        
+        try:
+            status = adapter.get_status()
+            
+            if not status.is_online:
+                raise APUnreachableError(
+                    f"No se pudo obtener datos del AP {host}. Error: {status.last_error}"
                 )
+            
+            # Convert DeviceStatus to APLiveDetail for backwards compatibility
+            clients_list = []
+            for client in status.clients:
+                clients_list.append(
+                    CPEDetail(
+                        cpe_mac=client.mac,
+                        cpe_hostname=client.hostname,
+                        ip_address=client.ip_address,
+                        signal=client.signal,
+                        signal_chain0=client.signal_chain0,
+                        signal_chain1=client.signal_chain1,
+                        noisefloor=client.noisefloor,
+                        dl_capacity=client.extra.get("dl_capacity"),
+                        ul_capacity=client.extra.get("ul_capacity"),
+                        throughput_rx_kbps=client.rx_throughput_kbps,
+                        throughput_tx_kbps=client.tx_throughput_kbps,
+                        total_rx_bytes=client.rx_bytes,
+                        total_tx_bytes=client.tx_bytes,
+                        cpe_uptime=client.uptime,
+                        eth_plugged=client.extra.get("eth_plugged"),
+                        eth_speed=client.extra.get("eth_speed"),
+                        # MikroTik-specific fields
+                        ccq=client.ccq,
+                        tx_rate=client.tx_rate,
+                        rx_rate=client.rx_rate,
+                    )
+                )
+            
+            return APLiveDetail(
+                host=host,
+                username=ap.username,
+                is_enabled=True,
+                hostname=status.hostname,
+                model=status.model,
+                mac=status.mac,
+                firmware=status.firmware,
+                last_status="online",
+                client_count=status.client_count,
+                noise_floor=status.noise_floor,
+                chanbw=status.channel_width,
+                frequency=status.frequency,
+                essid=status.essid,
+                total_tx_bytes=status.tx_bytes,
+                total_rx_bytes=status.rx_bytes,
+                gps_lat=status.gps_lat,
+                gps_lon=status.gps_lon,
+                gps_sats=status.extra.get("gps_sats"),
+                total_throughput_tx=status.tx_throughput,
+                total_throughput_rx=status.rx_throughput,
+                airtime_total_usage=status.airtime_usage,
+                airtime_tx_usage=status.extra.get("airtime_tx"),
+                airtime_rx_usage=status.extra.get("airtime_rx"),
+                clients=clients_list,
+                # Include vendor info for UI differentiation
+                vendor=vendor,
             )
-
-        return APLiveDetail(
-            host=host,
-            username=ap.username,
-            is_enabled=True,  # Asumimos True si logramos conectar
-            hostname=host_info.get("hostname"),
-            model=host_info.get("devmodel"),
-            mac=status_data.get("interfaces", [{}, {}])[1].get("hwaddr"),
-            firmware=host_info.get("fwversion"),
-            last_status="online",
-            client_count=wireless_info.get("count"),
-            noise_floor=wireless_info.get("noisef"),
-            chanbw=wireless_info.get("chanbw"),
-            frequency=wireless_info.get("frequency"),
-            essid=wireless_info.get("essid"),
-            total_tx_bytes=ath0_status.get("tx_bytes"),
-            total_rx_bytes=ath0_status.get("rx_bytes"),
-            gps_lat=gps_info.get("lat"),
-            gps_lon=gps_info.get("lon"),
-            gps_sats=gps_info.get("sats"),
-            total_throughput_tx=throughput_info.get("tx"),
-            total_throughput_rx=throughput_info.get("rx"),
-            airtime_total_usage=polling_info.get("use"),
-            airtime_tx_usage=polling_info.get("tx_use"),
-            airtime_rx_usage=polling_info.get("rx_use"),
-            clients=clients_list,
-        )
-        # --- FIN DE LÓGICA DE TRANSFORMACIÓN ---
+        finally:
+            adapter.disconnect()
 
     async def get_ap_history(self, host: str, period: str = "24h") -> APHistoryResponse:
         """Obtiene datos históricos de un AP desde la DB de estadísticas."""

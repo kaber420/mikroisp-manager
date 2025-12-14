@@ -19,6 +19,14 @@ class AP(SQLModel, table=True):
     first_seen: Optional[datetime] = Field(default=None)
     last_seen: Optional[datetime] = Field(default=None)
     last_checked: Optional[datetime] = Field(default=None)
+    
+    # Multi-vendor support
+    # vendor: "ubiquiti" (AirMAX), "mikrotik" (RouterOS wireless)
+    vendor: Optional[str] = Field(default="ubiquiti")
+    # role: "access_point", "switch" (for future expansion)
+    role: Optional[str] = Field(default="access_point")
+    # api_port: custom port for API connections (default 443 for Ubiquiti, 8729 for MikroTik SSL)
+    api_port: Optional[int] = Field(default=443)
 
     # Relationship
     # zona: Optional["Zona"] = Relationship(back_populates="aps")
