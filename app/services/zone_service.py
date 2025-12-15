@@ -96,6 +96,11 @@ class ZoneService:
         
         if zona.notas_sensibles:
             zona.notas_sensibles = decrypt_data(zona.notas_sensibles)
+
+        # Decrypt note content for encrypted notes
+        for note in zona.notes:
+            if note.is_encrypted and note.content:
+                note.content = decrypt_data(note.content)
             
         return zona
 
@@ -123,7 +128,7 @@ class ZoneService:
         file_extension = os.path.splitext(file.filename)[1]
         saved_filename = f"{uuid.uuid4()}{file_extension}"
         
-        save_dir = os.path.join("uploads", "zonas", str(zona_id))
+        save_dir = os.path.join("data", "uploads", "zonas", str(zona_id))
         os.makedirs(save_dir, exist_ok=True)
         file_path = os.path.join(save_dir, saved_filename)
         
@@ -152,7 +157,7 @@ class ZoneService:
             raise FileNotFoundError("Documento no encontrado.")
             
         file_path = os.path.join(
-            "uploads", "zonas", str(doc.zona_id), doc.nombre_guardado
+            "data", "uploads", "zonas", str(doc.zona_id), doc.nombre_guardado
         )
         if os.path.exists(file_path):
             os.remove(file_path)

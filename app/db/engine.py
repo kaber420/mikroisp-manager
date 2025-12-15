@@ -8,8 +8,9 @@ from sqlmodel import SQLModel
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from typing import AsyncGenerator
 
-# Read database path from environment or use default
-DATABASE_FILE = os.getenv("INVENTORY_DB_FILE", "inventory.sqlite")
+# Read database path from environment or use default in data/db/
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+DATABASE_FILE = os.path.join(DATA_DIR, "db", "inventory.sqlite")
 # Use aiosqlite for async support with SQLite
 DATABASE_URL = f"sqlite+aiosqlite:///{DATABASE_FILE}"
 

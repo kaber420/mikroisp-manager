@@ -1,12 +1,8 @@
 # app/db/init_db.py
 import sqlite3
+import os
 from datetime import datetime
-from .base import get_db_connection, INVENTORY_DB_FILE
-
-
-def _get_current_stats_db_file() -> str:
-    now = datetime.utcnow()
-    return f"stats_{now.strftime('%Y_%m')}.sqlite"
+from .base import get_db_connection, INVENTORY_DB_FILE, get_stats_db_file
 
 
 def setup_databases():
@@ -40,7 +36,7 @@ def _setup_inventory_db():
         ("telegram_chat_id", ""),
         ("days_before_due", "5"),
         ("default_monitor_interval", "300"),
-        ("dashboard_refresh_interval", "300"),
+        ("dashboard_refresh_interval", "5"),
         ("suspension_run_hour", "02:00"),
     ]
     cursor.executemany(
@@ -95,7 +91,7 @@ def _setup_inventory_db():
     )
     """
     )
-    # Migraciones de zonas (columnas nuevas)
+    
     zona_columns = [
         col[1] for col in cursor.execute("PRAGMA table_info(zonas)").fetchall()
     ]
@@ -235,6 +231,28 @@ def _setup_inventory_db():
     if "ip_address" not in service_columns:
         cursor.execute("ALTER TABLE client_services ADD COLUMN ip_address TEXT;")
 
+    # --- Migración de Plans: nuevos campos para unificar PPPoE y Simple Queue ---
+    plan_columns = [
+        col[1]
+        for col in cursor.execute("PRAGMA table_info(plans)").fetchall()
+    ]
+    if "plan_type" not in plan_columns:
+        print("Migrando plans: Agregando plan_type...")
+        cursor.execute("ALTER TABLE plans ADD COLUMN plan_type TEXT DEFAULT 'simple_queue';")
+    if "profile_name" not in plan_columns:
+        print("Migrando plans: Agregando profile_name...")
+        cursor.execute("ALTER TABLE plans ADD COLUMN profile_name TEXT;")
+    if "suspension_method" not in plan_columns:
+        print("Migrando plans: Agregando suspension_method...")
+        cursor.execute("ALTER TABLE plans ADD COLUMN suspension_method TEXT DEFAULT 'queue_limit';")
+    if "address_list_strategy" not in plan_columns:
+        print("Migrando plans: Agregando address_list_strategy...")
+        cursor.execute("ALTER TABLE plans ADD COLUMN address_list_strategy TEXT DEFAULT 'blacklist';")
+    if "address_list_name" not in plan_columns:
+        print("Migrando plans: Agregando address_list_name...")
+        cursor.execute("ALTER TABLE plans ADD COLUMN address_list_name TEXT DEFAULT 'morosos';")
+
+
     cursor.execute(
         """
     CREATE TABLE IF NOT EXISTS pagos (
@@ -263,7 +281,7 @@ def _setup_inventory_db():
 
 
 def _setup_stats_db():
-    stats_db_file = _get_current_stats_db_file()
+    stats_db_file = get_stats_db_file()
     stats_conn = sqlite3.connect(stats_db_file)
     stats_conn.row_factory = sqlite3.Row
     cursor = stats_conn.cursor()
@@ -324,11 +342,42 @@ def _setup_stats_db():
         "CREATE INDEX IF NOT EXISTS idx_cpe_stats_mac ON cpe_stats_history (cpe_mac);"
     )
     cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_cpe_stats_mac_ts ON cpe_stats_history (cpe_mac, timestamp DESC);"
+    )
+    cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_cpe_stats_ip ON cpe_stats_history (ip_address);"
     )
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_event_logs_host ON event_logs (device_host);"
     )
+    
+    # --- MIGRATIONS ---
+    # Add vendor column to ap_stats_history if not exists
+    ap_stats_columns = [
+        col[1] for col in cursor.execute("PRAGMA table_info(ap_stats_history)").fetchall()
+    ]
+    if "vendor" not in ap_stats_columns:
+        print("Migrando ap_stats_history: Agregando columna vendor...")
+        cursor.execute("ALTER TABLE ap_stats_history ADD COLUMN vendor TEXT DEFAULT 'ubiquiti';")
+    
+    # Add vendor column to cpe_stats_history if not exists
+    cpe_stats_columns = [
+        col[1] for col in cursor.execute("PRAGMA table_info(cpe_stats_history)").fetchall()
+    ]
+    if "vendor" not in cpe_stats_columns:
+        print("Migrando cpe_stats_history: Agregando columna vendor...")
+        cursor.execute("ALTER TABLE cpe_stats_history ADD COLUMN vendor TEXT DEFAULT 'ubiquiti';")
+    
+    # Add ccq and tx_rate/rx_rate columns for MikroTik clients
+    if "ccq" not in cpe_stats_columns:
+        print("Migrando cpe_stats_history: Agregando columna ccq...")
+        cursor.execute("ALTER TABLE cpe_stats_history ADD COLUMN ccq INTEGER;")
+    if "tx_rate" not in cpe_stats_columns:
+        print("Migrando cpe_stats_history: Agregando columna tx_rate...")
+        cursor.execute("ALTER TABLE cpe_stats_history ADD COLUMN tx_rate INTEGER;")
+    if "rx_rate" not in cpe_stats_columns:
+        print("Migrando cpe_stats_history: Agregando columna rx_rate...")
+        cursor.execute("ALTER TABLE cpe_stats_history ADD COLUMN rx_rate INTEGER;")
 
     stats_conn.commit()
     stats_conn.close()

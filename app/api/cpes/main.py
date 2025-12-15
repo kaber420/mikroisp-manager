@@ -2,7 +2,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 
-from ...auth import User, get_current_active_user
+from ...core.users import require_technician
+from ...models.user import User
 from ...services.cpe_service import CPEService
 from .models import CPEGlobalInfo, AssignedCPE
 
@@ -18,7 +19,7 @@ def get_cpe_service() -> CPEService:
 @router.get("/cpes/unassigned", response_model=List[AssignedCPE])
 def api_get_unassigned_cpes(
     service: CPEService = Depends(get_cpe_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     return service.get_unassigned_cpes()
 
@@ -28,7 +29,7 @@ def api_assign_cpe_to_client(
     mac: str,
     client_id: int,
     service: CPEService = Depends(get_cpe_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         return service.assign_cpe_to_client(mac, client_id)
@@ -42,7 +43,7 @@ def api_assign_cpe_to_client(
 def api_unassign_cpe(
     mac: str,
     service: CPEService = Depends(get_cpe_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         return service.unassign_cpe(mac)
@@ -55,7 +56,7 @@ def api_unassign_cpe(
 @router.get("/cpes/all", response_model=List[CPEGlobalInfo])
 def api_get_all_cpes_globally(
     service: CPEService = Depends(get_cpe_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     try:
         return service.get_all_cpes_globally()

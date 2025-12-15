@@ -65,6 +65,49 @@
                 </div>
             </div>
         </div>
+
+        <!-- Services List Section -->
+        <div class="bg-surface-1 rounded-lg border border-border-color mt-6">
+            <div class="p-6 border-b border-border-color flex justify-between items-center">
+                <h2 class="text-xl font-bold">Network Services</h2>
+            </div>
+            <div id="services-list-container" class="p-6">
+                <p class="text-text-secondary text-center">Loading services...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plan Change Modal -->
+    <div id="plan-change-modal"
+        class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-surface-1 rounded-lg shadow-xl w-full max-w-md border border-border-color">
+            <div class="p-6 border-b border-border-color flex justify-between items-center">
+                <h3 class="text-xl font-bold">Change Service Plan</h3>
+                <button type="button" onclick="closePlanChangeModal()"
+                    class="text-text-secondary hover:text-text-primary text-2xl font-bold">&times;</button>
+            </div>
+            <form id="plan-change-form" class="p-6 space-y-4">
+                <input type="hidden" id="plan-change-service-id">
+                <div>
+                    <p class="text-sm text-text-secondary mb-2">Current Service: <span id="plan-change-service-name"
+                            class="font-semibold text-text-primary"></span></p>
+                </div>
+                <div>
+                    <label for="new-plan-select" class="block text-sm font-medium mb-1">New Plan</label>
+                    <select id="new-plan-select" class="w-full bg-background border border-border-color rounded-md p-2">
+                        <option value="">Select a plan...</option>
+                    </select>
+                </div>
+                <div id="plan-change-error" class="text-danger text-sm hidden"></div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="closePlanChangeModal()"
+                        class="px-4 py-2 rounded-md text-sm font-semibold hover:bg-surface-2">Cancel</button>
+                    <button type="submit"
+                        class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">Change
+                        Plan</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- Panel 2: Facturación y Pagos -->

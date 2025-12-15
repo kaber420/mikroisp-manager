@@ -8,7 +8,8 @@ from ...services.router_service import (
     get_router_service,
     RouterCommandError,
 )  # <-- LÍNEA CAMBIADA
-from ...auth import User, get_current_active_user
+from ...models.user import User
+from ...core.users import current_active_user as get_current_active_user
 
 # --- FIN DE CORRECCIÓN ---
 
@@ -110,5 +111,137 @@ def api_get_pppoe_profiles(
     """
     try:
         return service.get_ppp_profiles()
+    except RouterCommandError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- NEW: Service Suspension & Connection Management Endpoints ---
+
+from .models import (
+    SuspendServiceRequest,
+    RestoreServiceRequest,
+    ChangePlanRequest,
+    KillConnectionRequest,
+    AddressListActionRequest,
+)
+
+
+@router.post("/pppoe/suspend-service", response_model=Dict[str, Any])
+def api_suspend_service(
+    data: SuspendServiceRequest,
+    service: RouterService = Depends(get_router_service),
+    user: User = Depends(get_current_active_user),
+):
+    """
+    Suspends a client's service by managing address lists.
+    Supports both blacklist (add to block) and whitelist (remove to block) strategies.
+    Optionally kills active PPPoE connection.
+    """
+    try:
+        result = service.suspend_service(
+            address=data.address,
+            list_name=data.list_name,
+            strategy=data.strategy,
+            pppoe_username=data.pppoe_username,
+            comment=data.comment,
+        )
+        return {"status": "success", "data": result}
+    except RouterCommandError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/pppoe/restore-service", response_model=Dict[str, Any])
+def api_restore_service(
+    data: RestoreServiceRequest,
+    service: RouterService = Depends(get_router_service),
+    user: User = Depends(get_current_active_user),
+):
+    """
+    Restores a suspended service.
+    Blacklist: removes from block list. Whitelist: adds back to allow list.
+    """
+    try:
+        result = service.restore_service(
+            address=data.address,
+            list_name=data.list_name,
+            strategy=data.strategy,
+            comment=data.comment,
+        )
+        return {"status": "success", "data": result}
+    except RouterCommandError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/pppoe/change-plan", response_model=Dict[str, Any])
+def api_change_plan(
+    data: ChangePlanRequest,
+    service: RouterService = Depends(get_router_service),
+    user: User = Depends(get_current_active_user),
+):
+    """
+    Changes a PPPoE user's plan by updating their profile.
+    Optionally kills the active connection to force re-authentication with new limits.
+    """
+    try:
+        result = service.change_plan(
+            pppoe_username=data.pppoe_username,
+            new_profile=data.new_profile,
+            kill_connection=data.kill_connection,
+        )
+        return {"status": "success", "data": result}
+    except RouterCommandError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/pppoe/kill-connection", response_model=Dict[str, Any])
+def api_kill_connection(
+    data: KillConnectionRequest,
+    service: RouterService = Depends(get_router_service),
+    user: User = Depends(get_current_active_user),
+):
+    """
+    Terminates an active PPPoE connection for a specific user.
+    Useful for forcing re-authentication or immediate disconnection.
+    """
+    try:
+        result = service.kill_pppoe_connection(data.username)
+        return result
+    except RouterCommandError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/firewall/address-list", response_model=List[Dict[str, Any]])
+def api_get_address_list(
+    list_name: Optional[str] = Query(None),
+    service: RouterService = Depends(get_router_service),
+    user: User = Depends(get_current_active_user),
+):
+    """
+    Gets address list entries, optionally filtered by list name.
+    """
+    try:
+        return service.get_address_list(list_name=list_name)
+    except RouterCommandError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/firewall/address-list", response_model=Dict[str, Any])
+def api_update_address_list(
+    data: AddressListActionRequest,
+    service: RouterService = Depends(get_router_service),
+    user: User = Depends(get_current_active_user),
+):
+    """
+    Directly manipulates address list entries.
+    Actions: 'add', 'remove', 'disable'.
+    """
+    try:
+        result = service.update_address_list(
+            list_name=data.list_name,
+            address=data.address,
+            action=data.action,
+            comment=data.comment,
+        )
+        return result
     except RouterCommandError as e:
         raise HTTPException(status_code=500, detail=str(e))

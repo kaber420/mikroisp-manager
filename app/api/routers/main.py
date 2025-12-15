@@ -6,6 +6,7 @@ from fastapi import (
     status,
     WebSocket,
     WebSocketDisconnect,
+    Request,
 )
 from typing import List
 import ssl
@@ -13,8 +14,8 @@ from routeros_api import RouterOsApiPool
 import asyncio
 import logging
 
-from ...auth import User, get_current_active_user
-from ...auth import User, get_current_active_user
+from ...core.users import require_admin, require_technician
+from ...models.user import User
 from ...db import settings_db
 from ...db.engine import get_session
 from ...services.monitor_service import MonitorService
@@ -129,7 +130,7 @@ async def router_resources_stream(websocket: WebSocket, host: str):
 # --- Endpoints CRUD (Gestión de Routers en BD) ---
 @router.get("/routers", response_model=List[RouterResponse])
 async def get_all_routers(
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
     session: AsyncSession = Depends(get_session)
 ):
     return await get_all_routers_service(session)
@@ -138,7 +139,7 @@ async def get_all_routers(
 @router.get("/routers/{host}", response_model=RouterResponse)
 async def get_router(
     host: str, 
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
     session: AsyncSession = Depends(get_session)
 ):
     router_data = await get_router_by_host_service(session, host)
@@ -152,7 +153,7 @@ async def get_router(
 )
 async def create_router(
     router_data: RouterCreate, 
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session)
 ):
     try:
@@ -168,7 +169,7 @@ async def create_router(
 async def update_router(
     host: str,
     router_data: RouterUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session)
 ):
     update_fields = router_data.model_dump(exclude_unset=True)
@@ -188,12 +189,15 @@ async def update_router(
 @router.delete("/routers/{host}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_router(
     host: str, 
-    current_user: User = Depends(get_current_active_user),
+    request: Request,
+    current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session)
 ):
+    from ...core.audit import log_action
     success = await delete_router_service(session, host)
     if not success:
         raise HTTPException(status_code=404, detail="Router not found to delete.")
+    log_action("DELETE", "router", host, user=current_user, request=request)
     return
 
 
@@ -201,7 +205,7 @@ async def delete_router(
 async def provision_router_endpoint(
     host: str,
     data: ProvisionRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session)
 ):
     creds = await get_router_by_host_service(session, host)
@@ -255,6 +259,41 @@ async def provision_router_endpoint(
             admin_pool.disconnect()
 
 
+# --- Simple Queue Stats Endpoint ---
+@router.get("/routers/{host}/queue/stats")
+async def get_queue_stats(
+    host: str,
+    target: str,
+    current_user: User = Depends(require_technician),
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Get live stats for a Simple Queue by target IP.
+    Returns bytes-in, bytes-out, max-limit, etc.
+    """
+    from ...utils.security import decrypt_data
+    
+    creds = await get_router_by_host_service(session, host)
+    if not creds:
+        raise HTTPException(status_code=404, detail="Router not found")
+    
+    try:
+        password = decrypt_data(creds.password)
+        with RouterService(host, creds, decrypted_password=password) as rs:
+            stats = rs.get_simple_queue_stats(target)
+            if not stats:
+                return {"status": "not_found", "message": f"No queue found for target {target}"}
+            return {
+                "status": "success",
+                "name": stats.get("name"),
+                "target": stats.get("target"),
+                "max-limit": stats.get("max-limit"),
+                "bytes": stats.get("bytes"),  # "upload/download" format
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching queue stats: {e}")
+
+
 # --- Inclusión de los otros módulos de la API de routers ---
 router.include_router(config.router, prefix="/routers/{host}")
 router.include_router(pppoe.router, prefix="/routers/{host}")
@@ -266,7 +305,7 @@ router.include_router(interfaces.router, prefix="/routers/{host}")
 @router.post("/routers/{host}/check", status_code=status.HTTP_200_OK)
 async def check_router_status_manual(
     host: str, 
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_technician),
     session: AsyncSession = Depends(get_session)
 ):
     """

@@ -58,9 +58,10 @@ document.addEventListener('alpine:init', () => {
             this.routerError = '';
             if (router) {
                 this.isEditing = true;
-                this.currentRouter = { 
+                this.currentRouter = {
                     ...router,
-                    password: '' // Clear password for security
+                    password: '', // Clear password for security
+
                 };
             } else {
                 this.isEditing = false;
@@ -69,7 +70,8 @@ document.addEventListener('alpine:init', () => {
                     zona_id: '',
                     api_port: 8728,
                     username: 'admin',
-                    password: ''
+                    password: '',
+
                 };
             }
             this.isRouterModalOpen = true;
@@ -128,7 +130,7 @@ document.addEventListener('alpine:init', () => {
                 }
                 this.routers = this.routers.filter(r => r.host !== host);
             } catch (error) {
-                alert(`Error: ${error.message}`);
+                showToast(`Error: ${error.message}`, 'danger');
             }
         },
 
@@ -137,11 +139,11 @@ document.addEventListener('alpine:init', () => {
             this.provisionError = '';
             this.provisionSuccess = '';
             this.isProvisioning = false;
-            this.currentProvisionTarget = { 
-                host: router.host, 
+            this.currentProvisionTarget = {
+                host: router.host,
                 hostname: router.hostname,
-                newUser: 'api-user', 
-                newPass: '' 
+                newUser: 'api-user',
+                newPass: ''
             };
             this.isProvisionModalOpen = true;
         },
@@ -166,7 +168,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 // PASO 1: Aprovisionar (Crear usuario API y Certificados)
                 const host = this.currentProvisionTarget.host;
-                
+
                 const provResponse = await fetch(`/api/routers/${encodeURIComponent(host)}/provision`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -180,10 +182,10 @@ document.addEventListener('alpine:init', () => {
                     const err = await provResponse.json();
                     throw new Error(err.detail || 'Provisioning failed.');
                 }
-                
+
                 // Mensaje intermedio para que el usuario sepa qué pasa
                 this.provisionSuccess = 'Provisioned! Verifying connectivity...';
-                
+
                 // PASO 2: Conexión Automática (Auto-Check)
                 // Llamamos al endpoint que acabamos de crear para llenar la DB
                 const checkResponse = await fetch(`/api/routers/${encodeURIComponent(host)}/check`, {
@@ -196,10 +198,10 @@ document.addEventListener('alpine:init', () => {
 
                 // PASO 3: Éxito Total y Actualización de UI
                 this.provisionSuccess = 'Success! Router is Online.';
-                
+
                 // Recargamos la tabla de fondo para que aparezca el punto verde "Online"
-                await this.loadData(); 
-                
+                await this.loadData();
+
                 // Cerramos el modal después de un breve retraso para que lean el mensaje
                 setTimeout(() => {
                     this.closeProvisionModal();
@@ -209,13 +211,13 @@ document.addEventListener('alpine:init', () => {
                 this.provisionError = error.message;
                 // Si falló en el paso 2, al menos recargamos para mostrar que ya está provisionado (aunque esté offline)
                 if (error.message.includes('initial connection')) {
-                     await this.loadData();
+                    await this.loadData();
                 }
             } finally {
                 this.isProvisioning = false;
             }
         },
-        
+
         isRouterProvisioned(router) {
             return router.api_port === router.api_ssl_port;
         }

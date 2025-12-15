@@ -124,9 +124,9 @@ class ClientService:
     ) -> Dict[str, Any]:
         """
         Crea un nuevo servicio para un cliente.
-        - Si el tipo es PPPoE, fuerza el método de suspensión a
-          'pppoe_secret_disable' y crea o adopta el secret en el router.
+        - Si el tipo es PPPoE, crea o adopta el secret en el router.
         - Si el tipo es simple_queue, aplica la configuración de cola.
+        Note: suspension_method is now determined by the Plan, not the service.
         """
         try:
             # Añadimos el client_id al payload
@@ -134,10 +134,11 @@ class ClientService:
             # Eliminamos id si viene por accidente
             service_data_full.pop("id", None)
 
-            # **FORZAR MÉTODO DE SUSPENSIÓN PARA PPPoE**
-            if service_data_full.get("service_type") == "pppoe":
-                # El método correcto es desactivar el secret
-                service_data_full["suspension_method"] = "pppoe_secret_disable"
+            # Set default suspension_method for backward compatibility
+            # (The actual method used comes from the Plan, this is legacy)
+            if "suspension_method" not in service_data_full:
+                service_data_full["suspension_method"] = "queue_limit"
+
 
             new_service = ClientServiceModel(**service_data_full)
             self.session.add(new_service)
@@ -265,14 +266,29 @@ class ClientService:
             )
     
     def get_client_services(self, client_id: int) -> List[Dict[str, Any]]:
-        """Get all services for a specific client."""
+        """Get all services for a specific client, including plan names."""
         statement = (
             select(ClientServiceModel)
             .where(ClientServiceModel.client_id == client_id)
             .order_by(ClientServiceModel.created_at.desc())
         )
         services = self.session.exec(statement).all()
-        return [service.model_dump() for service in services]
+        
+        result = []
+        for service in services:
+            service_dict = service.model_dump()
+            # Fetch plan name if plan_id is set
+            if service.plan_id:
+                try:
+                    plan = self.plan_service.get_plan_by_id(service.plan_id)
+                    service_dict["plan_name"] = plan.name
+                except Exception:
+                    service_dict["plan_name"] = None
+            else:
+                service_dict["plan_name"] = None
+            result.append(service_dict)
+        
+        return result
     
     # --- Payment Methods ---
     def get_payment_history(self, client_id: int) -> List[Dict[str, Any]]:
@@ -283,4 +299,212 @@ class ClientService:
             List of payment records, most recent first
         """
         return self.payment_service.get_payments_for_client(client_id)
+
+    # --- Plan Change Methods ---
+    def change_client_service_plan(
+        self, service_id: int, new_plan_id: int
+    ) -> Dict[str, Any]:
+        """
+        Changes the plan for an existing client service.
+        
+        - Updates the plan_id in the database
+        - For PPPoE: Updates the profile on the router and kills connection
+        - For Simple Queue: Updates the queue limit on the router
+        
+        Args:
+            service_id: ID of the client service to update
+            new_plan_id: ID of the new plan to assign
+        
+        Returns:
+            dict with status and details of actions taken
+        """
+        # Get the service
+        service = self.session.get(ClientServiceModel, service_id)
+        if not service:
+            raise FileNotFoundError(f"Service {service_id} not found")
+        
+        # Get the new plan
+        new_plan_obj = self.plan_service.get_plan_by_id(new_plan_id)
+        new_plan = new_plan_obj.model_dump()
+        
+        old_plan_id = service.plan_id
+        router_host = service.router_host
+        
+        # Get router credentials
+        router = self.session.get(Router, router_host)
+        if not router:
+            raise ValueError(f"Router {router_host} not found")
+        
+        results = {
+            "service_id": service_id,
+            "old_plan_id": old_plan_id,
+            "new_plan_id": new_plan_id,
+            "router_updates": {}
+        }
+        
+        with RouterService(router_host, router) as rs:
+            # PPPoE: Update profile and kill connection
+            if service.service_type == "pppoe" and service.pppoe_username:
+                profile_name = new_plan.get("profile_name") or f"profile-{new_plan['name'].lower().replace(' ', '-')}"
+                
+                logger.info(f"📊 Changing PPPoE profile for {service.pppoe_username} to {profile_name}")
+                results["router_updates"]["profile"] = rs.update_pppoe_profile(
+                    username=service.pppoe_username,
+                    new_profile=profile_name
+                )
+                
+                # Kill connection to force re-auth with new profile
+                logger.info(f"🔪 Killing PPPoE connection for {service.pppoe_username}")
+                results["router_updates"]["kill"] = rs.kill_pppoe_connection(service.pppoe_username)
+            
+            # Simple Queue: Update limit
+            elif service.service_type == "simple_queue" and service.ip_address:
+                max_limit = new_plan.get("max_limit", "10M/10M")
+                
+                logger.info(f"📊 Updating queue limit for {service.ip_address} to {max_limit}")
+                results["router_updates"]["queue"] = rs.update_queue_limit(
+                    target=service.ip_address,
+                    max_limit=max_limit
+                )
+        
+        # Update database
+        service.plan_id = new_plan_id
+        self.session.add(service)
+        self.session.commit()
+        self.session.refresh(service)
+        
+        results["service"] = service.model_dump()
+        logger.info(f"✅ Plan change completed for service {service_id}: {old_plan_id} → {new_plan_id}")
+        
+        return results
+
+    def change_pppoe_service_profile(
+        self, service_id: int, new_profile: str
+    ) -> Dict[str, Any]:
+        """
+        Changes the PPPoE profile for a service directly by profile name.
+        
+        This is used when selecting a profile from the router rather than
+        a plan from the local database.
+        
+        Args:
+            service_id: ID of the client service to update
+            new_profile: Name of the PPPoE profile on the router
+        
+        Returns:
+            dict with status and details of actions taken
+        """
+        # Get the service
+        service = self.session.get(ClientServiceModel, service_id)
+        if not service:
+            raise FileNotFoundError(f"Service {service_id} not found")
+        
+        if service.service_type != "pppoe":
+            raise ValueError("This method is only for PPPoE services")
+        
+        if not service.pppoe_username:
+            raise ValueError("Service does not have a PPPoE username")
+        
+        router_host = service.router_host
+        
+        # Get router credentials
+        router = self.session.get(Router, router_host)
+        if not router:
+            raise ValueError(f"Router {router_host} not found")
+        
+        old_profile = service.profile_name
+        
+        results = {
+            "service_id": service_id,
+            "old_profile": old_profile,
+            "new_profile": new_profile,
+            "router_updates": {}
+        }
+        
+        with RouterService(router_host, router) as rs:
+            # Update profile on router and kill connection
+            logger.info(f"📊 Changing PPPoE profile for {service.pppoe_username} to {new_profile}")
+            results["router_updates"]["profile"] = rs.update_pppoe_profile(
+                username=service.pppoe_username,
+                new_profile=new_profile
+            )
+            
+            # Kill connection to force re-auth with new profile
+            logger.info(f"🔪 Killing PPPoE connection for {service.pppoe_username}")
+            results["router_updates"]["kill"] = rs.kill_pppoe_connection(service.pppoe_username)
+        
+        # Update database with new profile name
+        service.profile_name = new_profile
+        self.session.add(service)
+        self.session.commit()
+        self.session.refresh(service)
+        
+        results["service"] = service.model_dump()
+        logger.info(f"✅ PPPoE profile change completed for service {service_id}: {old_profile} → {new_profile}")
+        
+        return results
+
+    def update_client_service(
+        self, service_id: int, update_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Update an existing client service.
+        
+        Args:
+            service_id: ID of the service to update
+            update_data: Fields to update
+        
+        Returns:
+            Updated service as dict
+        """
+        service = self.session.get(ClientServiceModel, service_id)
+        if not service:
+            raise FileNotFoundError(f"Service {service_id} not found")
+        
+        # Fields that cannot be updated
+        protected_fields = {'id', 'client_id', 'created_at'}
+        
+        for key, value in update_data.items():
+            if hasattr(service, key) and key not in protected_fields:
+                setattr(service, key, value)
+        
+        self.session.add(service)
+        self.session.commit()
+        self.session.refresh(service)
+        
+        logger.info(f"✅ Service {service_id} updated successfully")
+        return service.model_dump()
+
+    def delete_client_service(self, service_id: int) -> None:
+        """
+        Delete a client service.
+        
+        For PPPoE services, this will also attempt to remove the secret from
+        the router if router_secret_id is set.
+        
+        Args:
+            service_id: ID of the service to delete
+        """
+        service = self.session.get(ClientServiceModel, service_id)
+        if not service:
+            raise FileNotFoundError(f"Service {service_id} not found")
+        
+        # If it's a PPPoE service with a router secret, try to remove it
+        if (service.service_type == "pppoe" and 
+            service.router_secret_id and 
+            service.router_host):
+            try:
+                router = self.session.get(Router, service.router_host)
+                if router:
+                    with RouterService(service.router_host, router) as rs:
+                        rs.remove_pppoe_secret(service.router_secret_id)
+                        logger.info(f"🗑️ Deleted PPPoE secret {service.router_secret_id} from router {service.router_host}")
+            except Exception as e:
+                # Log but don't fail the deletion
+                logger.warning(f"⚠️ Could not delete PPPoE secret from router: {e}")
+        
+        self.session.delete(service)
+        self.session.commit()
+        
+        logger.info(f"🗑️ Service {service_id} deleted successfully")
 

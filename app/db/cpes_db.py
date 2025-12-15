@@ -3,7 +3,7 @@ import sqlite3
 import os
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from .base import get_db_connection
+from .base import get_db_connection, get_stats_db_file
 
 
 def get_unassigned_cpes() -> List[Dict[str, Any]]:
@@ -59,7 +59,7 @@ def get_all_cpes_globally() -> List[Dict[str, Any]]:
     Obtiene todos los CPEs con sus datos de estado más recientes y el nombre del AP al que están conectados.
     """
     conn = get_db_connection()
-    stats_db_file = f"stats_{datetime.utcnow().strftime('%Y_%m')}.sqlite"
+    stats_db_file = get_stats_db_file()
 
     if not os.path.exists(stats_db_file):
         conn.close()

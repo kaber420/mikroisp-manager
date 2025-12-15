@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - µMonitor Pro</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', path='/img/favicon.ico') }}">
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
@@ -14,11 +16,11 @@
                 extend: {
                     colors: {
                         primary: { DEFAULT: '#3B82F6', hover: '#2563EB' },
-                        background: '#0A0A0A', 
+                        background: '#0A0A0A',
                         'surface-1': '#1E293B',
-                        'text-primary': '#F1F5F9', 
+                        'text-primary': '#F1F5F9',
                         'text-secondary': '#94A3B8',
-                        'border-color': '#252525', 
+                        'border-color': '#252525',
                         danger: '#EF4444',
                     },
                     fontFamily: { sans: ["Inter", "sans-serif"] },
@@ -32,13 +34,21 @@
             background-size: 400% 400%;
             animation: gradientShift 15s ease infinite;
         }
-        
+
         @keyframes gradientShift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
         }
-        
+
         .glass-card {
             background: rgba(30, 41, 59, 0.7);
             backdrop-filter: blur(16px);
@@ -47,14 +57,14 @@
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        
+
         .glass-card:hover {
             background: rgba(30, 41, 59, 0.85);
             border: 1px solid rgba(59, 130, 246, 0.4);
             box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), 0 0 0 2px rgba(59, 130, 246, 0.15);
             transform: translateY(-2px);
         }
-        
+
         .input-glass {
             background: rgba(15, 23, 42, 0.6);
             border: 1px solid rgba(255, 255, 255, 0.15);
@@ -62,13 +72,13 @@
             -webkit-backdrop-filter: blur(10px);
             transition: all 0.3s ease;
         }
-        
+
         .input-glass:focus {
             background: rgba(15, 23, 42, 0.8);
             border-color: rgba(59, 130, 246, 0.6);
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
         }
-        
+
         .glow-element {
             position: absolute;
             width: 300px;
@@ -79,19 +89,43 @@
             opacity: 0.7;
             animation: float 8s ease-in-out infinite;
         }
-        
+
         @keyframes float {
-            0%, 100% { transform: translate(0, 0); }
-            50% { transform: translate(20px, -20px); }
+
+            0%,
+            100% {
+                transform: translate(0, 0);
+            }
+
+            50% {
+                transform: translate(20px, -20px);
+            }
         }
-        
-        .glow-1 { top: 10%; left: 5%; animation-delay: 0s; }
-        .glow-2 { bottom: 15%; right: 8%; animation-delay: -2s; }
-        .glow-3 { top: 40%; right: 15%; animation-delay: -4s; width: 200px; height: 200px; }
+
+        .glow-1 {
+            top: 10%;
+            left: 5%;
+            animation-delay: 0s;
+        }
+
+        .glow-2 {
+            bottom: 15%;
+            right: 8%;
+            animation-delay: -2s;
+        }
+
+        .glow-3 {
+            top: 40%;
+            right: 15%;
+            animation-delay: -4s;
+            width: 200px;
+            height: 200px;
+        }
     </style>
 </head>
+
 <body class="dynamic-bg text-text-primary font-sans antialiased relative overflow-hidden">
-    
+
     <!-- Dynamic glowing elements -->
     <div class="glow-element glow-1"></div>
     <div class="glow-element glow-2"></div>
@@ -103,7 +137,8 @@
                 <div class="p-3 bg-primary/10 rounded-xl border border-primary/20 backdrop-blur-sm">
                     <span class="material-symbols-outlined text-primary text-4xl">router</span>
                 </div>
-                <h1 class="text-3xl font-bold text-text-primary tracking-tight">µMonitor <span class="text-primary">Pro</span></h1>
+                <h1 class="text-3xl font-bold text-text-primary tracking-tight">µMonitor <span
+                        class="text-primary">Pro</span></h1>
             </div>
 
             <div class="glass-card rounded-2xl p-8">
@@ -111,43 +146,112 @@
                 <p class="text-text-secondary text-center mb-8 text-sm">Ingresa tus credenciales para continuar</p>
 
                 {% if error_message %}
-                <div class="bg-danger/10 border border-danger/20 text-danger text-sm rounded-lg p-3 mb-6 text-center flex items-center justify-center gap-2">
+                <div
+                    class="bg-danger/10 border border-danger/20 text-danger text-sm rounded-lg p-3 mb-6 text-center flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined text-sm">error</span>
                     {{ error_message }}
                 </div>
                 {% endif %}
 
-                <form action="/token" method="post" class="space-y-5">
+                <form id="login-form" class="space-y-5">
+                    <div id="error-container"
+                        class="hidden bg-danger/10 border border-danger/20 text-danger text-sm rounded-lg p-3 mb-6 text-center flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm">error</span>
+                        <span id="error-message-text"></span>
+                    </div>
+
                     <div>
-                        <label for="username" class="block text-xs font-bold uppercase text-text-secondary mb-2 ml-1">Usuario</label>
+                        <label for="username"
+                            class="block text-xs font-bold uppercase text-text-secondary mb-2 ml-1">Usuario</label>
                         <div class="relative">
-                            <span class="material-symbols-outlined absolute left-3 top-2.5 text-text-secondary text-[20px]">person</span>
+                            <span
+                                class="material-symbols-outlined absolute left-3 top-2.5 text-text-secondary text-[20px]">person</span>
                             <input type="text" id="username" name="username" required placeholder="admin"
-                                   class="input-glass w-full border rounded-xl py-2.5 pl-10 pr-4 focus:ring-0 focus:outline-none transition-all placeholder-gray-600 text-text-primary">
+                                class="input-glass w-full border rounded-xl py-2.5 pl-10 pr-4 focus:ring-0 focus:outline-none transition-all placeholder-gray-600 text-text-primary">
                         </div>
                     </div>
                     <div>
-                        <label for="password" class="block text-xs font-bold uppercase text-text-secondary mb-2 ml-1">Contraseña</label>
+                        <label for="password"
+                            class="block text-xs font-bold uppercase text-text-secondary mb-2 ml-1">Contraseña</label>
                         <div class="relative">
-                            <span class="material-symbols-outlined absolute left-3 top-2.5 text-text-secondary text-[20px]">lock</span>
+                            <span
+                                class="material-symbols-outlined absolute left-3 top-2.5 text-text-secondary text-[20px]">lock</span>
                             <input type="password" id="password" name="password" required placeholder="••••••••"
-                                   class="input-glass w-full border rounded-xl py-2.5 pl-10 pr-4 focus:ring-0 focus:outline-none transition-all placeholder-gray-600 text-text-primary">
+                                class="input-glass w-full border rounded-xl py-2.5 pl-10 pr-4 focus:ring-0 focus:outline-none transition-all placeholder-gray-600 text-text-primary">
                         </div>
                     </div>
                     <div class="pt-2">
-                        <button type="submit"
-                                class="w-full h-11 px-4 text-sm font-bold text-white rounded-xl bg-primary hover:bg-primary-hover focus:outline-none focus:ring-4 focus:ring-primary/20 transition-all shadow-lg shadow-primary/20">
+                        <button type="submit" id="submit-btn"
+                            class="w-full h-11 px-4 text-sm font-bold text-white rounded-xl bg-primary hover:bg-primary-hover focus:outline-none focus:ring-4 focus:ring-primary/20 transition-all shadow-lg shadow-primary/20">
                             Iniciar Sesión
                         </button>
                     </div>
                 </form>
+
+                <script>
+                    document.getElementById('login-form').addEventListener('submit', async function (e) {
+                        e.preventDefault();
+
+                        const errorContainer = document.getElementById('error-container');
+                        const errorMessageText = document.getElementById('error-message-text');
+                        const submitBtn = document.getElementById('submit-btn');
+
+                        errorContainer.classList.add('hidden');
+                        submitBtn.disabled = true;
+                        submitBtn.textContent = 'Ingresando...';
+
+                        const username = document.getElementById('username').value;
+                        const password = document.getElementById('password').value;
+
+                        const formData = new URLSearchParams();
+                        formData.append('username', username);
+                        formData.append('password', password);
+
+                        try {
+                            const response = await fetch('/auth/cookie/login', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                },
+                                body: formData,
+                                credentials: 'same-origin'
+                            });
+
+                            if (response.ok || response.status === 204) {
+                                window.location.href = '/';
+                            } else {
+                                let errorMsg = 'Usuario o contraseña incorrectos';
+                                if (response.status === 429) {
+                                    errorMsg = '⚠️ Demasiados intentos. Por favor, espera un momento.';
+                                } else {
+                                    try {
+                                        const data = await response.json();
+                                        if (data.detail) {
+                                            errorMsg = typeof data.detail === 'string' ? data.detail : 'Credenciales inválidas';
+                                        }
+                                    } catch (jsonErr) {
+                                        // Use default error message
+                                    }
+                                }
+                                errorMessageText.textContent = errorMsg;
+                                errorContainer.classList.remove('hidden');
+                            }
+                        } catch (error) {
+                            errorMessageText.textContent = 'Error de conexión. Intenta de nuevo.';
+                            errorContainer.classList.remove('hidden');
+                        } finally {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = 'Iniciar Sesión';
+                        }
+                    });
+                </script>
             </div>
-            
+
             <p class="text-center text-text-secondary text-xs mt-8 opacity-60">
                 &copy; 2025 µISP Monitor System
             </p>
         </div>
     </div>
 </body>
-</html>
 
+</html>

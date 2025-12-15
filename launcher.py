@@ -54,11 +54,10 @@ def run_setup_wizard():
             break
         print("❌ Puerto inválido. Usa un número entre 1024 y 65535.")
 
-    # 2. BASE DE DATOS (Fija para evitar errores)
-    db_file = "inventory.sqlite" 
-    
-    # 3. SEGURIDAD (Automática)
-    print(f"✓ Base de datos configurada en: {db_file}")
+    # 2. BASE DE DATOS (Fija en data/db/)
+    db_dir = os.path.join("data", "db")
+    os.makedirs(db_dir, exist_ok=True)
+    print(f"✓ Base de datos configurada en: data/db/inventory.sqlite")
     
     allowed_hosts = f"localhost:{port},127.0.0.1:{port}"
     # Generar orígenes permitidos automáticamente
@@ -70,12 +69,11 @@ def run_setup_wizard():
     secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
     encrypt_key = os.getenv("ENCRYPTION_KEY") or Fernet.generate_key().decode()
 
-    # Guardar archivo
+    # Guardar archivo (sin INVENTORY_DB_FILE ya que está hardcodeado en el código)
     try:
         with open(ENV_FILE, "w", encoding="utf-8") as f:
             f.write(f"# Configuración de µMonitor Pro\n")
             f.write(f"UVICORN_PORT={port}\n")
-            f.write(f"INVENTORY_DB_FILE=\"{db_file}\"\n")
             f.write(f"SECRET_KEY=\"{secret_key}\"\n")
             f.write(f"ENCRYPTION_KEY=\"{encrypt_key}\"\n")
             f.write(f"APP_ENV=development\n")
@@ -171,31 +169,27 @@ if __name__ == "__main__":
     check_and_create_first_user()
 
     # D. Arrancar
-    port = os.getenv("UVICORN_PORT", "8000")
+    port = os.getenv("UVICORN_PORT", "7777")
     print("-" * 50)
     print(f"🚀 µMonitor Pro arrancando en: http://localhost:{port}")
     print(f"ℹ️  Para cambiar el puerto, usa: python launcher.py --config")
     print("-" * 50)
     
-    # --- CORRECCIÓN AQUÍ: Importar ANTES de definir el proceso ---
-    from app.monitor import run_monitor
-    from app.billing_engine import run_billing_engine
     
-    p_mon = multiprocessing.Process(target=run_monitor, name="Monitor")
+    from app.scheduler import run_scheduler
+    
     p_api = multiprocessing.Process(target=start_api_server, name="API")
-    p_bil = multiprocessing.Process(target=run_billing_engine, name="Billing")
+    p_scheduler = multiprocessing.Process(target=run_scheduler, name="Scheduler")
 
     try:
         p_api.start()
         time.sleep(2)
-        p_mon.start()
-        p_bil.start()
+        p_scheduler.start()
         
-        p_mon.join()
         p_api.join()
-        p_bil.join()
+        p_scheduler.join()
     except KeyboardInterrupt:
         print("\n🛑 Apagando...")
-        for p in [p_api, p_mon, p_bil]:
+        for p in [p_api, p_scheduler]:
             if p.is_alive(): p.terminate()
         sys.exit(0)

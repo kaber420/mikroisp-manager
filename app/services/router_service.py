@@ -109,8 +109,11 @@ class RouterService:
     def update_bridge(self, bridge_id: str, name: str, ports: List[str]):
         api = self.pool.get_api()
         manager = MikrotikInterfaceManager(api)
-        bridge = manager.update_bridge(bridge_id, name)
-        manager.set_bridge_ports(name, ports)
+        # update_bridge returns the bridge object (possibly renamed)
+        bridge = manager.update_bridge(bridge_id, new_name=name)
+        # Use the actual name from the bridge (in case rename was skipped)
+        actual_name = bridge.get("name", name)
+        manager.set_bridge_ports(actual_name, ports)
         return bridge
 
     def remove_interface(self, interface_id: str, interface_type: str):
@@ -184,6 +187,154 @@ class RouterService:
     def remove_simple_queue(self, queue_id: str):
         return self._execute_command(queues.remove_simple_queue, queue_id=queue_id)
 
+    def get_simple_queue_stats(self, target: str) -> Optional[Dict[str, Any]]:
+        """
+        Gets live stats for a Simple Queue by target IP.
+        Returns bytes-in, bytes-out, max-limit, name, etc.
+        """
+        all_queues = self._execute_command(queues.get_simple_queues)
+        # Search for queue by target (may have /32 suffix)
+        target_variations = [target, f"{target}/32"]
+        for queue in all_queues:
+            queue_target = queue.get("target", "")
+            if queue_target in target_variations:
+                return queue
+        return None
+
+    # --- NEW: Service Suspension & Connection Management Methods ---
+
+    def update_address_list(
+        self, list_name: str, address: str, action: str, comment: str = ""
+    ) -> Dict[str, Any]:
+        """
+        Updates an address list entry. 
+        action: 'add', 'remove', or 'disable'
+        """
+        return self._execute_command(
+            firewall.update_address_list_entry,
+            list_name=list_name,
+            address=address,
+            action=action,
+            comment=comment,
+        )
+
+    def get_address_list(self, list_name: str = None) -> List[Dict[str, Any]]:
+        """Gets address list entries, optionally filtered by list name."""
+        return self._execute_command(
+            firewall.get_address_list_entries, list_name=list_name
+        )
+
+    def kill_pppoe_connection(self, username: str) -> Dict[str, Any]:
+        """Terminates an active PPPoE connection for a specific user."""
+        return self._execute_command(ppp.kill_active_pppoe_connection, username=username)
+
+    def update_pppoe_profile(self, username: str, new_profile: str) -> Dict[str, Any]:
+        """Updates the profile for a PPPoE secret by username (for plan changes)."""
+        return self._execute_command(
+            ppp.update_pppoe_secret_profile, username=username, new_profile=new_profile
+        )
+
+    def suspend_service(
+        self, 
+        address: str, 
+        list_name: str, 
+        strategy: str = "blacklist",
+        pppoe_username: str = None,
+        comment: str = "Suspended by UManager"
+    ) -> Dict[str, Any]:
+        """
+        Suspends a service based on the configured strategy.
+        
+        Args:
+            address: IP address of the client
+            list_name: Name of the address list to use
+            strategy: 'blacklist' (add to list = block) or 'whitelist' (remove from list = block)
+            pppoe_username: If provided, also kills active PPPoE connection
+            comment: Comment for the address list entry
+        
+        Returns:
+            dict with status and details of actions taken
+        """
+        results = {"address_list": None, "pppoe_kill": None}
+        
+        # Address list action based on strategy
+        if strategy == "blacklist":
+            # Blacklist: Add to list to block
+            results["address_list"] = self.update_address_list(
+                list_name=list_name, address=address, action="add", comment=comment
+            )
+        elif strategy == "whitelist":
+            # Whitelist: Remove from list to block (no longer allowed)
+            results["address_list"] = self.update_address_list(
+                list_name=list_name, address=address, action="remove"
+            )
+        
+        # Kill PPPoE connection if username provided
+        if pppoe_username:
+            results["pppoe_kill"] = self.kill_pppoe_connection(pppoe_username)
+        
+        return results
+
+    def restore_service(
+        self,
+        address: str,
+        list_name: str,
+        strategy: str = "blacklist",
+        comment: str = "Restored by UManager"
+    ) -> Dict[str, Any]:
+        """
+        Restores a suspended service based on the configured strategy.
+        
+        Args:
+            address: IP address of the client
+            list_name: Name of the address list to use
+            strategy: 'blacklist' (remove from list = unblock) or 'whitelist' (add to list = allow)
+            comment: Comment for the address list entry
+        
+        Returns:
+            dict with status of the action
+        """
+        if strategy == "blacklist":
+            # Blacklist: Remove from list to unblock
+            return self.update_address_list(
+                list_name=list_name, address=address, action="remove"
+            )
+        elif strategy == "whitelist":
+            # Whitelist: Add back to list to allow
+            return self.update_address_list(
+                list_name=list_name, address=address, action="add", comment=comment
+            )
+        return {"status": "error", "message": f"Unknown strategy: {strategy}"}
+
+    def change_plan(
+        self,
+        pppoe_username: str,
+        new_profile: str,
+        kill_connection: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Changes a user's plan by updating their PPPoE profile.
+        Optionally kills the active connection to force re-authentication.
+        
+        Args:
+            pppoe_username: The PPPoE username to update
+            new_profile: Name of the new PPP profile
+            kill_connection: If True, terminates active connection after update
+        
+        Returns:
+            dict with status and details of actions taken
+        """
+        results = {"profile_update": None, "connection_kill": None}
+        
+        # Update the secret's profile
+        results["profile_update"] = self.update_pppoe_profile(pppoe_username, new_profile)
+        
+        # Kill connection to force re-auth with new profile
+        if kill_connection and results["profile_update"].get("status") == "success":
+            results["connection_kill"] = self.kill_pppoe_connection(pppoe_username)
+        
+        return results
+
     def get_backup_files(self):
         return self._execute_command(system.get_backup_files)
 
@@ -206,6 +357,89 @@ class RouterService:
 
     def remove_router_user(self, user_id: str):
         return self._execute_command(system.remove_router_user, user_id=user_id)
+
+    # --- Legacy-compatible Suspension Methods (used by billing_service) ---
+    
+    def _get_prefixed_list_name(self, base_name: str, strategy: str) -> str:
+        """Returns the address list name with BL_/WL_ prefix based on strategy."""
+        prefix = "BL_" if strategy == "blacklist" else "WL_"
+        return f"{prefix}{base_name}"
+
+    def suspend_user_address_list(
+        self, 
+        ip: str, 
+        list_name: str = None, 
+        strategy: str = None
+    ) -> Dict[str, Any]:
+        """
+        Suspends a user by managing their IP in the address list.
+        Uses the provided strategy/name or falls back to router defaults.
+        """
+        # Fallback logic: Argument -> Creds -> Default
+        strategy = strategy or getattr(self.creds, 'address_list_strategy', 'blacklist') or 'blacklist'
+        base_name = list_name or getattr(self.creds, 'address_list_name', 'morosos') or 'morosos'
+        
+        full_list_name = self._get_prefixed_list_name(base_name, strategy)
+        
+        logger.info(f"🔴 Suspending {ip} via address list '{full_list_name}' (strategy: {strategy})")
+        return self.suspend_service(
+            address=ip,
+            list_name=full_list_name,
+            strategy=strategy,
+            comment=f"Suspended by UManager - {ip}"
+        )
+
+    def activate_user_address_list(
+        self, 
+        ip: str, 
+        list_name: str = None, 
+        strategy: str = None
+    ) -> Dict[str, Any]:
+        """
+        Restores a user by managing their IP in the address list.
+        Uses the provided strategy/name or falls back to router defaults.
+        """
+        # Fallback logic: Argument -> Creds -> Default
+        strategy = strategy or getattr(self.creds, 'address_list_strategy', 'blacklist') or 'blacklist'
+        base_name = list_name or getattr(self.creds, 'address_list_name', 'morosos') or 'morosos'
+        
+        full_list_name = self._get_prefixed_list_name(base_name, strategy)
+        
+        logger.info(f"🟢 Restoring {ip} via address list '{full_list_name}' (strategy: {strategy})")
+        return self.restore_service(
+            address=ip,
+            list_name=full_list_name,
+            strategy=strategy,
+            comment=f"Restored by UManager - {ip}"
+        )
+
+    def suspend_user_limit(self, ip: str, min_limit: str = "1k/1k") -> Dict[str, Any]:
+        """
+        Suspends a user by setting their queue limit to the minimum.
+        """
+        logger.info(f"🔴 Suspending {ip} via queue limit (setting to {min_limit})")
+        return self._execute_command(
+            queues.set_simple_queue_limit, target=ip, max_limit=min_limit
+        )
+
+    def activate_user_limit(self, ip: str, max_limit: str) -> Dict[str, Any]:
+        """
+        Restores a user's queue limit to their plan speed.
+        """
+        logger.info(f"🟢 Restoring {ip} queue limit to {max_limit}")
+        return self._execute_command(
+            queues.set_simple_queue_limit, target=ip, max_limit=max_limit
+        )
+
+    def update_queue_limit(self, target: str, max_limit: str) -> Dict[str, Any]:
+        """
+        Updates a simple queue's max-limit (used for plan changes).
+        """
+        logger.info(f"📊 Updating queue limit for {target} to {max_limit}")
+        return self._execute_command(
+            queues.set_simple_queue_limit, target=target, max_limit=max_limit
+        )
+
 
     def get_full_details(self) -> Dict[str, Any]:
         """

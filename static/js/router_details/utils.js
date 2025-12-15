@@ -18,10 +18,10 @@ export class ApiClient {
 
         if (!response.ok) {
             if (response.status === 204) return null;
-            
+
             const errorData = await response.json().catch(() => ({ detail: response.statusText }));
             let errorMessage = 'Error en la petición';
-            
+
             if (errorData.detail) {
                 if (Array.isArray(errorData.detail)) {
                     errorMessage = errorData.detail
@@ -35,7 +35,7 @@ export class ApiClient {
             }
             throw new Error(errorMessage);
         }
-        
+
         if (response.status === 204) return null;
 
         // --- Defensive JSON parsing ---
@@ -43,7 +43,7 @@ export class ApiClient {
         if (!responseText) {
             return { status: 'success', message: 'Operación completada sin respuesta.' };
         }
-        
+
         try {
             return JSON.parse(responseText);
         } catch (e) {
@@ -68,17 +68,52 @@ export class DomUtils {
         return parseFloat((bytesNum / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
-    static updateFeedback(message, isSuccess = true) {
-        const feedbackEl = DOM_ELEMENTS.formFeedback;
-        if (!feedbackEl) {
-            console.log("Feedback:", message);
-            return;
+
+    /**
+     * Sanitize error messages by removing sensitive information
+     */
+    static sanitizeError(message) {
+        if (!message) return 'An error occurred';
+
+        let sanitized = String(message);
+
+        // Remove IP addresses (IPv4)
+        sanitized = sanitized.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '[IP]');
+
+        // Remove "failure:" prefix from MikroTik errors
+        sanitized = sanitized.replace(/^failure:\s*/gi, '');
+
+        // Remove technical stack traces
+        sanitized = sanitized.replace(/\s+at\s+.+$/gm, '');
+
+        // Truncate very long messages
+        if (sanitized.length > 120) {
+            sanitized = sanitized.substring(0, 120) + '...';
         }
-        feedbackEl.textContent = message;
-        feedbackEl.className = `text-sm text-center mt-4 text-${isSuccess ? 'success' : 'danger'}`;
-        setTimeout(() => {
-            if (feedbackEl.textContent === message) feedbackEl.textContent = '';
-        }, 4000);
+
+        return sanitized;
+    }
+
+    /**
+     * Show feedback message using Toast notifications
+     * @param {string} message - The message to display
+     * @param {boolean} isSuccess - Whether this is a success or error message
+     * @param {Error|string} originalError - Optional original error for console logging
+     */
+    static updateFeedback(message, isSuccess = true, originalError = null) {
+        const toastType = isSuccess ? 'success' : 'danger';
+
+        if (isSuccess) {
+            // Success messages are already user-friendly
+            showToast(message, toastType);
+        } else {
+            // Sanitize error messages
+            const sanitized = DomUtils.sanitizeError(message);
+            showToast(sanitized, toastType);
+
+            // Log full error details to console for debugging
+            console.error('[Router Operation Error]', originalError || message);
+        }
     }
 
     static updateBackupNameInput() {

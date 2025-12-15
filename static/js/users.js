@@ -1,17 +1,17 @@
 // static/js/users.js
 document.addEventListener('alpine:init', () => {
-    
+
     Alpine.data('userManager', () => ({
-        
+
         // --- ESTADO (STATE) ---
         users: [],
         isLoading: true,
         isModalOpen: false,
         modalMode: 'add',
-        
+
         currentUser: {
             username: '',
-            email: '', 
+            email: '',
             password: '',
             role: 'admin',
             telegram_chat_id: '',
@@ -26,7 +26,7 @@ document.addEventListener('alpine:init', () => {
             general: null
         },
         API_BASE_URL: window.location.origin,
-        
+
         // --- MÉTODOS (METHODS) ---
         init() {
             this.loadUsers();
@@ -34,7 +34,7 @@ document.addEventListener('alpine:init', () => {
 
         async loadUsers() {
             this.isLoading = true;
-            this.errors = {}; 
+            this.errors = {};
             try {
                 const response = await fetch(`${this.API_BASE_URL}/api/users`);
                 if (!response.ok) {
@@ -49,13 +49,13 @@ document.addEventListener('alpine:init', () => {
                 this.isLoading = false;
             }
         },
-        
+
         _createEmptyUser() {
             return {
                 username: '',
                 password: '',
                 role: 'admin',
-                telegram_chat_id: '', 
+                telegram_chat_id: '',
                 receive_alerts: false,
                 receive_announcements: false,
                 disabled: false
@@ -63,31 +63,31 @@ document.addEventListener('alpine:init', () => {
         },
 
         openAddModal() {
-            this.errors = {}; 
+            this.errors = {};
             this.modalMode = 'add';
-            this.currentUser = this._createEmptyUser(); 
+            this.currentUser = this._createEmptyUser();
             this.isModalOpen = true;
         },
 
         openEditModal(user) {
-            this.errors = {}; 
+            this.errors = {};
             this.modalMode = 'edit';
-            this.currentUser = { 
-                ...user, 
+            this.currentUser = {
+                ...user,
                 email: user.email,
-                password: '', 
-                telegram_chat_id: user.telegram_chat_id || '' 
+                password: '',
+                telegram_chat_id: user.telegram_chat_id || ''
             };
             this.isModalOpen = true;
         },
 
         closeModal() {
             this.isModalOpen = false;
-            this.errors = {}; 
+            this.errors = {};
         },
 
         _validate() {
-            this.errors = {}; 
+            this.errors = {};
             const user = this.currentUser;
 
             if (this.modalMode === 'add') {
@@ -96,7 +96,7 @@ document.addEventListener('alpine:init', () => {
                 } else if (user.username.length < 3) {
                     this.errors.username = 'Must be at least 3 characters.';
                 }
-                
+
                 if (!validators.isRequired(user.password)) {
                     this.errors.password = 'Password is required.';
                 } else if (user.password.length < 6) {
@@ -111,17 +111,17 @@ document.addEventListener('alpine:init', () => {
             if (user.telegram_chat_id && isNaN(parseInt(user.telegram_chat_id, 10))) {
                 this.errors.telegram_chat_id = 'Must be a numeric ID.';
             }
-            
+
             return !Object.values(this.errors).some(error => error);
         },
 
         async saveUser() {
             if (!this._validate()) {
-                return; 
+                return;
             }
 
             const isEditing = this.modalMode === 'edit';
-            const url = isEditing 
+            const url = isEditing
                 ? `${this.API_BASE_URL}/api/users/${this.currentUser.username}`
                 : `${this.API_BASE_URL}/api/users`;
             const method = isEditing ? 'PUT' : 'POST';
@@ -129,7 +129,7 @@ document.addEventListener('alpine:init', () => {
             const data = {
                 email: this.currentUser.email,
                 role: this.currentUser.role,
-                telegram_chat_id: this.currentUser.telegram_chat_id || null, 
+                telegram_chat_id: this.currentUser.telegram_chat_id || null,
                 receive_alerts: this.currentUser.receive_alerts,
                 receive_announcements: this.currentUser.receive_announcements,
             };
@@ -155,9 +155,9 @@ document.addEventListener('alpine:init', () => {
                     const errorData = await response.json();
                     throw new Error(errorData.detail || 'Failed to save user');
                 }
-                
+
                 this.closeModal();
-                await this.loadUsers(); 
+                await this.loadUsers();
             } catch (err) {
                 this.errors.general = `Error: ${err.message}`;
             }
@@ -167,16 +167,16 @@ document.addEventListener('alpine:init', () => {
             if (confirm(`Are you sure you want to delete user "${user.username}"?`)) {
                 try {
                     const response = await fetch(`${this.API_BASE_URL}/api/users/${user.username}`, { method: 'DELETE' });
-                    
+
                     if (!response.ok) {
                         const errorData = await response.json();
                         throw new Error(errorData.detail || 'Failed to delete user');
                     }
-                    
+
                     this.users = this.users.filter(u => u.username !== user.username);
 
                 } catch (err) {
-                    alert(`Error: ${err.message}`);
+                    showToast(`Error: ${err.message}`, 'danger');
                 }
             }
         }

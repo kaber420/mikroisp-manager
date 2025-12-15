@@ -1,13 +1,14 @@
 # app/api/routers/config.py
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Request
 from typing import List, Dict, Any
 
 from ...services.router_service import (
     RouterService,
     get_router_service,
     RouterCommandError,
-)  # <-- LÍNEA CAMBIADA
-from ...auth import User, get_current_active_user
+)  
+from ...models.user import User
+from ...core.users import current_active_user as get_current_active_user
 from .models import (
     RouterFullDetails,
     CreatePlanRequest,
@@ -124,14 +125,18 @@ def write_add_pppoe_server(
 @router.delete("/write/delete-ip", status_code=status.HTTP_204_NO_CONTENT)
 def write_delete_ip_address(
     address: str = Query(...),
+    host: str = "",
+    request: Request = None,
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
 ):
+    from ...core.audit import log_action
     try:
         if not service.remove_ip_address(address):
             raise HTTPException(
                 status_code=404, detail="IP address not found on router."
             )
+        log_action("DELETE", "ip_address", address, user=user, request=request)
     except RouterCommandError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -139,14 +144,18 @@ def write_delete_ip_address(
 @router.delete("/write/delete-nat", status_code=status.HTTP_204_NO_CONTENT)
 def write_delete_nat_rule(
     comment: str = Query(...),
+    host: str = "",
+    request: Request = None,
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
 ):
+    from ...core.audit import log_action
     try:
         if not service.remove_nat_rule(comment):
             raise HTTPException(
                 status_code=404, detail="NAT rule with that comment not found."
             )
+        log_action("DELETE", "nat_rule", comment, user=user, request=request)
     except RouterCommandError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -154,14 +163,18 @@ def write_delete_nat_rule(
 @router.delete("/write/delete-pppoe-server", status_code=status.HTTP_204_NO_CONTENT)
 def write_delete_pppoe_server(
     service_name: str = Query(...),
+    host: str = "",
+    request: Request = None,
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
 ):
+    from ...core.audit import log_action
     try:
         if not service.remove_pppoe_server(service_name):
             raise HTTPException(
                 status_code=404, detail="PPPoE server with that service name not found."
             )
+        log_action("DELETE", "pppoe_server", service_name, user=user, request=request)
     except RouterCommandError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -169,15 +182,19 @@ def write_delete_pppoe_server(
 @router.delete("/write/delete-plan", response_model=Dict[str, bool])
 def write_delete_service_plan(
     plan_name: str = Query(...),
+    host: str = "",
+    request: Request = None,
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
 ):
+    from ...core.audit import log_action
     try:
         results = service.remove_service_plan(plan_name)
         if not results:
             raise HTTPException(
                 status_code=404, detail="No components found for that plan name."
             )
+        log_action("DELETE", "service_plan", plan_name, user=user, request=request)
         return results
     except RouterCommandError as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -188,11 +205,15 @@ def write_delete_service_plan(
 )
 def write_delete_simple_queue(
     queue_id: str,
+    host: str = "",
+    request: Request = None,
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
 ):
+    from ...core.audit import log_action
     try:
         service.remove_simple_queue(queue_id)
+        log_action("DELETE", "simple_queue", queue_id, user=user, request=request)
         return
     except PermissionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))

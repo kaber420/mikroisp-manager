@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const currentHost = window.location.pathname.split('/').pop();
     let charts = {};
     let isStopping = false;
-    
+
     // Estado para saber qué gráfica mostrar al actualizar
     let currentPeriod = '24h';
 
@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let diagnosticManager = {
         intervalId: null, timeoutId: null, countdownId: null,
-        stop: function(shouldUpdateUI = true) {
+        stop: function (shouldUpdateUI = true) {
             if (this.intervalId) clearInterval(this.intervalId);
             if (this.timeoutId) clearTimeout(this.timeoutId);
             if (this.countdownId) clearInterval(this.countdownId);
@@ -39,10 +39,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         // porque interrumpiríamos la visualización en tiempo real con una recarga completa.
         if (!diagnosticManager.intervalId) {
             console.log("⚡ AP Details: Recargando datos por señal del Monitor...");
-            
+
             // Recargar datos del AP (Estado, Clientes, etc)
             loadApDetails();
-            
+
             // Recargar gráficas manteniendo el periodo seleccionado
             loadChartData(currentPeriod);
         } else {
@@ -86,15 +86,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!chart) return;
             chart.data.labels.push(timestamp);
             if (chart.data.labels.length > 30) { chart.data.labels.shift(); }
-            
-            if (chartId === 'clientsChart') { 
+
+            if (chartId === 'clientsChart') {
                 chart.data.datasets[0].data.push(apData.client_count);
                 if (chart.data.datasets[0].data.length > 30) { chart.data.datasets[0].data.shift(); }
-            } else if (chartId === 'airtimeChart') { 
+            } else if (chartId === 'airtimeChart') {
                 const airtime = apData.airtime_total_usage != null ? (apData.airtime_total_usage / 10.0) : null;
-                chart.data.datasets[0].data.push(airtime); 
+                chart.data.datasets[0].data.push(airtime);
                 if (chart.data.datasets[0].data.length > 30) { chart.data.datasets[0].data.shift(); }
-            } else if (chartId === 'throughputChart') { 
+            } else if (chartId === 'throughputChart') {
                 chart.data.datasets[0].data.push(apData.total_throughput_rx);
                 chart.data.datasets[1].data.push(apData.total_throughput_tx);
                 if (chart.data.datasets[0].data.length > 30) { chart.data.datasets[0].data.shift(); }
@@ -104,17 +104,47 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // Track current vendor for conditional rendering
+    let currentVendor = 'ubiquiti';
+
     function updatePageWithLiveData(ap) {
+        // Store vendor for use in renderCPEList
+        currentVendor = ap.vendor || 'ubiquiti';
+
+        // Update status indicator
         document.getElementById('detail-status').innerHTML = `<div class="flex items-center gap-2 font-semibold text-orange animate-pulse"><div class="size-2 rounded-full bg-orange"></div><span>Live</span></div>`;
+
+        // Update device info fields that come from live data
+        if (ap.model) document.getElementById('detail-model').textContent = ap.model;
+        if (ap.mac) document.getElementById('detail-mac').textContent = ap.mac;
+        if (ap.firmware) document.getElementById('detail-firmware').textContent = ap.firmware;
+        if (ap.essid) document.getElementById('detail-essid').textContent = ap.essid;
+        if (ap.hostname) document.getElementById('main-hostname').textContent = ap.hostname;
+
+        // Frequency and channel width
+        if (ap.frequency != null || ap.chanbw != null) {
+            const freq = ap.frequency != null ? `${ap.frequency} MHz` : 'N/A';
+            const width = ap.chanbw != null ? ` / ${ap.chanbw}` : '';
+            document.getElementById('detail-frequency').textContent = `${freq}${width}`;
+        }
+
         document.getElementById('detail-clients').textContent = ap.client_count != null ? ap.client_count : 'N/A';
         document.getElementById('detail-noise').textContent = ap.noise_floor != null ? `${ap.noise_floor} dBm` : 'N/A';
-        const airtimeTotal = ap.airtime_total_usage != null ? `${(ap.airtime_total_usage / 10.0).toFixed(1)}%` : 'N/A';
-        const airtimeTx = ap.airtime_tx_usage != null ? `${(ap.airtime_tx_usage / 10.0).toFixed(1)}%` : 'N/A';
-        const airtimeRx = ap.airtime_rx_usage != null ? `${(ap.airtime_rx_usage / 10.0).toFixed(1)}%` : 'N/A';
-        document.getElementById('detail-airtime').textContent = `${airtimeTotal} (Tx: ${airtimeTx} / Rx: ${airtimeRx})`;
+
+        // Airtime is Ubiquiti-specific; for MikroTik show CPU Load if available
+        if (currentVendor === 'mikrotik') {
+            const cpuLoad = ap.extra?.cpu_load;
+            document.getElementById('detail-airtime').textContent = cpuLoad != null ? `CPU: ${cpuLoad}%` : 'N/A (MikroTik)';
+        } else {
+            const airtimeTotal = ap.airtime_total_usage != null ? `${(ap.airtime_total_usage / 10.0).toFixed(1)}%` : 'N/A';
+            const airtimeTx = ap.airtime_tx_usage != null ? `${(ap.airtime_tx_usage / 10.0).toFixed(1)}%` : 'N/A';
+            const airtimeRx = ap.airtime_rx_usage != null ? `${(ap.airtime_rx_usage / 10.0).toFixed(1)}%` : 'N/A';
+            document.getElementById('detail-airtime').textContent = `${airtimeTotal} (Tx: ${airtimeTx} / Rx: ${airtimeRx})`;
+        }
+
         document.getElementById('detail-throughput').textContent = `${formatThroughput(ap.total_throughput_rx)} / ${formatThroughput(ap.total_throughput_tx)}`;
         document.getElementById('detail-total-data').textContent = `${formatBytes(ap.total_rx_bytes)} / ${formatBytes(ap.total_tx_bytes)}`;
-        renderCPEList(ap.clients, ap.clients);
+        renderCPEList(ap.clients, ap.clients, currentVendor);
         updateChartsWithLiveData(ap);
     }
 
@@ -130,49 +160,70 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    function renderCPEList(historicalCPEs, liveCPEs = null) {
+    function renderCPEList(historicalCPEs, liveCPEs = null, vendor = 'ubiquiti') {
         const cpeListDiv = document.getElementById('client-list');
         if (!historicalCPEs || historicalCPEs.length === 0) {
             cpeListDiv.innerHTML = '<p class="text-text-secondary col-span-full text-center py-8">No CPE data available for this AP.</p>';
             return;
         }
-    
+
         cpeListDiv.innerHTML = '';
-        
+
         const liveMacs = new Set(liveCPEs ? liveCPEs.map(cpe => cpe.cpe_mac) : []);
 
         const timeFormatter = new Intl.DateTimeFormat(navigator.language, {
             day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
         });
-    
+
+        const isMikroTik = vendor === 'mikrotik';
+
         historicalCPEs.forEach(cpe => {
             const card = document.createElement('div');
             const isOnline = liveMacs.has(cpe.cpe_mac);
-            
+
             const displayCPE = isOnline ? liveCPEs.find(lc => lc.cpe_mac === cpe.cpe_mac) : cpe;
-    
+
             let health = getCPEHealthStatus(displayCPE);
             let cardClasses = 'bg-surface-1 rounded-lg border-l-4 p-4 flex flex-col gap-3 transition-all hover:shadow-lg';
-            
+
             if (!isOnline) {
                 health = { colorClass: 'border-text-secondary', label: 'Offline', icon: 'signal_cellular_off' };
                 cardClasses += ' opacity-50';
             }
-            
+
             card.className = `${cardClasses} ${health.colorClass}`;
-    
+
             const t_rx = displayCPE.throughput_rx_kbps != null ? `${displayCPE.throughput_rx_kbps.toFixed(1)}` : 'N/A';
             const t_tx = displayCPE.throughput_tx_kbps != null ? `${displayCPE.throughput_tx_kbps.toFixed(1)}` : 'N/A';
             const chains = displayCPE.signal_chain0 != null && displayCPE.signal_chain1 != null ? `(${displayCPE.signal_chain0}/${displayCPE.signal_chain1})` : '';
-            const c_dl = displayCPE.dl_capacity ? (displayCPE.dl_capacity / 1000).toFixed(0) : 'N/A';
-            const c_ul = displayCPE.ul_capacity ? (displayCPE.ul_capacity / 1000).toFixed(0) : 'N/A';
             const cableStatus = displayCPE.eth_speed != null ? `${displayCPE.eth_speed} Mbps` : 'N/A';
-            
+
+            // Vendor-specific metrics
+            let vendorSpecificRow;
+            if (isMikroTik) {
+                // MikroTik: Show CCQ and TX/RX Rate
+                const ccq = displayCPE.ccq != null ? `${displayCPE.ccq}%` : 'N/A';
+                // tx_rate and rx_rate come in bps, convert to Mbps
+                const txRate = displayCPE.tx_rate != null ? `${(displayCPE.tx_rate / 1000000).toFixed(1)} Mbps` : 'N/A';
+                const rxRate = displayCPE.rx_rate != null ? `${(displayCPE.rx_rate / 1000000).toFixed(1)} Mbps` : 'N/A';
+                vendorSpecificRow = `
+                    <span>CCQ:</span><span class="font-semibold text-text-primary text-right">${ccq}</span>
+                    <span>TX/RX Rate:</span><span class="font-semibold text-text-primary text-right">${txRate} / ${rxRate}</span>
+                `;
+            } else {
+                // Ubiquiti: Show Capacity
+                const c_dl = displayCPE.dl_capacity ? (displayCPE.dl_capacity / 1000).toFixed(0) : 'N/A';
+                const c_ul = displayCPE.ul_capacity ? (displayCPE.ul_capacity / 1000).toFixed(0) : 'N/A';
+                vendorSpecificRow = `
+                    <span>Capacity (DL/UL):</span><span class="font-semibold text-text-primary text-right">${c_dl} / ${c_ul} Mbps</span>
+                `;
+            }
+
             const lastSeenDate = new Date(cpe.timestamp);
-            const lastSeenHtml = !isOnline 
+            const lastSeenHtml = !isOnline
                 ? `<span>Last seen:</span><span class="font-semibold text-text-secondary text-right">${timeFormatter.format(lastSeenDate)}</span>`
                 : `<span>Cable Status:</span><span class="font-semibold text-text-primary text-right">${cableStatus}</span>`;
-    
+
             card.innerHTML = `
                 <div class="flex justify-between items-start">
                     <div>
@@ -187,7 +238,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-text-secondary">
                     <span>Signal / Chains:</span><span class="font-semibold text-text-primary text-right">${displayCPE.signal || 'N/A'} dBm ${chains}</span>
                     <span>Noise Floor:</span><span class="font-semibold text-text-primary text-right">${displayCPE.noisefloor || 'N/A'} dBm</span>
-                    <span>Capacity (DL/UL):</span><span class="font-semibold text-text-primary text-right">${c_dl} / ${c_ul} Mbps</span>
+                    ${vendorSpecificRow}
                     <span>Throughput (DL/UL):</span><span class="font-semibold text-text-primary text-right">${t_rx} / ${t_tx} kbps</span>
                     <span>Total Data (DL/UL):</span><span class="font-semibold text-text-primary text-right">${formatBytes(displayCPE.total_rx_bytes)} / ${formatBytes(displayCPE.total_tx_bytes)}</span>
                     ${lastSeenHtml}
@@ -203,26 +254,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                 fetch(`${API_BASE_URL}/api/aps/${encodeURIComponent(currentHost)}/cpes`),
                 fetch(`${API_BASE_URL}/api/aps/${encodeURIComponent(currentHost)}/live`)
             ]);
-    
+
             if (!historyResponse.ok) throw new Error('Failed to fetch CPE history');
             const historicalCPEs = await historyResponse.json();
-    
+
             let liveCPEs = null;
+            let vendor = currentVendor; // Use cached vendor
             if (liveResponse.ok) {
                 const liveData = await liveResponse.json();
                 liveCPEs = liveData.clients;
+                vendor = liveData.vendor || 'ubiquiti';
+                currentVendor = vendor; // Update cached vendor
             } else {
                 console.warn("Could not fetch live CPE data. Offline status may not be accurate.");
             }
-    
-            renderCPEList(historicalCPEs, liveCPEs);
-    
+
+            renderCPEList(historicalCPEs, liveCPEs, vendor);
+
         } catch (error) {
             console.error("Error loading CPE data:", error);
             document.getElementById('client-list').innerHTML = '<p class="text-danger col-span-3">Failed to load CPE data.</p>';
         }
     }
-    
+
     async function stopDiagnosticMode() {
         isStopping = true;
         diagnosticManager.stop(true);
@@ -261,11 +315,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 diagnosticManager.countdownId = setInterval(countdown, 1000);
                 diagnosticManager.timeoutId = setTimeout(stopDiagnosticMode, DURATION_MINUTES * 60 * 1000);
             } else {
-                alert('No specific monitor interval found for this AP. Please set a default in the edit menu.');
+                showToast('No specific monitor interval found for this AP. Please set a default in the edit menu.', 'warning');
                 if (toggle) toggle.checked = false;
             }
         } catch (error) {
-            alert('Could not load AP settings to start diagnostic mode.');
+            showToast('Could not load AP settings to start diagnostic mode.', 'danger');
             if (toggle) toggle.checked = false;
         }
     }
@@ -285,7 +339,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const timeUnit = period === '24h' ? 'hour' : 'day';
                 createChart('clientsChart', 'line', labels, [{ label: 'Clients', data: data.history.map(p => p.client_count), borderColor: '#3B82F6', tension: 0.2, fill: false, pointRadius: 0 }], timeUnit);
                 createChart('airtimeChart', 'line', labels, [{ label: 'Airtime (%)', data: data.history.map(p => p.airtime_total_usage != null ? (p.airtime_total_usage / 10.0) : null), borderColor: '#EAB308', tension: 0.2, fill: false, pointRadius: 0 }], timeUnit);
-                createChart('throughputChart', 'line', labels, [ { label: 'Download (kbps)', data: data.history.map(p => p.total_throughput_rx), borderColor: '#22C55E', tension: 0.2, fill: false, pointRadius: 0 }, { label: 'Upload (kbps)', data: data.history.map(p => p.total_throughput_tx), borderColor: '#F97316', tension: 0.2, fill: false, pointRadius: 0 } ], timeUnit);
+                createChart('throughputChart', 'line', labels, [{ label: 'Download (kbps)', data: data.history.map(p => p.total_throughput_rx), borderColor: '#22C55E', tension: 0.2, fill: false, pointRadius: 0 }, { label: 'Upload (kbps)', data: data.history.map(p => p.total_throughput_tx), borderColor: '#F97316', tension: 0.2, fill: false, pointRadius: 0 }], timeUnit);
             } catch (error) {
                 console.error("Error loading chart data:", error);
             } finally {
@@ -298,7 +352,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }, 300);
     }
-    
+
     function loadApDetails() {
         if (deviceInfoCard) { deviceInfoCard.style.filter = 'blur(4px)'; deviceInfoCard.style.opacity = '0.6'; }
         if (clientListSection) { clientListSection.style.filter = 'blur(4px)'; clientListSection.style.opacity = '0.6'; }
@@ -340,7 +394,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.getElementById('detail-gps').textContent = ap.gps_lat && ap.gps_lon ? `${ap.gps_lat.toFixed(6)}, ${ap.gps_lon.toFixed(6)}` : 'N/A';
                 document.getElementById('edit-ap-button').addEventListener('click', () => openEditModal(ap));
                 document.getElementById('delete-ap-button').addEventListener('click', handleDelete);
-                
+
                 if (!diagnosticManager.intervalId) {
                     await loadCPEDataFromHistory();
                 }
@@ -360,14 +414,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         event.preventDefault();
         const editApForm = document.getElementById('edit-ap-form');
         const formData = new FormData(editApForm);
-        const data = { 
-            username: formData.get('username'), 
+        const data = {
+            username: formData.get('username'),
             zona_id: parseInt(formData.get('zona_id'), 10),
             monitor_interval: parseInt(formData.get('monitor_interval'), 10) || null
         };
         const password = formData.get('password');
         if (password) { data.password = password; }
-        
+
         try {
             const response = await fetch(`${API_BASE_URL}/api/aps/${encodeURIComponent(currentHost)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
             if (!response.ok) throw new Error('Failed to update AP');
@@ -385,41 +439,41 @@ document.addEventListener('DOMContentLoaded', async () => {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/aps/${encodeURIComponent(currentHost)}`, { method: 'DELETE' });
                 if (!response.ok) throw new Error('Failed to delete AP');
-                alert('AP deleted successfully.');
+                showToast('AP deleted successfully.', 'success');
                 window.location.href = '/';
             } catch (error) {
-                alert(`Error: ${error.message}`);
+                showToast(`Error: ${error.message}`, 'danger');
             }
         }
     }
-    
-    function openEditModal(apData){ 
-        document.getElementById('edit-host').value = apData.host; 
-        document.getElementById('edit-username').value = apData.username; 
-        document.getElementById('edit-monitor_interval').value = apData.monitor_interval; 
-        populateZoneSelect(document.getElementById('edit-zona_id'), apData.zona_id); 
+
+    function openEditModal(apData) {
+        document.getElementById('edit-host').value = apData.host;
+        document.getElementById('edit-username').value = apData.username;
+        document.getElementById('edit-monitor_interval').value = apData.monitor_interval;
+        populateZoneSelect(document.getElementById('edit-zona_id'), apData.zona_id);
         document.getElementById('edit-ap-modal').classList.remove('hidden');
         document.getElementById('edit-ap-modal').classList.add('flex');
     }
 
-    function closeEditModal(){ 
-        document.getElementById('edit-ap-form').reset(); 
-        document.getElementById('edit-form-error').classList.add('hidden'); 
+    function closeEditModal() {
+        document.getElementById('edit-ap-form').reset();
+        document.getElementById('edit-form-error').classList.add('hidden');
         document.getElementById('edit-ap-modal').classList.add('hidden');
-        document.getElementById('edit-ap-modal').classList.remove('flex'); 
+        document.getElementById('edit-ap-modal').classList.remove('flex');
     }
 
-    async function populateZoneSelect(selectElement, selectedId){ 
-        try { 
-            const response = await fetch(`${API_BASE_URL}/api/zonas`); 
-            const zones = await response.json(); 
-            selectElement.innerHTML = '<option value="">Select a zone...</option>'; 
-            zones.forEach(zone => { const option = document.createElement('option'); option.value = zone.id; option.textContent = zone.nombre; if(zone.id === selectedId) { option.selected = true; } selectElement.appendChild(option); }); 
-        } catch(error) { 
-            console.error('Failed to load zones for modal:', error); 
-        } 
+    async function populateZoneSelect(selectElement, selectedId) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/zonas`);
+            const zones = await response.json();
+            selectElement.innerHTML = '<option value="">Select a zone...</option>';
+            zones.forEach(zone => { const option = document.createElement('option'); option.value = zone.id; option.textContent = zone.nombre; if (zone.id === selectedId) { option.selected = true; } selectElement.appendChild(option); });
+        } catch (error) {
+            console.error('Failed to load zones for modal:', error);
+        }
     }
-    
+
     // --- Initial Setup ---
     document.querySelectorAll('.chart-button').forEach(button => {
         button.addEventListener('click', () => {
@@ -450,7 +504,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const editCancelButton = document.getElementById('edit-cancel-button');
     const editApForm = document.getElementById('edit-ap-form');
-    
+
     if (editCancelButton && editApForm) {
         editCancelButton.addEventListener('click', closeEditModal);
         editApForm.addEventListener('submit', handleEditFormSubmit);

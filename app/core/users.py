@@ -92,13 +92,34 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         print(f"🔑 Password reset requested for: {user.username}")
 
 
+# --- Custom User Database Adapter (Username-based lookup) ---
+class SQLAlchemyUserDatabaseByUsername(SQLAlchemyUserDatabase):
+    """
+    Custom SQLAlchemy user database adapter that looks up users by username
+    instead of email. This allows the login form's 'username' field to be
+    used for authentication instead of email.
+    """
+
+    async def get_by_email(self, email: str) -> Optional[User]:
+        """
+        Override: Look up user by username field instead of email.
+        The 'email' parameter here is actually the value from the login form's
+        'username' field (standard OAuth2 form field name).
+        """
+        from sqlalchemy import select
+
+        statement = select(self.user_table).where(self.user_table.username == email)
+        result = await self.session.execute(statement)
+        return result.scalar_one_or_none()
+
+
 # --- Dependency Injectors ---
 async def get_user_db(session: AsyncSession = Depends(get_session)):
     """
     Dependency to get the user database adapter.
-    Uses SQLAlchemyUserDatabase for FastAPI Users v15+ with async sessions.
+    Uses custom SQLAlchemyUserDatabaseByUsername for username-based login.
     """
-    yield SQLAlchemyUserDatabase(session, User)
+    yield SQLAlchemyUserDatabaseByUsername(session, User)
 
 
 async def get_user_manager(user_db=Depends(get_user_db)):
@@ -119,3 +140,39 @@ fastapi_users = FastAPIUsers[User, uuid.UUID](
 current_active_user = fastapi_users.current_user(active=True)
 current_superuser = fastapi_users.current_user(active=True, superuser=True)
 current_verified_user = fastapi_users.current_user(active=True, verified=True)
+
+
+# --- Role-Based Access Control ---
+# Valid role values (use lowercase strings for DB compatibility)
+VALID_ROLES = ["admin", "technician", "billing"]
+
+
+class RoleChecker:
+    """
+    Dependency class to check if the current user has one of the allowed roles.
+    
+    Usage:
+        @router.get("/admin-only")
+        def admin_endpoint(user: User = Depends(RoleChecker(["admin"]))):
+            ...
+    """
+    
+    def __init__(self, allowed_roles: list[str]):
+        self.allowed_roles = allowed_roles
+    
+    def __call__(self, user: User = Depends(current_active_user)) -> User:
+        from fastapi import HTTPException, status
+        
+        if user.role not in self.allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Required role: {', '.join(self.allowed_roles)}. Your role: {user.role}"
+            )
+        return user
+
+
+# Pre-configured role checkers for common use cases
+require_admin = RoleChecker(["admin"])
+require_technician = RoleChecker(["admin", "technician"])
+require_billing = RoleChecker(["admin", "billing"])
+

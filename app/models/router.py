@@ -17,6 +17,15 @@ class Router(SQLModel, table=True):
     firmware: Optional[str] = Field(default=None)
     last_status: Optional[str] = Field(default=None)
     last_checked: Optional[datetime] = Field(default=None)
+    
+    # Suspension Configuration
+    # Options: "address_list", "queue_limit", "pppoe_disable", "none"
+    suspension_type: Optional[str] = Field(default="address_list")
+    # Custom name (will be prefixed with BL_ or WL_ automatically)
+    address_list_name: Optional[str] = Field(default="morosos")
+    # Options: "blacklist" (BL_), "whitelist" (WL_)
+    address_list_strategy: Optional[str] = Field(default="blacklist")
 
     # Relationship
     # zona: Optional["Zona"] = Relationship(back_populates="routers")
+

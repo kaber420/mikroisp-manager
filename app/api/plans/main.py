@@ -1,10 +1,11 @@
 # app/api/plans/main.py
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from typing import List, Optional
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from ...auth import User, get_current_active_user
+from ...core.users import require_admin, require_technician
+from ...models.user import User
 from ...db.engine_sync import get_sync_session
 from ...services.plan_service import PlanService
 from ...models.plan import Plan as PlanModel  # Importamos el modelo de DB
@@ -18,6 +19,13 @@ class PlanBase(BaseModel):
     parent_queue: Optional[str] = None
     comment: Optional[str] = None
     router_host: str
+    # New fields for unified plan management
+    plan_type: Optional[str] = "simple_queue"  # "pppoe" or "simple_queue"
+    profile_name: Optional[str] = None  # For PPPoE: router profile name
+    suspension_method: Optional[str] = "queue_limit"  # "pppoe_secret_disable", "address_list", "queue_limit"
+    # Address list configuration
+    address_list_strategy: Optional[str] = "blacklist"
+    address_list_name: Optional[str] = "morosos"
 
 class PlanCreate(PlanBase):
     pass
@@ -35,7 +43,7 @@ def get_plan_service(session: Session = Depends(get_sync_session)) -> PlanServic
 @router.get("/plans", response_model=List[PlanResponse])
 def get_all_plans(
     service: PlanService = Depends(get_plan_service),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(require_technician)
 ):
     """Obtiene todos los planes de la base de datos."""
     return service.get_all_plans()
@@ -44,7 +52,7 @@ def get_all_plans(
 def get_plans_by_router(
     router_host: str, 
     service: PlanService = Depends(get_plan_service),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(require_technician)
 ):
     plans = service.get_plans_by_router(router_host)
     # Mapeamos manualmente router_name si es necesario, o dejamos que sea null
@@ -56,7 +64,7 @@ def get_plans_by_router(
 def create_plan(
     plan: PlanCreate, 
     service: PlanService = Depends(get_plan_service),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(require_admin)
 ):
     try:
         new_plan = service.create_plan(plan.model_dump())
@@ -67,9 +75,12 @@ def create_plan(
 
 @router.delete("/plans/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_plan(
-    plan_id: int, 
+    plan_id: int,
+    request: Request,
     service: PlanService = Depends(get_plan_service),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(require_admin)
 ):
+    from ...core.audit import log_action
     service.delete_plan(plan_id)
+    log_action("DELETE", "plan", str(plan_id), user=current_user, request=request)
     return

@@ -8,6 +8,164 @@ from .base import get_db_connection, get_stats_db_connection
 from .init_db import _setup_stats_db  # Usamos la función de configuración
 
 
+def save_device_stats(ap_host: str, status: "DeviceStatus", vendor: str = "ubiquiti"):
+    """
+    Saves device status from adapters to the stats database.
+    This is a vendor-agnostic function that works with DeviceStatus objects.
+    
+    Args:
+        ap_host: The AP host/IP
+        status: DeviceStatus object from adapter
+        vendor: Vendor name ('ubiquiti', 'mikrotik', etc.)
+    """
+    from ..utils.device_clients.adapters.base import DeviceStatus, ConnectedClient
+    
+    _setup_stats_db()
+    
+    conn = get_stats_db_connection()
+    if not conn:
+        print(f"Error: No se pudo conectar a la base de datos de estadísticas para {ap_host}.")
+        return
+    
+    cursor = conn.cursor()
+    timestamp = datetime.utcnow()
+    
+    try:
+        # Insert AP stats
+        cursor.execute(
+            """
+            INSERT INTO ap_stats_history (
+                timestamp, ap_host, vendor, uptime, cpuload, freeram, client_count, noise_floor,
+                total_throughput_tx, total_throughput_rx, airtime_total_usage, 
+                airtime_tx_usage, airtime_rx_usage, frequency, chanbw, essid,
+                total_tx_bytes, total_rx_bytes, gps_lat, gps_lon, gps_sats
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (
+                timestamp,
+                ap_host,
+                vendor,
+                status.uptime,
+                status.extra.get("cpu_load"),
+                status.extra.get("free_memory"),
+                status.client_count,
+                status.noise_floor,
+                status.tx_throughput,
+                status.rx_throughput,
+                status.airtime_usage,
+                status.extra.get("airtime_tx"),
+                status.extra.get("airtime_rx"),
+                status.frequency,
+                status.channel_width,
+                status.essid,
+                status.tx_bytes,
+                status.rx_bytes,
+                status.gps_lat,
+                status.gps_lon,
+                status.extra.get("gps_sats"),
+            ),
+        )
+        
+        # Insert CPE/client stats
+        for client in status.clients:
+            cursor.execute(
+                """
+                INSERT INTO cpe_stats_history (
+                    timestamp, ap_host, vendor, cpe_mac, cpe_hostname, ip_address, signal, 
+                    signal_chain0, signal_chain1, noisefloor, cpe_tx_power, distance, 
+                    dl_capacity, ul_capacity, airmax_cinr_rx, airmax_usage_rx, 
+                    airmax_cinr_tx, airmax_usage_tx, throughput_rx_kbps, throughput_tx_kbps, 
+                    total_rx_bytes, total_tx_bytes, cpe_uptime, ccq, tx_rate, rx_rate
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    timestamp,
+                    ap_host,
+                    vendor,
+                    client.mac,
+                    client.hostname,
+                    client.ip_address,
+                    client.signal,
+                    client.signal_chain0,
+                    client.signal_chain1,
+                    client.noisefloor,
+                    client.extra.get("tx_power"),
+                    client.extra.get("distance"),
+                    client.extra.get("dl_capacity"),
+                    client.extra.get("ul_capacity"),
+                    client.extra.get("airmax_cinr_rx"),
+                    client.extra.get("airmax_usage_rx"),
+                    client.extra.get("airmax_cinr_tx"),
+                    client.extra.get("airmax_usage_tx"),
+                    client.rx_throughput_kbps,
+                    client.tx_throughput_kbps,
+                    client.rx_bytes,
+                    client.tx_bytes,
+                    client.uptime,
+                    client.ccq,
+                    client.tx_rate,
+                    client.rx_rate,
+                ),
+            )
+        
+        conn.commit()
+        print(f"Datos de '{status.hostname or ap_host}' guardados en la base de datos de estadísticas.")
+        
+    except sqlite3.Error as e:
+        print(f"Error de base de datos al guardar stats para {ap_host}: {e}")
+    finally:
+        if conn:
+            conn.close()
+    
+    # Also update the CPE inventory table (main inventory DB)
+    _update_cpe_inventory_from_status(status)
+
+
+
+def _update_cpe_inventory_from_status(status: "DeviceStatus"):
+    """
+    Updates the CPE inventory table from a DeviceStatus object.
+    Works with any vendor (Ubiquiti, MikroTik, etc.)
+    """
+    from ..utils.device_clients.adapters.base import DeviceStatus
+    
+    if not status.clients:
+        return
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    now = datetime.utcnow()
+    
+    try:
+        for client in status.clients:
+            cursor.execute(
+                """
+                INSERT INTO cpes (mac, hostname, model, firmware, ip_address, first_seen, last_seen)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(mac) DO UPDATE SET
+                    hostname = COALESCE(excluded.hostname, hostname),
+                    model = COALESCE(excluded.model, model),
+                    firmware = COALESCE(excluded.firmware, firmware),
+                    ip_address = COALESCE(excluded.ip_address, ip_address),
+                    last_seen = excluded.last_seen
+                """,
+                (
+                    client.mac,
+                    client.hostname,
+                    client.extra.get("model") or client.extra.get("platform"),
+                    client.extra.get("firmware") or client.extra.get("version"),
+                    client.ip_address,
+                    now,
+                    now,
+                ),
+            )
+        conn.commit()
+    except Exception as e:
+        print(f"Error updating CPE inventory: {e}")
+    finally:
+        conn.close()
+
+
 def _update_cpe_inventory(data: dict):
     """Actualiza la tabla de inventario de CPEs (dispositivos) en la DB de inventario."""
     conn = get_db_connection()

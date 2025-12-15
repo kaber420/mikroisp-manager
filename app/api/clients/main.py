@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from typing import List
 from sqlmodel import Session
 
-from ...auth import User, get_current_active_user
+from ...core.users import require_billing
+from ...models.user import User
 from ...db.engine_sync import get_sync_session
 
 # Import service classes
@@ -42,7 +43,7 @@ def get_billing_service(session: Session = Depends(get_sync_session)) -> Billing
 @router.get("/clients", response_model=List[Client])
 def api_get_all_clients(
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     return service.get_all_clients()
 
@@ -51,7 +52,7 @@ def api_get_all_clients(
 def api_get_client(
     client_id: int,
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     try:
         return service.get_client_by_id(client_id)
@@ -63,7 +64,7 @@ def api_get_client(
 def api_create_client(
     client: ClientCreate,
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     try:
         new_client = service.create_client(client.model_dump())
@@ -77,7 +78,7 @@ def api_update_client(
     client_id: int,
     client_update: ClientUpdate,
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     update_fields = client_update.model_dump(exclude_unset=True)
     try:
@@ -92,11 +93,14 @@ def api_update_client(
 @router.delete("/clients/{client_id}", status_code=status.HTTP_204_NO_CONTENT)
 def api_delete_client(
     client_id: int,
+    request: Request,
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
+    from ...core.audit import log_action
     try:
         service.delete_client(client_id)
+        log_action("DELETE", "client", str(client_id), user=current_user, request=request)
         return
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -106,7 +110,7 @@ def api_delete_client(
 def api_get_cpes_for_client(
     client_id: int,
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     return service.get_cpes_for_client(client_id)
 
@@ -122,7 +126,7 @@ def api_create_client_service(
     client_id: int,
     service_data: ClientServiceCreate,
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     try:
         new_service = service.create_client_service(
@@ -139,9 +143,94 @@ def api_create_client_service(
 def api_get_client_services(
     client_id: int,
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     return service.get_client_services(client_id)
+
+
+@router.put("/services/{service_id}/plan")
+def api_change_service_plan(
+    service_id: int,
+    new_plan_id: int,
+    service: ClientManagerService = Depends(get_client_service),
+    current_user: User = Depends(require_billing),
+):
+    """
+    Change the plan for an existing client service.
+    
+    This endpoint:
+    - Updates the plan_id in the database
+    - For PPPoE: Updates the profile on the router
+    - For Simple Queue: Updates the queue limit on the router
+    - Kills active PPPoE connection to force re-auth with new settings
+    """
+    try:
+        result = service.change_client_service_plan(service_id, new_plan_id)
+        return result
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Error changing plan: {e}")
+        raise HTTPException(status_code=500, detail=f"Error changing plan: {e}")
+
+
+@router.put("/services/{service_id}", response_model=ClientService)
+def api_update_client_service(
+    service_id: int,
+    service_update: ClientServiceCreate,
+    service: ClientManagerService = Depends(get_client_service),
+    current_user: User = Depends(require_billing),
+):
+    """Update an existing client service."""
+    try:
+        return service.update_client_service(
+            service_id, service_update.model_dump(exclude_unset=True)
+        )
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/services/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
+def api_delete_client_service(
+    service_id: int,
+    service: ClientManagerService = Depends(get_client_service),
+    current_user: User = Depends(require_billing),
+):
+    """Delete a client service."""
+    try:
+        service.delete_client_service(service_id)
+        return
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.put("/services/{service_id}/pppoe-profile")
+def api_change_pppoe_profile(
+    service_id: int,
+    new_profile: str,
+    service: ClientManagerService = Depends(get_client_service),
+    current_user: User = Depends(require_billing),
+):
+    """
+    Change the PPPoE profile for a service.
+    
+    This endpoint is used for PPPoE services where the profile is selected
+    from the router's available profiles rather than from the local plans database.
+    """
+    try:
+        result = service.change_pppoe_service_profile(service_id, new_profile)
+        return result
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Error changing PPPoE profile: {e}")
+        raise HTTPException(status_code=500, detail=f"Error changing profile: {e}")
 
 
 # --- Payment Endpoints ---
@@ -156,7 +245,7 @@ def api_register_payment_and_reactivate(
     payment: PaymentCreate,
     billing_service: BillingService = Depends(get_billing_service),
     payment_service: PaymentService = Depends(get_payment_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     """
     Register a payment and execute reactivation logic (if applicable).
@@ -186,7 +275,7 @@ def api_register_payment_and_reactivate(
 def api_get_payment_history(
     client_id: int,
     service: ClientManagerService = Depends(get_client_service),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_billing),
 ):
     return service.get_payment_history(client_id)
 

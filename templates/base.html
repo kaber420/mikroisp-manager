@@ -1,21 +1,23 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}µMonitor Pro{% endblock %}</title>
-    
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', path='/img/favicon.ico') }}">
+
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-    
+
     <link rel="stylesheet" href="{{ url_for('static', path='/css/theme.css') }}">
-    
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
-    
+
     <script>
         tailwind.config = {
             darkMode: "class",
@@ -23,11 +25,11 @@
                 extend: {
                     colors: {
                         primary: { DEFAULT: '#3B82F6', hover: '#2563EB' },
-                        background: '#0A0A0A', 
+                        background: '#0A0A0A',
                         'surface-1': '#1E293B',
-                        'surface-2': '#334155', 
+                        'surface-2': '#334155',
                         'text-primary': '#F1F5F9',
-                        'text-secondary': '#94A3B8', 
+                        'text-secondary': '#94A3B8',
                         'border-color': '#334155',
                         success: '#22C55E', danger: '#EF4444', warning: '#EAB308',
                         orange: '#F97316',
@@ -37,39 +39,40 @@
             },
         }
     </script>
-    
+
+    <script src="/static/js/utils/api.js"></script>
     <script src="/static/js/utils/validators.js"></script>
     {% block scripts %}{% endblock %}
 
     {% block styles %}{% endblock %}
 </head>
+
 <body class="dynamic-bg text-text-primary font-sans antialiased relative overflow-x-hidden">
-    
+
     <div class="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <div class="glow-element glow-1" data-speed="2"></div>
         <div class="glow-element glow-2" data-speed="-2"></div>
         <div class="glow-element glow-3" data-speed="1"></div>
     </div>
 
-    <div x-data="{ collapsed: localStorage.getItem('sidebarCollapsed') === 'true' }" 
-         x-init="$watch('collapsed', val => localStorage.setItem('sidebarCollapsed', val))"
-         class="flex min-h-screen relative z-10">
-        
+    <div x-data="{ collapsed: localStorage.getItem('sidebarCollapsed') === 'true' }"
+        x-init="$watch('collapsed', val => localStorage.setItem('sidebarCollapsed', val))"
+        class="flex h-screen overflow-hidden relative z-10">
+
         <aside class="bg-surface-1 flex-shrink-0 flex flex-col transition-all duration-300 ease-in-out relative"
-               :class="collapsed ? 'w-20' : 'w-64'">
-            
-            <button @click="collapsed = !collapsed" 
-                    class="absolute -right-3 top-24 bg-surface-1 border border-border-color text-text-secondary rounded-full p-1 hover:text-primary transition-transform shadow-sm z-10">
-                <span class="material-symbols-outlined text-sm" 
-                      :class="collapsed ? 'rotate-180' : ''">chevron_left</span>
+            :class="collapsed ? 'w-20' : 'w-64'">
+
+            <button @click="collapsed = !collapsed"
+                class="absolute -right-3 top-24 bg-surface-1 border border-border-color text-text-secondary rounded-full p-1 hover:text-primary transition-transform shadow-sm z-10">
+                <span class="material-symbols-outlined text-sm"
+                    :class="collapsed ? 'rotate-180' : ''">chevron_left</span>
             </button>
 
             <div class="h-20 flex items-center border-b border-white/5 overflow-hidden transition-all"
-                 :class="collapsed ? 'justify-center px-0' : 'px-6'">
+                :class="collapsed ? 'justify-center px-0' : 'px-6'">
                 <a href="/" class="flex items-center gap-3 whitespace-nowrap">
                     <span class="material-symbols-outlined text-primary text-3xl">router</span>
-                    <h1 x-show="!collapsed" 
-                        x-transition:enter="transition ease-out duration-200"
+                    <h1 x-show="!collapsed" x-transition:enter="transition ease-out duration-200"
                         x-transition:enter-start="opacity-0 transform -translate-x-2"
                         x-transition:enter-end="opacity-100 transform translate-x-0"
                         class="text-xl font-bold text-text-primary origin-left">
@@ -77,102 +80,139 @@
                     </h1>
                 </a>
                 <div class="d-flex align-items-center ms-3" x-show="!collapsed">
-                     <span id="ws-indicator" 
-                          style="height: 8px; width: 8px; background-color: #95a5a6; border-radius: 50%; display: inline-block; transition: background-color 0.3s;"
-                          data-bs-toggle="tooltip" title="Conectando...">
+                    <span id="ws-indicator"
+                        style="height: 8px; width: 8px; background-color: #95a5a6; border-radius: 50%; display: inline-block; transition: background-color 0.3s;"
+                        data-bs-toggle="tooltip" title="Conectando...">
                     </span>
                 </div>
             </div>
 
             <div class="p-4 flex-grow overflow-y-auto overflow-x-hidden scrollbar-hide">
-                
-                <h2 x-show="!collapsed" class="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-4 px-2 transition-opacity duration-200">Monitoring</h2>
+
+                <h2 x-show="!collapsed"
+                    class="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-4 px-2 transition-opacity duration-200">
+                    Monitoring</h2>
                 <div x-show="collapsed" class="h-px bg-white/5 my-4 mx-2"></div>
 
                 <nav class="flex flex-col gap-2">
-                    <a href="/" 
-                       class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'dashboard' %}active{% endif %}"
-                       :class="collapsed ? 'justify-center' : ''">
-                        
-                        <div x-show="collapsed" class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap border border-border-color shadow-lg">
+                    <a href="/"
+                        class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'dashboard' %}active{% endif %}"
+                        :class="collapsed ? 'justify-center' : ''">
+
+                        <div x-show="collapsed"
+                            class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap border border-border-color shadow-lg">
                             Dashboard
                         </div>
 
                         <span class="material-symbols-outlined text-2xl">dashboard</span>
-                        <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap transition-opacity duration-200">Dashboard</span>
+                        <span x-show="!collapsed"
+                            class="text-sm font-medium whitespace-nowrap transition-opacity duration-200">Dashboard</span>
                     </a>
                 </nav>
 
-                <h2 x-show="!collapsed" class="text-xs font-semibold text-text-secondary uppercase tracking-wider my-4 px-2">Management</h2>
+                <h2 x-show="!collapsed"
+                    class="text-xs font-semibold text-text-secondary uppercase tracking-wider my-4 px-2">Management</h2>
                 <div x-show="collapsed" class="h-px bg-white/5 my-4 mx-2"></div>
 
                 <nav class="flex flex-col gap-2">
-                    <a href="/clients" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'clients' %}active{% endif %}"
-                       :class="collapsed ? 'justify-center' : ''">
-                        <div x-show="collapsed" class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">Manage Clients</div>
+                    <a href="/clients"
+                        class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'clients' %}active{% endif %}"
+                        :class="collapsed ? 'justify-center' : ''">
+                        <div x-show="collapsed"
+                            class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">
+                            Manage Clients</div>
                         <span class="material-symbols-outlined text-2xl">groups</span>
                         <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap">Clients</span>
                     </a>
 
-                    <a href="/aps" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'aps' %}active{% endif %}"
-                       :class="collapsed ? 'justify-center' : ''">
-                        <div x-show="collapsed" class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">Manage APs</div>
+                    {% if user and user.role in ['admin', 'technician'] %}
+                    <a href="/aps"
+                        class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'aps' %}active{% endif %}"
+                        :class="collapsed ? 'justify-center' : ''">
+                        <div x-show="collapsed"
+                            class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">
+                            Manage APs</div>
                         <span class="material-symbols-outlined text-2xl">cell_tower</span>
                         <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap">Access Points</span>
                     </a>
+                    {% endif %}
 
-                    <a href="/cpes" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'cpes' %}active{% endif %}"
-                       :class="collapsed ? 'justify-center' : ''">
-                        <div x-show="collapsed" class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">Manage CPEs</div>
+                    {% if user and user.role in ['admin', 'technician'] %}
+                    <a href="/cpes"
+                        class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'cpes' %}active{% endif %}"
+                        :class="collapsed ? 'justify-center' : ''">
+                        <div x-show="collapsed"
+                            class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">
+                            Manage CPEs</div>
                         <span class="material-symbols-outlined text-2xl">settings_input_antenna</span>
                         <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap">CPEs</span>
                     </a>
+                    {% endif %}
 
-                    <a href="/routers" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'routers' %}active{% endif %}"
-                       :class="collapsed ? 'justify-center' : ''">
-                        <div x-show="collapsed" class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">Manage Routers</div>
+                    {% if user and user.role in ['admin', 'technician'] %}
+                    <a href="/routers"
+                        class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'routers' %}active{% endif %}"
+                        :class="collapsed ? 'justify-center' : ''">
+                        <div x-show="collapsed"
+                            class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">
+                            Manage Routers</div>
                         <span class="material-symbols-outlined text-2xl">dns</span>
                         <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap">Routers</span>
                     </a>
+                    {% endif %}
 
-                    <a href="/zonas" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'zonas' %}active{% endif %}"
-                       :class="collapsed ? 'justify-center' : ''">
-                        <div x-show="collapsed" class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">Manage Zones</div>
+                    {% if user and user.role in ['admin', 'technician'] %}
+                    <a href="/zonas"
+                        class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'zonas' %}active{% endif %}"
+                        :class="collapsed ? 'justify-center' : ''">
+                        <div x-show="collapsed"
+                            class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">
+                            Manage Zones</div>
                         <span class="material-symbols-outlined text-2xl">hub</span>
                         <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap">Zones</span>
                     </a>
+                    {% endif %}
                 </nav>
 
-                <h2 x-show="!collapsed" class="text-xs font-semibold text-text-secondary uppercase tracking-wider my-4 px-2">System</h2>
+                {% if user and user.role == 'admin' %}
+                <h2 x-show="!collapsed"
+                    class="text-xs font-semibold text-text-secondary uppercase tracking-wider my-4 px-2">System</h2>
                 <div x-show="collapsed" class="h-px bg-white/5 my-4 mx-2"></div>
 
                 <nav class="flex flex-col gap-2">
-                    <a href="/users" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'users' %}active{% endif %}"
-                       :class="collapsed ? 'justify-center' : ''">
-                        <div x-show="collapsed" class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">Users</div>
+                    <a href="/users"
+                        class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'users' %}active{% endif %}"
+                        :class="collapsed ? 'justify-center' : ''">
+                        <div x-show="collapsed"
+                            class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">
+                            Users</div>
                         <span class="material-symbols-outlined text-2xl">manage_accounts</span>
                         <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap">Users</span>
                     </a>
 
-                    <a href="/settings" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'settings' %}active{% endif %}"
-                       :class="collapsed ? 'justify-center' : ''">
-                        <div x-show="collapsed" class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">Settings</div>
+                    <a href="/settings"
+                        class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'settings' %}active{% endif %}"
+                        :class="collapsed ? 'justify-center' : ''">
+                        <div x-show="collapsed"
+                            class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">
+                            Settings</div>
                         <span class="material-symbols-outlined text-2xl">settings</span>
                         <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap">Settings</span>
                     </a>
                 </nav>
+                {% endif %}
             </div>
 
             <div class="p-4 border-t border-white/5">
                 {% if user %}
                 <div class="flex items-center gap-3 mb-4 px-2 bg-surface-2/30 p-2 rounded-lg transition-all"
-                     :class="collapsed ? 'justify-center p-0 bg-transparent' : ''">
-                    
+                    :class="collapsed ? 'justify-center p-0 bg-transparent' : ''">
+
                     <div class="size-9 rounded-full bg-primary text-white flex items-center justify-center font-bold shadow-sm flex-shrink-0"
-                         :title="collapsed ? '{{ user.username }}' : ''">
+                        :title="collapsed ? '{{ user.username }}' : ''">
                         {{ user.username[:1] | upper }}
                     </div>
-                    
+
                     <div class="overflow-hidden" x-show="!collapsed">
                         <p class="text-sm font-semibold text-text-primary truncate" title="{{ user.username }}">
                             {{ user.username | capitalize }}
@@ -186,39 +226,71 @@
                 {% endif %}
 
                 <div class="space-y-1">
-                    <a href="/logout" class="flex items-center gap-3 px-3 py-2 rounded-lg text-text-secondary hover:text-danger hover:bg-danger/10 transition-colors group"
-                       :class="collapsed ? 'justify-center' : ''">
-                        <div x-show="collapsed" class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">Logout</div>
+                    <a href="/logout"
+                        class="flex items-center gap-3 px-3 py-2 rounded-lg text-text-secondary hover:text-danger hover:bg-danger/10 transition-colors group"
+                        :class="collapsed ? 'justify-center' : ''">
+                        <div x-show="collapsed"
+                            class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">
+                            Logout</div>
                         <span class="material-symbols-outlined text-[20px] group-hover:text-danger">logout</span>
                         <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap">Logout</span>
                     </a>
                 </div>
             </div>
         </aside>
-        
-        <main class="flex-grow overflow-x-hidden">
+
+        <main class="flex-grow overflow-x-hidden overflow-y-auto">
             {% block content %}{% endblock %}
         </main>
 
     </div>
-    
+
+    <!-- Toast Container -->
+    <div x-data x-show="$store.toasts.items.length > 0"
+        class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+        <template x-for="toast in $store.toasts.items" :key="toast.id">
+            <div x-show="true" x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 transform translate-x-8"
+                x-transition:enter-end="opacity-100 transform translate-x-0"
+                x-transition:leave="transition ease-in duration-200"
+                x-transition:leave-start="opacity-100 transform translate-x-0"
+                x-transition:leave-end="opacity-0 transform translate-x-8"
+                class="pointer-events-auto px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-[280px] max-w-sm backdrop-blur-sm border"
+                :class="{
+                    'bg-success/90 border-success/50 text-white': toast.type === 'success',
+                    'bg-danger/90 border-danger/50 text-white': toast.type === 'danger',
+                    'bg-warning/90 border-warning/50 text-black': toast.type === 'warning',
+                    'bg-primary/90 border-primary/50 text-white': toast.type === 'primary'
+                 }">
+                <span class="material-symbols-outlined text-xl"
+                    x-text="toast.type === 'success' ? 'check_circle' : toast.type === 'danger' ? 'error' : toast.type === 'warning' ? 'warning' : 'info'"></span>
+                <span class="text-sm font-medium flex-1" x-text="toast.message"></span>
+                <button @click="$store.toasts.remove(toast.id)" class="hover:opacity-70 transition-opacity">
+                    <span class="material-symbols-outlined text-lg">close</span>
+                </button>
+            </div>
+        </template>
+    </div>
+
+    <script src="{{ url_for('static', path='/js/utils/toast.js') }}"></script>
     <script src="{{ url_for('static', path='/js/ws-client.js') }}"></script>
     <script src="//unpkg.com/alpinejs" defer></script>
-    
+
     <script>
         document.addEventListener('mousemove', (e) => {
             const glows = document.querySelectorAll('.glow-element');
             const x = e.clientX;
             const y = e.clientY;
-            
+
             glows.forEach(glow => {
                 const speed = parseFloat(glow.getAttribute('data-speed'));
                 const xOffset = (window.innerWidth - x * speed) / 100;
                 const yOffset = (window.innerHeight - y * speed) / 100;
-                
+
                 glow.style.transform = `translate(${xOffset}px, ${yOffset}px)`;
             });
         });
     </script>
 </body>
+
 </html>

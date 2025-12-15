@@ -5,9 +5,10 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Dict, Optional
 
-# --- ¡IMPORTACIONES CORREGIDAS! (Ahora con '...') ---
-from ...auth import User, get_current_active_user
-from ...db.base import get_db_connection, get_stats_db_connection
+# --- RBAC: Stats is read-only, allow all authenticated users ---
+from ...core.users import current_active_user
+from ...models.user import User
+from ...db.base import get_db_connection, get_stats_db_connection, get_stats_db_file
 from ...db.cpes_db import get_all_cpes_globally  # Reutilizamos una función ya creada
 
 # --- ¡IMPORTACIÓN CORREGIDA! (Ahora desde '.models') ---
@@ -40,9 +41,9 @@ def get_stats_db():
 def get_top_aps_by_airtime(
     limit: int = 5,
     conn: sqlite3.Connection = Depends(get_inventory_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(current_active_user),
 ):
-    stats_db_file = f"stats_{datetime.utcnow().strftime('%Y_%m')}.sqlite"
+    stats_db_file = get_stats_db_file()
     if not os.path.exists(stats_db_file):
         return []
 
@@ -75,7 +76,7 @@ def get_top_aps_by_airtime(
 def get_top_cpes_by_weak_signal(
     limit: int = 5,
     stats_conn: Optional[sqlite3.Connection] = Depends(get_stats_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(current_active_user),
 ):
     if not stats_conn:
         return []
@@ -102,7 +103,7 @@ def get_top_cpes_by_weak_signal(
 @router.get("/stats/cpe-count", response_model=Dict[str, int])
 def get_cpe_total_count(
     conn: sqlite3.Connection = Depends(get_inventory_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(current_active_user),
 ):
     try:
         cursor = conn.execute("SELECT COUNT(*) FROM cpes")
@@ -126,7 +127,7 @@ def get_dashboard_events(
     page: int = 1,  # Nuevo parámetro
     page_size: int = 10,  # Nuevo parámetro (default 10)
     conn: Optional[sqlite3.Connection] = Depends(get_stats_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(current_active_user),
 ):
     """
     Obtiene los logs paginados.

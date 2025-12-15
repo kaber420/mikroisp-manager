@@ -1,5 +1,5 @@
 document.addEventListener('alpine:init', () => {
-    
+
     Alpine.data('zoneManager', () => ({
 
         // --- ESTADO (STATE) ---
@@ -27,7 +27,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         // --- MÉTODOS (METHODS) ---
-        
+
         init() {
             this.loadZones();
         },
@@ -52,10 +52,10 @@ document.addEventListener('alpine:init', () => {
                 // Modo Editar
                 this.modalMode = 'edit';
                 // Copiamos el objeto para no modificar la tabla directamente mientras editamos
-                this.currentZone = { 
-                    id: zone.id, 
-                    nombre: zone.nombre, 
-                    descripcion: zone.descripcion || '' 
+                this.currentZone = {
+                    id: zone.id,
+                    nombre: zone.nombre,
+                    descripcion: zone.descripcion || ''
                 };
             } else {
                 // Modo Añadir
@@ -84,14 +84,14 @@ document.addEventListener('alpine:init', () => {
             }
 
             const isEditing = this.modalMode === 'edit';
-            const url = isEditing 
-                ? `${this.API_BASE_URL}/api/zonas/${this.currentZone.id}` 
+            const url = isEditing
+                ? `${this.API_BASE_URL}/api/zonas/${this.currentZone.id}`
                 : `${this.API_BASE_URL}/api/zonas`;
-            
+
             const method = isEditing ? 'PUT' : 'POST';
-            
+
             // Enviamos tanto nombre como descripción
-            const data = { 
+            const data = {
                 nombre: this.currentZone.nombre,
                 descripcion: this.currentZone.descripcion
             };
@@ -110,27 +110,27 @@ document.addEventListener('alpine:init', () => {
 
                 await this.loadZones(); // Recargamos la lista
                 this.closeModal();
-                
+
             } catch (err) {
                 this.error = `Error: ${err.message}`;
             }
         },
-        
+
         async deleteZone(zone) {
             if (confirm(`Are you sure you want to delete "${zone.nombre}"?`)) {
                 try {
                     const response = await fetch(`${this.API_BASE_URL}/api/zonas/${zone.id}`, { method: 'DELETE' });
-                    
+
                     if (!response.ok) {
                         const errorData = await response.json();
                         throw new Error(errorData.detail || 'Failed to delete zone');
                     }
-                    
+
                     // Actualizamos la lista localmente para que sea más rápido
                     this.zones = this.zones.filter(z => z.id !== zone.id);
 
                 } catch (err) {
-                    alert(`Error: ${err.message}`);
+                    showToast(`Error: ${err.message}`, 'danger');
                 }
             }
         }

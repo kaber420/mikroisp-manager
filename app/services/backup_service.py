@@ -1,99 +1,213 @@
-# app/services/backup_service.py
 import os
 import time
+import logging
 import paramiko
 from datetime import datetime
-from ..utils.device_clients.mikrotik.base import get_api_connection
-from ..db.router_db import get_router_by_host, get_router_status
+from ..db.router_db import get_routers_for_backup
 
-# Ruta base donde se guardarán los archivos
-BACKUP_BASE_DIR = os.path.join(os.getcwd(), "data", "backups")
+# Configura logger local
+logger = logging.getLogger("BackupService")
 
+BACKUP_BASE_DIR = os.path.join(os.getcwd(), "data")
 
-class BackupService:
-
-    def __init__(self):
-        # Asegurar que existen las carpetas base
-        os.makedirs(BACKUP_BASE_DIR, exist_ok=True)
-
-    def backup_router(self, host: str):
-        router_data = get_router_by_host(host)
-        if not router_data:
-            return {"status": "error", "message": "Router no encontrado"}
-
-        # 1. Preparar nombres y carpetas
-        zona_name = (
-            f"Zona_{router_data['zona_id']}" if router_data["zona_id"] else "Sin_Zona"
-        )
-        router_name = router_data["hostname"] or router_data["host"]
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-
-        # Crear carpeta de la zona si no existe: data/backups/Zona_1
-        save_path = os.path.join(BACKUP_BASE_DIR, zona_name)
-        os.makedirs(save_path, exist_ok=True)
-
-        backup_filename = f"{router_name}-{timestamp}.backup"
-        local_filepath = os.path.join(save_path, backup_filename)
-
-        temp_backup_name = "umonitor_auto_backup"  # Nombre temporal en el Mikrotik
-
-        api = None
-        ssh = None
+def run_backup_cycle():
+    """
+    Función principal llamada por el scheduler.
+    Recorre todos los routers y ejecuta el respaldo.
+    """
+    logger.info("Iniciando ciclo de respaldo de routers...")
+    routers = get_routers_for_backup()
+    
+    success_count = 0
+    fail_count = 0
+    
+    for router in routers:
         try:
-            # --- FASE 1: CREAR RESPALDO (Vía API) ---
-            api = get_api_connection(host)  # Usa tu función existente de conexión
-            # Comando: /system/backup/save name=umonitor_auto_backup
-            api.get_resource("/system/backup").call("save", {"name": temp_backup_name})
-
-            # Esperar un momento para asegurar que se escribió en disco del router
-            time.sleep(2)
-
-            # --- FASE 2: DESCARGAR POR SFTP (Vía Paramiko) ---
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-            # Nota: Usamos el puerto 22 por defecto para SFTP, o el que tengas configurado
-            ssh.connect(
-                hostname=router_data["host"],
-                username=router_data["username"],
-                password=router_data["password"],
-                port=22,  # Ojo: Si cambiaste el puerto SSH en Mikrotik, úsalo aquí
-                timeout=10,
-            )
-
-            sftp = ssh.open_sftp()
-            # Mikrotik guarda los backups en la raíz o en /flash/ dependiendo del modelo
-            remote_file = f"{temp_backup_name}.backup"
-
-            # Intentar descargar
-            try:
-                sftp.get(remote_file, local_filepath)
-            except FileNotFoundError:
-                # A veces en equipos nuevos es flash/nombre
-                sftp.get(f"flash/{remote_file}", local_filepath)
-
-            sftp.close()
-            ssh.close()
-
-            # --- FASE 3: LIMPIEZA (Vía API) ---
-            # Borrar el archivo del router para no ocupar espacio
-            # Primero hay que encontrar el ID del archivo
-            files_resource = api.get_resource("/file")
-            file_to_delete = files_resource.get(name=f"{temp_backup_name}.backup")
-            if file_to_delete:
-                files_resource.remove(id=file_to_delete[0]["id"])
-
-            return {
-                "status": "success",
-                "file": backup_filename,
-                "path": local_filepath,
-                "size_kb": os.path.getsize(local_filepath) / 1024,
-            }
-
+            result = process_router_backup(router)
+            if result["status"] == "success":
+                success_count += 1
+                logger.info(f"✅ Respaldo exitoso para {router['host']}: {result['files']}")
+            else:
+                fail_count += 1
+                logger.error(f"❌ Error en {router['host']}: {result['message']}")
         except Exception as e:
-            print(f"Error respaldando {host}: {e}")
-            return {"status": "error", "message": str(e)}
-        finally:
-            if ssh:
+            fail_count += 1
+            logger.error(f"❌ Excepción crítica procesando {router['host']}: {e}")
+            
+    logger.info(f"Ciclo de respaldo finalizado. Éxitos: {success_count}, Fallos: {fail_count}")
+
+
+def process_router_backup(router_data: dict):
+    """
+    Conecta por SSH, genera backup y export, descarga y limpia.
+    """
+    host = router_data["host"]
+    username = router_data["username"]
+    password = router_data["password"]
+    
+    # Estructura de carpetas: data/{Zona}/{NombreRouter}/
+    zona_name = router_data.get("zona_nombre", "Sin_Zona").replace(" ", "_").replace("/", "-")
+    router_name = (router_data.get("hostname") or host).replace(" ", "_").replace("/", "-")
+    
+    save_path = os.path.join(BACKUP_BASE_DIR, zona_name, router_name)
+    os.makedirs(save_path, exist_ok=True)
+    
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    base_filename = f"{router_name}-{timestamp}"
+    
+    # Nombres de archivos
+    backup_file_name = f"{base_filename}.backup"
+    export_file_name = f"{base_filename}.rsc"
+    
+    # Nombre temporal en el router
+    temp_name = "umanager_auto"
+    
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    
+    try:
+        # 1. Conectar SSH
+        ssh.connect(
+            hostname=host,
+            username=username,
+            password=password,
+            port=22, # Asumimos puerto estándar, podría agregarse a la DB
+            timeout=20
+        )
+        
+        # 2. Generar Backup Binario (.backup)
+        # /system backup save name=umanager_auto
+        stdin, stdout, stderr = ssh.exec_command(f"/system backup save name={temp_name}")
+        exit_status = stdout.channel.recv_exit_status()
+        if exit_status != 0:
+            return {"status": "error", "message": f"Fallo al crear backup binario: {stderr.read().decode()}"}
+        
+        # 3. Generar Export (.rsc)
+        # /export file=umanager_auto
+        # Nota: 'export' puede tardar y no siempre devuelve exit code 0 limpio en versiones viejas, pero probamos.
+        stdin, stdout, stderr = ssh.exec_command(f"/export file={temp_name}")
+        # Esperamos un poco porque export es lento
+        time.sleep(2) 
+        
+        # 4. Descargar archivos por SFTP
+        sftp = ssh.open_sftp()
+        downloaded_files = []
+        
+        # Descargar .backup
+        remote_backup = f"{temp_name}.backup"
+        local_backup = os.path.join(save_path, backup_file_name)
+        try:
+            # Intentar raíz
+            try:
+                sftp.get(remote_backup, local_backup)
+            except FileNotFoundError:
+                # Intentar flash/ (común en nuevos routers)
+                remote_backup = f"flash/{temp_name}.backup"
+                sftp.get(remote_backup, local_backup)
+            downloaded_files.append(backup_file_name)
+        except Exception as e:
+            logger.warning(f"No se pudo descargar .backup de {host}: {e}")
+
+        # Descargar .rsc
+        remote_export = f"{temp_name}.rsc"
+        local_export = os.path.join(save_path, export_file_name)
+        try:
+            try:
+                sftp.get(remote_export, local_export)
+            except FileNotFoundError:
+                remote_export = f"flash/{temp_name}.rsc"
+                sftp.get(remote_export, local_export)
+            downloaded_files.append(export_file_name)
+        except Exception as e:
+            logger.warning(f"No se pudo descargar .rsc de {host}: {e}")
+
+        sftp.close()
+        
+        # 5. Limpiar archivos remotos
+        # /file remove [find name~"umanager_auto"]
+        ssh.exec_command(f'/file remove [find name~"{temp_name}"]')
+        
+        ssh.close()
+        
+        if not downloaded_files:
+            return {"status": "error", "message": "No se descargó ningún archivo"}
+            
+        return {
+            "status": "success", 
+            "files": downloaded_files,
+            "path": save_path
+        }
+
+    except Exception as e:
+        if ssh:
+            ssh.close()
+        return {"status": "error", "message": str(e)}
+
+
+def save_file_to_server(host: str, username: str, password: str, remote_filename: str, 
+                        zona_name: str, hostname: str) -> dict:
+    """
+    Descarga un archivo específico del router al servidor local.
+    
+    Args:
+        host: IP del router
+        username: Usuario para SSH
+        password: Contraseña para SSH
+        remote_filename: Nombre del archivo en el router (ej: 'backup-2024.backup')
+        zona_name: Nombre de la zona para la estructura de carpetas
+        hostname: Nombre del router para la estructura de carpetas
+    
+    Returns:
+        dict con status y mensaje
+    """
+    # Limpiar nombres para rutas seguras
+    zona_folder = zona_name.replace(" ", "_").replace("/", "-")
+    router_folder = hostname.replace(" ", "_").replace("/", "-")
+    
+    save_path = os.path.join(BACKUP_BASE_DIR, zona_folder, router_folder)
+    os.makedirs(save_path, exist_ok=True)
+    
+    local_filepath = os.path.join(save_path, remote_filename)
+    
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    
+    try:
+        # Conectar SSH
+        ssh.connect(
+            hostname=host,
+            username=username,
+            password=password,
+            port=22,
+            timeout=20
+        )
+        
+        # Abrir SFTP y descargar
+        sftp = ssh.open_sftp()
+        
+        # Intentar descargar desde raíz primero, luego flash/
+        try:
+            sftp.get(remote_filename, local_filepath)
+        except FileNotFoundError:
+            # Intentar en flash/ (común en algunos modelos)
+            try:
+                sftp.get(f"flash/{remote_filename}", local_filepath)
+            except FileNotFoundError:
+                sftp.close()
                 ssh.close()
-            # La API se cierra sola o depende de tu implementación de pool
+                return {"status": "error", "message": f"Archivo '{remote_filename}' no encontrado en el router"}
+        
+        sftp.close()
+        ssh.close()
+        
+        return {
+            "status": "success",
+            "message": f"Archivo guardado en servidor",
+            "local_path": local_filepath,
+            "filename": remote_filename
+        }
+        
+    except Exception as e:
+        if ssh:
+            ssh.close()
+        return {"status": "error", "message": str(e)}

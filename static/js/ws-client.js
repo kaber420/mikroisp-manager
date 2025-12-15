@@ -37,8 +37,11 @@ document.addEventListener('DOMContentLoaded', () => {
         ws.onmessage = (event) => {
             const message = JSON.parse(event.data);
             console.log('WebSocket message received:', message);
-            // Handle incoming messages (e.g., update dashboard data)
-            // Example: if (message.type === 'update') { updateDashboard(message.data); }
+
+            // Cuando el monitor termina un ciclo, notifica a todos los componentes
+            if (message.type === 'db_updated') {
+                window.dispatchEvent(new CustomEvent('data-refresh-needed'));
+            }
         };
 
         ws.onclose = (event) => {

@@ -2,7 +2,7 @@
 import logging
 from typing import Dict, Any
 
-from ..utils.device_clients.client_provider import get_ubiquiti_client
+from ..utils.device_clients.adapter_factory import get_device_adapter
 from ..services.router_service import (
     RouterService,
     RouterConnectionError,
@@ -23,7 +23,7 @@ from ..db.router_db import (
     get_enabled_routers_from_db,
     get_router_by_host,
 )
-from ..db.stats_db import save_full_snapshot
+from ..db.stats_db import save_full_snapshot, save_device_stats
 from ..db.logs_db import add_event_log
 
 logger = logging.getLogger(__name__)
@@ -39,41 +39,56 @@ class MonitorService:
         }
 
     def check_ap(self, ap_config: Dict[str, Any]):
-        """Verifica el estado de un AP, guarda estadísticas y envía alertas si cambia."""
+        """Verifica el estado de un AP usando adaptadores, guarda estadísticas y envía alertas."""
         host = ap_config["host"]
-        logger.info(f"--- Verificando AP en {host} ---")
+        vendor = ap_config.get("vendor", "ubiquiti")
+        logger.info(f"--- Verificando AP en {host} (vendor: {vendor}) ---")
 
         try:
-            client = get_ubiquiti_client(
+            # Get the appropriate adapter based on vendor
+            port = ap_config.get("api_port") or (443 if vendor == "ubiquiti" else 8729)
+            
+            adapter = get_device_adapter(
                 host=host,
                 username=ap_config["username"],
                 password=ap_config["password"],
-                port=ap_config.get("port", 443),
-                http_mode=ap_config.get("http_mode", False),
+                vendor=vendor,
+                port=port,
             )
+            
+            try:
+                status = adapter.get_status()
+                previous_status = get_ap_status(host)
 
-            status_data = client.get_status_data()
-            previous_status = get_ap_status(host)
+                if status and status.is_online:
+                    current_status = "online"
+                    hostname = status.hostname or host
+                    logger.info(f"Estado de '{hostname}' ({host}): ONLINE")
 
-            if status_data:
-                current_status = "online"
-                hostname = status_data.get("host", {}).get("hostname", host)
-                logger.info(f"Estado de '{hostname}' ({host}): ONLINE")
+                    # Save stats using the new vendor-agnostic function
+                    save_device_stats(host, status, vendor=vendor)
+                    
+                    # Update AP status
+                    update_ap_status(host, current_status, data={
+                        "hostname": status.hostname,
+                        "model": status.model,
+                        "firmware": status.firmware,
+                        "mac": status.mac,
+                    })
 
-                save_full_snapshot(host, status_data)
-                update_ap_status(host, current_status, data=status_data)
-
-                if previous_status == "offline":
-                    message = f"✅ *AP RECUPERADO*\n\nEl AP *{hostname}* (`{host}`) ha vuelto a estar en línea."
-                    add_event_log(
-                        host,
-                        "ap",
-                        "success",
-                        f"El AP {hostname} ({host}) está en línea nuevamente.",
-                    )
-                    send_telegram_alert(message)
-            else:
-                self._handle_offline_ap(host, previous_status)
+                    if previous_status == "offline":
+                        message = f"✅ *AP RECUPERADO*\n\nEl AP *{hostname}* (`{host}`) ha vuelto a estar en línea."
+                        add_event_log(
+                            host,
+                            "ap",
+                            "success",
+                            f"El AP {hostname} ({host}) está en línea nuevamente.",
+                        )
+                        send_telegram_alert(message)
+                else:
+                    self._handle_offline_ap(host, get_ap_status(host))
+            finally:
+                adapter.disconnect()
 
         except Exception as e:
             logger.error(f"Error procesando AP {host}: {e}")
