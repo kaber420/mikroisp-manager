@@ -116,6 +116,54 @@ def save_device_stats(ap_host: str, status: "DeviceStatus", vendor: str = "ubiqu
     finally:
         if conn:
             conn.close()
+    
+    # Also update the CPE inventory table (main inventory DB)
+    _update_cpe_inventory_from_status(status)
+
+
+
+def _update_cpe_inventory_from_status(status: "DeviceStatus"):
+    """
+    Updates the CPE inventory table from a DeviceStatus object.
+    Works with any vendor (Ubiquiti, MikroTik, etc.)
+    """
+    from ..utils.device_clients.adapters.base import DeviceStatus
+    
+    if not status.clients:
+        return
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    now = datetime.utcnow()
+    
+    try:
+        for client in status.clients:
+            cursor.execute(
+                """
+                INSERT INTO cpes (mac, hostname, model, firmware, ip_address, first_seen, last_seen)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(mac) DO UPDATE SET
+                    hostname = COALESCE(excluded.hostname, hostname),
+                    model = COALESCE(excluded.model, model),
+                    firmware = COALESCE(excluded.firmware, firmware),
+                    ip_address = COALESCE(excluded.ip_address, ip_address),
+                    last_seen = excluded.last_seen
+                """,
+                (
+                    client.mac,
+                    client.hostname,
+                    client.extra.get("model") or client.extra.get("platform"),
+                    client.extra.get("firmware") or client.extra.get("version"),
+                    client.ip_address,
+                    now,
+                    now,
+                ),
+            )
+        conn.commit()
+    except Exception as e:
+        print(f"Error updating CPE inventory: {e}")
+    finally:
+        conn.close()
 
 
 def _update_cpe_inventory(data: dict):
