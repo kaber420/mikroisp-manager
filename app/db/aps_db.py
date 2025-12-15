@@ -15,18 +15,22 @@ from ..utils.security import encrypt_data, decrypt_data  # <-- LÍNEA CAMBIADA
 def get_enabled_aps_for_monitor() -> list:
     """
     Obtiene la lista de APs activos desde la BD y descifra sus contraseñas.
+    Includes vendor and api_port for multi-vendor adapter support.
     """
     aps_to_monitor = []
     try:
         conn = get_db_connection()
         cursor = conn.execute(
-            "SELECT host, username, password FROM aps WHERE is_enabled = TRUE"
+            "SELECT host, username, password, vendor, api_port FROM aps WHERE is_enabled = TRUE"
         )
 
         for row in cursor.fetchall():
             creds = dict(row)
             # --- CAMBIO: Descifrar la contraseña ---
             creds["password"] = decrypt_data(creds["password"])
+            # Default vendor to ubiquiti for backwards compatibility
+            if not creds.get("vendor"):
+                creds["vendor"] = "ubiquiti"
             aps_to_monitor.append(creds)
 
         conn.close()
@@ -53,9 +57,25 @@ def update_ap_status(host: str, status: str, data: Optional[Dict[str, Any]] = No
     now = datetime.utcnow()
 
     if status == "online" and data:
-        host_info = data.get("host", {})
-        interfaces = data.get("interfaces", [{}, {}])
-        mac = interfaces[1].get("hwaddr") if len(interfaces) > 1 else None
+        # Support both legacy Ubiquiti format and new adapter format
+        # Legacy format: data = {"host": {"hostname": ..., "devmodel": ...}, "interfaces": [...]}
+        # New format: data = {"hostname": ..., "model": ..., "mac": ..., "firmware": ...}
+        
+        if "host" in data and isinstance(data.get("host"), dict):
+            # Legacy Ubiquiti format
+            host_info = data.get("host", {})
+            interfaces = data.get("interfaces", [{}, {}])
+            mac = interfaces[1].get("hwaddr") if len(interfaces) > 1 else None
+            hostname = host_info.get("hostname")
+            model = host_info.get("devmodel")
+            firmware = host_info.get("fwversion")
+        else:
+            # New adapter format (flat dict)
+            mac = data.get("mac")
+            hostname = data.get("hostname")
+            model = data.get("model")
+            firmware = data.get("firmware")
+        
         cursor.execute(
             """
         UPDATE aps 
@@ -64,9 +84,9 @@ def update_ap_status(host: str, status: str, data: Optional[Dict[str, Any]] = No
         """,
             (
                 mac,
-                host_info.get("hostname"),
-                host_info.get("devmodel"),
-                host_info.get("fwversion"),
+                hostname,
+                model,
+                firmware,
                 status,
                 now,
                 now,

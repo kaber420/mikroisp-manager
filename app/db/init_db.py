@@ -350,6 +350,34 @@ def _setup_stats_db():
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_event_logs_host ON event_logs (device_host);"
     )
+    
+    # --- MIGRATIONS ---
+    # Add vendor column to ap_stats_history if not exists
+    ap_stats_columns = [
+        col[1] for col in cursor.execute("PRAGMA table_info(ap_stats_history)").fetchall()
+    ]
+    if "vendor" not in ap_stats_columns:
+        print("Migrando ap_stats_history: Agregando columna vendor...")
+        cursor.execute("ALTER TABLE ap_stats_history ADD COLUMN vendor TEXT DEFAULT 'ubiquiti';")
+    
+    # Add vendor column to cpe_stats_history if not exists
+    cpe_stats_columns = [
+        col[1] for col in cursor.execute("PRAGMA table_info(cpe_stats_history)").fetchall()
+    ]
+    if "vendor" not in cpe_stats_columns:
+        print("Migrando cpe_stats_history: Agregando columna vendor...")
+        cursor.execute("ALTER TABLE cpe_stats_history ADD COLUMN vendor TEXT DEFAULT 'ubiquiti';")
+    
+    # Add ccq and tx_rate/rx_rate columns for MikroTik clients
+    if "ccq" not in cpe_stats_columns:
+        print("Migrando cpe_stats_history: Agregando columna ccq...")
+        cursor.execute("ALTER TABLE cpe_stats_history ADD COLUMN ccq INTEGER;")
+    if "tx_rate" not in cpe_stats_columns:
+        print("Migrando cpe_stats_history: Agregando columna tx_rate...")
+        cursor.execute("ALTER TABLE cpe_stats_history ADD COLUMN tx_rate INTEGER;")
+    if "rx_rate" not in cpe_stats_columns:
+        print("Migrando cpe_stats_history: Agregando columna rx_rate...")
+        cursor.execute("ALTER TABLE cpe_stats_history ADD COLUMN rx_rate INTEGER;")
 
     stats_conn.commit()
     stats_conn.close()

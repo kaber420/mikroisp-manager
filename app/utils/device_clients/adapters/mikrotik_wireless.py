@@ -182,6 +182,7 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                 try:
                     wireless_interfaces = api.get_resource(wireless_path).get()
                     if wireless_interfaces:
+                        # Use first interface for basic info (SSID, MAC, etc.)
                         wlan = wireless_interfaces[0]
                         interface_name = wlan.get("name") or wlan.get("default-name")
                         
@@ -247,8 +248,34 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                             "tx_power": tx_power,
                         }
                         logger.debug(f"Parsed wireless_info: {wireless_info}")
+                        
+                        # Get AGGREGATE throughput from ALL wireless interfaces
+                        total_tx_throughput_kbps = 0.0
+                        total_rx_throughput_kbps = 0.0
+                        
+                        for wlan_iface in wireless_interfaces:
+                            iface_name = wlan_iface.get("name") or wlan_iface.get("default-name")
+                            if iface_name:
+                                try:
+                                    traffic_result = api.get_resource("/interface").call(
+                                        "monitor-traffic", {"interface": iface_name, "once": ""}
+                                    )
+                                    if traffic_result:
+                                        traffic_data = traffic_result[0] if isinstance(traffic_result, list) else traffic_result
+                                        tx_kbps = self._parse_throughput_bps(traffic_data.get("tx-bits-per-second")) or 0
+                                        rx_kbps = self._parse_throughput_bps(traffic_data.get("rx-bits-per-second")) or 0
+                                        total_tx_throughput_kbps += tx_kbps
+                                        total_rx_throughput_kbps += rx_kbps
+                                        logger.debug(f"Interface {iface_name}: tx={tx_kbps}kbps, rx={rx_kbps}kbps")
+                                except Exception as e:
+                                    logger.debug(f"Could not get interface traffic for {iface_name}: {e}")
+                        
+                        wireless_info["tx_throughput_kbps"] = total_tx_throughput_kbps if total_tx_throughput_kbps > 0 else None
+                        wireless_info["rx_throughput_kbps"] = total_rx_throughput_kbps if total_rx_throughput_kbps > 0 else None
+                        logger.debug(f"Total AP throughput: tx={total_tx_throughput_kbps}kbps, rx={total_rx_throughput_kbps}kbps")
                 except Exception as e:
                     logger.warning(f"Could not get wireless interface info: {e}")
+
             
             # Get connected clients
             clients = self._get_clients_internal(api)
@@ -293,6 +320,8 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                 client_count=len(clients),
                 tx_bytes=total_tx_bytes if total_tx_bytes > 0 else None,
                 rx_bytes=total_rx_bytes if total_rx_bytes > 0 else None,
+                tx_throughput=int(wireless_info.get("tx_throughput_kbps") or 0) or None,
+                rx_throughput=int(wireless_info.get("rx_throughput_kbps") or 0) or None,
                 clients=clients,
                 extra={
                     "cpu_load": system_data.get("cpu-load"),
@@ -330,8 +359,19 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
             reg_path = self._get_registration_table_path()
             if not reg_path:
                 return []
-                
-            registrations = api.get_resource(reg_path).get()
+            
+            # Get registration table with stats for throughput data
+            # For ROS7 wifi, we need to use call with stats or proplist
+            registrations = []
+            try:
+                # Try to get with stats (ROS7 wifi)
+                registrations = api.get_resource(reg_path).call("print", {"stats": ""})
+                logger.debug(f"Got registrations with stats: {len(registrations)} clients")
+            except Exception as e:
+                logger.debug(f"Stats call failed: {e}, using regular get")
+                # Fallback to regular get
+                registrations = api.get_resource(reg_path).get()
+            
             clients = []
             
             for reg in registrations:
@@ -339,6 +379,10 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                 tx_rate = self._parse_rate(reg.get("tx-rate"))
                 rx_rate = self._parse_rate(reg.get("rx-rate"))
                 tx_bytes, rx_bytes = self._parse_bytes(reg.get("bytes"))
+                
+                # Parse throughput from stats fields (in bits per second, convert to kbps)
+                tx_throughput_kbps = self._parse_throughput_bps(reg.get("tx-bits-per-second"))
+                rx_throughput_kbps = self._parse_throughput_bps(reg.get("rx-bits-per-second"))
                 
                 clients.append(ConnectedClient(
                     mac=reg.get("mac-address"),
@@ -350,6 +394,8 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                     ccq=self._parse_int(reg.get("tx-ccq") or reg.get("ccq")),
                     tx_bytes=tx_bytes,
                     rx_bytes=rx_bytes,
+                    tx_throughput_kbps=int(tx_throughput_kbps) if tx_throughput_kbps else None,
+                    rx_throughput_kbps=int(rx_throughput_kbps) if rx_throughput_kbps else None,
                     uptime=self._parse_uptime(reg.get("uptime", "0s")),
                     interface=reg.get("interface"),
                     extra={
@@ -359,6 +405,8 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                         "noise_floor": reg.get("noise-floor"),
                         "p_throughput": reg.get("p-throughput"),
                         "distance": reg.get("distance"),
+                        "band": reg.get("band"),
+                        "auth_type": reg.get("auth-type"),
                     }
                 ))
             
@@ -500,3 +548,44 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
             return int(value)
         except (ValueError, TypeError):
             return None
+    
+    def _parse_throughput_bps(self, throughput_str: Optional[str]) -> Optional[float]:
+        """
+        Parse throughput string to kbps.
+        Handles both:
+        - Raw bps numbers: '1032104' -> 1032.104 kbps
+        - Formatted strings: '2.7Mbps', '89.1kbps', '0bps'
+        Returns throughput in kbps (kilobits per second).
+        """
+        if not throughput_str:
+            return None
+        try:
+            import re
+            throughput_str = str(throughput_str).strip()
+            
+            # First try: if it's a plain number, treat as bps
+            if throughput_str.isdigit() or (throughput_str.replace('.', '', 1).isdigit()):
+                value_bps = float(throughput_str)
+                return value_bps / 1000.0  # Convert bps to kbps
+            
+            # Second try: Pattern matches numbers (with optional decimals) and unit
+            match = re.match(r"([\d.]+)\s*(Gbps|Mbps|kbps|bps)", throughput_str, re.IGNORECASE)
+            if not match:
+                return None
+            
+            value = float(match.group(1))
+            unit = match.group(2).lower()
+            
+            # Convert to kbps
+            if unit == "gbps":
+                return value * 1_000_000
+            elif unit == "mbps":
+                return value * 1_000
+            elif unit == "kbps":
+                return value
+            elif unit == "bps":
+                return value / 1_000
+            return None
+        except (ValueError, AttributeError):
+            return None
+
