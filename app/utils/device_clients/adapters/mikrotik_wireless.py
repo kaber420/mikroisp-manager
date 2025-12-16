@@ -5,7 +5,6 @@ Reuses the existing MikroTik connection infrastructure for efficiency.
 Supports both legacy 'wireless' and new 'wifi/wifiwave2' packages.
 """
 
-import ssl
 import logging
 from typing import List, Optional, Dict, Any
 
@@ -15,52 +14,9 @@ from routeros_api.api import RouterOsApi
 from .base import BaseDeviceAdapter, DeviceStatus, ConnectedClient
 # Reuse existing MikroTik utilities
 from ..mikrotik import system as mikrotik_system
+from ..mikrotik import connection as mikrotik_connection
 
 logger = logging.getLogger(__name__)
-
-# Connection cache for MikroTik devices (similar to how routers work)
-# Key: (host, port, username), Value: RouterOsApiPool
-_mikrotik_pool_cache: Dict[tuple, RouterOsApiPool] = {}
-
-
-def _get_cached_pool(host: str, username: str, password: str, port: int) -> RouterOsApiPool:
-    """
-    Get or create a cached connection pool for a MikroTik device.
-    This prevents creating new SSL connections on every request.
-    """
-    cache_key = (host, port, username)
-    
-    if cache_key not in _mikrotik_pool_cache:
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-        
-        _mikrotik_pool_cache[cache_key] = RouterOsApiPool(
-            host,
-            username=username,
-            password=password,
-            port=port,
-            use_ssl=True,
-            ssl_context=ssl_context,
-            plaintext_login=True,
-        )
-        logger.debug(f"Created new MikroTik pool for {host}:{port}")
-    
-    return _mikrotik_pool_cache[cache_key]
-
-
-def remove_cached_pool(host: str, port: int = 8729, username: str = None):
-    """Remove a cached pool (e.g., when credentials change)."""
-    keys_to_remove = [
-        key for key in _mikrotik_pool_cache 
-        if key[0] == host and (port is None or key[1] == port)
-    ]
-    for key in keys_to_remove:
-        try:
-            _mikrotik_pool_cache[key].disconnect()
-        except Exception:
-            pass
-        del _mikrotik_pool_cache[key]
 
 
 class MikrotikWirelessAdapter(BaseDeviceAdapter):
@@ -98,8 +54,8 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
         if self._external_api:
             return self._external_api
         
-        # Use cached pool (efficient - reuses connection)
-        pool = _get_cached_pool(self.host, self.username, self.password, self.port)
+        # Use centralized connection manager (efficient - reuses connection)
+        pool = mikrotik_connection.get_pool(self.host, self.username, self.password, self.port)
         self._own_pool = True
         return pool.get_api()
     
@@ -337,7 +293,7 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
         except Exception as e:
             logger.error(f"Error getting status from {self.host}: {e}")
             # On error, invalidate the cached pool so next request creates fresh connection
-            remove_cached_pool(self.host, self.port)
+            mikrotik_connection.remove_pool(self.host, self.port)
             return DeviceStatus(
                 host=self.host,
                 vendor=self.vendor,
@@ -430,7 +386,7 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
         except Exception as e:
             logger.error(f"Connection test failed for {self.host}: {e}")
             # Invalidate cache on failure
-            remove_cached_pool(self.host, self.port)
+            mikrotik_connection.remove_pool(self.host, self.port)
             return False
     
     def disconnect(self):

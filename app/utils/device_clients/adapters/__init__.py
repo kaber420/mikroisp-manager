@@ -6,7 +6,7 @@ Contains vendor-specific adapters for APs and Switches.
 
 from .base import BaseDeviceAdapter, DeviceStatus, ConnectedClient
 from .ubiquiti_airmax import UbiquitiAirmaxAdapter
-from .mikrotik_wireless import MikrotikWirelessAdapter, remove_cached_pool
+from .mikrotik_wireless import MikrotikWirelessAdapter
 
 __all__ = [
     "BaseDeviceAdapter",
@@ -14,7 +14,6 @@ __all__ = [
     "ConnectedClient",
     "UbiquitiAirmaxAdapter",
     "MikrotikWirelessAdapter",
-    "remove_cached_pool",
 ]
 
 

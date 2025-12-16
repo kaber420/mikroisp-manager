@@ -1,5 +1,4 @@
 # app/services/router_service.py
-import ssl
 import logging
 from typing import Dict, Any, List, Optional
 from routeros_api import RouterOsApiPool
@@ -9,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from ..models.router import Router
 from ..utils.security import encrypt_data, decrypt_data
-from ..utils.device_clients.mikrotik import system, ip, firewall, queues, ppp
+from ..utils.device_clients.mikrotik import system, ip, firewall, queues, ppp, connection as mikrotik_connection
 from ..utils.device_clients.mikrotik.interfaces import MikrotikInterfaceManager
 
 logger = logging.getLogger(__name__)
@@ -48,28 +47,27 @@ class RouterService:
         self.pool = self._create_pool()
 
     def _create_pool(self) -> RouterOsApiPool:
-        """Crea y devuelve un pool de conexiones SSL."""
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-
+        """Obtiene un pool de conexiones del manager centralizado."""
         # Decrypt password if not provided
         password = self.decrypted_password if self.decrypted_password else decrypt_data(self.creds.password)
         
-        return RouterOsApiPool(
-            self.host,
+        return mikrotik_connection.get_pool(
+            host=self.host,
             username=self.creds.username,
             password=password,
             port=self.creds.api_ssl_port,
-            use_ssl=True,
-            ssl_context=ssl_context,
-            plaintext_login=True,
         )
 
     def disconnect(self):
-        """Cierra el pool de conexiones."""
-        if self.pool:
-            self.pool.disconnect()
+        """
+        Libera la referencia al pool de conexiones.
+        
+        Nota: El pool en sí NO se cierra ya que es compartido y cacheado
+        por el MikrotikConnectionManager. Otros servicios pueden estar usándolo.
+        Para forzar la desconexión (ej. cambio de credenciales), usar:
+            mikrotik_connection.remove_pool(host, port)
+        """
+        self.pool = None
 
     def __enter__(self):
         return self
