@@ -16,6 +16,7 @@ from .base import BaseDeviceAdapter, DeviceStatus, ConnectedClient
 from ..mikrotik import system as mikrotik_system
 from ..mikrotik import connection as mikrotik_connection
 from ..mikrotik.interfaces import MikrotikInterfaceManager
+from ..mikrotik import parsers as mikrotik_parsers
 
 logger = logging.getLogger(__name__)
 
@@ -200,7 +201,7 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                             "channel_width": channel_width,
                             "mac": mac or system_mac,
                             "mode": mode,
-                            "noise_floor": self._parse_signal(wlan.get("noise-floor")),
+                            "noise_floor": mikrotik_parsers.parse_signal(wlan.get("noise-floor")),
                             "tx_power": tx_power,
                         }
                         logger.debug(f"Parsed wireless_info: {wireless_info}")
@@ -218,8 +219,8 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                                     )
                                     if traffic_result:
                                         traffic_data = traffic_result[0] if isinstance(traffic_result, list) else traffic_result
-                                        tx_kbps = self._parse_throughput_bps(traffic_data.get("tx-bits-per-second")) or 0
-                                        rx_kbps = self._parse_throughput_bps(traffic_data.get("rx-bits-per-second")) or 0
+                                        tx_kbps = mikrotik_parsers.parse_throughput_bps(traffic_data.get("tx-bits-per-second")) or 0
+                                        rx_kbps = mikrotik_parsers.parse_throughput_bps(traffic_data.get("rx-bits-per-second")) or 0
                                         total_tx_throughput_kbps += tx_kbps
                                         total_rx_throughput_kbps += rx_kbps
                                         logger.debug(f"Interface {iface_name}: tx={tx_kbps}kbps, rx={rx_kbps}kbps")
@@ -257,7 +258,7 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
             noise_floor = wireless_info.get("noise_floor") or avg_noise_floor
             
             # Parse uptime from system data
-            uptime_seconds = self._parse_uptime(system_data.get("uptime", "0s"))
+            uptime_seconds = mikrotik_parsers.parse_uptime(system_data.get("uptime", "0s"))
             
             return DeviceStatus(
                 host=self.host,
@@ -269,8 +270,8 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                 firmware=system_data.get("version"),
                 uptime=uptime_seconds,
                 is_online=True,
-                frequency=self._parse_frequency(wireless_info.get("frequency")),
-                channel_width=self._parse_channel_width(wireless_info.get("channel_width")),
+                frequency=mikrotik_parsers.parse_frequency(wireless_info.get("frequency")),
+                channel_width=mikrotik_parsers.parse_channel_width(wireless_info.get("channel_width")),
                 essid=wireless_info.get("ssid"),
                 noise_floor=noise_floor,
                 client_count=len(clients),
@@ -331,14 +332,14 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
             clients = []
             
             for reg in registrations:
-                signal = self._parse_signal(reg.get("signal-strength") or reg.get("signal"))
-                tx_rate = self._parse_rate(reg.get("tx-rate"))
-                rx_rate = self._parse_rate(reg.get("rx-rate"))
-                tx_bytes, rx_bytes = self._parse_bytes(reg.get("bytes"))
+                signal = mikrotik_parsers.parse_signal(reg.get("signal-strength") or reg.get("signal"))
+                tx_rate = mikrotik_parsers.parse_rate(reg.get("tx-rate"))
+                rx_rate = mikrotik_parsers.parse_rate(reg.get("rx-rate"))
+                tx_bytes, rx_bytes = mikrotik_parsers.parse_bytes(reg.get("bytes"))
                 
                 # Parse throughput from stats fields (in bits per second, convert to kbps)
-                tx_throughput_kbps = self._parse_throughput_bps(reg.get("tx-bits-per-second"))
-                rx_throughput_kbps = self._parse_throughput_bps(reg.get("rx-bits-per-second"))
+                tx_throughput_kbps = mikrotik_parsers.parse_throughput_bps(reg.get("tx-bits-per-second"))
+                rx_throughput_kbps = mikrotik_parsers.parse_throughput_bps(reg.get("rx-bits-per-second"))
                 
                 clients.append(ConnectedClient(
                     mac=reg.get("mac-address"),
@@ -347,12 +348,12 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                     signal=signal,
                     tx_rate=tx_rate,
                     rx_rate=rx_rate,
-                    ccq=self._parse_int(reg.get("tx-ccq") or reg.get("ccq")),
+                    ccq=mikrotik_parsers.parse_int(reg.get("tx-ccq") or reg.get("ccq")),
                     tx_bytes=tx_bytes,
                     rx_bytes=rx_bytes,
                     tx_throughput_kbps=int(tx_throughput_kbps) if tx_throughput_kbps else None,
                     rx_throughput_kbps=int(rx_throughput_kbps) if rx_throughput_kbps else None,
-                    uptime=self._parse_uptime(reg.get("uptime", "0s")),
+                    uptime=mikrotik_parsers.parse_uptime(reg.get("uptime", "0s")),
                     interface=reg.get("interface"),
                     extra={
                         "rx_signal": reg.get("signal-strength"),
@@ -410,138 +411,7 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
         pass
     
     # --- Helper methods ---
-    
-    def _parse_uptime(self, uptime_str: str) -> int:
-        """Parse RouterOS uptime string to seconds."""
-        if not uptime_str:
-            return 0
-        
-        seconds = 0
-        import re
-        
-        weeks = re.search(r"(\d+)w", uptime_str)
-        days = re.search(r"(\d+)d", uptime_str)
-        hours = re.search(r"(\d+)h", uptime_str)
-        minutes = re.search(r"(\d+)m", uptime_str)
-        secs = re.search(r"(\d+)s", uptime_str)
-        
-        if weeks:
-            seconds += int(weeks.group(1)) * 7 * 24 * 3600
-        if days:
-            seconds += int(days.group(1)) * 24 * 3600
-        if hours:
-            seconds += int(hours.group(1)) * 3600
-        if minutes:
-            seconds += int(minutes.group(1)) * 60
-        if secs:
-            seconds += int(secs.group(1))
-        
-        return seconds
-    
-    def _parse_frequency(self, freq_str: Optional[str]) -> Optional[int]:
-        """Parse frequency string to MHz."""
-        if not freq_str:
-            return None
-        try:
-            import re
-            match = re.search(r"(\d+)", str(freq_str))
-            return int(match.group(1)) if match else None
-        except (ValueError, AttributeError):
-            return None
-    
-    def _parse_channel_width(self, width_str: Optional[str]) -> Optional[int]:
-        """Parse channel width string to MHz."""
-        if not width_str:
-            return None
-        try:
-            import re
-            match = re.search(r"(\d+)", str(width_str))
-            return int(match.group(1)) if match else None
-        except (ValueError, AttributeError):
-            return None
-    
-    def _parse_signal(self, signal_str: Optional[str]) -> Optional[int]:
-        """Parse signal strength string to dBm."""
-        if not signal_str:
-            return None
-        try:
-            import re
-            match = re.search(r"(-?\d+)", str(signal_str))
-            return int(match.group(1)) if match else None
-        except (ValueError, AttributeError):
-            return None
-    
-    def _parse_rate(self, rate_str: Optional[str]) -> Optional[int]:
-        """Parse rate string to Mbps."""
-        if not rate_str:
-            return None
-        try:
-            import re
-            match = re.search(r"(\d+)", str(rate_str))
-            return int(match.group(1)) if match else None
-        except (ValueError, AttributeError):
-            return None
-    
-    def _parse_bytes(self, bytes_str: Optional[str]) -> tuple:
-        """Parse bytes string which may be 'rx,tx' format."""
-        if not bytes_str:
-            return None, None
-        try:
-            if "," in str(bytes_str):
-                parts = str(bytes_str).split(",")
-                rx = self._parse_int(parts[0]) if len(parts) > 0 else None
-                tx = self._parse_int(parts[1]) if len(parts) > 1 else None
-                return tx, rx
-            return None, None
-        except Exception:
-            return None, None
-    
-    def _parse_int(self, value: Optional[str]) -> Optional[int]:
-        """Safely parse an integer from string."""
-        if value is None:
-            return None
-        try:
-            return int(value)
-        except (ValueError, TypeError):
-            return None
-    
-    def _parse_throughput_bps(self, throughput_str: Optional[str]) -> Optional[float]:
-        """
-        Parse throughput string to kbps.
-        Handles both:
-        - Raw bps numbers: '1032104' -> 1032.104 kbps
-        - Formatted strings: '2.7Mbps', '89.1kbps', '0bps'
-        Returns throughput in kbps (kilobits per second).
-        """
-        if not throughput_str:
-            return None
-        try:
-            import re
-            throughput_str = str(throughput_str).strip()
-            
-            # First try: if it's a plain number, treat as bps
-            if throughput_str.isdigit() or (throughput_str.replace('.', '', 1).isdigit()):
-                value_bps = float(throughput_str)
-                return value_bps / 1000.0  # Convert bps to kbps
-            
-            # Second try: Pattern matches numbers (with optional decimals) and unit
-            match = re.match(r"([\d.]+)\s*(Gbps|Mbps|kbps|bps)", throughput_str, re.IGNORECASE)
-            if not match:
-                return None
-            
-            value = float(match.group(1))
-            unit = match.group(2).lower()
-            
-            # Convert to kbps
-            if unit == "gbps":
-                return value * 1_000_000
-            elif unit == "mbps":
-                return value * 1_000
-            elif unit == "kbps":
-                return value
-            elif unit == "bps":
-                return value / 1_000
-            return None
-        except (ValueError, AttributeError):
-            return None
+    # NOTE: Parsing logic has been centralized in app/utils/device_clients/mikrotik/parsers.py
+    # Use mikrotik_parsers.parse_* functions instead of private methods.
+
 
