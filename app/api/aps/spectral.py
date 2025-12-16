@@ -12,10 +12,10 @@ import threading
 from typing import Optional, List
 from queue import Queue, Empty
 
-import paramiko
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Cookie, status
 
 from ...db.aps_db import get_ap_by_host_with_stats, get_ap_credentials
+from ...utils.device_clients.mikrotik.ssh_client import MikrotikSSHClient
 
 logger = logging.getLogger(__name__)
 
@@ -29,14 +29,14 @@ SPECTRAL_PATTERN = re.compile(r"^\s*(\d+\.?\d*)\s+(-?\d+)\s+(-?\d+)")
 class SpectralScanManager:
     """
     Manages SSH connection and spectral-scan command execution for MikroTik devices.
-    Uses a background thread to read SSH output and queue data points.
+    Uses (reusable) MikrotikSSHClient and a background thread to read SSH output.
     """
     
     def __init__(self, host: str, username: str, password: str):
         self.host = host
         self.username = username
         self.password = password
-        self.client: Optional[paramiko.SSHClient] = None
+        self._ssh_client: Optional[MikrotikSSHClient] = None
         self.channel = None
         self._running = False
         self._data_queue = Queue()
@@ -45,23 +45,20 @@ class SpectralScanManager:
         self._interface_name = None
     
     def connect(self) -> bool:
-        """Establish SSH connection to the device."""
-        try:
-            self.client = paramiko.SSHClient()
-            self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            self.client.connect(
-                self.host,
-                username=self.username,
-                password=self.password,
-                timeout=5,  # Reduced from 10 for faster connection
-                look_for_keys=False,
-                allow_agent=False,
-                banner_timeout=5  # Faster banner timeout
-            )
+        """Establish SSH connection to the device using reusable client."""
+        self._ssh_client = MikrotikSSHClient(
+            host=self.host,
+            username=self.username,
+            password=self.password,
+            port=22,
+            connect_timeout=5,
+            banner_timeout=5
+        )
+        if self._ssh_client.connect():
             logger.info(f"[SpectralScan] SSH connected to {self.host}")
             return True
-        except Exception as e:
-            logger.error(f"SSH connection failed for {self.host}: {e}")
+        else:
+            logger.error(f"[SpectralScan] SSH connection failed for {self.host}")
             return False
     
     # NOTE: _detect_wireless_interface and get_all_interfaces were removed.
@@ -142,7 +139,7 @@ class SpectralScanManager:
             interface: Interface to scan (e.g., 'wifi1'). Required.
             duration_seconds: Scan duration in seconds. Max 300 (5 min) for safety.
         """
-        if not self.client:
+        if not self._ssh_client or not self._ssh_client.is_connected():
             return False, "No conectado"
         
         if not interface:
@@ -176,7 +173,7 @@ class SpectralScanManager:
             logger.info(f"[SpectralScan] Ejecutando: {cmd}")
             
             # Use exec_command which bypasses the interactive shell (no banner)
-            stdin, stdout, stderr = self.client.exec_command(
+            stdin, stdout, stderr = self._ssh_client.exec_command(
                 cmd,
                 get_pty=True,
                 timeout=None
@@ -245,12 +242,9 @@ class SpectralScanManager:
         if self._reader_thread and self._reader_thread.is_alive():
             self._reader_thread.join(timeout=2)
         
-        if self.client:
-            try:
-                self.client.close()
-                logger.info(f"[SpectralScan] SSH connection closed for {self.host}")
-            except:
-                pass
+        if self._ssh_client:
+            self._ssh_client.disconnect()
+            self._ssh_client = None
 
 
 @router.websocket("/ws/aps/{host}/spectral-scan")
@@ -294,6 +288,7 @@ async def spectral_scan_websocket(
         return
     
     scanner = SpectralScanManager(host, creds["username"], creds["password"])
+    data_count = 0  # Define here for finally block
     
     try:
         await websocket.send_json({"status": "connecting"})
@@ -342,7 +337,6 @@ async def spectral_scan_websocket(
         })
         
         # Stream data
-        data_count = 0
         no_data_ticks = 0
         start_time = time.time()
         
@@ -404,5 +398,3 @@ async def spectral_scan_websocket(
         except:
             pass
         logger.info(f"[SpectralScan] Sesión terminada para {host} ({data_count} puntos)")
-
-

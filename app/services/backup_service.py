@@ -1,9 +1,10 @@
 import os
 import time
 import logging
-import paramiko
 from datetime import datetime
+
 from ..db.router_db import get_routers_for_backup
+from ..utils.device_clients.mikrotik.ssh_client import MikrotikSSHClient
 
 # Configura logger local
 logger = logging.getLogger("BackupService")
@@ -40,6 +41,7 @@ def run_backup_cycle():
 def process_router_backup(router_data: dict):
     """
     Conecta por SSH, genera backup y export, descarga y limpia.
+    Uses the reusable MikrotikSSHClient.
     """
     host = router_data["host"]
     username = router_data["username"]
@@ -62,22 +64,22 @@ def process_router_backup(router_data: dict):
     # Nombre temporal en el router
     temp_name = "umanager_auto"
     
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh_client = MikrotikSSHClient(
+        host=host,
+        username=username,
+        password=password,
+        port=22,
+        connect_timeout=20
+    )
     
     try:
         # 1. Conectar SSH
-        ssh.connect(
-            hostname=host,
-            username=username,
-            password=password,
-            port=22, # Asumimos puerto estándar, podría agregarse a la DB
-            timeout=20
-        )
+        if not ssh_client.connect():
+            return {"status": "error", "message": "No se pudo conectar por SSH"}
         
         # 2. Generar Backup Binario (.backup)
         # /system backup save name=umanager_auto
-        stdin, stdout, stderr = ssh.exec_command(f"/system backup save name={temp_name}")
+        stdin, stdout, stderr = ssh_client.exec_command(f"/system backup save name={temp_name}")
         exit_status = stdout.channel.recv_exit_status()
         if exit_status != 0:
             return {"status": "error", "message": f"Fallo al crear backup binario: {stderr.read().decode()}"}
@@ -85,12 +87,12 @@ def process_router_backup(router_data: dict):
         # 3. Generar Export (.rsc)
         # /export file=umanager_auto
         # Nota: 'export' puede tardar y no siempre devuelve exit code 0 limpio en versiones viejas, pero probamos.
-        stdin, stdout, stderr = ssh.exec_command(f"/export file={temp_name}")
+        ssh_client.exec_command(f"/export file={temp_name}")
         # Esperamos un poco porque export es lento
         time.sleep(2) 
         
         # 4. Descargar archivos por SFTP
-        sftp = ssh.open_sftp()
+        sftp = ssh_client.open_sftp()
         downloaded_files = []
         
         # Descargar .backup
@@ -121,13 +123,11 @@ def process_router_backup(router_data: dict):
         except Exception as e:
             logger.warning(f"No se pudo descargar .rsc de {host}: {e}")
 
-        sftp.close()
-        
         # 5. Limpiar archivos remotos
         # /file remove [find name~"umanager_auto"]
-        ssh.exec_command(f'/file remove [find name~"{temp_name}"]')
+        ssh_client.exec_command(f'/file remove [find name~"{temp_name}"]')
         
-        ssh.close()
+        ssh_client.disconnect()
         
         if not downloaded_files:
             return {"status": "error", "message": "No se descargó ningún archivo"}
@@ -139,8 +139,7 @@ def process_router_backup(router_data: dict):
         }
 
     except Exception as e:
-        if ssh:
-            ssh.close()
+        ssh_client.disconnect()
         return {"status": "error", "message": str(e)}
 
 
@@ -148,6 +147,7 @@ def save_file_to_server(host: str, username: str, password: str, remote_filename
                         zona_name: str, hostname: str) -> dict:
     """
     Descarga un archivo específico del router al servidor local.
+    Uses the reusable MikrotikSSHClient.
     
     Args:
         host: IP del router
@@ -169,21 +169,21 @@ def save_file_to_server(host: str, username: str, password: str, remote_filename
     
     local_filepath = os.path.join(save_path, remote_filename)
     
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh_client = MikrotikSSHClient(
+        host=host,
+        username=username,
+        password=password,
+        port=22,
+        connect_timeout=20
+    )
     
     try:
         # Conectar SSH
-        ssh.connect(
-            hostname=host,
-            username=username,
-            password=password,
-            port=22,
-            timeout=20
-        )
+        if not ssh_client.connect():
+            return {"status": "error", "message": "No se pudo conectar por SSH"}
         
         # Abrir SFTP y descargar
-        sftp = ssh.open_sftp()
+        sftp = ssh_client.open_sftp()
         
         # Intentar descargar desde raíz primero, luego flash/
         try:
@@ -193,12 +193,10 @@ def save_file_to_server(host: str, username: str, password: str, remote_filename
             try:
                 sftp.get(f"flash/{remote_filename}", local_filepath)
             except FileNotFoundError:
-                sftp.close()
-                ssh.close()
+                ssh_client.disconnect()
                 return {"status": "error", "message": f"Archivo '{remote_filename}' no encontrado en el router"}
         
-        sftp.close()
-        ssh.close()
+        ssh_client.disconnect()
         
         return {
             "status": "success",
@@ -208,6 +206,5 @@ def save_file_to_server(host: str, username: str, password: str, remote_filename
         }
         
     except Exception as e:
-        if ssh:
-            ssh.close()
+        ssh_client.disconnect()
         return {"status": "error", "message": str(e)}
