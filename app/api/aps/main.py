@@ -173,6 +173,23 @@ async def get_ap_history(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/aps/{host}/wireless-interfaces")
+async def get_wireless_interfaces(
+    host: str,
+    service: APService = Depends(get_ap_service),
+    current_user: User = Depends(require_technician),
+):
+    """
+    Obtiene las interfaces inalámbricas disponibles en un AP MikroTik.
+    Para usar con Spectral Scan.
+    """
+    try:
+        interfaces = await service.get_wireless_interfaces(host)
+        return {"interfaces": interfaces}
+    except APNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 @router.post("/aps/validate", status_code=200)
 def validate_ap_connection(ap_data: APCreate):
     """

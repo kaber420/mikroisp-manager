@@ -51,6 +51,7 @@ from .api.zonas import infra as zonas_infra_api
 from .api.users import main as users_main_api
 from .api.settings import main as settings_main_api
 from .api.aps import main as aps_main_api
+from .api.aps import spectral as aps_spectral_api
 from .api.stats import main as stats_main_api
 from .api.plans import main as plans_main_api
 
@@ -305,6 +306,7 @@ app.include_router(
 # 3. Domain API Routers
 app.include_router(routers_main_api.router, prefix="/api", tags=["Routers"])
 app.include_router(aps_main_api.router, prefix="/api", tags=["APs"])
+app.include_router(aps_spectral_api.router, prefix="/api", tags=["APs - Spectral"])
 app.include_router(cpes_main_api.router, prefix="/api", tags=["CPEs"])
 app.include_router(clients_main_api.router, prefix="/api", tags=["Clients"])
 app.include_router(zonas_main_api.router, prefix="/api", tags=["Zonas"])

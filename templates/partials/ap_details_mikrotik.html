@@ -1,0 +1,74 @@
+<!-- templates/partials/ap_details_mikrotik.html -->
+<!-- MikroTik-specific AP details partial with Spectral Scan feature -->
+
+<!-- Spectral Scan Section -->
+<div id="spectral-scan-section" class="bg-surface-1 rounded-lg border border-border-color p-6 mb-8">
+    <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
+        <div>
+            <h2 class="text-xl font-bold">Spectrum Analyzer</h2>
+            <p class="text-sm text-text-secondary">Real-time RF spectrum analysis (MikroTik only)</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <span id="spectral-status" class="text-sm text-text-secondary"></span>
+            <button id="spectral-scan-btn"
+                class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover transition-colors">
+                <span class="material-symbols-outlined mr-2">radio</span>
+                <span>Start Scan</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Chart Container (hidden by default) -->
+    <div id="spectral-chart-container" class="hidden">
+        <div class="h-64 lg:h-80">
+            <canvas id="spectralChart"></canvas>
+        </div>
+        <div class="flex justify-center gap-6 mt-4 text-sm">
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-1 bg-blue-500 rounded"></div>
+                <span class="text-text-secondary">Signal (Current)</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-1 bg-red-500 rounded" style="border-top: 2px dashed;"></div>
+                <span class="text-text-secondary">Peak (Max Recorded)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unsupported Message (hidden by default) -->
+    <div id="spectral-unsupported" class="hidden text-center py-8">
+        <span class="material-symbols-outlined text-4xl text-warning mb-2">warning</span>
+        <p id="spectral-unsupported-msg" class="text-text-secondary"></p>
+    </div>
+</div>
+
+<!-- MikroTik-specific device info fields -->
+<div
+    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4 text-sm mt-4 pt-4 border-t border-border-color">
+    <div>
+        <p class="text-text-secondary">Wireless Type</p>
+        <p id="detail-wireless-type" class="font-semibold">--</p>
+    </div>
+    <div>
+        <p class="text-text-secondary">CPU Load</p>
+        <p id="detail-cpu-load" class="font-semibold">--</p>
+    </div>
+    <div>
+        <p class="text-text-secondary">Memory Usage</p>
+        <p id="detail-memory" class="font-semibold">--</p>
+    </div>
+    <div>
+        <p class="text-text-secondary">Platform</p>
+        <p id="detail-platform" class="font-semibold">--</p>
+    </div>
+</div>
+
+<script>
+    // MikroTik-specific initialization
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize spectral scan if available
+        if (typeof initSpectralScan === 'function') {
+            initSpectralScan();
+        }
+    });
+</script>

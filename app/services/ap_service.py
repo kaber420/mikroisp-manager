@@ -295,6 +295,58 @@ class APService:
         finally:
             adapter.disconnect()
 
+    async def get_wireless_interfaces(self, host: str) -> List[Dict[str, str]]:
+        """
+        Obtiene las interfaces inalámbricas disponibles para un AP MikroTik.
+        Reutiliza la infraestructura del adapter (pool cacheado).
+        """
+        ap = await self.session.get(AP, host)
+        if not ap:
+            raise APNotFoundError(f"AP no encontrado: {host}")
+        
+        vendor = ap.vendor or "ubiquiti"
+        if vendor != "mikrotik":
+            return []  # Solo MikroTik tiene múltiples interfaces
+        
+        password = decrypt_data(ap.password)
+        port = ap.api_port or 8729
+        
+        adapter = get_device_adapter(
+            host=host,
+            username=ap.username,
+            password=password,
+            vendor=vendor,
+            port=port,
+        )
+        
+        try:
+            api = adapter._get_api()
+            interfaces = []
+            
+            # Try wifi package (ROS7+)
+            try:
+                wifi_ifaces = api.get_resource("/interface/wifi").get()
+                for iface in wifi_ifaces:
+                    name = iface.get("name") or iface.get("default-name")
+                    if name:
+                        interfaces.append({"name": name, "type": "wifi"})
+            except Exception:
+                pass
+            
+            # Try legacy wireless package
+            try:
+                wireless_ifaces = api.get_resource("/interface/wireless").get()
+                for iface in wireless_ifaces:
+                    name = iface.get("name") or iface.get("default-name")
+                    if name and not any(i['name'] == name for i in interfaces):
+                        interfaces.append({"name": name, "type": "wireless"})
+            except Exception:
+                pass
+            
+            return interfaces
+        finally:
+            adapter.disconnect()
+
     async def get_ap_history(self, host: str, period: str = "24h") -> APHistoryResponse:
         """Obtiene datos históricos de un AP desde la DB de estadísticas."""
 

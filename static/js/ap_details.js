@@ -7,6 +7,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Estado para saber qué gráfica mostrar al actualizar
     let currentPeriod = '24h';
 
+    // Spectral Scan state (declared early for use in data-refresh-needed listener)
+    let spectralWs = null;
+    let spectralChart = null;
+    let spectralData = { labels: [], signal: [], peak: [] };
+    let spectralCountdownInterval = null;
+    let spectralRemainingSeconds = 0;
+
     const deviceInfoCard = document.getElementById('device-info-card');
     const chartsCard = document.getElementById('charts-card');
     const clientListSection = document.getElementById('client-list-section');
@@ -35,9 +42,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- INICIO: Escucha Reactiva (WebSocket) ---
     window.addEventListener('data-refresh-needed', () => {
         // LÓGICA IMPORTANTE:
-        // Si el "Modo Diagnóstico/Live" está activo, NO recargamos los datos generales
-        // porque interrumpiríamos la visualización en tiempo real con una recarga completa.
-        if (!diagnosticManager.intervalId) {
+        // NO recargamos si hay operaciones activas que se interrumpirían:
+        // 1. Modo Diagnóstico/Live activo
+        // 2. Spectral Scan en progreso (conexión WebSocket activa)
+        if (!diagnosticManager.intervalId && !spectralWs) {
             console.log("⚡ AP Details: Recargando datos por señal del Monitor...");
 
             // Recargar datos del AP (Estado, Clientes, etc)
@@ -46,7 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Recargar gráficas manteniendo el periodo seleccionado
             loadChartData(currentPeriod);
         } else {
-            console.log("⏳ AP Details: Actualización de fondo pausada (Modo Live activo).");
+            console.log("⏳ AP Details: Actualización pausada (operación activa en curso).");
         }
     });
     // --- FIN: Escucha Reactiva ---
@@ -395,6 +403,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.getElementById('edit-ap-button').addEventListener('click', () => openEditModal(ap));
                 document.getElementById('delete-ap-button').addEventListener('click', handleDelete);
 
+                // Render vendor-specific section (Spectral Scan for MikroTik, info for Ubiquiti)
+                const vendor = ap.vendor || 'ubiquiti';
+                currentVendor = vendor;
+                renderVendorSection(vendor);
+
                 if (!diagnosticManager.intervalId) {
                     await loadCPEDataFromHistory();
                 }
@@ -408,6 +421,449 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }, 50);
             }
         }, 300);
+    }
+
+    // ============================================================================
+    // VENDOR-SPECIFIC SECTION RENDERING
+    // ============================================================================
+
+    function renderVendorSection(vendor) {
+        const container = document.getElementById('vendor-specific-section');
+        if (!container) return;
+
+        if (vendor === 'mikrotik') {
+            container.innerHTML = getMikrotikSectionHTML();
+            initSpectralScan();
+        } else if (vendor === 'ubiquiti') {
+            container.innerHTML = getUbiquitiSectionHTML();
+        } else {
+            container.innerHTML = `<div class="bg-surface-2/50 rounded-lg border border-border-color p-4 mb-8">
+                <p class="text-text-secondary">Vendor-specific details not available for "${vendor}".</p>
+            </div>`;
+        }
+    }
+
+    function getMikrotikSectionHTML() {
+        return `
+            <div id="spectral-scan-section" class="bg-surface-1 rounded-lg border border-border-color p-6 mb-8">
+                <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
+                    <div>
+                        <h2 class="text-xl font-bold">Spectrum Analyzer</h2>
+                        <p class="text-sm text-text-secondary">Real-time RF spectrum analysis (MikroTik only)</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="spectral-status" class="text-sm text-text-secondary"></span>
+                        <span id="spectral-countdown" class="text-sm font-mono text-orange hidden"></span>
+                    </div>
+                </div>
+                
+                <!-- Configuration Panel -->
+                <div id="spectral-config" class="mb-4">
+                    <div class="flex flex-wrap items-end gap-4 mb-4">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-sm text-text-secondary">Interface</label>
+                            <select id="spectral-interface" class="h-10 px-3 rounded-lg bg-surface-2 border border-border-color text-text-primary focus:outline-none focus:ring-2 focus:ring-primary">
+                                <option value="">Loading...</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-sm text-text-secondary">Duration</label>
+                            <select id="spectral-duration" class="h-10 px-3 rounded-lg bg-surface-2 border border-border-color text-text-primary focus:outline-none focus:ring-2 focus:ring-primary">
+                                <option value="30">30 seconds</option>
+                                <option value="60">1 minute</option>
+                                <option value="120" selected>2 minutes</option>
+                                <option value="180">3 minutes</option>
+                                <option value="300">5 minutes (max)</option>
+                            </select>
+                        </div>
+                        <button id="spectral-scan-btn" 
+                                class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover transition-colors">
+                            <span class="material-symbols-outlined mr-2">radio</span>
+                            <span>Start Scan</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Warning Message -->
+                    <div class="flex items-start gap-3 p-3 rounded-lg bg-warning/10 border border-warning/30">
+                        <span class="material-symbols-outlined text-warning">warning</span>
+                        <p class="text-sm text-warning">
+                            <strong>Warning:</strong> Clients connected to the selected interface will be temporarily disconnected during the scan.
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Chart Container -->
+                <div id="spectral-chart-container" class="hidden">
+                    <div class="h-64 lg:h-80">
+                        <canvas id="spectralChart"></canvas>
+                    </div>
+                    <div class="flex justify-center gap-6 mt-4 text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-1 bg-blue-500 rounded"></div>
+                            <span class="text-text-secondary">Signal (Current)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-1 bg-red-500 rounded" style="border-top: 2px dashed;"></div>
+                            <span class="text-text-secondary">Peak (Max)</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Unsupported Message -->
+                <div id="spectral-unsupported" class="hidden text-center py-8">
+                    <span class="material-symbols-outlined text-4xl text-warning mb-2">warning</span>
+                    <p id="spectral-unsupported-msg" class="text-text-secondary"></p>
+                </div>
+            </div>
+        `;
+    }
+
+    function getUbiquitiSectionHTML() {
+        return `
+            <div class="bg-surface-2/50 rounded-lg border border-border-color p-4 mb-8">
+                <div class="flex items-start gap-3">
+                    <span class="material-symbols-outlined text-warning">info</span>
+                    <div>
+                        <h3 class="font-semibold text-text-primary mb-1">Spectrum Analyzer Not Available</h3>
+                        <p class="text-sm text-text-secondary">
+                            Ubiquiti's spectrum analyzer (airView) is only accessible through the device's web interface and requires a Java applet. 
+                            It cannot be accessed remotely via API.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // ============================================================================
+    // SPECTRAL SCAN MODULE (MikroTik Only)
+    // ============================================================================
+    // Note: State variables (spectralWs, spectralChart, etc.) are declared at the top
+    // of the file for proper scoping with the data-refresh-needed listener.
+
+    async function initSpectralScan() {
+        const btn = document.getElementById('spectral-scan-btn');
+        if (!btn) return;
+
+        // Load available interfaces
+        await loadSpectralInterfaces();
+
+        btn.addEventListener('click', () => {
+            if (spectralWs && spectralWs.readyState === WebSocket.OPEN) {
+                stopSpectralScan();
+            } else {
+                startSpectralScan();
+            }
+        });
+    }
+
+    async function loadSpectralInterfaces() {
+        const interfaceSelect = document.getElementById('spectral-interface');
+        if (!interfaceSelect) return;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/aps/${encodeURIComponent(currentHost)}/wireless-interfaces`);
+            if (!response.ok) throw new Error('Failed to fetch interfaces');
+
+            const data = await response.json();
+            const interfaces = data.interfaces || [];
+
+            interfaceSelect.innerHTML = '';
+
+            if (interfaces.length === 0) {
+                interfaceSelect.innerHTML = '<option value="">No interfaces found</option>';
+                return;
+            }
+
+            interfaces.forEach((iface, index) => {
+                const option = document.createElement('option');
+                option.value = iface.name;
+                option.textContent = `${iface.name} (${iface.type})`;
+                if (index === 0) option.selected = true;
+                interfaceSelect.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Error loading spectral interfaces:', error);
+            interfaceSelect.innerHTML = '<option value="">Error loading</option>';
+        }
+    }
+
+    function startSpectralScan() {
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${window.location.host}/api/ws/aps/${encodeURIComponent(currentHost)}/spectral-scan`;
+
+        spectralWs = new WebSocket(wsUrl);
+
+        const btn = document.getElementById('spectral-scan-btn');
+        const statusSpan = document.getElementById('spectral-status');
+        const chartContainer = document.getElementById('spectral-chart-container');
+        const unsupportedDiv = document.getElementById('spectral-unsupported');
+        const configPanel = document.getElementById('spectral-config');
+        const countdownSpan = document.getElementById('spectral-countdown');
+
+        // Get selected interface and duration
+        const selectedInterface = document.getElementById('spectral-interface')?.value || null;
+        const selectedDuration = parseInt(document.getElementById('spectral-duration')?.value || '120', 10);
+
+        spectralWs.onopen = () => {
+            statusSpan.textContent = 'Connecting...';
+            btn.innerHTML = '<span class="material-symbols-outlined mr-2 animate-spin">sync</span><span>Connecting...</span>';
+        };
+
+        spectralWs.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+
+            switch (msg.status) {
+                case 'connecting':
+                    statusSpan.textContent = 'Connecting to device...';
+                    break;
+                case 'waiting_config':
+                    // Send configuration to backend
+                    spectralWs.send(JSON.stringify({
+                        interface: selectedInterface,
+                        duration: selectedDuration
+                    }));
+                    statusSpan.textContent = 'Sending configuration...';
+                    break;
+                case 'starting':
+                    statusSpan.textContent = msg.message || 'Starting scan...';
+                    btn.innerHTML = '<span class="material-symbols-outlined mr-2 animate-spin">sync</span><span>Starting...</span>';
+                    break;
+                case 'preparing':
+                    statusSpan.textContent = msg.message || 'Preparing scanner...';
+                    btn.innerHTML = '<span class="material-symbols-outlined mr-2 animate-pulse">radio</span><span>Calibrating...</span>';
+                    // Hide config panel early
+                    configPanel.classList.add('hidden');
+                    break;
+                case 'scanning':
+                    statusSpan.textContent = msg.interface ? `Scanning ${msg.interface}...` : 'Scanning...';
+                    btn.innerHTML = '<span class="material-symbols-outlined mr-2">stop</span><span>Stop Scan</span>';
+                    btn.classList.remove('bg-primary', 'hover:bg-primary-hover');
+                    btn.classList.add('bg-danger', 'hover:bg-red-700');
+                    chartContainer.classList.remove('hidden');
+                    unsupportedDiv.classList.add('hidden');
+                    configPanel.classList.add('hidden');
+
+                    // Start countdown timer
+                    const duration = msg.duration || selectedDuration;
+                    startSpectralCountdown(duration, countdownSpan);
+
+                    initSpectralChart();
+                    break;
+                case 'data':
+                    updateSpectralChart(msg.data);
+                    break;
+                case 'completed':
+                    showToast(msg.message || 'Scan completed', 'success');
+                    stopSpectralScan();
+                    break;
+                case 'stopped':
+                    showToast(msg.message || 'Scan stopped', 'info');
+                    stopSpectralScan();
+                    break;
+                case 'unsupported':
+                    stopSpectralScan();
+                    chartContainer.classList.add('hidden');
+                    unsupportedDiv.classList.remove('hidden');
+                    document.getElementById('spectral-unsupported-msg').textContent = msg.message;
+                    break;
+                case 'error':
+                    showToast(msg.message || 'Spectral scan error', 'danger');
+                    stopSpectralScan();
+                    break;
+            }
+        };
+
+        spectralWs.onerror = (error) => {
+            console.error('Spectral WebSocket error:', error);
+            showToast('Connection error during spectral scan', 'danger');
+            stopSpectralScan();
+        };
+
+        spectralWs.onclose = () => {
+            resetSpectralUI();
+        };
+    }
+
+    function startSpectralCountdown(durationSeconds, countdownSpan) {
+        spectralRemainingSeconds = durationSeconds;
+
+        if (countdownSpan) {
+            countdownSpan.classList.remove('hidden');
+            updateCountdownDisplay(countdownSpan);
+        }
+
+        if (spectralCountdownInterval) {
+            clearInterval(spectralCountdownInterval);
+        }
+
+        spectralCountdownInterval = setInterval(() => {
+            spectralRemainingSeconds--;
+
+            if (countdownSpan) {
+                updateCountdownDisplay(countdownSpan);
+            }
+
+            if (spectralRemainingSeconds <= 0) {
+                clearInterval(spectralCountdownInterval);
+                spectralCountdownInterval = null;
+            }
+        }, 1000);
+    }
+
+    function updateCountdownDisplay(countdownSpan) {
+        const minutes = Math.floor(spectralRemainingSeconds / 60);
+        const seconds = spectralRemainingSeconds % 60;
+        countdownSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    function stopSpectralCountdown() {
+        if (spectralCountdownInterval) {
+            clearInterval(spectralCountdownInterval);
+            spectralCountdownInterval = null;
+        }
+        spectralRemainingSeconds = 0;
+
+        const countdownSpan = document.getElementById('spectral-countdown');
+        if (countdownSpan) {
+            countdownSpan.classList.add('hidden');
+            countdownSpan.textContent = '';
+        }
+    }
+
+    function stopSpectralScan() {
+        if (spectralWs) {
+            spectralWs.send('stop');
+            spectralWs.close();
+            spectralWs = null;
+        }
+        resetSpectralUI();
+    }
+
+    function resetSpectralUI() {
+        const btn = document.getElementById('spectral-scan-btn');
+        const statusSpan = document.getElementById('spectral-status');
+        const configPanel = document.getElementById('spectral-config');
+
+        // Stop the countdown timer
+        stopSpectralCountdown();
+
+        if (btn) {
+            btn.innerHTML = '<span class="material-symbols-outlined mr-2">radio</span><span>Start Scan</span>';
+            btn.classList.remove('bg-danger', 'hover:bg-red-700');
+            btn.classList.add('bg-primary', 'hover:bg-primary-hover');
+        }
+        if (statusSpan) {
+            statusSpan.textContent = '';
+        }
+
+        // Show config panel again
+        if (configPanel) {
+            configPanel.classList.remove('hidden');
+        }
+    }
+
+    function initSpectralChart() {
+        const ctx = document.getElementById('spectralChart');
+        if (!ctx) return;
+
+        // Reset data
+        spectralData = { labels: [], signal: [], peak: [] };
+
+        if (spectralChart) {
+            spectralChart.destroy();
+        }
+
+        spectralChart = new Chart(ctx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: spectralData.labels,
+                datasets: [
+                    {
+                        label: 'Signal (dBm)',
+                        data: spectralData.signal,
+                        borderColor: '#3B82F6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.2,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Peak (dBm)',
+                        data: spectralData.peak,
+                        borderColor: '#EF4444',
+                        borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.2,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        title: { display: true, text: 'Frequency (MHz)', color: '#94A3B8' },
+                        grid: { color: 'rgba(51, 65, 85, 0.5)' },
+                        ticks: { color: '#94A3B8' }
+                    },
+                    y: {
+                        title: { display: true, text: 'dBm', color: '#94A3B8' },
+                        min: -120,
+                        max: -40,
+                        grid: { color: 'rgba(51, 65, 85, 0.5)' },
+                        ticks: { color: '#94A3B8' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: '#F1F5F9' } },
+                    tooltip: { titleColor: '#F1F5F9', bodyColor: '#cbd5e1' }
+                }
+            }
+        });
+    }
+
+    function updateSpectralChart(data) {
+        if (!spectralChart || !data) return;
+
+        const freq = data.freq;
+        const signal = data.signal;
+        const peak = data.peak;
+
+        // Find if this frequency already exists
+        const index = spectralData.labels.indexOf(freq);
+
+        if (index !== -1) {
+            // Update existing
+            spectralData.signal[index] = signal;
+            spectralData.peak[index] = peak;
+        } else {
+            // Add new and keep sorted
+            spectralData.labels.push(freq);
+            spectralData.signal.push(signal);
+            spectralData.peak.push(peak);
+
+            // Sort by frequency
+            const combined = spectralData.labels.map((label, i) => ({
+                freq: label,
+                signal: spectralData.signal[i],
+                peak: spectralData.peak[i]
+            }));
+            combined.sort((a, b) => a.freq - b.freq);
+
+            spectralData.labels = combined.map(c => c.freq);
+            spectralData.signal = combined.map(c => c.signal);
+            spectralData.peak = combined.map(c => c.peak);
+        }
+
+        // Update chart
+        spectralChart.data.labels = spectralData.labels;
+        spectralChart.data.datasets[0].data = spectralData.signal;
+        spectralChart.data.datasets[1].data = spectralData.peak;
+        spectralChart.update('none');
     }
 
     async function handleEditFormSubmit(event) {
