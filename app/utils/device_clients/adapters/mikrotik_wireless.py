@@ -15,6 +15,7 @@ from .base import BaseDeviceAdapter, DeviceStatus, ConnectedClient
 # Reuse existing MikroTik utilities
 from ..mikrotik import system as mikrotik_system
 from ..mikrotik import connection as mikrotik_connection
+from ..mikrotik.interfaces import MikrotikInterfaceManager
 
 logger = logging.getLogger(__name__)
 
@@ -62,35 +63,30 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
     def _detect_wireless_type(self, api: RouterOsApi) -> Optional[str]:
         """
         Detect which wireless package is installed on the device.
+        Uses the centralized MikrotikInterfaceManager for detection.
         Returns: 'wireless', 'wifi', 'wifiwave2', or None if no wireless.
         """
         if self._wireless_type is not None:
             return self._wireless_type
-            
-        # Try different wireless paths in order of preference
-        wireless_paths = [
-            ("/interface/wireless", "wireless"),
-            ("/interface/wifi", "wifi"),
-            ("/interface/wifiwave2", "wifiwave2"),
-        ]
         
-        for path, wtype in wireless_paths:
-            try:
-                result = api.get_resource(path).get()
-                if result:  # Has at least one interface of this type
-                    self._wireless_type = wtype
-                    logger.debug(f"Detected wireless type '{wtype}' on {self.host}")
-                    return wtype
-            except Exception:
-                # This path doesn't exist or isn't accessible
-                continue
+        # Use the centralized interface manager for detection
+        manager = MikrotikInterfaceManager(api)
+        _, wtype = manager.get_wireless_interfaces()
+        self._wireless_type = wtype
         
-        logger.debug(f"No wireless interface detected on {self.host}")
-        self._wireless_type = None
-        return None
+        if wtype:
+            logger.debug(f"Detected wireless type '{wtype}' on {self.host}")
+        else:
+            logger.debug(f"No wireless interface detected on {self.host}")
+        
+        return self._wireless_type
     
-    def _get_registration_table_path(self) -> Optional[str]:
-        """Get the registration table path based on wireless type."""
+    def _get_registration_table_path(self, api: RouterOsApi = None) -> Optional[str]:
+        """Get the registration table path based on wireless type. Uses centralized manager."""
+        manager = MikrotikInterfaceManager(api) if api else None
+        if manager:
+            return manager.get_registration_table_path(self._wireless_type)
+        # Fallback for when no API is provided (should not happen in practice)
         paths = {
             "wireless": "/interface/wireless/registration-table",
             "wifi": "/interface/wifi/registration-table", 
@@ -98,8 +94,12 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
         }
         return paths.get(self._wireless_type)
     
-    def _get_wireless_interface_path(self) -> Optional[str]:
-        """Get the wireless interface path based on wireless type."""
+    def _get_wireless_interface_path(self, api: RouterOsApi = None) -> Optional[str]:
+        """Get the wireless interface path based on wireless type. Uses centralized manager."""
+        manager = MikrotikInterfaceManager(api) if api else None
+        if manager:
+            return manager.get_wireless_interface_path(self._wireless_type)
+        # Fallback for when no API is provided
         paths = {
             "wireless": "/interface/wireless",
             "wifi": "/interface/wifi",
@@ -134,7 +134,7 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
             # Get wireless interface info if available
             wireless_info = {}
             if wireless_type:
-                wireless_path = self._get_wireless_interface_path()
+                wireless_path = self._get_wireless_interface_path(api)
                 try:
                     wireless_interfaces = api.get_resource(wireless_path).get()
                     if wireless_interfaces:
@@ -312,7 +312,7 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
             if not self._wireless_type:
                 return []
             
-            reg_path = self._get_registration_table_path()
+            reg_path = self._get_registration_table_path(api)
             if not reg_path:
                 return []
             

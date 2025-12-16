@@ -1,11 +1,80 @@
 from routeros_api.api import RouterOsApi
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 from .base import get_id
 
 
 class MikrotikInterfaceManager:
     def __init__(self, api: RouterOsApi):
         self.api = api
+
+    def get_wireless_interfaces(self) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+        """
+        Detects and returns wireless interfaces regardless of the RouterOS version.
+        
+        Handles the complexity of different wireless packages:
+        - 'wireless': Legacy package (RouterOS 6.x and some older 7.x)
+        - 'wifi': New wifi package (RouterOS 7.13+)
+        - 'wifiwave2': Wave2 package (RouterOS 7.x)
+        
+        Returns:
+            Tuple of (list_of_interfaces, detected_type).
+            detected_type can be: 'wireless', 'wifi', 'wifiwave2', or None if no wireless.
+        """
+        wireless_paths = [
+            ("/interface/wireless", "wireless"),
+            ("/interface/wifi", "wifi"),
+            ("/interface/wifiwave2", "wifiwave2"),
+        ]
+        
+        for path, wtype in wireless_paths:
+            try:
+                result = self.api.get_resource(path).get()
+                if result:  # Has at least one interface of this type
+                    logger.debug(f"Detected wireless type '{wtype}' with {len(result)} interfaces")
+                    return result, wtype
+            except Exception:
+                # This path doesn't exist or isn't accessible on this device
+                continue
+        
+        logger.debug("No wireless interfaces detected on this device")
+        return [], None
+
+    def get_wireless_interface_path(self, wireless_type: Optional[str]) -> Optional[str]:
+        """
+        Returns the API path for a given wireless type.
+        
+        Args:
+            wireless_type: 'wireless', 'wifi', or 'wifiwave2'
+        
+        Returns:
+            The API path string, or None if type is invalid.
+        """
+        paths = {
+            "wireless": "/interface/wireless",
+            "wifi": "/interface/wifi",
+            "wifiwave2": "/interface/wifiwave2",
+        }
+        return paths.get(wireless_type)
+
+    def get_registration_table_path(self, wireless_type: Optional[str]) -> Optional[str]:
+        """
+        Returns the registration table path for a given wireless type.
+        
+        Args:
+            wireless_type: 'wireless', 'wifi', or 'wifiwave2'
+        
+        Returns:
+            The API path string for the registration table, or None.
+        """
+        paths = {
+            "wireless": "/interface/wireless/registration-table",
+            "wifi": "/interface/wifi/registration-table",
+            "wifiwave2": "/interface/wifiwave2/registration-table",
+        }
+        return paths.get(wireless_type)
 
     def add_vlan(
         self, name: str, vlan_id: str, interface: str, comment: str
