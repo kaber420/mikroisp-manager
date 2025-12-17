@@ -107,8 +107,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // CHART FUNCTIONS
     // ============================================================================
     function createChart(canvasId, type, labels, datasets, unit) {
+        const canvasEl = document.getElementById(canvasId);
+        if (!canvasEl) {
+            // Canvas doesn't exist (e.g., airtimeChart for MikroTik)
+            return;
+        }
         if (charts[canvasId]) { charts[canvasId].destroy(); }
-        const ctx = document.getElementById(canvasId).getContext('2d');
+        const ctx = canvasEl.getContext('2d');
         charts[canvasId] = new Chart(ctx, {
             type,
             data: { labels, datasets },

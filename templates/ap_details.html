@@ -144,15 +144,18 @@
                 </div>
             </div>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4">
+        <div
+            class="grid grid-cols-1 {% if ap.vendor != 'mikrotik' %}lg:grid-cols-3{% else %}lg:grid-cols-2{% endif %} gap-6 pt-4">
             <div class="lg:col-span-1">
                 <h3 class="font-semibold mb-2 text-center text-text-secondary">Client Count</h3><canvas
                     id="clientsChart"></canvas>
             </div>
+            {% if ap.vendor != 'mikrotik' %}
             <div class="lg:col-span-1">
                 <h3 class="font-semibold mb-2 text-center text-text-secondary">Airtime Usage (%)</h3><canvas
                     id="airtimeChart"></canvas>
             </div>
+            {% endif %}
             <div class="lg:col-span-1">
                 <h3 class="font-semibold mb-2 text-center text-text-secondary">Throughput (kbps)</h3><canvas
                     id="throughputChart"></canvas>
