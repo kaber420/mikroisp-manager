@@ -264,6 +264,33 @@ class APService:
                     )
                 )
             
+            # Prepare extra data with calculated fields
+            extra_data = dict(status.extra) if status.extra else {}
+            
+            # Calculate memory usage percentage for MikroTik
+            if extra_data.get("free_memory") and extra_data.get("total_memory"):
+                try:
+                    free = int(extra_data["free_memory"])
+                    total = int(extra_data["total_memory"])
+                    if total > 0:
+                        used = total - free
+                        extra_data["memory_usage"] = round((used / total) * 100, 1)
+                except (ValueError, TypeError):
+                    pass  # Skip if conversion fails
+            
+            # Format uptime for display (status.uptime is in seconds)
+            if status.uptime:
+                uptime_secs = status.uptime
+                days = uptime_secs // 86400
+                hours = (uptime_secs % 86400) // 3600
+                minutes = (uptime_secs % 3600) // 60
+                if days > 0:
+                    extra_data["uptime"] = f"{days}d {hours}h {minutes}m"
+                elif hours > 0:
+                    extra_data["uptime"] = f"{hours}h {minutes}m"
+                else:
+                    extra_data["uptime"] = f"{minutes}m"
+            
             return APLiveDetail(
                 host=host,
                 username=ap.username,
@@ -282,15 +309,17 @@ class APService:
                 total_rx_bytes=status.rx_bytes,
                 gps_lat=status.gps_lat,
                 gps_lon=status.gps_lon,
-                gps_sats=status.extra.get("gps_sats"),
+                gps_sats=status.extra.get("gps_sats") if status.extra else None,
                 total_throughput_tx=status.tx_throughput,
                 total_throughput_rx=status.rx_throughput,
                 airtime_total_usage=status.airtime_usage,
-                airtime_tx_usage=status.extra.get("airtime_tx"),
-                airtime_rx_usage=status.extra.get("airtime_rx"),
+                airtime_tx_usage=status.extra.get("airtime_tx") if status.extra else None,
+                airtime_rx_usage=status.extra.get("airtime_rx") if status.extra else None,
                 clients=clients_list,
                 # Include vendor info for UI differentiation
                 vendor=vendor,
+                # Include extra data for MikroTik (CPU, memory, uptime, platform)
+                extra=extra_data if extra_data else None,
             )
         finally:
             adapter.disconnect()

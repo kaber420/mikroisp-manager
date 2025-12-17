@@ -33,6 +33,7 @@
     <div id="device-info-card" class="bg-surface-1 rounded-lg border border-border-color p-6 mb-8">
         <h2 class="text-xl font-bold mb-4">Device Information & Performance</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4 text-sm">
+            <!-- Common fields for all vendors -->
             <div>
                 <p class="text-text-secondary">Host / IP</p>
                 <p id="detail-host" class="font-semibold font-mono">--</p>
@@ -62,10 +63,6 @@
                 <p id="detail-zona" class="font-semibold">--</p>
             </div>
             <div>
-                <p class="text-text-secondary">GPS (Lat/Lon)</p>
-                <p id="detail-gps" class="font-semibold">--</p>
-            </div>
-            <div>
                 <p class="text-text-secondary">Client Count</p>
                 <p id="detail-clients" class="font-semibold">--</p>
             </div>
@@ -78,14 +75,6 @@
                 <p id="detail-frequency" class="font-semibold">--</p>
             </div>
             <div>
-                <p class="text-text-secondary">Satellites</p>
-                <p id="detail-sats" class="font-semibold">--</p>
-            </div>
-            <div>
-                <p class="text-text-secondary">Airtime (Total/Tx/Rx)</p>
-                <p id="detail-airtime" class="font-semibold">--</p>
-            </div>
-            <div>
                 <p class="text-text-secondary">Throughput (DL/UL)</p>
                 <p id="detail-throughput" class="font-semibold">--</p>
             </div>
@@ -93,11 +82,42 @@
                 <p class="text-text-secondary">Total Data (DL/UL)</p>
                 <p id="detail-total-data" class="font-semibold">--</p>
             </div>
+
+            <!-- Ubiquiti-specific fields -->
+            {% if ap.vendor != 'mikrotik' %}
+            <div>
+                <p class="text-text-secondary">GPS (Lat/Lon)</p>
+                <p id="detail-gps" class="font-semibold">--</p>
+            </div>
+            <div>
+                <p class="text-text-secondary">Satellites</p>
+                <p id="detail-sats" class="font-semibold">--</p>
+            </div>
+            <div>
+                <p class="text-text-secondary">Airtime (Total/Tx/Rx)</p>
+                <p id="detail-airtime" class="font-semibold">--</p>
+            </div>
+            {% endif %}
+
+            <!-- MikroTik-specific fields shown inline -->
+            {% if ap.vendor == 'mikrotik' %}
+            <div>
+                <p class="text-text-secondary">Uptime</p>
+                <p id="detail-uptime" class="font-semibold">--</p>
+            </div>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Vendor-Specific Section (populated by JavaScript based on AP vendor) -->
-    <div id="vendor-specific-section"></div>
+
+    <!-- Vendor-Specific Section (loaded via Jinja2 based on AP vendor) -->
+    <div id="vendor-specific-section" data-vendor="{{ ap.vendor }}">
+        {% if ap.vendor == 'mikrotik' %}
+        {% include 'partials/ap_details_mikrotik.html' %}
+        {% else %}
+        {% include 'partials/ap_details_ubiquiti.html' %}
+        {% endif %}
+    </div>
 
     <!-- ID AÑADIDO PARA LA ANIMACIÓN -->
     <div id="charts-card" class="bg-surface-1 rounded-lg border border-border-color p-6 mb-8">
@@ -197,5 +217,10 @@
 
 
 {% block scripts %}
-<script src="/static/js/ap_details.js" defer></script>
+<script src="/static/js/ap_details_core.js" defer></script>
+{% if ap.vendor == 'mikrotik' %}
+<script src="/static/js/ap_details_mikrotik.js" defer></script>
+{% else %}
+<script src="/static/js/ap_details_ubiquiti.js" defer></script>
+{% endif %}
 {% endblock %}

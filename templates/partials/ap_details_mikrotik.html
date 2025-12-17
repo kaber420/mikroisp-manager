@@ -10,11 +10,45 @@
         </div>
         <div class="flex items-center gap-3">
             <span id="spectral-status" class="text-sm text-text-secondary"></span>
+            <span id="spectral-countdown" class="text-sm font-mono text-orange hidden"></span>
+        </div>
+    </div>
+
+    <!-- Configuration Panel -->
+    <div id="spectral-config" class="mb-4">
+        <div class="flex flex-wrap items-end gap-4 mb-4">
+            <div class="flex flex-col gap-1">
+                <label class="text-sm text-text-secondary">Interface</label>
+                <select id="spectral-interface"
+                    class="h-10 px-3 rounded-lg bg-surface-2 border border-border-color text-text-primary focus:outline-none focus:ring-2 focus:ring-primary">
+                    <option value="">Loading...</option>
+                </select>
+            </div>
+            <div class="flex flex-col gap-1">
+                <label class="text-sm text-text-secondary">Duration</label>
+                <select id="spectral-duration"
+                    class="h-10 px-3 rounded-lg bg-surface-2 border border-border-color text-text-primary focus:outline-none focus:ring-2 focus:ring-primary">
+                    <option value="30">30 seconds</option>
+                    <option value="60">1 minute</option>
+                    <option value="120" selected>2 minutes</option>
+                    <option value="180">3 minutes</option>
+                    <option value="300">5 minutes (max)</option>
+                </select>
+            </div>
             <button id="spectral-scan-btn"
                 class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover transition-colors">
                 <span class="material-symbols-outlined mr-2">radio</span>
                 <span>Start Scan</span>
             </button>
+        </div>
+
+        <!-- Warning Message -->
+        <div class="flex items-start gap-3 p-3 rounded-lg bg-warning/10 border border-warning/30">
+            <span class="material-symbols-outlined text-warning">warning</span>
+            <p class="text-sm text-warning">
+                <strong>Warning:</strong> Clients connected to the selected interface will be temporarily disconnected
+                during the scan.
+            </p>
         </div>
     </div>
 
@@ -43,32 +77,41 @@
 </div>
 
 <!-- MikroTik-specific device info fields -->
-<div
-    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4 text-sm mt-4 pt-4 border-t border-border-color">
-    <div>
-        <p class="text-text-secondary">Wireless Type</p>
-        <p id="detail-wireless-type" class="font-semibold">--</p>
+<div id="mikrotik-system-info" class="bg-surface-1 rounded-lg border border-border-color p-6 mb-8">
+    <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
+        <h2 class="text-xl font-bold">MikroTik System Info</h2>
+        <span id="mikrotik-live-badge"
+            class="hidden text-xs font-semibold px-2 py-1 rounded-full bg-orange/20 text-orange">
+            LIVE
+        </span>
     </div>
-    <div>
-        <p class="text-text-secondary">CPU Load</p>
-        <p id="detail-cpu-load" class="font-semibold">--</p>
+
+    <!-- Notice shown when not in live mode -->
+    <div id="mikrotik-live-notice"
+        class="flex items-start gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 mb-4">
+        <span class="material-symbols-outlined text-blue-400">info</span>
+        <p class="text-sm text-blue-300">
+            Estos datos solo están disponibles en <strong>modo Live</strong>.
+            Activa el toggle "Live" para ver CPU, memoria y uptime en tiempo real.
+        </p>
     </div>
-    <div>
-        <p class="text-text-secondary">Memory Usage</p>
-        <p id="detail-memory" class="font-semibold">--</p>
-    </div>
-    <div>
-        <p class="text-text-secondary">Platform</p>
-        <p id="detail-platform" class="font-semibold">--</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4 text-sm">
+        <div>
+            <p class="text-text-secondary">Wireless Type</p>
+            <p id="detail-wireless-type" class="font-semibold">--</p>
+        </div>
+        <div>
+            <p class="text-text-secondary">CPU Load</p>
+            <p id="detail-cpu-load" class="font-semibold">--</p>
+        </div>
+        <div>
+            <p class="text-text-secondary">Memory Usage</p>
+            <p id="detail-memory" class="font-semibold">--</p>
+        </div>
+        <div>
+            <p class="text-text-secondary">Platform</p>
+            <p id="detail-platform" class="font-semibold">--</p>
+        </div>
     </div>
 </div>
-
-<script>
-    // MikroTik-specific initialization
-    document.addEventListener('DOMContentLoaded', function () {
-        // Initialize spectral scan if available
-        if (typeof initSpectralScan === 'function') {
-            initSpectralScan();
-        }
-    });
-</script>

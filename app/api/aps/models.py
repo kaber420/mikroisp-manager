@@ -93,6 +93,7 @@ class CPEDetail(BaseModel):
 
 class APLiveDetail(AP):
     clients: List[CPEDetail]
+    extra: Optional[Dict[str, Any]] = None  # Vendor-specific data (MikroTik: cpu_load, memory, etc.)
 
 
 class HistoryDataPoint(BaseModel):

@@ -65,8 +65,13 @@ async def read_aps_page(
 async def read_ap_details_page(
     request: Request,
     host: str,
+    session: Session = Depends(get_sync_session),
     current_user: User = Depends(require_technician),
 ):
+    from .models.ap import AP
+    ap = session.get(AP, host)
+    if not ap:
+        raise HTTPException(status_code=404, detail="AP not found")
     return templates.TemplateResponse(
         "ap_details.html",
         {
@@ -74,8 +79,10 @@ async def read_ap_details_page(
             "active_page": "ap_details",
             "host": host,
             "user": current_user,
+            "ap": ap,
         },
     )
+
 
 @router.get("/zonas", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_zones_page(
