@@ -103,8 +103,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 chart.data.datasets[0].data.push(airtime);
                 if (chart.data.datasets[0].data.length > 30) { chart.data.datasets[0].data.shift(); }
             } else if (chartId === 'throughputChart') {
-                chart.data.datasets[0].data.push(apData.total_throughput_rx);
-                chart.data.datasets[1].data.push(apData.total_throughput_tx);
+                chart.data.datasets[0].data.push(apData.total_throughput_tx);
+                chart.data.datasets[1].data.push(apData.total_throughput_rx);
                 if (chart.data.datasets[0].data.length > 30) { chart.data.datasets[0].data.shift(); }
                 if (chart.data.datasets[1].data.length > 30) { chart.data.datasets[1].data.shift(); }
             }
@@ -150,8 +150,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('detail-airtime').textContent = `${airtimeTotal} (Tx: ${airtimeTx} / Rx: ${airtimeRx})`;
         }
 
-        document.getElementById('detail-throughput').textContent = `${formatThroughput(ap.total_throughput_rx)} / ${formatThroughput(ap.total_throughput_tx)}`;
-        document.getElementById('detail-total-data').textContent = `${formatBytes(ap.total_rx_bytes)} / ${formatBytes(ap.total_tx_bytes)}`;
+        document.getElementById('detail-throughput').textContent = `${formatThroughput(ap.total_throughput_tx)} / ${formatThroughput(ap.total_throughput_rx)}`;
+        document.getElementById('detail-total-data').textContent = `${formatBytes(ap.total_tx_bytes)} / ${formatBytes(ap.total_rx_bytes)}`;
         renderCPEList(ap.clients, ap.clients, currentVendor);
         updateChartsWithLiveData(ap);
     }
@@ -201,8 +201,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             card.className = `${cardClasses} ${health.colorClass}`;
 
-            const t_rx = displayCPE.throughput_rx_kbps != null ? `${displayCPE.throughput_rx_kbps.toFixed(1)}` : 'N/A';
             const t_tx = displayCPE.throughput_tx_kbps != null ? `${displayCPE.throughput_tx_kbps.toFixed(1)}` : 'N/A';
+            const t_rx = displayCPE.throughput_rx_kbps != null ? `${displayCPE.throughput_rx_kbps.toFixed(1)}` : 'N/A';
             const chains = displayCPE.signal_chain0 != null && displayCPE.signal_chain1 != null ? `(${displayCPE.signal_chain0}/${displayCPE.signal_chain1})` : '';
             const cableStatus = displayCPE.eth_speed != null ? `${displayCPE.eth_speed} Mbps` : 'N/A';
 
@@ -247,8 +247,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <span>Signal / Chains:</span><span class="font-semibold text-text-primary text-right">${displayCPE.signal || 'N/A'} dBm ${chains}</span>
                     <span>Noise Floor:</span><span class="font-semibold text-text-primary text-right">${displayCPE.noisefloor || 'N/A'} dBm</span>
                     ${vendorSpecificRow}
-                    <span>Throughput (DL/UL):</span><span class="font-semibold text-text-primary text-right">${t_rx} / ${t_tx} kbps</span>
-                    <span>Total Data (DL/UL):</span><span class="font-semibold text-text-primary text-right">${formatBytes(displayCPE.total_rx_bytes)} / ${formatBytes(displayCPE.total_tx_bytes)}</span>
+                    <span>Throughput (DL/UL):</span><span class="font-semibold text-text-primary text-right">${t_tx} / ${t_rx} kbps</span>
+                    <span>Total Data (DL/UL):</span><span class="font-semibold text-text-primary text-right">${formatBytes(displayCPE.total_tx_bytes)} / ${formatBytes(displayCPE.total_rx_bytes)}</span>
                     ${lastSeenHtml}
                 </div>
             `;
@@ -347,7 +347,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const timeUnit = period === '24h' ? 'hour' : 'day';
                 createChart('clientsChart', 'line', labels, [{ label: 'Clients', data: data.history.map(p => p.client_count), borderColor: '#3B82F6', tension: 0.2, fill: false, pointRadius: 0 }], timeUnit);
                 createChart('airtimeChart', 'line', labels, [{ label: 'Airtime (%)', data: data.history.map(p => p.airtime_total_usage != null ? (p.airtime_total_usage / 10.0) : null), borderColor: '#EAB308', tension: 0.2, fill: false, pointRadius: 0 }], timeUnit);
-                createChart('throughputChart', 'line', labels, [{ label: 'Download (kbps)', data: data.history.map(p => p.total_throughput_rx), borderColor: '#22C55E', tension: 0.2, fill: false, pointRadius: 0 }, { label: 'Upload (kbps)', data: data.history.map(p => p.total_throughput_tx), borderColor: '#F97316', tension: 0.2, fill: false, pointRadius: 0 }], timeUnit);
+                createChart('throughputChart', 'line', labels, [{ label: 'Download (kbps)', data: data.history.map(p => p.total_throughput_tx), borderColor: '#22C55E', tension: 0.2, fill: false, pointRadius: 0 }, { label: 'Upload (kbps)', data: data.history.map(p => p.total_throughput_rx), borderColor: '#F97316', tension: 0.2, fill: false, pointRadius: 0 }], timeUnit);
             } catch (error) {
                 console.error("Error loading chart data:", error);
             } finally {
@@ -397,7 +397,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const airtimeTx = ap.airtime_tx_usage != null ? `${(ap.airtime_tx_usage / 10.0).toFixed(1)}%` : 'N/A';
                 const airtimeRx = ap.airtime_rx_usage != null ? `${(ap.airtime_rx_usage / 10.0).toFixed(1)}%` : 'N/A';
                 document.getElementById('detail-airtime').textContent = `${airtimeTotal} (Tx: ${airtimeTx} / Rx: ${airtimeRx})`;
-                document.getElementById('detail-throughput').textContent = `${formatThroughput(ap.total_throughput_rx)} / ${formatThroughput(ap.total_throughput_tx)}`;
+                document.getElementById('detail-throughput').textContent = `${formatThroughput(ap.total_throughput_tx)} / ${formatThroughput(ap.total_throughput_rx)}`;
                 document.getElementById('detail-total-data').textContent = `${formatBytes(ap.total_tx_bytes)} / ${formatBytes(ap.total_rx_bytes)}`;
                 document.getElementById('detail-gps').textContent = ap.gps_lat && ap.gps_lon ? `${ap.gps_lat.toFixed(6)}, ${ap.gps_lon.toFixed(6)}` : 'N/A';
                 document.getElementById('edit-ap-button').addEventListener('click', () => openEditModal(ap));

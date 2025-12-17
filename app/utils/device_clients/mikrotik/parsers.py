@@ -193,8 +193,11 @@ def parse_bytes(bytes_str: Optional[str]) -> Tuple[Optional[int], Optional[int]]
     """
     Parse bytes string which may be 'tx,rx' format.
     
+    RouterOS registration table 'bytes' field format: "tx_bytes,rx_bytes"
+    Where tx = bytes sent TO the client (Downlink), rx = bytes received FROM client (Uplink).
+    
     Examples:
-        "100,200" -> (100, 200) meaning (tx_bytes, rx_bytes)
+        "100,200" -> (100, 200) meaning (tx_bytes=100, rx_bytes=200)
     
     Args:
         bytes_str: Bytes value from RouterOS registration table.
@@ -207,8 +210,8 @@ def parse_bytes(bytes_str: Optional[str]) -> Tuple[Optional[int], Optional[int]]
     try:
         if "," in str(bytes_str):
             parts = str(bytes_str).split(",")
-            rx = parse_int(parts[0]) if len(parts) > 0 else None
-            tx = parse_int(parts[1]) if len(parts) > 1 else None
+            tx = parse_int(parts[0]) if len(parts) > 0 else None
+            rx = parse_int(parts[1]) if len(parts) > 1 else None
             return tx, rx
         return None, None
     except Exception:
