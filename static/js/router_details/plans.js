@@ -5,6 +5,28 @@ import { TableComponent } from '../components/TableComponent.js';
 
 // --- LOCAL STATE ---
 let localPlansTable = null;
+let currentPlans = []; // Store current plans for direct manipulation
+
+// --- DEDICATED RELOAD FUNCTION ---
+
+/**
+ * Reload only the plans data without a full page reload
+ */
+async function reloadPlansOnly() {
+    const routerHost = CONFIG.currentHost;
+    if (!routerHost) return;
+
+    try {
+        // Add cache-busting timestamp
+        const cacheBuster = `?_t=${Date.now()}`;
+        const localPlans = await ApiClient.request(`/api/plans/router/${routerHost}${cacheBuster}`);
+        currentPlans = localPlans;
+        renderLocalPlans(localPlans);
+        console.log('✅ Plans reloaded:', localPlans.length, 'plans');
+    } catch (e) {
+        console.error("Error recargando planes:", e);
+    }
+}
 
 // --- RENDERERS ---
 
@@ -45,10 +67,9 @@ function populateParentQueueSelects(queues) {
  * Render local plans table
  */
 function renderLocalPlans(plans) {
-    if (!DOM_ELEMENTS.localPlansTableBody) return;
+    if (!DOM_ELEMENTS.localPlansTableContainer) return;
 
-    const container = DOM_ELEMENTS.localPlansTableBody.closest('.overflow-x-auto');
-    if (!container) return;
+    const container = DOM_ELEMENTS.localPlansTableContainer;
 
     if (!localPlansTable) {
         localPlansTable = new TableComponent({
@@ -97,6 +118,37 @@ function renderLocalPlans(plans) {
     localPlansTable.render(plans || [], container);
 }
 
+// --- SMART POLLING ---
+
+/**
+ * Polls the plans API until predicate is met.
+ * @param {Function} predicate (list) => boolean
+ * @param {number} maxAttempts Default 5
+ * @param {number} intervalMs Default 1000
+ */
+async function smartReloadPlans(predicate, maxAttempts = 5, intervalMs = 1000) {
+    for (let i = 0; i < maxAttempts; i++) {
+        try {
+            console.log(`🔄 Smart Polling Plans attempt ${i + 1}/${maxAttempts}...`);
+            const routerHost = CONFIG.currentHost;
+            const cacheBuster = `?_t=${Date.now()}`;
+            const localPlans = await ApiClient.request(`/api/plans/router/${routerHost}${cacheBuster}`);
+
+            if (predicate(localPlans)) {
+                console.log('✅ Smart Polling Plans success!');
+                currentPlans = localPlans;
+                renderLocalPlans(localPlans);
+                DomUtils.updateFeedback('Sincronización completada.', true);
+                return;
+            }
+        } catch (e) { console.warn(e); }
+        await new Promise(r => setTimeout(r, intervalMs));
+    }
+    console.warn('⚠️ Smart Polling Plans timed out.');
+    await reloadPlansOnly();
+    DomUtils.updateFeedback('Sincronización finalizada.', true);
+}
+
 // --- HANDLERS ---
 
 /**
@@ -136,14 +188,16 @@ const handleCreateLocalPlan = async (e) => {
     };
 
     try {
-        await ApiClient.request('/api/plans', {
+        const result = await ApiClient.request('/api/plans', {
             method: 'POST',
             body: JSON.stringify(payload)
         });
 
-        DomUtils.updateFeedback("Plan guardado correctamente", true);
+        DomUtils.updateFeedback("Guardado correctamente. Sincronizando...", true);
         DOM_ELEMENTS.createLocalPlanForm.reset();
-        await window.loadFullDetailsData();
+
+        // Smart Polling: Wait until plan appears
+        smartReloadPlans(list => list.find(p => p.name === payload.name));
     } catch (err) {
         DomUtils.updateFeedback(`Error guardando plan: ${err.message}`, false);
     }
@@ -156,8 +210,10 @@ const handleDeletePlan = (planId) => {
     DomUtils.confirmAndExecute("¿Eliminar este plan local?", async () => {
         try {
             await ApiClient.request(`/api/plans/${planId}`, { method: 'DELETE' });
-            await window.loadFullDetailsData();
-            DomUtils.updateFeedback("Plan eliminado", true);
+            DomUtils.updateFeedback("Plan eliminado. Sincronizando...", true);
+
+            // Smart Polling: Wait until plan is GONE
+            smartReloadPlans(list => !list.find(p => p.id === planId));
         } catch (err) {
             DomUtils.updateFeedback(err.message, false);
         }
@@ -178,7 +234,9 @@ export async function loadPlansData(fullDetails) {
         const routerHost = CONFIG.currentHost;
         if (routerHost) {
             try {
-                const localPlans = await ApiClient.request(`/api/plans/router/${routerHost}`);
+                // Add cache-busting timestamp to prevent stale data
+                const cacheBuster = `?_t=${Date.now()}`;
+                const localPlans = await ApiClient.request(`/api/plans/router/${routerHost}${cacheBuster}`);
                 renderLocalPlans(localPlans);
             } catch (e) {
                 console.error("Error cargando planes locales:", e);

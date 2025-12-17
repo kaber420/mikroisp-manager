@@ -16,7 +16,9 @@ import { initBackupModule, loadBackupData } from './backup.js';
 
 async function loadFullDetailsData() {
     try {
-        const data = await ApiClient.request(`/api/routers/${CONFIG.currentHost}/full-details`);
+        // Add cache-busting timestamp to prevent stale data
+        const cacheBuster = `?_t=${Date.now()}`;
+        const data = await ApiClient.request(`/api/routers/${CONFIG.currentHost}/full-details${cacheBuster}`);
 
         // Consolidar TODAS las cargas de datos
         loadOverviewData(data);

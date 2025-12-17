@@ -25,7 +25,7 @@ export const DOM_ELEMENTS = {
     // Feedback
     formFeedback: document.getElementById('form-feedback'),
     // Listas de Datos
-    interfacesTableBody: document.getElementById('interfaces-table-body'),
+    interfacesTableContainer: document.getElementById('interfaces-table-container'),
     interfaceFilterButtons: document.getElementById('interface-filter-buttons'),
     ipAddressList: document.getElementById('ip-address-list'),
     natRulesList: document.getElementById('nat-rules-list'),
@@ -41,7 +41,7 @@ export const DOM_ELEMENTS = {
     routerUsersList: document.getElementById('router-users-list'),
 
     // --- NUEVO: Tabla para planes locales ---
-    localPlansTableBody: document.getElementById('local-plans-table-body'),
+    localPlansTableContainer: document.getElementById('local-plans-table-container'),
 
     // Formularios
     addIpForm: document.getElementById('add-ip-form'),

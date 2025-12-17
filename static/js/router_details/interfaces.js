@@ -79,16 +79,9 @@ function initTableComponent() {
 }
 
 function renderInterfaces() {
-    if (!DOM_ELEMENTS.interfacesTableBody) return;
+    if (!DOM_ELEMENTS.interfacesTableContainer) return;
 
-    // El contenedor ahora debe ser el padre del tbody original, o podemos vaciar el contenedor y dejar que el componente cree la tabla.
-    // Dado que el HTML original tiene una estructura de tabla completa, vamos a reemplazar el contenido del contenedor padre de la tabla.
-    // Pero interfacesTableBody es un TBODY. El componente TableComponent crea una TABLE completa.
-    // ESTRATEGIA: Vamos a apuntar al contenedor de la tabla (el div .overflow-x-auto) en lugar del tbody.
-    // Para no romper referencias, buscaremos el padre.
-
-    const tableContainer = DOM_ELEMENTS.interfacesTableBody.closest('.overflow-x-auto');
-    if (!tableContainer) return;
+    const tableContainer = DOM_ELEMENTS.interfacesTableContainer;
 
     initTableComponent();
 
@@ -101,8 +94,7 @@ function renderInterfaces() {
             filteredInterfaces = allModuleInterfaces.filter(iface => FILTER_TYPES.ppp.includes(iface.type) && iface.name !== 'none');
             break;
         default:
-            filteredInterfaces = allModuleInterfaces.filter(iface => iface.name !== 'none');
-            break;
+            filteredInterfaces = allModuleInterfaces;
     }
 
     DOM_ELEMENTS.resInterfaces.textContent = filteredInterfaces.length;
@@ -117,7 +109,48 @@ function renderInterfaces() {
         return a.name.localeCompare(b.name);
     });
 
-    interfacesTable.render(filteredInterfaces, tableContainer);
+    // Explicitly call TableComponent.render to force UI update
+    if (interfacesTable && tableContainer) {
+        interfacesTable.render(filteredInterfaces, tableContainer);
+    }
+}
+
+// --- SMART POLLING LOGIC ---
+
+/**
+ * Polls the backend until the predicate returns true or timeout.
+ * @param {Function} predicate (data) => boolean
+ * @param {number} maxAttempts Default 5
+ * @param {number} intervalMs Default 1000
+ */
+async function smartRefresh(predicate, maxAttempts = 5, intervalMs = 1000) {
+    for (let i = 0; i < maxAttempts; i++) {
+        try {
+            console.log(`🔄 Smart Polling attempt ${i + 1}/${maxAttempts}...`);
+            const cacheBuster = `?_t=${Date.now()}`;
+            const fullDetails = await ApiClient.request(`/api/routers/${CONFIG.currentHost}/full-details${cacheBuster}`);
+            const tempInterfaces = fullDetails.interfaces || [];
+
+            if (predicate(tempInterfaces)) {
+                console.log('✅ Smart Polling success!');
+                allModuleInterfaces = tempInterfaces;
+                allModuleIps = fullDetails.ip_addresses || [];
+                allModuleBridgePorts = fullDetails.bridge_ports || [];
+                setAllInterfaces(allModuleInterfaces);
+
+                renderInterfaces();
+                populateInterfaceSelects(allModuleInterfaces);
+                DomUtils.updateFeedback('Sincronización completada.', true);
+                return;
+            }
+        } catch (e) {
+            console.warn('Smart Polling transient error:', e);
+        }
+        await new Promise(r => setTimeout(r, intervalMs)); // Wait
+    }
+    console.warn('⚠️ Smart Polling timed out.');
+    await refreshInterfaceData(); // Fallback
+    DomUtils.updateFeedback('Sincronización finalizada.', true);
 }
 
 export function populateInterfaceSelects(interfaces) {
@@ -223,10 +256,26 @@ function closeBridgeModal() {
 
 async function refreshInterfaceData() {
     try {
-        // En lugar de hacer nuestra propia llamada a full-details,
-        // usamos la función central que ya maneja todo correctamente
-        await window.loadFullDetailsData();
+        // Direct API call with cache-busting to ensure fresh data
+        const cacheBuster = `?_t=${Date.now()}`;
+        const data = await ApiClient.request(`/api/routers/${CONFIG.currentHost}/full-details${cacheBuster}`);
 
+        // Update module state directly
+        allModuleInterfaces = data.interfaces || [];
+        allModuleIps = data.ip_addresses || [];
+        allModuleBridgePorts = data.bridge_ports || [];
+        setAllInterfaces(allModuleInterfaces);
+
+        // Re-render
+        renderInterfaces();
+        populateInterfaceSelects(allModuleInterfaces);
+
+        console.log('✅ Interfaces reloaded:', allModuleInterfaces.length, 'interfaces');
+        // Optional: Notify user sync is done implicitly by the list updating, 
+        // but we can add a subtle indicator if needed.
+        // For now, let's assume the previous message "Sincronizando..." implies it will finish.
+        // Actually, maybe update feedback to "Listo"?
+        // DomUtils.updateFeedback("Lista actualizada", true); 
     } catch (e) {
         console.error("Error recargando datos de interfaces:", e);
         DomUtils.updateFeedback(`Error al recargar interfaces: ${e.message}`, false);
@@ -304,7 +353,14 @@ async function handleInterfaceAction(action, interfaceId, interfaceName = '', in
             await ApiClient.request(url, requestOptions);
 
             DomUtils.updateFeedback(successMessage, true);
-            await refreshInterfaceData();
+
+            // Smart Polling
+            DomUtils.updateFeedback('Sincronizando con router...', true);
+            if (action === 'delete') {
+                smartRefresh(list => !list.find(i => (i['.id'] || i.id) === interfaceId));
+            } else {
+                smartRefresh(() => true); // Generic wait for next update
+            }
         });
 
     } catch (e) {
@@ -328,10 +384,12 @@ async function handleVlanFormSubmit(e) {
     const method = id ? 'PUT' : 'POST';
 
     try {
-        await ApiClient.request(url, { method, body: JSON.stringify(data) });
+        const result = await ApiClient.request(url, { method, body: JSON.stringify(data) });
         closeVlanModal();
-        await refreshInterfaceData();
-        DomUtils.updateFeedback('VLAN saved successfully!', true);
+        DomUtils.updateFeedback('Guardado correctamente. Sincronizando...', true);
+
+        // Smart Polling: Wait until new VLAN appears
+        smartRefresh(list => list.find(i => i.name === data.name));
     } catch (error) {
         DomUtils.updateFeedback(`Error saving VLAN: ${error.message}`, false);
     }
@@ -354,10 +412,12 @@ async function handleBridgeFormSubmit(e) {
     const method = id ? 'PUT' : 'POST';
 
     try {
-        await ApiClient.request(url, { method, body: JSON.stringify(data) });
+        const result = await ApiClient.request(url, { method, body: JSON.stringify(data) });
         closeBridgeModal();
-        await refreshInterfaceData();
-        DomUtils.updateFeedback('Bridge saved successfully!', true);
+        DomUtils.updateFeedback('Guardado correctamente. Sincronizando...', true);
+
+        // Smart Polling: Wait until new Bridge appears
+        smartRefresh(list => list.find(i => i.name === data.name));
     } catch (error) {
         DomUtils.updateFeedback(`Error saving bridge: ${error.message}`, false);
     }
