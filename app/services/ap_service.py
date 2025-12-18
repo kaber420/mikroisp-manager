@@ -327,7 +327,7 @@ class APService:
     async def get_wireless_interfaces(self, host: str) -> List[Dict[str, str]]:
         """
         Obtiene las interfaces inalámbricas disponibles para un AP MikroTik.
-        Reutiliza la infraestructura del adapter (pool cacheado).
+        Incluye información de banda detectada de la frecuencia real operativa.
         """
         ap = await self.session.get(AP, host)
         if not ap:
@@ -355,10 +355,42 @@ class APService:
             # Try wifi package (ROS7+)
             try:
                 wifi_ifaces = api.get_resource("/interface/wifi").get()
+                
+                # Also get radio info for actual frequency
+                radio_info = {}
+                try:
+                    radios = api.get_resource("/interface/wifi/radio").get()
+                    for radio in radios:
+                        radio_name = radio.get("name", "")
+                        freq = radio.get("current-frequency", "") or radio.get("frequency", "")
+                        if radio_name and freq:
+                            radio_info[radio_name] = freq
+                except Exception:
+                    pass
+                
                 for iface in wifi_ifaces:
                     name = iface.get("name") or iface.get("default-name")
                     if name:
-                        interfaces.append({"name": name, "type": "wifi"})
+                        # Try to get frequency from radio resource
+                        radio_name = iface.get("radio-mac", "") or name
+                        freq = radio_info.get(radio_name, "")
+                        
+                        # Also check interface's own frequency field
+                        if not freq:
+                            freq = iface.get("frequency", "") or iface.get("current-frequency", "")
+                        
+                        band = self._band_from_frequency(freq) if freq else "unknown"
+                        
+                        # If still unknown, check configuration.band field
+                        if band == "unknown":
+                            config_band = iface.get("band", "")
+                            if config_band:
+                                if "2" in config_band:
+                                    band = "2ghz"
+                                elif "5" in config_band or "6" in config_band:
+                                    band = "5ghz"
+                        
+                        interfaces.append({"name": name, "type": "wifi", "band": band})
             except Exception:
                 pass
             
@@ -368,13 +400,43 @@ class APService:
                 for iface in wireless_ifaces:
                     name = iface.get("name") or iface.get("default-name")
                     if name and not any(i['name'] == name for i in interfaces):
-                        interfaces.append({"name": name, "type": "wireless"})
+                        # Legacy wireless has frequency directly in interface
+                        freq = iface.get("frequency", "")
+                        band = self._band_from_frequency(freq) if freq else "unknown"
+                        
+                        # Check band field as fallback
+                        if band == "unknown":
+                            band_field = iface.get("band", "")
+                            if band_field:
+                                if "2" in band_field:
+                                    band = "2ghz"
+                                elif "5" in band_field:
+                                    band = "5ghz"
+                        
+                        interfaces.append({"name": name, "type": "wireless", "band": band})
             except Exception:
                 pass
             
             return interfaces
         finally:
             adapter.disconnect()
+    
+    def _band_from_frequency(self, freq_str: str) -> str:
+        """
+        Determina la banda basándose en la frecuencia.
+        """
+        try:
+            # Handle formats like "5180", "5180MHz", "auto", "5180/20/an"
+            freq_clean = ''.join(c for c in str(freq_str).split('/')[0] if c.isdigit())
+            if freq_clean:
+                freq_mhz = int(freq_clean)
+                if 2400 <= freq_mhz <= 2500:
+                    return "2ghz"
+                elif 5000 <= freq_mhz <= 6000:
+                    return "5ghz"
+        except (ValueError, TypeError):
+            pass
+        return "unknown"
 
     async def get_ap_history(self, host: str, period: str = "24h") -> APHistoryResponse:
         """Obtiene datos históricos de un AP desde la DB de estadísticas."""

@@ -131,13 +131,14 @@ class SpectralScanManager:
         
         logger.info(f"[SpectralScan] Reader thread ended (parsed {parsed_count} points)")
     
-    def start_scan(self, interface: str, duration_seconds: int = 300) -> tuple[bool, str]:
+    def start_scan(self, interface: str, duration_seconds: int = 300, scan_range: str = None) -> tuple[bool, str]:
         """
         Start the spectral-scan command.
         
         Args:
             interface: Interface to scan (e.g., 'wifi1'). Required.
             duration_seconds: Scan duration in seconds. Max 300 (5 min) for safety.
+            scan_range: Optional frequency range (e.g., "5150-5875" or "current").
         """
         if not self._ssh_client or not self._ssh_client.is_connected():
             return False, "No conectado"
@@ -164,11 +165,24 @@ class SpectralScanManager:
             else:
                 duration_str = f"{duration_seconds}s"
             
-            # Build command with duration for auto-stop
+            # Base command
             if self._wireless_type == 'wifi':
-                cmd = f"/interface/wifi/spectral-scan {interface} duration={duration_str}"
+                base_cmd = f"/interface/wifi/spectral-scan {interface} duration={duration_str}"
             else:
-                cmd = f"/interface/wireless/spectral-scan {interface} duration={duration_str}"
+                base_cmd = f"/interface/wireless/spectral-scan {interface} duration={duration_str}"
+                
+            # Add range if specified and not 'current'
+            cmd = base_cmd
+            range_info = "canal actual"
+            
+            if scan_range and scan_range != "current":
+                # Validate simple range format to prevent injection
+                # Allow: numbers, hyphen, commas (e.g., 2412-2472 or 5180,5200)
+                if re.match(r'^[0-9\-,]+$', scan_range):
+                    cmd += f" range={scan_range}"
+                    range_info = f"rango {scan_range}"
+                else:
+                    logger.warning(f"[SpectralScan] Invalid range format ignored: {scan_range}")
             
             logger.info(f"[SpectralScan] Ejecutando: {cmd}")
             
@@ -191,7 +205,7 @@ class SpectralScanManager:
             )
             self._reader_thread.start()
             
-            return True, f"Escaneando {interface} por {duration_str}"
+            return True, f"Escaneando {interface} ({range_info}) por {duration_str}"
             
         except Exception as e:
             logger.error(f"Error al iniciar spectral-scan: {e}")
@@ -307,16 +321,19 @@ async def spectral_scan_websocket(
             config = json.loads(config_msg)
             interface = config.get("interface")
             duration = config.get("duration", 120)  # Default 2 min
+            scan_range = config.get("range", "current")
         except asyncio.TimeoutError:
             interface = None
             duration = 120
+            scan_range = "current"
         except:
             interface = None
             duration = 120
+            scan_range = "current"
         
         await websocket.send_json({"status": "starting", "message": "Iniciando comando..."})
         
-        success, message = scanner.start_scan(interface=interface, duration_seconds=duration)
+        success, message = scanner.start_scan(interface=interface, duration_seconds=duration, scan_range=scan_range)
         if not success:
             await websocket.send_json({"status": "unsupported", "message": message})
             await websocket.close()
