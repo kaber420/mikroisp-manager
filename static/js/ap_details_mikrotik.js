@@ -199,15 +199,16 @@
         rangeSelect.appendChild(currentOpt);
 
         // Add band-specific full range option
+        // Using 'full' value means backend will omit range parameter entirely
         if (band === '2ghz') {
             const fullOpt = document.createElement('option');
-            fullOpt.value = '2412-2472';
-            fullOpt.textContent = '2.4GHz Completo (2412-2472)';
+            fullOpt.value = 'full';
+            fullOpt.textContent = '2.4GHz Banda Completa';
             rangeSelect.appendChild(fullOpt);
         } else if (band === '5ghz') {
             const fullOpt = document.createElement('option');
-            fullOpt.value = '5150-5875';
-            fullOpt.textContent = '5GHz Completo (5150-5875)';
+            fullOpt.value = 'full';
+            fullOpt.textContent = '5GHz Banda Completa';
             rangeSelect.appendChild(fullOpt);
         }
         // For 'unknown' band, only "Canal Actual" is shown

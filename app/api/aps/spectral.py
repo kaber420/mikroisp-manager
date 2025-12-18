@@ -165,20 +165,26 @@ class SpectralScanManager:
             else:
                 duration_str = f"{duration_seconds}s"
             
-            # Base command
+            # Base command with without-paging to get all data at once
             if self._wireless_type == 'wifi':
-                base_cmd = f"/interface/wifi/spectral-scan {interface} duration={duration_str}"
+                base_cmd = f"/interface/wifi/spectral-scan {interface} duration={duration_str} without-paging"
             else:
-                base_cmd = f"/interface/wireless/spectral-scan {interface} duration={duration_str}"
+                base_cmd = f"/interface/wireless/spectral-scan {interface} duration={duration_str} without-paging"
                 
             # Add range if specified and not 'current'
             cmd = base_cmd
             range_info = "canal actual"
             
             if scan_range and scan_range != "current":
-                # Validate simple range format to prevent injection
-                # Allow: numbers, hyphen, commas (e.g., 2412-2472 or 5180,5200)
-                if re.match(r'^[0-9\-,]+$', scan_range):
+                # Handle special 'full' value - omit range parameter to scan entire band
+                if scan_range.lower() == "full":
+                    # Don't add range parameter - MikroTik will scan entire band
+                    range_info = "banda completa"
+                # Validate range format to prevent injection
+                # Allow: 
+                #   - numeric ranges: 2412-2472, 5180,5200
+                #   - band names: 2.4ghz, 5ghz (MikroTik standard)
+                elif re.match(r'^[0-9\-,]+$', scan_range) or scan_range.lower() in ['2.4ghz', '5ghz']:
                     cmd += f" range={scan_range}"
                     range_info = f"rango {scan_range}"
                 else:
@@ -228,25 +234,17 @@ class SpectralScanManager:
         
         if self.channel and not self.channel.closed:
             try:
-                # Send multiple Ctrl+C signals to ensure the scan stops
-                # MikroTik spectral-scan can be stubborn about stopping
-                for i in range(3):
-                    try:
-                        self.channel.send('\x03')  # Ctrl+C
-                        time.sleep(0.3)
-                    except:
-                        break
-                
-                # Wait longer for MikroTik to restore radio to normal operation
-                # This is critical - rushing this can leave the radio in a bad state
-                time.sleep(1.0)
-                
-                # Send a newline to get back to prompt
+                # MikroTik interactive commands use 'q' to quit properly
+                # Ctrl+C can interrupt SSH or leave radio in bad state
                 try:
-                    self.channel.send('\n')
-                    time.sleep(0.2)
+                    self.channel.send('q')  # Quit command
+                    time.sleep(0.5)
                 except:
                     pass
+                
+                # Wait for MikroTik to restore radio to normal operation
+                # This is critical - rushing this can leave the radio in a bad state
+                time.sleep(1.0)
                 
                 # Try to read any remaining output to confirm stop
                 try:
@@ -255,10 +253,10 @@ class SpectralScanManager:
                 except:
                     pass
                 
-                logger.info(f"[SpectralScan] Stop signal sent to {self.host}")
+                logger.info(f"[SpectralScan] Quit signal sent to {self.host}")
                 
             except Exception as e:
-                logger.warning(f"[SpectralScan] Error sending stop signal: {e}")
+                logger.warning(f"[SpectralScan] Error sending quit signal: {e}")
             finally:
                 try:
                     self.channel.close()
