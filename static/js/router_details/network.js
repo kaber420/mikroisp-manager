@@ -67,6 +67,7 @@ function renderIpAddresses(ips = []) {
         ipTable = new TableComponent({
             columns: ['Address', 'Interface', 'Action'],
             emptyMessage: 'No IP addresses found.',
+            tableClass: 'data-table w-full',
             onAction: (action, payload) => {
                 if (action === 'delete') handleDeleteIp(payload.address);
             },
@@ -102,6 +103,7 @@ function renderNatRules(rules = []) {
         natTable = new TableComponent({
             columns: ['Comment', 'Out-Interface', 'Action'],
             emptyMessage: 'No NAT rules found.',
+            tableClass: 'data-table w-full',
             onAction: (action, payload) => {
                 if (action === 'delete') handleDeleteNat(payload.comment);
             },

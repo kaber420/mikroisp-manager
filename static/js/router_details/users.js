@@ -15,6 +15,7 @@ function renderRouterUsers(users) {
         usersTable = new TableComponent({
             columns: ['Name', 'Group', 'Action'],
             emptyMessage: 'No hay usuarios.',
+            tableClass: 'data-table w-full',
             onAction: (action, payload) => {
                 if (action === 'delete') handleDeleteRouterUser(payload.id);
             },

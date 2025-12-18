@@ -36,9 +36,18 @@ def remove_nat_rule(api: RouterOsApiPool, comment: str):
 def add_nat_masquerade(api: RouterOsApiPool, **kwargs):
     """Añade una regla NAT de tipo masquerade."""
     res = api.get_resource("/ip/firewall/nat")
-    # Los parámetros se pasan directamente desde el servicio
-    # Valores esperados en kwargs: chain, action, out_interface, comment, etc.
-    res.add(**kwargs)
+    # Convertir out_interface a out-interface (formato MikroTik)
+    out_interface = kwargs.pop("out_interface", None)
+    # Construir los parámetros con los valores obligatorios
+    params = {
+        "chain": "srcnat",
+        "action": "masquerade",
+    }
+    if out_interface:
+        params["out-interface"] = out_interface
+    if kwargs.get("comment"):
+        params["comment"] = kwargs["comment"]
+    res.add(**params)
 
 
 def update_address_list_entry(

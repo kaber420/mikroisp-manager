@@ -366,36 +366,80 @@
             </div>
         </div>
         <div x-show="activeTab === 'network'" class="space-y-6">
+            <!-- IP Addresses Card -->
             <div class="card">
-                <h2 class="text-xl font-bold mb-4">Configuración de Red (IPs y NAT)</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div class="space-y-4">
-                        <h4 class="text-base font-semibold">IPs Actuales</h4>
-                        <div id="ip-address-list" class="text-sm space-y-1 font-mono max-h-40 overflow-y-auto"></div>
-                        <h4 class="text-base font-semibold pt-4 border-t border-border-color">NAT Activo</h4>
-                        <div id="nat-rules-list" class="text-sm font-mono max-h-20 overflow-y-auto"></div>
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">lan</span>
+                    Direcciones IP
+                </h2>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2">
+                        <div id="ip-address-list" class="overflow-x-auto border border-border-color rounded-md"></div>
                     </div>
-                    <div class="space-y-4">
-                        <h4 class="text-base font-semibold">Añadir IP</h4>
-                        <form id="add-ip-form" class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <select name="interface"
-                                class="w-full bg-background border border-border-color rounded-md p-2 interface-select"
-                                required></select>
-                            <input type="text" name="address" placeholder="192.168.88.1/24"
-                                class="w-full bg-background border border-border-color rounded-md p-2" required>
-                            <button type="submit"
-                                class="h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover">Añadir</button>
-                        </form>
-                        <h4 class="text-base font-semibold pt-4 border-t border-border-color">Activar NAT (WAN)</h4>
-                        <form id="add-nat-form" class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <select name="out-interface"
-                                class="w-full bg-background border border-border-color rounded-md p-2 interface-select"
-                                required></select>
-                            <input type="text" name="comment" value="NAT-WAN (µMonitor)"
-                                class="w-full bg-background border border-border-color rounded-md p-2">
-                            <button type="submit"
-                                class="h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover">Activar</button>
-                        </form>
+                    <div>
+                        <div class="bg-surface-2 p-4 rounded-md border border-border-color">
+                            <h4 class="text-base font-semibold mb-3 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-sm">add_circle</span>
+                                Añadir IP
+                            </h4>
+                            <form id="add-ip-form" class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-text-secondary mb-1">Interface</label>
+                                    <select name="interface"
+                                        class="w-full bg-background border border-border-color rounded-md p-2 interface-select"
+                                        required></select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-text-secondary mb-1">Dirección
+                                        IP/CIDR</label>
+                                    <input type="text" name="address" placeholder="192.168.88.1/24"
+                                        class="w-full bg-background border border-border-color rounded-md p-2" required>
+                                </div>
+                                <button type="submit"
+                                    class="w-full h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover">
+                                    Añadir IP
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NAT Rules Card -->
+            <div class="card">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">swap_horiz</span>
+                    NAT (Masquerade)
+                </h2>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2">
+                        <div id="nat-rules-list" class="overflow-x-auto border border-border-color rounded-md"></div>
+                    </div>
+                    <div>
+                        <div class="bg-surface-2 p-4 rounded-md border border-border-color">
+                            <h4 class="text-base font-semibold mb-3 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-sm">add_circle</span>
+                                Activar NAT (WAN)
+                            </h4>
+                            <form id="add-nat-form" class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-text-secondary mb-1">Out
+                                        Interface</label>
+                                    <select name="out-interface"
+                                        class="w-full bg-background border border-border-color rounded-md p-2 interface-select"
+                                        required></select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-text-secondary mb-1">Comentario</label>
+                                    <input type="text" name="comment" value="NAT-WAN (µMonitor)"
+                                        class="w-full bg-background border border-border-color rounded-md p-2">
+                                </div>
+                                <button type="submit"
+                                    class="w-full h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover">
+                                    Activar NAT
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -507,17 +551,22 @@
 
         <div x-show="activeTab === 'queues'" class="space-y-6">
             <div class="card">
-                <h2 class="text-xl font-bold mb-4">Gestión de Colas Padre (Infraestructura)</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                        <h4 class="text-base font-semibold">Colas Padre en Router</h4>
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">queue</span>
+                    Gestión de Colas Padre (Infraestructura)
+                </h2>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2">
                         <div id="parent-queue-list-display"
-                            class="text-sm space-y-1 font-mono max-h-40 overflow-y-auto"></div>
+                            class="overflow-x-auto border border-border-color rounded-md"></div>
                     </div>
-                    <div class="space-y-4">
-                        <h4 class="text-base font-semibold">Crear Nueva Cola Padre</h4>
-                        <form id="add-parent-queue-form" class="space-y-3">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <div class="bg-surface-2 p-4 rounded-md border border-border-color">
+                            <h4 class="text-base font-semibold mb-3 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-sm">add_circle</span>
+                                Crear Nueva Cola Padre
+                            </h4>
+                            <form id="add-parent-queue-form" class="space-y-3">
                                 <div>
                                     <label class="block text-xs font-medium text-text-secondary mb-1">Nombre</label>
                                     <input type="text" name="name" placeholder="Total-Clientes"
@@ -528,24 +577,24 @@
                                     <input type="text" name="max_limit" placeholder="100M/100M"
                                         class="w-full bg-background border border-border-color rounded-md p-2" required>
                                 </div>
-                            </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-xs font-medium text-text-secondary mb-1">Target</label>
                                     <input type="text" name="target" placeholder="192.168.0.0/24"
                                         class="w-full bg-background border border-border-color rounded-md p-2">
                                 </div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <input type="checkbox" id="is-parent-checkbox" name="is_parent"
-                                    class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" checked>
-                                <label for="is-parent-checkbox" class="text-sm text-text-secondary">Mark as
-                                    Infrastructure / Parent Queue</label>
-                            </div>
-                            <button type="submit"
-                                class="h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover w-full">Crear
-                                Cola en Router</button>
-                        </form>
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" id="is-parent-checkbox" name="is_parent"
+                                        class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" checked>
+                                    <label for="is-parent-checkbox" class="text-sm text-text-secondary">
+                                        Marcar como Cola de Infraestructura
+                                    </label>
+                                </div>
+                                <button type="submit"
+                                    class="w-full h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover">
+                                    Crear Cola en Router
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -687,35 +736,54 @@
         </div>
 
         <div x-show="activeTab === 'users'" class="card">
-            <h2 class="text-xl font-bold mb-4">Usuarios Router</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div>
-                    <h4 class="text-base font-semibold">Usuarios Actuales</h4>
-                    <div id="router-users-list" class="text-sm space-y-1 font-mono max-h-40 overflow-y-auto"></div>
+            <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">group</span>
+                Usuarios Router
+            </h2>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2">
+                    <div id="router-users-list" class="overflow-x-auto border border-border-color rounded-md"></div>
                 </div>
                 <div>
-                    <h4 class="text-base font-semibold">Añadir Usuario</h4>
-                    <form id="add-router-user-form" class="space-y-3">
-                        <select id="app-user-select"
-                            class="w-full bg-background border border-border-color rounded-md p-2">
-                            <option value="">Copiar de App...</option>
-                        </select>
-                        <div class="grid grid-cols-2 gap-2">
-                            <input type="text" id="router-user-name" placeholder="Usuario"
-                                class="w-full bg-background border border-border-color rounded-md p-2" required>
-                            <select id="router-user-group"
-                                class="w-full bg-background border border-border-color rounded-md p-2">
-                                <option value="full">Full</option>
-                                <option value="write">Write</option>
-                                <option value="read">Read</option>
-                            </select>
-                        </div>
-                        <input type="password" id="router-user-password" placeholder="Contraseña"
-                            class="w-full bg-background border border-border-color rounded-md p-2" required>
-                        <button type="submit"
-                            class="h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover w-full">Añadir
-                            Usuario</button>
-                    </form>
+                    <div class="bg-surface-2 p-4 rounded-md border border-border-color">
+                        <h4 class="text-base font-semibold mb-3 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm">person_add</span>
+                            Añadir Usuario
+                        </h4>
+                        <form id="add-router-user-form" class="space-y-3">
+                            <div>
+                                <label class="block text-xs font-medium text-text-secondary mb-1">Copiar de App</label>
+                                <select id="app-user-select"
+                                    class="w-full bg-background border border-border-color rounded-md p-2">
+                                    <option value="">Seleccionar usuario...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-text-secondary mb-1">Nombre de
+                                    Usuario</label>
+                                <input type="text" id="router-user-name" placeholder="Usuario"
+                                    class="w-full bg-background border border-border-color rounded-md p-2" required>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-text-secondary mb-1">Grupo</label>
+                                <select id="router-user-group"
+                                    class="w-full bg-background border border-border-color rounded-md p-2">
+                                    <option value="full">Full</option>
+                                    <option value="write">Write</option>
+                                    <option value="read">Read</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-text-secondary mb-1">Contraseña</label>
+                                <input type="password" id="router-user-password" placeholder="Contraseña"
+                                    class="w-full bg-background border border-border-color rounded-md p-2" required>
+                            </div>
+                            <button type="submit"
+                                class="w-full h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover">
+                                Añadir Usuario
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>

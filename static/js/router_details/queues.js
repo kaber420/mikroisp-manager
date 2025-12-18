@@ -27,6 +27,7 @@ function renderParentQueues(queues) {
             parentQueuesTable = new TableComponent({
                 columns: ['Name', 'Max Limit', 'Action'],
                 emptyMessage: 'No hay colas de infraestructura.',
+                tableClass: 'data-table w-full',
                 onAction: (action, payload) => {
                     if (action === 'delete') handleDeleteParentQueue(payload.id);
                 },
