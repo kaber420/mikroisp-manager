@@ -258,7 +258,7 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                         if iface_name.startswith(("wifi", "wlan")) and iface_name[-1].isdigit():
                             physical_iface_names.add(iface_name)
                 
-                logger.info(f"[TotalData] Physical wireless interfaces: {physical_iface_names}")
+                logger.debug(f"Physical wireless interfaces for stats: {physical_iface_names}")
                 
                 # Get stats for all interfaces at once
                 try:
@@ -268,7 +268,7 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                         if iface_name in physical_iface_names:
                             tx_b = mikrotik_parsers.parse_int(stats.get("tx-byte"))
                             rx_b = mikrotik_parsers.parse_int(stats.get("rx-byte"))
-                            logger.info(f"[TotalData] {iface_name}: tx={tx_b}, rx={rx_b}")
+                            logger.debug(f"Interface {iface_name} stats: tx={tx_b}, rx={rx_b}")
                             if tx_b:
                                 total_tx_bytes += tx_b
                             if rx_b:
@@ -276,7 +276,7 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
                 except Exception as e:
                     logger.warning(f"Could not get interface stats: {e}")
                 
-                logger.info(f"[TotalData] TOTAL: tx={total_tx_bytes}, rx={total_rx_bytes}")
+                logger.debug(f"Total interface bytes: tx={total_tx_bytes}, rx={total_rx_bytes}")
             
             for client in clients:
                 if client.noisefloor:
