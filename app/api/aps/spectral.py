@@ -228,20 +228,32 @@ class SpectralScanManager:
         
         if self.channel and not self.channel.closed:
             try:
-                # Send Ctrl+C to stop the spectral-scan command
-                self.channel.send('\x03')  # Ctrl+C
+                # Send multiple Ctrl+C signals to ensure the scan stops
+                # MikroTik spectral-scan can be stubborn about stopping
+                for i in range(3):
+                    try:
+                        self.channel.send('\x03')  # Ctrl+C
+                        time.sleep(0.3)
+                    except:
+                        break
                 
-                # Wait for MikroTik to process the stop and restore interfaces
-                # This is critical - the device needs time to restore the radio
-                time.sleep(0.5)
+                # Wait longer for MikroTik to restore radio to normal operation
+                # This is critical - rushing this can leave the radio in a bad state
+                time.sleep(1.0)
                 
-                # Send another Ctrl+C just to be sure
-                self.channel.send('\x03')
-                time.sleep(0.3)
+                # Send a newline to get back to prompt
+                try:
+                    self.channel.send('\n')
+                    time.sleep(0.2)
+                except:
+                    pass
                 
                 # Try to read any remaining output to confirm stop
-                if self.channel.recv_ready():
-                    self.channel.recv(4096)
+                try:
+                    if self.channel.recv_ready():
+                        self.channel.recv(8192)
+                except:
+                    pass
                 
                 logger.info(f"[SpectralScan] Stop signal sent to {self.host}")
                 
@@ -254,7 +266,7 @@ class SpectralScanManager:
                     pass
         
         if self._reader_thread and self._reader_thread.is_alive():
-            self._reader_thread.join(timeout=2)
+            self._reader_thread.join(timeout=3)
         
         if self._ssh_client:
             self._ssh_client.disconnect()

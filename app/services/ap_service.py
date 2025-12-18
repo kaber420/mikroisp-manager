@@ -354,43 +354,67 @@ class APService:
             
             # Try wifi package (ROS7+)
             try:
-                wifi_ifaces = api.get_resource("/interface/wifi").get()
-                
-                # Also get radio info for actual frequency
-                radio_info = {}
-                try:
-                    radios = api.get_resource("/interface/wifi/radio").get()
-                    for radio in radios:
-                        radio_name = radio.get("name", "")
-                        freq = radio.get("current-frequency", "") or radio.get("frequency", "")
-                        if radio_name and freq:
-                            radio_info[radio_name] = freq
-                except Exception:
-                    pass
+                wifi_resource = api.get_resource("/interface/wifi")
+                wifi_ifaces = wifi_resource.get()
                 
                 for iface in wifi_ifaces:
                     name = iface.get("name") or iface.get("default-name")
-                    if name:
-                        # Try to get frequency from radio resource
-                        radio_name = iface.get("radio-mac", "") or name
-                        freq = radio_info.get(radio_name, "")
-                        
-                        # Also check interface's own frequency field
-                        if not freq:
-                            freq = iface.get("frequency", "") or iface.get("current-frequency", "")
-                        
-                        band = self._band_from_frequency(freq) if freq else "unknown"
-                        
-                        # If still unknown, check configuration.band field
-                        if band == "unknown":
-                            config_band = iface.get("band", "")
-                            if config_band:
-                                if "2" in config_band:
-                                    band = "2ghz"
-                                elif "5" in config_band or "6" in config_band:
-                                    band = "5ghz"
-                        
-                        interfaces.append({"name": name, "type": "wifi", "band": band})
+                    if not name:
+                        continue
+                    
+                    freq = ""
+                    band = "unknown"
+                    
+                    # Best method: Use monitor command to get real-time channel info
+                    # This returns channel like "5220/ax/eeCe" where 5220 is the frequency
+                    try:
+                        monitor_result = wifi_resource.call(
+                            "monitor", {"numbers": name, "once": ""}
+                        )
+                        if monitor_result:
+                            monitor_data = monitor_result[0] if isinstance(monitor_result, list) else monitor_result
+                            channel_info = monitor_data.get("channel", "")
+                            # Parse frequency from channel string (e.g., "5220/ax/eeCe")
+                            if channel_info and "/" in channel_info:
+                                freq_str = channel_info.split("/")[0]
+                                try:
+                                    freq = freq_str  # Keep as string for display
+                                    freq_int = int(freq_str)
+                                    # Determine band from frequency
+                                    if 2400 <= freq_int <= 2500:
+                                        band = "2ghz"
+                                    elif 5000 <= freq_int <= 6000:
+                                        band = "5ghz"
+                                except ValueError:
+                                    pass
+                    except Exception:
+                        pass
+                    
+                    # Fallback: Check configuration field for band hints
+                    if band == "unknown":
+                        config = iface.get("configuration", "")
+                        if config:
+                            config_lower = str(config).lower()
+                            if "2ghz" in config_lower or "2.4" in config_lower or "2g" in config_lower:
+                                band = "2ghz"
+                            elif "5ghz" in config_lower or "5g" in config_lower:
+                                band = "5ghz"
+                    
+                    # Fallback: Check channel.band field
+                    if band == "unknown":
+                        config_band = iface.get("channel.band", "") or iface.get("band", "")
+                        if config_band:
+                            if "2" in config_band:
+                                band = "2ghz"
+                            elif "5" in config_band or "6" in config_band:
+                                band = "5ghz"
+                    
+                    interfaces.append({
+                        "name": name, 
+                        "type": "wifi", 
+                        "band": band, 
+                        "frequency": freq
+                    })
             except Exception:
                 pass
             
@@ -413,7 +437,12 @@ class APService:
                                 elif "5" in band_field:
                                     band = "5ghz"
                         
-                        interfaces.append({"name": name, "type": "wireless", "band": band})
+                        interfaces.append({
+                            "name": name, 
+                            "type": "wireless", 
+                            "band": band, 
+                            "frequency": freq
+                        })
             except Exception:
                 pass
             

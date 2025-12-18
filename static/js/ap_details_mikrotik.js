@@ -153,21 +153,66 @@
 
             if (interfaces.length === 0) {
                 interfaceSelect.innerHTML = '<option value="">No interfaces found</option>';
+                updateSpectralRanges(); // Update ranges even if empty
                 return;
             }
 
             interfaces.forEach((iface, index) => {
                 const option = document.createElement('option');
                 option.value = iface.name;
-                option.textContent = `${iface.name} (${iface.type})`;
+                option.dataset.band = iface.band || 'unknown'; // Store band for dynamic range updates
+                const freqInfo = iface.frequency ? ` (${iface.frequency} MHz)` : ` (${iface.band})`;
+                option.textContent = `${iface.name}${freqInfo}`;
                 if (index === 0) option.selected = true;
                 interfaceSelect.appendChild(option);
             });
+
+            // Add event listener for interface change to update ranges dynamically
+            interfaceSelect.addEventListener('change', updateSpectralRanges);
+
+            // Initial update of ranges based on first selected interface
+            updateSpectralRanges();
         } catch (error) {
             console.error('Error loading spectral interfaces:', error);
             interfaceSelect.innerHTML = '<option value="">Error loading</option>';
+            updateSpectralRanges();
         }
     }
+
+    function updateSpectralRanges() {
+        const interfaceSelect = document.getElementById('spectral-interface');
+        const rangeSelect = document.getElementById('spectral-range');
+        if (!rangeSelect) return;
+
+        // Get the band of the currently selected interface
+        const selectedOption = interfaceSelect?.selectedOptions[0];
+        const band = selectedOption?.dataset?.band || 'unknown';
+
+        // Clear current options
+        rangeSelect.innerHTML = '';
+
+        // Always add "Canal Actual" option
+        const currentOpt = document.createElement('option');
+        currentOpt.value = 'current';
+        currentOpt.textContent = 'Canal Actual';
+        currentOpt.selected = true;
+        rangeSelect.appendChild(currentOpt);
+
+        // Add band-specific full range option
+        if (band === '2ghz') {
+            const fullOpt = document.createElement('option');
+            fullOpt.value = '2412-2472';
+            fullOpt.textContent = '2.4GHz Completo (2412-2472)';
+            rangeSelect.appendChild(fullOpt);
+        } else if (band === '5ghz') {
+            const fullOpt = document.createElement('option');
+            fullOpt.value = '5150-5875';
+            fullOpt.textContent = '5GHz Completo (5150-5875)';
+            rangeSelect.appendChild(fullOpt);
+        }
+        // For 'unknown' band, only "Canal Actual" is shown
+    }
+
 
     function startSpectralScan() {
         const currentHost = window.APDetailsCore?.currentHost || window.location.pathname.split('/').pop();
@@ -186,6 +231,7 @@
         // Get selected interface and duration
         const selectedInterface = document.getElementById('spectral-interface')?.value || null;
         const selectedDuration = parseInt(document.getElementById('spectral-duration')?.value || '120', 10);
+        const selectedRange = document.getElementById('spectral-range')?.value || 'current';
 
         spectralWs.onopen = () => {
             statusSpan.textContent = 'Connecting...';
@@ -203,7 +249,8 @@
                     // Send configuration to backend
                     spectralWs.send(JSON.stringify({
                         interface: selectedInterface,
-                        duration: selectedDuration
+                        duration: selectedDuration,
+                        range: selectedRange
                     }));
                     statusSpan.textContent = 'Sending configuration...';
                     break;
@@ -315,8 +362,15 @@
 
     function stopSpectralScan() {
         if (spectralWs) {
-            spectralWs.send('stop');
-            spectralWs.close();
+            try {
+                // Only send stop if WebSocket is still open
+                if (spectralWs.readyState === WebSocket.OPEN) {
+                    spectralWs.send('stop');
+                }
+                spectralWs.close();
+            } catch (e) {
+                console.warn('Error closing spectral WebSocket:', e);
+            }
             spectralWs = null;
         }
         resetSpectralUI();
