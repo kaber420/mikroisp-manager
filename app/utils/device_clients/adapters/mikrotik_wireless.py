@@ -237,17 +237,48 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
             # Get connected clients
             clients = self._get_clients_internal(api)
             
-            # Calculate aggregate stats from clients
+            # Calculate aggregate stats from WIRELESS INTERFACES (not clients)
+            # This ensures total data persists even when clients disconnect.
             total_tx_bytes = 0
             total_rx_bytes = 0
             avg_noise_floor = None
             noise_samples = []
             
+            # Sum tx-byte/rx-byte from PHYSICAL wireless interfaces only (wifi1, wifi2, wlan1, wlan2)
+            # Virtual interfaces share stats with their parent, so we exclude them to avoid duplication.
+            if wireless_type and wireless_interfaces:
+                # First, identify physical interface names (those without a master)
+                physical_iface_names = set()
+                for wlan_iface in wireless_interfaces:
+                    iface_name = wlan_iface.get("name") or wlan_iface.get("default-name")
+                    # Check for master-interface - if present, this is a virtual interface
+                    master = wlan_iface.get("master-interface") or wlan_iface.get("configuration.master")
+                    if iface_name and not master:
+                        # Physical interfaces are named wifi1, wifi2, wlan1, wlan2, etc.
+                        if iface_name.startswith(("wifi", "wlan")) and iface_name[-1].isdigit():
+                            physical_iface_names.add(iface_name)
+                
+                logger.info(f"[TotalData] Physical wireless interfaces: {physical_iface_names}")
+                
+                # Get stats for all interfaces at once
+                try:
+                    all_iface_stats = api.get_resource("/interface").call("print", {"stats": ""})
+                    for stats in all_iface_stats:
+                        iface_name = stats.get("name")
+                        if iface_name in physical_iface_names:
+                            tx_b = mikrotik_parsers.parse_int(stats.get("tx-byte"))
+                            rx_b = mikrotik_parsers.parse_int(stats.get("rx-byte"))
+                            logger.info(f"[TotalData] {iface_name}: tx={tx_b}, rx={rx_b}")
+                            if tx_b:
+                                total_tx_bytes += tx_b
+                            if rx_b:
+                                total_rx_bytes += rx_b
+                except Exception as e:
+                    logger.warning(f"Could not get interface stats: {e}")
+                
+                logger.info(f"[TotalData] TOTAL: tx={total_tx_bytes}, rx={total_rx_bytes}")
+            
             for client in clients:
-                if client.tx_bytes:
-                    total_tx_bytes += client.tx_bytes
-                if client.rx_bytes:
-                    total_rx_bytes += client.rx_bytes
                 if client.noisefloor:
                     noise_samples.append(client.noisefloor)
             
