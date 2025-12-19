@@ -423,11 +423,7 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
     
     def disconnect(self):
         """
-        Cleanup method.
-        
-        For MikroTik, we DON'T close the cached pool on disconnect()
-        since we want to reuse it for subsequent requests.
-        Only external API connections or on error do we cleanup.
+        Cierra el pool de conexiones.
         """
         # Reset wireless type detection for next call
         self._wireless_type = None
@@ -437,9 +433,10 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
             self._external_api = None
             return
         
-        # For cached pools, we keep them alive for reuse
-        # They will be cleaned up on error or when explicitly removed
-        pass
+        # Close and remove pool from cache
+        if self._own_pool:
+            mikrotik_connection.remove_pool(self.host, self.port)
+            self._own_pool = False
     
     # --- Helper methods ---
     # NOTE: Parsing logic has been centralized in app/utils/device_clients/mikrotik/parsers.py

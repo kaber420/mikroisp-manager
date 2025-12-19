@@ -37,15 +37,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     // ============================================================================
-    // DIAGNOSTIC MODE MANAGER
+    // DIAGNOSTIC MODE MANAGER (WebSocket-based, same pattern as Routers)
     // ============================================================================
     let diagnosticManager = {
-        intervalId: null, timeoutId: null, countdownId: null,
+        socket: null,
+        countdownId: null,
+        timeoutId: null,
+
         stop: function (shouldUpdateUI = true) {
-            if (this.intervalId) clearInterval(this.intervalId);
+            if (this.socket) {
+                this.socket.close();
+                this.socket = null;
+            }
             if (this.timeoutId) clearTimeout(this.timeoutId);
             if (this.countdownId) clearInterval(this.countdownId);
-            this.intervalId = null; this.timeoutId = null; this.countdownId = null;
+            this.timeoutId = null;
+            this.countdownId = null;
+
             if (shouldUpdateUI) {
                 const toggle = document.getElementById('auto-refresh-toggle');
                 const timerSpan = document.getElementById('refresh-timer');
@@ -53,7 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (timerSpan) timerSpan.textContent = '';
                 document.getElementById('main-hostname').classList.remove('text-orange');
             }
-            console.log('Diagnostic mode stopped.');
+            console.log('Diagnostic mode stopped (WebSocket closed).');
         }
     };
 
@@ -62,7 +70,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ============================================================================
     window.addEventListener('data-refresh-needed', () => {
         // Don't reload during active operations
-        if (!diagnosticManager.intervalId && !window.APDetailsCore.isSpectralActive()) {
+        if (!diagnosticManager.socket && !window.APDetailsCore.isSpectralActive()) {
             console.log("⚡ AP Details: Reloading data via Monitor signal...");
             loadApDetails();
             loadChartData(currentPeriod);
@@ -357,36 +365,66 @@ document.addEventListener('DOMContentLoaded', async () => {
         let remaining = DURATION_MINUTES * 60;
         const timerSpan = document.getElementById('refresh-timer');
         const toggle = document.getElementById('auto-refresh-toggle');
+
         try {
-            const apSettingsResponse = await fetch(`${API_BASE_URL}/api/aps/${encodeURIComponent(currentHost)}`);
-            if (!apSettingsResponse.ok) throw new Error("Could not fetch AP settings");
-            const apSettings = await apSettingsResponse.json();
-            const refreshIntervalSeconds = apSettings.monitor_interval;
-            if (refreshIntervalSeconds && refreshIntervalSeconds > 0) {
-                document.getElementById('main-hostname').classList.add('text-orange');
-                Object.values(charts).forEach(chart => {
-                    chart.data.labels = [];
-                    chart.data.datasets.forEach(dataset => dataset.data = []);
-                    chart.update('quiet');
-                });
-                await refreshLiveData();
-                diagnosticManager.intervalId = setInterval(refreshLiveData, refreshIntervalSeconds * 1000);
-                const countdown = () => {
-                    remaining--;
-                    const minutes = Math.floor(remaining / 60);
-                    const seconds = remaining % 60;
-                    timerSpan.textContent = `(${minutes}:${seconds.toString().padStart(2, '0')})`;
-                    if (remaining <= 0) { stopDiagnosticMode(); }
-                };
-                countdown();
-                diagnosticManager.countdownId = setInterval(countdown, 1000);
-                diagnosticManager.timeoutId = setTimeout(stopDiagnosticMode, DURATION_MINUTES * 60 * 1000);
-            } else {
-                showToast('No specific monitor interval found for this AP. Please set a default in the edit menu.', 'warning');
-                if (toggle) toggle.checked = false;
-            }
+            // Clear charts for live mode
+            document.getElementById('main-hostname').classList.add('text-orange');
+            Object.values(charts).forEach(chart => {
+                chart.data.labels = [];
+                chart.data.datasets.forEach(dataset => dataset.data = []);
+                chart.update('quiet');
+            });
+
+            // Build WebSocket URL (same pattern as Routers)
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}/api/ws/aps/${encodeURIComponent(currentHost)}/resources`;
+
+            diagnosticManager.socket = new WebSocket(wsUrl);
+
+            diagnosticManager.socket.onopen = () => {
+                console.log(`✅ WS AP: Connected to ${currentHost}`);
+                document.getElementById('detail-status').innerHTML = `<div class="flex items-center gap-2 font-semibold text-orange animate-pulse"><div class="size-2 rounded-full bg-orange"></div><span>Live Stream</span></div>`;
+            };
+
+            diagnosticManager.socket.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                if (message.type === 'resources') {
+                    // WebSocket data already matches expected format
+                    updatePageWithLiveData(message.data);
+                } else if (message.type === 'error') {
+                    console.error('WS AP Error:', message.data.message);
+                    document.getElementById('detail-status').innerHTML = `<div class="flex items-center gap-2 font-semibold text-danger"><div class="size-2 rounded-full bg-danger"></div><span>Unreachable</span></div>`;
+                }
+            };
+
+            diagnosticManager.socket.onclose = (event) => {
+                console.log(`WS AP: Connection closed for ${currentHost}`);
+                if (toggle && toggle.checked) {
+                    // Unexpected close - restore history view
+                    stopDiagnosticMode();
+                }
+            };
+
+            diagnosticManager.socket.onerror = (error) => {
+                console.error('WS AP Error:', error);
+                showToast('WebSocket connection error', 'danger');
+                stopDiagnosticMode();
+            };
+
+            // Start countdown timer
+            const countdown = () => {
+                remaining--;
+                const minutes = Math.floor(remaining / 60);
+                const seconds = remaining % 60;
+                timerSpan.textContent = `(${minutes}:${seconds.toString().padStart(2, '0')})`;
+                if (remaining <= 0) { stopDiagnosticMode(); }
+            };
+            countdown();
+            diagnosticManager.countdownId = setInterval(countdown, 1000);
+            diagnosticManager.timeoutId = setTimeout(stopDiagnosticMode, DURATION_MINUTES * 60 * 1000);
+
         } catch (error) {
-            showToast('Could not load AP settings to start diagnostic mode.', 'danger');
+            showToast('Could not start diagnostic mode.', 'danger');
             if (toggle) toggle.checked = false;
         }
     }
@@ -438,7 +476,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.title = `${ap.hostname || ap.host} - AP Details`;
                 document.getElementById('main-hostname').textContent = ap.hostname || ap.host;
                 document.getElementById('detail-host').textContent = ap.host || 'N/A';
-                if (!diagnosticManager.intervalId) {
+                if (!diagnosticManager.socket) {
                     document.getElementById('detail-status').innerHTML = `<div class="flex items-center gap-2 font-semibold"><div class="size-2 rounded-full ${ap.last_status === 'online' ? 'bg-success' : 'bg-danger'}"></div><span>${ap.last_status ? ap.last_status.charAt(0).toUpperCase() + ap.last_status.slice(1) : 'Unknown'}</span></div>`;
                 }
                 document.getElementById('detail-model').textContent = ap.model || 'N/A';
@@ -485,7 +523,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     window.APVendor.init(ap);
                 }
 
-                if (!diagnosticManager.intervalId) {
+                if (!diagnosticManager.socket) {
                     await loadCPEDataFromHistory();
                 }
             } catch (error) {

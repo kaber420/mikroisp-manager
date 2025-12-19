@@ -60,14 +60,16 @@ class RouterService:
 
     def disconnect(self):
         """
-        Libera la referencia al pool de conexiones.
-        
-        Nota: El pool en sí NO se cierra ya que es compartido y cacheado
-        por el MikrotikConnectionManager. Otros servicios pueden estar usándolo.
-        Para forzar la desconexión (ej. cambio de credenciales), usar:
-            mikrotik_connection.remove_pool(host, port)
+        Cierra el pool de conexiones y lo remueve del cache.
         """
-        self.pool = None
+        if self.pool:
+            try:
+                self.pool.disconnect()
+            except Exception:
+                pass
+            # Remove from global cache to prevent stale references
+            mikrotik_connection.remove_pool(self.host, self.creds.api_ssl_port, self.creds.username)
+            self.pool = None
 
     def __enter__(self):
         return self
