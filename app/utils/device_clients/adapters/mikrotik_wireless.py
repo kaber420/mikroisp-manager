@@ -325,7 +325,7 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
         except Exception as e:
             logger.error(f"Error getting status from {self.host}: {e}")
             # On error, invalidate the cached pool so next request creates fresh connection
-            mikrotik_connection.remove_pool(self.host, self.port)
+            mikrotik_connection.remove_pool(self.host, self.port, username=self.username)
             return DeviceStatus(
                 host=self.host,
                 vendor=self.vendor,
@@ -418,7 +418,7 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
         except Exception as e:
             logger.error(f"Connection test failed for {self.host}: {e}")
             # Invalidate cache on failure
-            mikrotik_connection.remove_pool(self.host, self.port)
+            mikrotik_connection.remove_pool(self.host, self.port, username=self.username)
             return False
     
     def disconnect(self):
@@ -435,7 +435,7 @@ class MikrotikWirelessAdapter(BaseDeviceAdapter):
         
         # Close and remove pool from cache
         if self._own_pool:
-            mikrotik_connection.remove_pool(self.host, self.port)
+            mikrotik_connection.remove_pool(self.host, self.port, username=self.username)
             self._own_pool = False
     
     # --- Helper methods ---
