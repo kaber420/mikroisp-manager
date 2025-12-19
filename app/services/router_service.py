@@ -34,6 +34,8 @@ class RouterService:
     def __init__(self, host: str, creds: Router, decrypted_password: str = None):
         self.host = host
         self.creds = creds
+        self.decrypted_password = decrypted_password
+        self.adapter = None
 
         if not self.creds:
             raise RouterConnectionError(f"Router {host} no encontrado.")
@@ -43,33 +45,26 @@ class RouterService:
                 f"Router {host} no está aprovisionado. El servicio no puede conectar."
             )
 
-        self.decrypted_password = decrypted_password
-        self.pool = self._create_pool()
-
-    def _create_pool(self) -> RouterOsApiPool:
-        """Obtiene un pool de conexiones del manager centralizado."""
-        # Decrypt password if not provided
+        # Initialize the adapter
         password = self.decrypted_password if self.decrypted_password else decrypt_data(self.creds.password)
-        
-        return mikrotik_connection.get_pool(
+        from ..utils.device_clients.adapters.mikrotik_router import MikrotikRouterAdapter
+        self.adapter = MikrotikRouterAdapter(
             host=self.host,
             username=self.creds.username,
             password=password,
-            port=self.creds.api_ssl_port,
+            port=self.creds.api_ssl_port
         )
 
     def disconnect(self):
         """
-        Cierra el pool de conexiones y lo remueve del cache.
+        Cierra la conexión del adaptador.
         """
-        if self.pool:
+        if self.adapter:
             try:
-                self.pool.disconnect()
+                self.adapter.disconnect()
             except Exception:
                 pass
-            # Remove from global cache to prevent stale references
-            mikrotik_connection.remove_pool(self.host, self.creds.api_ssl_port, self.creds.username)
-            self.pool = None
+            self.adapter = None
 
     def __enter__(self):
         return self
@@ -77,286 +72,127 @@ class RouterService:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.disconnect()
 
-    def _execute_command(self, func, *args, **kwargs) -> Any:
-        """Wrapper para ejecutar un comando de los módulos mikrotik manejando la conexión."""
-        api = None
-        try:
-            api = self.pool.get_api()
-            return func(api, *args, **kwargs)
-        except Exception as e:
-            logger.error(f"Error de comando en {self.host} ({func.__name__}): {e}")
-            raise RouterCommandError(f"Error en {self.host}: {e}")
-
     # --- MÉTODOS DELEGADOS A LOS NUEVOS MÓDULOS ---
-
+    # Ahora estos métodos simplemente delegan en el adaptador
+    
     def add_vlan(self, name: str, vlan_id: str, interface: str, comment: str):
-        api = self.pool.get_api()
-        manager = MikrotikInterfaceManager(api)
-        return manager.add_vlan(name, vlan_id, interface, comment)
+        return self.adapter.add_vlan(name, vlan_id, interface, comment)
 
     def update_vlan(self, vlan_id: str, name: str, new_vlan_id: str, interface: str):
-        api = self.pool.get_api()
-        manager = MikrotikInterfaceManager(api)
-        return manager.update_vlan(vlan_id, name, new_vlan_id, interface)
+        return self.adapter.update_vlan(vlan_id, name, new_vlan_id, interface)
 
     def add_bridge(self, name: str, ports: List[str], comment: str):
-        api = self.pool.get_api()
-        manager = MikrotikInterfaceManager(api)
-        bridge = manager.add_bridge(name, comment)
-        manager.set_bridge_ports(name, ports)
-        return bridge
+        return self.adapter.add_bridge(name, ports, comment)
 
     def update_bridge(self, bridge_id: str, name: str, ports: List[str]):
-        api = self.pool.get_api()
-        manager = MikrotikInterfaceManager(api)
-        # update_bridge returns the bridge object (possibly renamed)
-        bridge = manager.update_bridge(bridge_id, new_name=name)
-        # Use the actual name from the bridge (in case rename was skipped)
-        actual_name = bridge.get("name", name)
-        manager.set_bridge_ports(actual_name, ports)
-        return bridge
+        return self.adapter.update_bridge(bridge_id, name, ports)
 
     def remove_interface(self, interface_id: str, interface_type: str):
-        api = self.pool.get_api()
-        manager = MikrotikInterfaceManager(api)
-        manager.remove_interface(interface_id, interface_type)
+        return self.adapter.remove_interface(interface_id, interface_type)
 
-    def set_interface_status(
-        self, interface_id: str, disable: bool, interface_type: str
-    ):
-        api = self.pool.get_api()
-        manager = MikrotikInterfaceManager(api)
-        manager.set_interface_status(interface_id, disable, interface_type)
+    def set_interface_status(self, interface_id: str, disable: bool, interface_type: str):
+        return self.adapter.set_interface_status(interface_id, disable, interface_type)
 
     def set_pppoe_secret_status(self, secret_id: str, disable: bool):
-        return self._execute_command(
-            ppp.enable_disable_pppoe_secret, secret_id=secret_id, disable=disable
-        )
+        return self.adapter.set_pppoe_secret_status(secret_id, disable)
 
     def get_pppoe_secrets(self, username: str = None) -> List[Dict[str, Any]]:
-        return self._execute_command(ppp.get_pppoe_secrets, username=username)
+        return self.adapter.get_pppoe_secrets(username)
 
     def get_ppp_profiles(self) -> List[Dict[str, Any]]:
-        """Obtiene solo la lista de perfiles PPP."""
-        return self._execute_command(ppp.get_ppp_profiles)
+        return self.adapter.get_ppp_profiles()
 
     def get_pppoe_active_connections(self, name: str = None) -> List[Dict[str, Any]]:
-        return self._execute_command(ppp.get_pppoe_active_connections, name=name)
+        return self.adapter.get_pppoe_active_connections(name)
 
     def create_pppoe_secret(self, **kwargs) -> Dict[str, Any]:
-        return self._execute_command(ppp.create_pppoe_secret, **kwargs)
+        return self.adapter.create_pppoe_secret(**kwargs)
 
     def update_pppoe_secret(self, secret_id: str, **kwargs) -> Dict[str, Any]:
-        return self._execute_command(ppp.update_pppoe_secret, secret_id, **kwargs)
+        return self.adapter.update_pppoe_secret(secret_id, **kwargs)
 
     def remove_pppoe_secret(self, secret_id: str) -> None:
-        return self._execute_command(ppp.remove_pppoe_secret, secret_id)
+        return self.adapter.remove_pppoe_secret(secret_id)
 
     def get_system_resources(self) -> Dict[str, Any]:
-        return self._execute_command(system.get_system_resources)
+        return self.adapter.get_system_resources()
 
     def create_service_plan(self, **kwargs):
-        return self._execute_command(ppp.create_service_plan, **kwargs)
+        return self.adapter.create_service_plan(**kwargs)
 
     def add_simple_queue(self, **kwargs):
-        return self._execute_command(queues.add_simple_queue, **kwargs)
+        return self.adapter.add_simple_queue(**kwargs)
 
     def add_ip_address(self, address: str, interface: str, comment: str):
-        return self._execute_command(
-            ip.add_ip_address, address=address, interface=interface, comment=comment
-        )
+        return self.adapter.add_ip_address(address, interface, comment)
 
     def add_nat_masquerade(self, **kwargs):
-        return self._execute_command(firewall.add_nat_masquerade, **kwargs)
+        return self.adapter.add_nat_masquerade(**kwargs)
 
     def add_pppoe_server(self, **kwargs):
-        return self._execute_command(ppp.add_pppoe_server, **kwargs)
+        return self.adapter.add_pppoe_server(**kwargs)
 
     def remove_ip_address(self, address: str):
-        return self._execute_command(ip.remove_ip_address, address=address)
+        return self.adapter.remove_ip_address(address)
 
     def remove_nat_rule(self, comment: str):
-        return self._execute_command(firewall.remove_nat_rule, comment=comment)
+        return self.adapter.remove_nat_rule(comment)
 
     def remove_pppoe_server(self, service_name: str):
-        return self._execute_command(ppp.remove_pppoe_server, service_name=service_name)
+        return self.adapter.remove_pppoe_server(service_name)
 
     def remove_service_plan(self, plan_name: str):
-        return self._execute_command(ppp.remove_service_plan, plan_name=plan_name)
+        return self.adapter.remove_service_plan(plan_name)
 
     def remove_simple_queue(self, queue_id: str):
-        return self._execute_command(queues.remove_simple_queue, queue_id=queue_id)
+        return self.adapter.remove_simple_queue(queue_id)
 
     def get_simple_queue_stats(self, target: str) -> Optional[Dict[str, Any]]:
-        """
-        Gets live stats for a Simple Queue by target IP.
-        Returns bytes-in, bytes-out, max-limit, name, etc.
-        """
-        all_queues = self._execute_command(queues.get_simple_queues)
-        # Search for queue by target (may have /32 suffix)
-        target_variations = [target, f"{target}/32"]
-        for queue in all_queues:
-            queue_target = queue.get("target", "")
-            if queue_target in target_variations:
-                return queue
-        return None
+        return self.adapter.get_simple_queue_stats(target)
 
     # --- NEW: Service Suspension & Connection Management Methods ---
 
-    def update_address_list(
-        self, list_name: str, address: str, action: str, comment: str = ""
-    ) -> Dict[str, Any]:
-        """
-        Updates an address list entry. 
-        action: 'add', 'remove', or 'disable'
-        """
-        return self._execute_command(
-            firewall.update_address_list_entry,
-            list_name=list_name,
-            address=address,
-            action=action,
-            comment=comment,
-        )
+    def update_address_list(self, list_name: str, address: str, action: str, comment: str = "") -> Dict[str, Any]:
+        return self.adapter.update_address_list(list_name, address, action, comment)
 
     def get_address_list(self, list_name: str = None) -> List[Dict[str, Any]]:
-        """Gets address list entries, optionally filtered by list name."""
-        return self._execute_command(
-            firewall.get_address_list_entries, list_name=list_name
-        )
+        return self.adapter.get_address_list(list_name)
 
     def kill_pppoe_connection(self, username: str) -> Dict[str, Any]:
-        """Terminates an active PPPoE connection for a specific user."""
-        return self._execute_command(ppp.kill_active_pppoe_connection, username=username)
+        return self.adapter.kill_pppoe_connection(username)
 
     def update_pppoe_profile(self, username: str, new_profile: str) -> Dict[str, Any]:
-        """Updates the profile for a PPPoE secret by username (for plan changes)."""
-        return self._execute_command(
-            ppp.update_pppoe_secret_profile, username=username, new_profile=new_profile
-        )
+        return self.adapter.update_pppoe_profile(username, new_profile)
 
-    def suspend_service(
-        self, 
-        address: str, 
-        list_name: str, 
-        strategy: str = "blacklist",
-        pppoe_username: str = None,
-        comment: str = "Suspended by UManager"
-    ) -> Dict[str, Any]:
-        """
-        Suspends a service based on the configured strategy.
-        
-        Args:
-            address: IP address of the client
-            list_name: Name of the address list to use
-            strategy: 'blacklist' (add to list = block) or 'whitelist' (remove from list = block)
-            pppoe_username: If provided, also kills active PPPoE connection
-            comment: Comment for the address list entry
-        
-        Returns:
-            dict with status and details of actions taken
-        """
-        results = {"address_list": None, "pppoe_kill": None}
-        
-        # Address list action based on strategy
-        if strategy == "blacklist":
-            # Blacklist: Add to list to block
-            results["address_list"] = self.update_address_list(
-                list_name=list_name, address=address, action="add", comment=comment
-            )
-        elif strategy == "whitelist":
-            # Whitelist: Remove from list to block (no longer allowed)
-            results["address_list"] = self.update_address_list(
-                list_name=list_name, address=address, action="remove"
-            )
-        
-        # Kill PPPoE connection if username provided
-        if pppoe_username:
-            results["pppoe_kill"] = self.kill_pppoe_connection(pppoe_username)
-        
-        return results
+    def suspend_service(self, address: str, list_name: str, strategy: str = "blacklist", pppoe_username: str = None, comment: str = "Suspended by UManager") -> Dict[str, Any]:
+        return self.adapter.suspend_service(address, list_name, strategy, pppoe_username, comment)
 
-    def restore_service(
-        self,
-        address: str,
-        list_name: str,
-        strategy: str = "blacklist",
-        comment: str = "Restored by UManager"
-    ) -> Dict[str, Any]:
-        """
-        Restores a suspended service based on the configured strategy.
-        
-        Args:
-            address: IP address of the client
-            list_name: Name of the address list to use
-            strategy: 'blacklist' (remove from list = unblock) or 'whitelist' (add to list = allow)
-            comment: Comment for the address list entry
-        
-        Returns:
-            dict with status of the action
-        """
-        if strategy == "blacklist":
-            # Blacklist: Remove from list to unblock
-            return self.update_address_list(
-                list_name=list_name, address=address, action="remove"
-            )
-        elif strategy == "whitelist":
-            # Whitelist: Add back to list to allow
-            return self.update_address_list(
-                list_name=list_name, address=address, action="add", comment=comment
-            )
-        return {"status": "error", "message": f"Unknown strategy: {strategy}"}
+    def restore_service(self, address: str, list_name: str, strategy: str = "blacklist", comment: str = "Restored by UManager") -> Dict[str, Any]:
+        return self.adapter.restore_service(address, list_name, strategy, comment)
 
-    def change_plan(
-        self,
-        pppoe_username: str,
-        new_profile: str,
-        kill_connection: bool = True
-    ) -> Dict[str, Any]:
-        """
-        Changes a user's plan by updating their PPPoE profile.
-        Optionally kills the active connection to force re-authentication.
-        
-        Args:
-            pppoe_username: The PPPoE username to update
-            new_profile: Name of the new PPP profile
-            kill_connection: If True, terminates active connection after update
-        
-        Returns:
-            dict with status and details of actions taken
-        """
-        results = {"profile_update": None, "connection_kill": None}
-        
-        # Update the secret's profile
-        results["profile_update"] = self.update_pppoe_profile(pppoe_username, new_profile)
-        
-        # Kill connection to force re-auth with new profile
-        if kill_connection and results["profile_update"].get("status") == "success":
-            results["connection_kill"] = self.kill_pppoe_connection(pppoe_username)
-        
-        return results
+    def change_plan(self, pppoe_username: str, new_profile: str, kill_connection: bool = True) -> Dict[str, Any]:
+        return self.adapter.change_plan(pppoe_username, new_profile, kill_connection)
 
     def get_backup_files(self):
-        return self._execute_command(system.get_backup_files)
+        return self.adapter.get_backup_files()
 
     def create_backup(self, backup_name: str):
-        return self._execute_command(system.create_backup, backup_name=backup_name)
+        return self.adapter.create_backup(backup_name)
 
     def create_export_script(self, script_name: str):
-        return self._execute_command(
-            system.create_export_script, script_name=script_name
-        )
+        return self.adapter.create_export_script(script_name)
 
     def remove_file(self, file_id: str):
-        return self._execute_command(system.remove_file, file_id=file_id)
+        return self.adapter.remove_file(file_id)
 
     def get_router_users(self):
-        return self._execute_command(system.get_router_users)
+        return self.adapter.get_router_users()
 
     def add_router_user(self, **kwargs):
-        return self._execute_command(system.add_router_user, **kwargs)
+        return self.adapter.add_router_user(**kwargs)
 
     def remove_router_user(self, user_id: str):
-        return self._execute_command(system.remove_router_user, user_id=user_id)
+        return self.adapter.remove_router_user(user_id)
 
     # --- Legacy-compatible Suspension Methods (used by billing_service) ---
     
@@ -365,20 +201,9 @@ class RouterService:
         prefix = "BL_" if strategy == "blacklist" else "WL_"
         return f"{prefix}{base_name}"
 
-    def suspend_user_address_list(
-        self, 
-        ip: str, 
-        list_name: str = None, 
-        strategy: str = None
-    ) -> Dict[str, Any]:
-        """
-        Suspends a user by managing their IP in the address list.
-        Uses the provided strategy/name or falls back to router defaults.
-        """
-        # Fallback logic: Argument -> Creds -> Default
+    def suspend_user_address_list(self, ip: str, list_name: str = None, strategy: str = None) -> Dict[str, Any]:
         strategy = strategy or getattr(self.creds, 'address_list_strategy', 'blacklist') or 'blacklist'
         base_name = list_name or getattr(self.creds, 'address_list_name', 'morosos') or 'morosos'
-        
         full_list_name = self._get_prefixed_list_name(base_name, strategy)
         
         logger.info(f"🔴 Suspending {ip} via address list '{full_list_name}' (strategy: {strategy})")
@@ -389,20 +214,9 @@ class RouterService:
             comment=f"Suspended by UManager - {ip}"
         )
 
-    def activate_user_address_list(
-        self, 
-        ip: str, 
-        list_name: str = None, 
-        strategy: str = None
-    ) -> Dict[str, Any]:
-        """
-        Restores a user by managing their IP in the address list.
-        Uses the provided strategy/name or falls back to router defaults.
-        """
-        # Fallback logic: Argument -> Creds -> Default
+    def activate_user_address_list(self, ip: str, list_name: str = None, strategy: str = None) -> Dict[str, Any]:
         strategy = strategy or getattr(self.creds, 'address_list_strategy', 'blacklist') or 'blacklist'
         base_name = list_name or getattr(self.creds, 'address_list_name', 'morosos') or 'morosos'
-        
         full_list_name = self._get_prefixed_list_name(base_name, strategy)
         
         logger.info(f"🟢 Restoring {ip} via address list '{full_list_name}' (strategy: {strategy})")
@@ -414,77 +228,23 @@ class RouterService:
         )
 
     def suspend_user_limit(self, ip: str, min_limit: str = "1k/1k") -> Dict[str, Any]:
-        """
-        Suspends a user by setting their queue limit to the minimum.
-        """
         logger.info(f"🔴 Suspending {ip} via queue limit (setting to {min_limit})")
-        return self._execute_command(
-            queues.set_simple_queue_limit, target=ip, max_limit=min_limit
-        )
+        return self.adapter.update_queue_limit(target=ip, max_limit=min_limit)
 
     def activate_user_limit(self, ip: str, max_limit: str) -> Dict[str, Any]:
-        """
-        Restores a user's queue limit to their plan speed.
-        """
         logger.info(f"🟢 Restoring {ip} queue limit to {max_limit}")
-        return self._execute_command(
-            queues.set_simple_queue_limit, target=ip, max_limit=max_limit
-        )
+        return self.adapter.update_queue_limit(target=ip, max_limit=max_limit)
 
     def update_queue_limit(self, target: str, max_limit: str) -> Dict[str, Any]:
-        """
-        Updates a simple queue's max-limit (used for plan changes).
-        """
         logger.info(f"📊 Updating queue limit for {target} to {max_limit}")
-        return self._execute_command(
-            queues.set_simple_queue_limit, target=target, max_limit=max_limit
-        )
+        return self.adapter.update_queue_limit(target=target, max_limit=max_limit)
 
 
     def get_full_details(self) -> Dict[str, Any]:
-        """
-        Obtiene una vista completa de la configuración del router en una sola sesión.
-        """
-        api = None
-        try:
-            # Obtener una única conexión para todas las operaciones
-            api = self.pool.get_api()
-            interface_manager = MikrotikInterfaceManager(api)
-
-            # Ejecutar todos los comandos con la misma conexión
-            details = {
-                "interfaces": api.get_resource("/interface").get(),
-                "ip_addresses": ip.get_ip_addresses(api),
-                "nat_rules": firewall.get_nat_rules(api),
-                "pppoe_servers": ppp.get_pppoe_servers(api),
-                "ppp_profiles": ppp.get_ppp_profiles(api),
-                "simple_queues": queues.get_simple_queues(api),
-                "ip_pools": ip.get_ip_pools(api),
-                "bridge_ports": interface_manager.get_bridge_ports(),
-                "pppoe_secrets": ppp.get_pppoe_secrets(api),
-                "pppoe_active": ppp.get_pppoe_active_connections(api),
-                "users": system.get_router_users(api),
-                "files": system.get_backup_files(api),
-                "static_resources": system.get_system_resources(api),
-            }
-            return details
-        except Exception as e:
-            logger.error(f"Error obteniendo detalles completos de {self.host}: {e}")
-            raise RouterCommandError(f"Error en {self.host}: {e}")
+        return self.adapter.get_full_details()
 
     def cleanup_connections(self) -> int:
-        """
-        Auto-saneamiento: Elimina sesiones zombies en el router.
-        """
-        try:
-            # Usamos nuestro usuario actual para buscar sus duplicados
-            return self._execute_command(
-                system.kill_zombie_sessions, username=self.creds.username
-            )
-        except Exception:
-            # Es normal que falle al final si nos auto-eliminamos.
-            # Lo importante es que intentamos limpiar.
-            return 0
+        return self.adapter.cleanup_connections(self.creds.username)
 
 
 # --- CRUD Functions (Sync for background tasks) ---
