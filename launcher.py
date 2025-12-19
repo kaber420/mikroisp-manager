@@ -41,7 +41,7 @@ def run_setup_wizard():
     
     # Cargar valores previos si existen
     load_dotenv(ENV_FILE, encoding="utf-8")
-    default_port = os.getenv("UVICORN_PORT", "8000")
+    default_port = os.getenv("UVICORN_PORT", "7777")
     
     # 1. PREGUNTAR PUERTO
     while True:
@@ -148,10 +148,13 @@ def start_api_server():
     load_dotenv(ENV_FILE, override=True)
     
     host = os.getenv("UVICORN_HOST", "0.0.0.0")
-    port = int(os.getenv("UVICORN_PORT", 8000))
+    port = int(os.getenv("UVICORN_PORT", 7777))
 
     config = Config(app=fastapi_app, host=host, port=port, log_level="info")
-    Server(config).run()
+    try:
+        Server(config).run()
+    except KeyboardInterrupt:
+        pass
 
 if __name__ == "__main__":
     # A. Si el usuario pide configurar O si no existe el archivo .env
