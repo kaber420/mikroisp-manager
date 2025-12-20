@@ -157,6 +157,31 @@ def _setup_inventory_db():
     """
     )
 
+    # --- Tabla de Switches ---
+    cursor.execute(
+        """
+    CREATE TABLE IF NOT EXISTS switches (
+        host TEXT PRIMARY KEY, 
+        api_port INTEGER DEFAULT 8728, 
+        api_ssl_port INTEGER DEFAULT 8729,
+        username TEXT NOT NULL, 
+        password TEXT NOT NULL, 
+        zona_id INTEGER, 
+        is_enabled BOOLEAN DEFAULT TRUE,
+        hostname TEXT, 
+        model TEXT, 
+        firmware TEXT, 
+        mac_address TEXT,
+        location TEXT,
+        notes TEXT,
+        last_status TEXT, 
+        last_checked DATETIME,
+        FOREIGN KEY (zona_id) REFERENCES zonas (id) ON DELETE SET NULL
+    )
+    """
+    )
+
+
     cursor.execute(
         """
     CREATE TABLE IF NOT EXISTS plans (
