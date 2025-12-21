@@ -72,6 +72,15 @@ class RouterService:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.disconnect()
 
+    def get_api_client(self):
+        """
+        Devuelve el cliente API subyacente (RouterOsApi).
+        Útil para servicios compartidos que necesitan acceso directo.
+        """
+        if not self.adapter:
+            raise RouterConnectionError("Adapter is not initialized")
+        return self.adapter._get_api()
+
     # --- MÉTODOS DELEGADOS A LOS NUEVOS MÓDULOS ---
     # Ahora estos métodos simplemente delegan en el adaptador
     

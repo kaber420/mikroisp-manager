@@ -56,7 +56,7 @@
                             </tr>
                         </template>
                         <template x-for="sw in switches" :key="sw.host">
-                            <tr class="hover:bg-surface-2 transition-colors duration-200">
+                            <tr @click="window.location.href = '/switch/' + encodeURIComponent(sw.host)" class="hover:bg-surface-2 transition-colors duration-200 cursor-pointer">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div :class="{
                                         'text-success': sw.last_status === 'online',
@@ -71,8 +71,10 @@
                                         <span x-text="sw.last_status || 'Unknown'"></span>
                                     </div>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap font-semibold text-text-primary"
-                                    x-text="sw.hostname || 'N/A'"></td>
+                                <td class="px-6 py-4 whitespace-nowrap font-semibold text-text-primary">
+                                    <a :href="`/switch/${encodeURIComponent(sw.host)}`"
+                                        class="hover:text-primary hover:underline" x-text="sw.hostname || 'N/A'"></a>
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-text-secondary font-mono" x-text="sw.host">
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-text-secondary"
@@ -95,6 +97,7 @@
                                         <span class="material-symbols-outlined">delete</span>
                                     </button>
                                 </td>
+
                             </tr>
                         </template>
                     </tbody>

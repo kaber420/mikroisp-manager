@@ -235,3 +235,19 @@ async def read_switches_page(
         {"request": request, "active_page": "switches", "user": current_user},
     )
 
+@router.get("/switch/{host}", response_class=HTMLResponse, tags=["Auth & Pages"])
+async def read_switch_details_page(
+    request: Request,
+    host: str,
+    current_user: User = Depends(require_technician),
+):
+    return templates.TemplateResponse(
+        "switch_details.html",
+        {
+            "request": request,
+            "active_page": "switch_details",
+            "host": host,
+            "user": current_user,
+        },
+    )
+

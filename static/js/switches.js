@@ -121,9 +121,38 @@ document.addEventListener('alpine:init', () => {
                     throw new Error(err.detail || 'Failed to save switch.');
                 }
 
-                // Show success toast
-                if (typeof showToast === 'function') {
-                    showToast(this.isEditing ? 'Switch updated successfully!' : 'Switch added successfully!', 'success');
+                const savedSwitch = await response.json();
+
+                // For new switches, immediately check connection to populate hostname/model/firmware
+                if (!this.isEditing) {
+                    if (typeof showToast === 'function') {
+                        showToast('Switch added! Checking connection...', 'primary');
+                    }
+
+                    try {
+                        const checkResponse = await fetch(`/api/switches/${encodeURIComponent(savedSwitch.host)}/check`, {
+                            method: 'POST'
+                        });
+
+                        if (checkResponse.ok) {
+                            if (typeof showToast === 'function') {
+                                showToast('Switch added and connected successfully!', 'success');
+                            }
+                        } else {
+                            if (typeof showToast === 'function') {
+                                showToast('Switch added but connection check failed. Check credentials.', 'warning');
+                            }
+                        }
+                    } catch (checkError) {
+                        console.warn('Check failed:', checkError);
+                        if (typeof showToast === 'function') {
+                            showToast('Switch added but connection check failed.', 'warning');
+                        }
+                    }
+                } else {
+                    if (typeof showToast === 'function') {
+                        showToast('Switch updated successfully!', 'success');
+                    }
                 }
 
                 await this.loadData();
@@ -132,6 +161,7 @@ document.addEventListener('alpine:init', () => {
                 this.switchError = error.message;
             }
         },
+
 
         // Delete switch
         async deleteSwitch(host, hostname) {
@@ -157,31 +187,34 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        // Test connection to switch
+        // Test connection to switch and update database
         async testConnection(sw) {
             try {
                 if (typeof showToast === 'function') {
-                    showToast(`Testing connection to ${sw.hostname || sw.host}...`, 'primary');
+                    showToast(`Checking ${sw.hostname || sw.host}...`, 'primary');
                 }
 
-                const response = await fetch(`/api/switches/${encodeURIComponent(sw.host)}/status`);
+                // Use /check endpoint which updates the database
+                const response = await fetch(`/api/switches/${encodeURIComponent(sw.host)}/check`, {
+                    method: 'POST'
+                });
 
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.is_online) {
-                        if (typeof showToast === 'function') {
-                            showToast(`✅ ${sw.hostname || sw.host} is online! CPU: ${data.extra?.cpu_load || 'N/A'}%`, 'success');
-                        }
-                        // Reload to update status
-                        await this.loadData();
-                    } else {
-                        if (typeof showToast === 'function') {
-                            showToast(`❌ ${sw.hostname || sw.host} is offline: ${data.last_error || 'Unknown error'}`, 'danger');
-                        }
+                    if (typeof showToast === 'function') {
+                        const hostname = data.device_info?.hostname || sw.host;
+                        const cpu = data.device_info?.cpu_load || 'N/A';
+                        showToast(`✅ ${hostname} is online! CPU: ${cpu}%`, 'success');
                     }
+                    // Reload to update status and device info in table
+                    await this.loadData();
                 } else {
                     const err = await response.json();
-                    throw new Error(err.detail || 'Connection failed');
+                    if (typeof showToast === 'function') {
+                        showToast(`❌ ${sw.hostname || sw.host}: ${err.detail || 'Connection failed'}`, 'danger');
+                    }
+                    // Still reload to show offline status
+                    await this.loadData();
                 }
             } catch (error) {
                 if (typeof showToast === 'function') {
@@ -189,5 +222,6 @@ document.addEventListener('alpine:init', () => {
                 }
             }
         }
+
     }));
 });

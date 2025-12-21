@@ -1,0 +1,404 @@
+{% extends "base.html" %}
+
+{% block title %}Switch Details - µMonitor Pro{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="/static/css/dashboard-transitions.css">
+<style>
+    .card {
+        background-color: #1E293B;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid #334155;
+    }
+
+    .status-indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+
+    .status-online {
+        background-color: #22C55E;
+    }
+
+    .status-offline {
+        background-color: #EF4444;
+    }
+
+    .tab-button {
+        padding: 0.5rem 1rem;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+        font-weight: 600;
+    }
+
+    .tab-button.active {
+        border-bottom: 2px solid #3B82F6;
+        color: #F1F5F9;
+    }
+
+    .tab-button:not(.active) {
+        color: #94A3B8;
+    }
+
+    .tab-button:hover:not(.active) {
+        border-bottom: 2px solid #334155;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 1rem;
+    }
+
+    .stat-card {
+        background-color: #334155;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #F1F5F9;
+    }
+
+    .stat-value-live {
+        color: #3B82F6;
+    }
+
+    .stat-label {
+        font-size: 0.875rem;
+        color: #94A3B8;
+    }
+
+    .progress-bar {
+        height: 8px;
+        background-color: #334155;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .progress-value {
+        height: 100%;
+        background-color: #3B82F6;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table th {
+        background-color: #334155;
+        padding: 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        color: #94A3B8;
+    }
+
+    .data-table td {
+        padding: 0.75rem;
+        border-top: 1px solid #334155;
+    }
+
+    .data-table tr:hover {
+        background-color: #334155;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="flex-1 p-6 lg:p-8" x-data="switchDetails('{{ host }}')" x-init="init()">
+    <div class="max-w-7xl mx-auto">
+
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div class="flex items-center gap-4">
+                <a href="/switches" title="Back to Switches" class="text-primary hover:opacity-75">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </a>
+                <div>
+                    <h1 id="main-hostname" class="text-2xl font-bold flex items-center gap-3"
+                        x-text="switchData.hostname || 'Loading...'">
+                        Loading...
+                    </h1>
+                    <div class="flex items-center mt-2 text-sm text-text-secondary">
+                        <span id="res-status-indicator" class="status-indicator"
+                            :class="isOnline ? 'status-online' : 'status-offline'"></span>
+                        <span x-text="isOnline ? 'Online' : 'Offline'">Offline</span>
+                        <span class="mx-3">•</span>
+                        <span x-text="switchData.host || '...'">...</span>
+                        <span class="mx-3">•</span>
+                        <span x-text="'RouterOS ' + (liveData.version || switchData.firmware || '...')">RouterOS
+                            ...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button @click="openEditModal()"
+                    class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover">
+                    <span class="material-symbols-outlined mr-2">edit</span>
+                    <span>Edit</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="mb-6">
+            <div class="flex flex-wrap gap-4">
+                <div class="stat-card flex-1 min-w-[140px]">
+                    <div id="res-uptime" class="stat-value text-base" x-text="liveData.uptime || '--'">--</div>
+                    <div class="stat-label">Uptime</div>
+                </div>
+                <div class="stat-card flex-1 min-w-[140px]">
+                    <div id="res-cpu-load" class="stat-value stat-value-live" x-text="(liveData.cpu_load || 0) + '%'">0%
+                    </div>
+                    <div class="stat-label">CPU Load</div>
+                </div>
+                <div class="stat-card flex-1 min-w-[140px]">
+                    <div id="res-memory-perc" class="stat-value stat-value-live"
+                        x-text="(liveData.memory_percent || 0) + '%'">0%</div>
+                    <div class="stat-label">Memory</div>
+                </div>
+                <div class="stat-card flex-1 min-w-[140px]">
+                    <div class="stat-value" x-text="interfaces.length">0</div>
+                    <div class="stat-label">Interfaces</div>
+                </div>
+                <div class="stat-card flex-1 min-w-[140px]">
+                    <div class="stat-value" x-text="vlans.length">0</div>
+                    <div class="stat-label">VLANs</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="border-b border-border-color mb-6">
+            <div class="flex overflow-x-auto">
+                <button @click="activeTab = 'overview'" :class="activeTab === 'overview' ? 'active' : ''"
+                    class="tab-button">Overview</button>
+                <button @click="activeTab = 'interfaces'" :class="activeTab === 'interfaces' ? 'active' : ''"
+                    class="tab-button">Interfaces</button>
+                <button @click="activeTab = 'vlans'" :class="activeTab === 'vlans' ? 'active' : ''"
+                    class="tab-button">VLANs</button>
+            </div>
+        </div>
+
+        <!-- Overview Tab -->
+        <div x-show="activeTab === 'overview'" class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div class="lg:col-span-2">
+                <div class="card !mb-0">
+                    <h2 class="text-lg font-semibold mb-4">Switch Information</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-3">
+                            <div>
+                                <h3 class="text-sm font-medium text-text-secondary">Model</h3>
+                                <p class="text-text-primary" x-text="liveData.board_name || switchData.model || '--'">--
+                                </p>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-medium text-text-secondary">Firmware</h3>
+                                <p class="text-text-primary" x-text="liveData.version || switchData.firmware || '--'">--
+                                </p>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-medium text-text-secondary">Location</h3>
+                                <p class="text-text-primary" x-text="switchData.location || '--'">--</p>
+                            </div>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <h3 class="text-sm font-medium text-text-secondary">Identity</h3>
+                                <p class="text-text-primary" x-text="liveData.identity || switchData.hostname || '--'">
+                                    --</p>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-medium text-text-secondary">MAC Address</h3>
+                                <p class="text-text-primary font-mono" x-text="switchData.mac_address || '--'">--</p>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-medium text-text-secondary">Notes</h3>
+                                <p class="text-text-primary" x-text="switchData.notes || '--'">--</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="card !mb-0">
+                    <h2 class="text-lg font-semibold mb-4">Resource Usage</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-sm font-medium">CPU</span>
+                                <span class="text-sm" x-text="(liveData.cpu_load || 0) + '%'">0%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-value" :style="'width: ' + (liveData.cpu_load || 0) + '%'"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-sm font-medium">Memory Usage</span>
+                                <span class="text-sm"
+                                    x-text="formatBytes(liveData.memory_used || 0) + ' / ' + formatBytes(liveData.memory_total || 0)">--
+                                    / --</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-value" :style="'width: ' + (liveData.memory_percent || 0) + '%'">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Interfaces Tab -->
+        <div x-show="activeTab === 'interfaces'" class="space-y-6">
+            <div class="card">
+                <h2 class="text-lg font-semibold mb-4">Network Interfaces</h2>
+                <div class="overflow-x-auto">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th class="w-1">Status</th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>MAC Address</th>
+                                <th>RX Bytes</th>
+                                <th>TX Bytes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-if="interfaces.length === 0">
+                                <tr>
+                                    <td colspan="6" class="text-center text-text-secondary py-4">Loading interfaces...
+                                    </td>
+                                </tr>
+                            </template>
+                            <template x-for="iface in interfaces" :key="iface['.id'] || iface.name">
+                                <tr>
+                                    <td>
+                                        <span class="status-indicator"
+                                            :class="iface.running === 'true' ? 'status-online' : 'status-offline'"></span>
+                                    </td>
+                                    <td class="font-semibold" x-text="iface.name"></td>
+                                    <td class="text-text-secondary" x-text="iface.type"></td>
+                                    <td class="font-mono text-text-secondary" x-text="iface['mac-address'] || '--'">
+                                    </td>
+                                    <td class="text-text-secondary" x-text="formatBytes(iface['rx-byte'] || 0)"></td>
+                                    <td class="text-text-secondary" x-text="formatBytes(iface['tx-byte'] || 0)"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- VLANs Tab -->
+        <div x-show="activeTab === 'vlans'" class="space-y-6">
+            <div class="card">
+                <h2 class="text-lg font-semibold mb-4">VLAN Configuration</h2>
+                <div class="overflow-x-auto">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>VLAN ID</th>
+                                <th>Interface</th>
+                                <th>MTU</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-if="vlans.length === 0">
+                                <tr>
+                                    <td colspan="4" class="text-center text-text-secondary py-4">No VLANs configured
+                                    </td>
+                                </tr>
+                            </template>
+                            <template x-for="vlan in vlans" :key="vlan['.id'] || vlan.name">
+                                <tr>
+                                    <td class="font-semibold" x-text="vlan.name"></td>
+                                    <td x-text="vlan['vlan-id']"></td>
+                                    <td class="text-text-secondary" x-text="vlan.interface"></td>
+                                    <td class="text-text-secondary" x-text="vlan.mtu || '--'"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div x-show="isEditModalOpen" x-cloak
+        class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 overflow-y-auto z-50">
+        <div @click.away="closeEditModal()"
+            class="bg-surface-1 rounded-lg shadow-xl w-full max-w-2xl border border-border-color my-auto">
+            <form @submit.prevent="saveSwitch()">
+                <div class="p-6 border-b border-border-color flex justify-between items-center">
+                    <h3 class="text-2xl font-bold">Edit Switch</h3>
+                    <button type="button" @click="closeEditModal()"
+                        class="text-text-secondary hover:text-text-primary text-3xl font-bold">&times;</button>
+                </div>
+
+                <div class="p-8 max-h-[70vh] overflow-y-auto space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Host (IP Address)</label>
+                            <input type="text" x-model="editForm.host" disabled
+                                class="w-full bg-surface-2 border border-border-color rounded-md p-2 cursor-not-allowed">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Location</label>
+                            <input type="text" x-model="editForm.location"
+                                class="w-full bg-background border border-border-color rounded-md p-2">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Username</label>
+                            <input type="text" x-model="editForm.username" required
+                                class="w-full bg-background border border-border-color rounded-md p-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Password</label>
+                            <input type="password" x-model="editForm.password" placeholder="Leave blank to keep current"
+                                class="w-full bg-background border border-border-color rounded-md p-2">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Notes</label>
+                        <textarea x-model="editForm.notes" rows="2"
+                            class="w-full bg-background border border-border-color rounded-md p-2"></textarea>
+                    </div>
+                    <div x-show="editError" x-text="editError" class="text-danger text-sm"></div>
+                </div>
+
+                <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end gap-4">
+                    <button type="button" @click="closeEditModal()"
+                        class="px-4 py-2 rounded-md text-sm font-semibold hover:bg-surface-1">Cancel</button>
+                    <button type="submit"
+                        class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">Save
+                        Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/switch_details.js" defer></script>
+{% endblock %}

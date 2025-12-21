@@ -69,6 +69,15 @@ class SwitchService:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.disconnect()
 
+    def get_api_client(self):
+        """
+        Devuelve el cliente API subyacente (RouterOsApi).
+        Útil para servicios compartidos que necesitan acceso directo.
+        """
+        if not self.adapter:
+            raise SwitchConnectionError("Adapter is not initialized")
+        return self.adapter._get_api()
+
     # --- Status Methods ---
     
     def get_status(self) -> Dict[str, Any]:
