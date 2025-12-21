@@ -123,13 +123,23 @@ async def switch_resources_stream(websocket: WebSocket, host: str):
                 
                 await websocket.send_json(payload)
                 
+            except RuntimeError as e:
+                if "Cannot call \"send\" once a close message has been sent" in str(e):
+                    logger.info(f"WebSocket connection closed for switch {host} loop.")
+                    break
+                logger.error(f"Runtime error in switch stream for {host}: {e}")
+                
             except Exception as e:
                 logger.error(f"Error getting switch resources for {host}: {e}")
-                await websocket.send_json({
-                    "type": "error",
-                    "host": host,
-                    "message": str(e)
-                })
+                try:
+                    await websocket.send_json({
+                        "type": "error",
+                        "host": host,
+                        "message": str(e)
+                    })
+                except RuntimeError:
+                    # Connection likely closed
+                    break
             
             # Wait before next update
             await asyncio.sleep(5)
