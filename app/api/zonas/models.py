@@ -1,6 +1,6 @@
 # app/api/zonas/models.py
 from pydantic import BaseModel, ConfigDict
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import date, datetime
 
 
@@ -8,6 +8,7 @@ from datetime import date, datetime
 class Zona(BaseModel):
     id: int
     nombre: str
+    rack_layout: Optional[Dict[str, Any]] = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -19,6 +20,7 @@ class ZonaUpdate(BaseModel):
     nombre: Optional[str] = None
     direccion: Optional[str] = None
     coordenadas_gps: Optional[str] = None
+    rack_layout: Optional[Dict[str, Any]] = None
 
 
 class ZonaInfra(BaseModel):
@@ -88,13 +90,9 @@ class ZonaNote(ZonaNoteBase):
 
 
 class ZonaDetail(Zona):
-
     direccion: Optional[str] = None
-
     coordenadas_gps: Optional[str] = None
-
     infraestructura: Optional[ZonaInfra] = None
-
     documentos: List[ZonaDocumento] = []
-
     notes: List[ZonaNote] = []
+    # rack_layout is inherited from Zona

@@ -26,6 +26,12 @@ document.addEventListener('alpine:init', () => {
         infraStatusText: '',
         infraDataLoaded: false, // Track if data has been loaded for current zone
 
+        // --- Rack Layout State ---
+        isEditingLayout: false,
+        isSavingLayout: false,
+        rackLayout: {},           // Current saved layout from API
+        editingRackLayout: {},    // Temp layout being edited
+
         // --- COMPUTADOS (GETTERS) ---
         // Esto es lo que faltaba: Filtra las zonas según lo que escribas en el buscador
         get filteredZones() {
@@ -182,6 +188,9 @@ document.addEventListener('alpine:init', () => {
             this.infraDevices = [];
             this.infraStatusText = '';
             this.infraDataLoaded = false;
+            this.isEditingLayout = false;
+            this.rackLayout = {};
+            this.editingRackLayout = {};
 
             try {
                 const response = await fetch(`${this.API_BASE_URL}/api/zonas/${zone.id}/details`);
@@ -193,6 +202,10 @@ document.addEventListener('alpine:init', () => {
                     nombre: data.nombre || zone.nombre,
                     notes: data.notes || []
                 };
+
+                // Load rack layout from API
+                this.rackLayout = data.rack_layout || {};
+                this.editingRackLayout = { ...this.rackLayout };
 
                 // Auto-select first note if available
                 if (this.selectedZoneDetails.notes.length > 0) {
@@ -215,6 +228,9 @@ document.addEventListener('alpine:init', () => {
                 this.activeDetailsTab = 'notes';
                 this.infraDevices = [];
                 this.infraDataLoaded = false;
+                this.isEditingLayout = false;
+                this.rackLayout = {};
+                this.editingRackLayout = {};
             }, 300);
         },
 
@@ -264,14 +280,9 @@ document.addEventListener('alpine:init', () => {
 
                 this.infraDataLoaded = true;
 
-                // After a short delay to allow DOM to render, load port SVGs
-                // Using setTimeout since Alpine.js doesn't have $nextTick like Vue
+                // After a short delay to allow DOM to render, render the rack
                 setTimeout(() => {
-                    for (const device of this.infraDevices) {
-                        if (device.is_enabled && device.last_status === 'online') {
-                            this.loadDevicePorts(device.host, device.device_type);
-                        }
-                    }
+                    this.renderRackView();
                 }, 100);
 
             } catch (error) {
@@ -280,6 +291,92 @@ document.addEventListener('alpine:init', () => {
                 this.infraStatusText = 'Error loading';
             } finally {
                 this.isLoadingInfra = false;
+            }
+        },
+
+        /**
+         * Render the virtual rack using InfraViz
+         */
+        renderRackView() {
+            const container = document.getElementById('virtual-rack-container');
+            if (!container) return;
+
+            // Use renderRack with callback to load device ports
+            InfraViz.renderRack(
+                container,
+                this.infraDevices,
+                this.rackLayout,
+                (deviceContainer, device) => {
+                    if (device.is_enabled && device.last_status === 'online') {
+                        this.loadDevicePortsIntoContainer(deviceContainer, device.host, device.device_type);
+                    } else {
+                        deviceContainer.innerHTML = '<p class="text-text-secondary text-sm">Device offline or disabled</p>';
+                    }
+                }
+            );
+        },
+
+        /**
+         * Load device ports into a specific container
+         */
+        async loadDevicePortsIntoContainer(container, host, deviceType = 'router') {
+            try {
+                const endpoint = deviceType === 'switch'
+                    ? `${this.API_BASE_URL}/api/zonas/infra/switch/${host}/ports`
+                    : `${this.API_BASE_URL}/api/zonas/infra/router/${host}/ports`;
+
+                const response = await fetch(endpoint);
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to load');
+                }
+                const data = await response.json();
+                InfraViz.renderDeviceSVG(container, data, deviceType);
+            } catch (error) {
+                container.innerHTML = `<p class="text-danger text-sm">Error: ${error.message}</p>`;
+            }
+        },
+
+        /**
+         * Save rack layout to API
+         */
+        async saveRackLayout() {
+            const zonaId = this.selectedZoneDetails.id;
+            if (!zonaId) return;
+
+            this.isSavingLayout = true;
+            try {
+                // Clean up empty values
+                const cleanLayout = {};
+                Object.entries(this.editingRackLayout).forEach(([host, code]) => {
+                    if (code && code.trim()) {
+                        cleanLayout[host] = code.trim().toLowerCase();
+                    }
+                });
+
+                const response = await fetch(`${this.API_BASE_URL}/api/zonas/${zonaId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rack_layout: cleanLayout })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to save layout');
+                }
+
+                this.rackLayout = { ...cleanLayout };
+                this.isEditingLayout = false;
+                showToast('Layout saved successfully', 'success');
+
+                // Re-render rack with new layout
+                this.renderRackView();
+
+            } catch (error) {
+                console.error('Error saving rack layout:', error);
+                showToast(`Error saving layout: ${error.message}`, 'danger');
+            } finally {
+                this.isSavingLayout = false;
             }
         },
 

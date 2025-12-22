@@ -87,7 +87,8 @@ def _setup_inventory_db():
         """
     CREATE TABLE IF NOT EXISTS zonas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nombre TEXT NOT NULL UNIQUE
+        nombre TEXT NOT NULL UNIQUE,
+        rack_layout TEXT
     )
     """
     )

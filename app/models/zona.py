@@ -1,6 +1,7 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, date
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field, Relationship, Column
+from sqlalchemy import JSON
 
 # Modelo Principal
 class Zona(SQLModel, table=True):
@@ -11,6 +12,7 @@ class Zona(SQLModel, table=True):
     coordenadas_gps: Optional[str] = None
     notas_generales: Optional[str] = None
     notas_sensibles: Optional[str] = None
+    rack_layout: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     
     # Relaciones
     infraestructura: Optional["ZonaInfra"] = Relationship(back_populates="zona", sa_relationship_kwargs={"uselist": False})

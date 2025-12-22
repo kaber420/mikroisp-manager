@@ -77,13 +77,23 @@
         </form>
     </div>
 
-    <!-- Tab 2: Infrastructure (Vanilla JS) -->
+    <!-- Tab 2: Infrastructure with Edit Layout -->
     <div x-show="isActiveTab('infra')" x-cloak>
         <div class="bg-surface-1 rounded-lg border border-border-color">
             <div class="p-6 border-b border-border-color flex justify-between items-center">
                 <h3 class="text-lg font-semibold">Network Infrastructure</h3>
                 <div class="flex items-center gap-2">
                     <span id="infra-status" class="text-sm text-text-secondary">Loading...</span>
+                    <button id="edit-layout-btn" type="button"
+                        class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold bg-surface-2 text-text-secondary hover:text-white hover:bg-surface-2/80 transition-colors">
+                        <span class="material-symbols-outlined text-base">edit</span>
+                        Edit Layout
+                    </button>
+                    <button id="save-layout-btn" type="button" style="display: none;"
+                        class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold bg-success hover:bg-success/80 text-white transition-colors">
+                        <span class="material-symbols-outlined text-base">save</span>
+                        Save
+                    </button>
                     <button id="refresh-infra-btn"
                         class="px-3 py-1.5 rounded-md text-sm font-semibold bg-primary/20 text-primary hover:bg-primary/30">
                         <span class="material-symbols-outlined text-base align-middle">refresh</span>
@@ -91,6 +101,23 @@
                     </button>
                 </div>
             </div>
+
+            <!-- Layout Editor Panel (hidden by default) -->
+            <div id="layout-editor-panel" style="display: none;"
+                class="p-4 border-b border-border-color bg-surface-2/50">
+                <h5 class="text-sm font-semibold text-white mb-3">Device Positions</h5>
+                <p class="text-xs text-text-secondary mb-4">
+                    Use layout codes: <code class="bg-surface-1 px-1 rounded">1-f</code> (Row 1, Full),
+                    <code class="bg-surface-1 px-1 rounded">2-h1</code> (Row 2, Half, Slot 1),
+                    <code class="bg-surface-1 px-1 rounded">2-h2</code> (Row 2, Half, Slot 2),
+                    <code class="bg-surface-1 px-1 rounded">3-q1</code> to <code
+                        class="bg-surface-1 px-1 rounded">q4</code> (Quarter slots)
+                </p>
+                <div id="layout-inputs-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
             <div id="router-diagrams" class="p-6 space-y-6">
                 <p class="text-text-secondary">Loading infrastructure data...</p>
             </div>

@@ -70,10 +70,7 @@
                                         class="flex items-center justify-center h-8 px-3 text-xs font-semibold rounded-md border border-white/10 hover:bg-white/10 text-text-primary transition-colors">
                                         Manage
                                     </a>
-                                    <button @click="openModal(zone)"
-                                        class="text-text-secondary hover:text-primary p-1 transition-colors">
-                                        <span class="material-symbols-outlined text-[20px]">edit</span>
-                                    </button>
+
                                     <button @click="deleteZone(zone)"
                                         class="text-text-secondary hover:text-danger p-1 transition-colors">
                                         <span class="material-symbols-outlined text-[20px]">delete</span>
@@ -129,7 +126,7 @@
     <div x-show="isDetailsModalOpen" x-cloak
         class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div @click.away="closeDetailsModal()"
-            class="bg-surface-1 border border-white/10 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+            class="bg-surface-1 border border-white/10 rounded-2xl shadow-2xl w-full max-w-7xl h-[85vh] overflow-hidden flex flex-col">
 
             <!-- Modal Header -->
             <div class="p-5 border-b border-white/10 flex justify-between items-center bg-white/5 flex-shrink-0">
@@ -217,7 +214,7 @@
                     </div>
                 </div>
 
-                <!-- Virtual Rack Tab Content -->
+                <!-- Virtual Rack Tab Content (View Only) -->
                 <div x-show="activeDetailsTab === 'infra'" class="h-full overflow-y-auto p-6 bg-background">
                     <template x-if="isLoadingInfra">
                         <div class="flex items-center justify-center h-64">
@@ -238,40 +235,19 @@
                         </div>
                     </template>
                     <template x-if="!isLoadingInfra && infraDevices.length > 0">
-                        <div class="space-y-6">
+                        <div>
+                            <!-- Header -->
                             <div class="flex items-center justify-between mb-4">
-                                <h4 class="text-lg font-semibold text-white">Virtual Rack</h4>
-                                <span class="text-sm text-text-secondary" x-text="infraStatusText"></span>
-                            </div>
-                            <template x-for="device in infraDevices" :key="device.host">
-                                <div class="bg-surface-2 rounded-lg border border-border-color overflow-hidden">
-                                    <div class="p-4 border-b border-border-color flex justify-between items-center">
-                                        <div class="flex items-center gap-3">
-                                            <span class="material-symbols-outlined text-2xl text-text-secondary"
-                                                x-text="device.device_type === 'switch' ? 'switch' : 'router'"></span>
-                                            <div>
-                                                <h5 class="font-semibold text-lg text-white"
-                                                    x-text="device.hostname || device.host"></h5>
-                                                <p class="text-sm text-text-secondary">
-                                                    <span x-text="device.host"></span> •
-                                                    <span x-text="device.model || 'Unknown model'"></span> •
-                                                    <span class="text-xs opacity-70"
-                                                        x-text="device.device_type === 'switch' ? 'Switch' : 'Router'"></span>
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <span
-                                            :class="device.last_status === 'online' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'"
-                                            class="px-2 py-1 rounded text-xs font-medium"
-                                            x-text="device.last_status || 'unknown'"></span>
-                                    </div>
-                                    <div class="p-4" :id="`zone-device-svg-${device.host.replace(/\./g, '-')}`">
-                                        <p class="text-text-secondary text-sm"
-                                            x-text="device.is_enabled && device.last_status === 'online' ? 'Loading ports...' : 'Device offline or disabled'">
-                                        </p>
-                                    </div>
+                                <div class="flex items-center gap-3">
+                                    <h4 class="text-lg font-semibold text-white">Virtual Rack</h4>
+                                    <span class="text-sm text-text-secondary" x-text="infraStatusText"></span>
                                 </div>
-                            </template>
+                            </div>
+
+                            <!-- Virtual Rack Visualization -->
+                            <div id="virtual-rack-container">
+                                <!-- Rendered by InfraViz.renderRack() -->
+                            </div>
                         </div>
                     </template>
                 </div>

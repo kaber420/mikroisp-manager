@@ -40,14 +40,14 @@ const InfraViz = (function () {
         const rows = Math.ceil(ports.length / portsPerRow);
 
         const svgWidth = (portWidth + portGap) * portsPerRow + padding * 2 - portGap;
-        const svgHeight = (portHeight + portGap) * rows + padding * 2 + 36;
+        const svgHeight = (portHeight + portGap) * rows + padding * 2;
 
         // Generate unique ID for this SVG
         const svgId = `svg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
         let svgContent = `
             <svg id="${svgId}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${svgHeight}" 
-                 class="w-full max-w-4xl" style="background: var(--background); border-radius: 8px;">
+                 class="w-full" style="background: var(--background); border-radius: 8px;">
                 
                 <!-- Device chassis -->
                 <rect x="0" y="0" width="${svgWidth}" height="${svgHeight - 28}" rx="8" 
@@ -122,50 +122,7 @@ const InfraViz = (function () {
             `;
         });
 
-        // Legend
-        const legendY = svgHeight - 20;
-        svgContent += `
-            <g class="legend" font-size="7" fill="var(--text-secondary)">
-                <!-- Link LED -->
-                <circle cx="${padding + 5}" cy="${legendY}" r="3" fill="#10B981"/>
-                <text x="${padding + 12}" y="${legendY + 3}">Link</text>
-                
-                <!-- PoE Active LED -->
-                <circle cx="${padding + 42}" cy="${legendY}" r="3" fill="#F59E0B"/>
-                <text x="${padding + 49}" y="${legendY + 3}">PoE Active</text>
-                
-                <!-- PoE Configured LED -->
-                <circle cx="${padding + 100}" cy="${legendY}" r="3" fill="#F97316"/>
-                <text x="${padding + 107}" y="${legendY + 3}">PoE Waiting</text>
-                
-                <!-- Down indicator -->
-                <circle cx="${padding + 170}" cy="${legendY}" r="3" fill="#6B7280"/>
-                <text x="${padding + 177}" y="${legendY + 3}">Down/Off</text>
-                
-                <!-- VLAN info -->
-                <text x="${padding + 225}" y="${legendY + 3}">Pins = VLANs (hover for details)</text>
-            </g>
-        `;
-
         svgContent += '</svg>';
-
-        // Bridge summary
-        let bridgeSummary = '';
-        if (data.bridges && data.bridges.length > 0) {
-            bridgeSummary = `
-                <div class="mt-4 pt-4 border-t border-border-color">
-                    <h5 class="text-sm font-semibold mb-2">Bridges</h5>
-                    <div class="flex flex-wrap gap-2">
-                        ${data.bridges.map(b => `
-                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-500/20 text-blue-400 text-xs">
-                                <span class="material-symbols-outlined text-sm">lan</span>
-                                ${b.name}: ${b.members.join(', ')}
-                            </span>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
-        }
 
         // Store port data for tooltip
         container._portData = ports;
@@ -179,7 +136,7 @@ const InfraViz = (function () {
             </div>
         `;
 
-        container.innerHTML = svgContent + bridgeSummary + tooltipHtml;
+        container.innerHTML = svgContent + tooltipHtml;
 
         // Add hover event listeners
         const svg = container.querySelector('svg');
@@ -281,10 +238,174 @@ const InfraViz = (function () {
         });
     }
 
+    /**
+     * Parse layout code like "1-f", "2-h1", "3-q2"
+     * Returns { row, width, slot } or null if invalid
+     */
+    function parseLayoutCode(code) {
+        if (!code || typeof code !== 'string') return null;
+        const match = code.match(/^(\d+)-([fhq])(\d)?$/i);
+        if (!match) return null;
+
+        const row = parseInt(match[1], 10);
+        const sizeCode = match[2].toLowerCase();
+        const slot = match[3] ? parseInt(match[3], 10) : 1;
+
+        let width;
+        switch (sizeCode) {
+            case 'f': width = 100; break;
+            case 'h': width = 50; break;
+            case 'q': width = 25; break;
+            default: return null;
+        }
+
+        return { row, width, slot, sizeCode };
+    }
+
+    /**
+     * Render a Virtual Rack layout with devices positioned according to layoutMap
+     * @param {HTMLElement} container - DOM element to render rack into
+     * @param {Array} devices - Array of device objects with { host, hostname, device_type, ... }
+     * @param {Object} layoutMap - Map of host -> layout code (e.g., { "192.168.1.1": "1-f" })
+     * @param {Function} onRenderDevice - Callback(containerDiv, device) to render device SVG
+     */
+    function renderRack(container, devices, layoutMap, onRenderDevice) {
+        if (!devices || devices.length === 0) {
+            container.innerHTML = '<p class="text-text-secondary text-sm italic">No devices to display</p>';
+            return;
+        }
+
+        layoutMap = layoutMap || {};
+
+        // Group devices by row
+        const rowsMap = new Map();
+        const unassigned = [];
+
+        devices.forEach(device => {
+            const code = layoutMap[device.host];
+            const parsed = parseLayoutCode(code);
+            if (parsed) {
+                if (!rowsMap.has(parsed.row)) {
+                    rowsMap.set(parsed.row, []);
+                }
+                rowsMap.get(parsed.row).push({ device, ...parsed });
+            } else {
+                unassigned.push(device);
+            }
+        });
+
+        // Sort rows by row number
+        const sortedRows = Array.from(rowsMap.keys()).sort((a, b) => a - b);
+
+        // If all devices are unassigned, auto-assign them to sequential full-width rows
+        if (sortedRows.length === 0 && unassigned.length > 0) {
+            unassigned.forEach((device, index) => {
+                rowsMap.set(index + 1, [{ device, row: index + 1, width: 100, slot: 1, sizeCode: 'f' }]);
+                sortedRows.push(index + 1);
+            });
+            unassigned.length = 0; // Clear unassigned
+        }
+
+        // Build rack HTML - using CSS Grid with 4 columns for proper slot positioning
+        let html = '<div class="virtual-rack">';
+
+        sortedRows.forEach(rowNum => {
+            const rowDevices = rowsMap.get(rowNum);
+            // Sort by slot within row
+            rowDevices.sort((a, b) => a.slot - b.slot);
+
+            // Use grid with 4 columns to support quarter-width positioning
+            html += `<div class="rack-row grid grid-cols-4 gap-4 mb-4" data-row="${rowNum}">`;
+            rowDevices.forEach(item => {
+                // Calculate grid column span and start position
+                let colSpan, colStart;
+                switch (item.sizeCode) {
+                    case 'f': // Full width = span all 4 columns
+                        colSpan = 4;
+                        colStart = 1;
+                        break;
+                    case 'h': // Half width = span 2 columns
+                        colSpan = 2;
+                        colStart = item.slot === 1 ? 1 : 3;
+                        break;
+                    case 'q': // Quarter width = span 1 column
+                        colSpan = 1;
+                        colStart = item.slot;
+                        break;
+                    default:
+                        colSpan = 4;
+                        colStart = 1;
+                }
+
+                const gridStyle = `grid-column: ${colStart} / span ${colSpan};`;
+                html += `
+                    <div class="rack-slot bg-surface-2 rounded-lg border border-border-color overflow-hidden" 
+                         style="${gridStyle}" data-host="${item.device.host}">
+                        <div class="p-3 border-b border-border-color flex justify-between items-center bg-surface-1/50">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-xl text-text-secondary">${item.device.device_type === 'switch' ? 'switch' : 'router'}</span>
+                                <div>
+                                    <h5 class="font-semibold text-sm text-white">${item.device.hostname || item.device.host}</h5>
+                                    <p class="text-xs text-text-secondary">${item.device.host}</p>
+                                </div>
+                            </div>
+                            <span class="text-xs text-text-secondary/50">${item.row}-${item.sizeCode}${item.width !== 100 ? item.slot : ''}</span>
+                        </div>
+                        <div class="rack-device-content p-3" id="rack-device-${item.device.host.replace(/\./g, '-')}">
+                            <p class="text-text-secondary text-sm">Loading...</p>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+        });
+
+        // Render unassigned devices in a separate section
+        if (unassigned.length > 0) {
+            html += `
+                <div class="unassigned-devices mt-6 pt-4 border-t border-border-color/50">
+                    <p class="text-text-secondary text-xs mb-3 uppercase tracking-wide">Unassigned Devices</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            `;
+            unassigned.forEach(device => {
+                html += `
+                    <div class="rack-slot bg-surface-2/50 rounded-lg border border-border-color/50 overflow-hidden" data-host="${device.host}">
+                        <div class="p-3 border-b border-border-color/50 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-xl text-text-secondary">${device.device_type === 'switch' ? 'switch' : 'router'}</span>
+                            <div>
+                                <h5 class="font-semibold text-sm text-white">${device.hostname || device.host}</h5>
+                                <p class="text-xs text-text-secondary">${device.host}</p>
+                            </div>
+                        </div>
+                        <div class="rack-device-content p-3" id="rack-device-${device.host.replace(/\./g, '-')}">
+                            <p class="text-text-secondary text-sm">Loading...</p>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div></div>';
+        }
+
+        html += '</div>';
+        container.innerHTML = html;
+
+        // Trigger onRenderDevice callback for each device
+        if (typeof onRenderDevice === 'function') {
+            devices.forEach(device => {
+                const deviceContainer = document.getElementById(`rack-device-${device.host.replace(/\./g, '-')}`);
+                if (deviceContainer) {
+                    onRenderDevice(deviceContainer, device);
+                }
+            });
+        }
+    }
+
     // Public API
     return {
         vlanIdToColor: vlanIdToColor,
-        renderDeviceSVG: renderDeviceSVG
+        renderDeviceSVG: renderDeviceSVG,
+        renderRack: renderRack,
+        parseLayoutCode: parseLayoutCode
     };
 
 })();

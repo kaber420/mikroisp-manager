@@ -88,7 +88,9 @@ document.addEventListener('alpine:init', () => {
 
         // Load infrastructure (calls vanilla infra.js)
         loadInfra() {
-            if (typeof loadInfrastructure === 'function') {
+            if (typeof initInfrastructure === 'function') {
+                initInfrastructure(this.zonaId);
+            } else if (typeof loadInfrastructure === 'function') {
                 loadInfrastructure(this.zonaId);
             }
         },
