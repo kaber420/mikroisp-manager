@@ -9,6 +9,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableBody = document.getElementById('cpe-table-body');
 
     /**
+     * Elimina un CPE de la base de datos.
+     * @param {string} mac - La dirección MAC del CPE a eliminar.
+     */
+    async function deleteCPE(mac) {
+        if (!confirm(`¿Estás seguro de que deseas eliminar el CPE con MAC ${mac}? Esta acción es irreversible.`)) {
+            return;
+        }
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/cpes/${encodeURIComponent(mac)}`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ detail: 'Error desconocido' }));
+                throw new Error(errorData.detail || 'Failed to delete CPE');
+            }
+            // Refresh the table after successful deletion
+            loadAllCPEs();
+        } catch (error) {
+            console.error("Error deleting CPE:", error);
+            alert(`Error al eliminar CPE: ${error.message}`);
+        }
+    }
+    // Make deleteCPE globally accessible for onclick handlers
+    window.deleteCPE = deleteCPE;
+
+    /**
      * Devuelve la clase y el texto para un badge de estado basado en la señal.
      * @param {number|null} signal - El nivel de señal del CPE en dBm.
      * @returns {{badgeClass: string, text: string}}
@@ -51,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (filteredCPEs.length === 0) {
             const emptyRow = document.createElement('tr');
-            emptyRow.innerHTML = `<td colspan="6" class="text-center p-8 text-text-secondary">No CPEs match the current filter.</td>`;
+            emptyRow.innerHTML = `<td colspan="7" class="text-center p-8 text-text-secondary">No CPEs match the current filter.</td>`;
             tableBody.appendChild(emptyRow);
         } else {
             filteredCPEs.forEach(cpe => {
@@ -72,6 +98,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="px-6 py-4 whitespace-nowrap text-text-primary font-semibold">${signalStrength}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-text-secondary font-mono">${cpe.cpe_mac}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-text-secondary font-mono">${cpe.ip_address || "No IP"}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <button onclick="deleteCPE('${cpe.cpe_mac}')" class="text-danger hover:text-red-400 transition-colors" title="Eliminar CPE">
+                            <span class="material-symbols-outlined">delete</span>
+                        </button>
+                    </td>
                 `;
                 tableBody.appendChild(row);
             });
@@ -88,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tableBody.style.opacity = '0.6';
 
         if (allCPEs.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="6" class="text-center p-8 text-text-secondary">Loading CPE data...</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="7" class="text-center p-8 text-text-secondary">Loading CPE data...</td></tr>';
         }
 
         setTimeout(async () => {
@@ -101,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderCPEs();
             } catch (error) {
                 console.error("Error loading CPE data:", error);
-                tableBody.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-danger">Failed to load network data. Please check the API.</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-danger">Failed to load network data. Please check the API.</td></tr>`;
             } finally {
                 setTimeout(() => {
                     if (tableBody) {

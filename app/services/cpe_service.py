@@ -1,38 +1,101 @@
 # app/services/cpe_service.py
-from typing import List, Dict, Any
-from ..db import cpes_db
+from typing import List, Dict, Any, Optional
+from sqlmodel import Session, select, func
+import sqlite3
+import os
+
+from ..models.cpe import CPE
+from ..db.base import get_db_connection, get_stats_db_file
 
 
 class CPEService:
+    def __init__(self, session: Session):
+        self.session = session
 
-    def get_unassigned_cpes(self) -> List[Dict[str, Any]]:
-        return cpes_db.get_unassigned_cpes()
+    def get_unassigned_cpes(self) -> List[CPE]:
+        """Obtiene todos los CPEs que no están asignados a ningún cliente."""
+        statement = select(CPE).where(CPE.client_id == None).order_by(CPE.hostname)
+        return list(self.session.exec(statement).all())
 
-    def assign_cpe_to_client(self, mac: str, client_id: int) -> Dict[str, Any]:
-        try:
-            rows_affected = cpes_db.assign_cpe_to_client(mac, client_id)
-            if rows_affected == 0:
-                raise FileNotFoundError("CPE not found.")
-        except ValueError as e:
-            raise FileNotFoundError(str(e))  # Client ID no encontrado
+    def get_cpe_by_mac(self, mac: str) -> Optional[CPE]:
+        """Obtiene un CPE por su dirección MAC."""
+        return self.session.get(CPE, mac)
 
-        updated_cpe = cpes_db.get_cpe_by_mac(mac)
-        if not updated_cpe:
-            raise Exception("Could not retrieve CPE after assignment.")
-        return updated_cpe
-
-    def unassign_cpe(self, mac: str) -> Dict[str, Any]:
-        rows_affected = cpes_db.unassign_cpe(mac)
-        if rows_affected == 0:
+    def assign_cpe_to_client(self, mac: str, client_id: int) -> CPE:
+        """Asigna un CPE a un cliente."""
+        cpe = self.session.get(CPE, mac)
+        if not cpe:
             raise FileNotFoundError("CPE not found.")
+        
+        cpe.client_id = client_id
+        self.session.add(cpe)
+        self.session.commit()
+        self.session.refresh(cpe)
+        return cpe
 
-        unassigned_cpe = cpes_db.get_cpe_by_mac(mac)
-        if not unassigned_cpe:
-            raise Exception("Could not retrieve CPE after unassignment.")
-        return unassigned_cpe
+    def unassign_cpe(self, mac: str) -> CPE:
+        """Desasigna un CPE de cualquier cliente."""
+        cpe = self.session.get(CPE, mac)
+        if not cpe:
+            raise FileNotFoundError("CPE not found.")
+        
+        cpe.client_id = None
+        self.session.add(cpe)
+        self.session.commit()
+        self.session.refresh(cpe)
+        return cpe
+
+    def delete_cpe(self, mac: str) -> bool:
+        """Elimina un CPE de la base de datos."""
+        cpe = self.session.get(CPE, mac)
+        if not cpe:
+            raise FileNotFoundError("CPE not found.")
+        
+        self.session.delete(cpe)
+        self.session.commit()
+        return True
+
+    def get_cpes_for_client(self, client_id: int) -> List[CPE]:
+        """Obtiene los CPEs asignados a un cliente específico."""
+        statement = select(CPE).where(CPE.client_id == client_id).order_by(CPE.hostname)
+        return list(self.session.exec(statement).all())
+
+    def get_cpe_count_for_client(self, client_id: int) -> int:
+        """Cuenta los CPEs asignados a un cliente específico."""
+        statement = select(func.count()).select_from(CPE).where(CPE.client_id == client_id)
+        return self.session.exec(statement).one()
 
     def get_all_cpes_globally(self) -> List[Dict[str, Any]]:
+        """
+        Obtiene todos los CPEs con sus datos de estado más recientes y el nombre del AP.
+        Nota: Esta función usa SQL crudo porque hace ATTACH DATABASE a stats_db.
+        """
+        from ..db.base import get_db_connection, get_stats_db_file
+        
+        conn = get_db_connection()
+        stats_db_file = get_stats_db_file()
+
+        if not os.path.exists(stats_db_file):
+            conn.close()
+            return []
+
         try:
-            return cpes_db.get_all_cpes_globally()
-        except RuntimeError as e:
-            raise Exception(str(e))  # Error de DB
+            conn.execute(f"ATTACH DATABASE '{stats_db_file}' AS stats_db")
+            query = """
+                WITH LatestCPEStats AS (
+                    SELECT *, ROW_NUMBER() OVER(PARTITION BY cpe_mac ORDER BY timestamp DESC) as rn
+                    FROM stats_db.cpe_stats_history
+                )
+                SELECT s.*, a.hostname as ap_hostname
+                FROM LatestCPEStats s
+                LEFT JOIN aps a ON s.ap_host = a.host
+                WHERE s.rn = 1
+                ORDER BY s.cpe_hostname, s.cpe_mac;
+            """
+            cursor = conn.execute(query)
+            rows = [dict(row) for row in cursor.fetchall()]
+            return rows
+        except sqlite3.OperationalError as e:
+            raise RuntimeError(f"Error al adjuntar la base de datos de estadísticas: {e}")
+        finally:
+            conn.close()

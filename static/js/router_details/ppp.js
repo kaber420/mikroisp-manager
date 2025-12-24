@@ -33,10 +33,21 @@ const handleAddPlan = async (e) => {
         // Lógica para pool
         const poolInputValue = data.pool_input;
         delete data.pool_input;
-        // Valida si es un rango (contiene guion y punto) o un nombre de pool existente
-        if (poolInputValue && poolInputValue.includes('.') && poolInputValue.includes('-')) {
-            data.pool_range = poolInputValue;
+        
+        // Detectar si es CIDR (contiene /), rango (contiene - y .), o nombre de pool
+        if (poolInputValue && poolInputValue.includes('.')) {
+            if (poolInputValue.includes('/')) {
+                // Es CIDR - convertir a rango para MikroTik
+                data.pool_range = cidrToRange(poolInputValue);
+            } else if (poolInputValue.includes('-')) {
+                // Es un rango directo
+                data.pool_range = poolInputValue;
+            } else {
+                // Es un nombre de pool existente
+                data.remote_address = poolInputValue;
+            }
         } else if (poolInputValue) {
+            // No tiene punto, es un nombre de pool
             data.remote_address = poolInputValue;
         }
 
@@ -46,6 +57,40 @@ const handleAddPlan = async (e) => {
         await window.loadFullDetailsData(); // Recargar todo
     } catch (err) { DomUtils.updateFeedback(err.message, false); }
 };
+
+/**
+ * Convierte notación CIDR a rango de IPs para MikroTik.
+ * Ejemplo: "192.168.69.0/24" -> "192.168.69.1-192.168.69.254"
+ */
+function cidrToRange(cidr) {
+    const [ip, prefixStr] = cidr.split('/');
+    const prefix = parseInt(prefixStr, 10);
+    const octets = ip.split('.').map(Number);
+    
+    // Convertir IP a número de 32 bits
+    const ipNum = (octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3];
+    
+    // Calcular máscara y rango
+    const mask = ~((1 << (32 - prefix)) - 1) >>> 0;
+    const networkAddr = ipNum & mask;
+    const broadcastAddr = networkAddr | (~mask >>> 0);
+    
+    // Primer IP usable (network + 1) y última IP usable (broadcast - 1)
+    const firstUsable = networkAddr + 1;
+    const lastUsable = broadcastAddr - 1;
+    
+    // Convertir de vuelta a octetos
+    const toOctets = (num) => [
+        (num >>> 24) & 255,
+        (num >>> 16) & 255,
+        (num >>> 8) & 255,
+        num & 255
+    ].join('.');
+    
+    return `${toOctets(firstUsable)}-${toOctets(lastUsable)}`;
+}
+
+
 
 const handleDeletePppoe = (service) => {
     DomUtils.confirmAndExecute(`¿Borrar el servidor PPPoE "${service}"?`, async () => {

@@ -9,7 +9,8 @@ from sqlmodel import Session, select
 from app.models import Client
 from ..models.service import ClientService as ClientServiceModel
 from ..models.router import Router
-from ..db import cpes_db
+from ..models.cpe import CPE
+from sqlmodel import func
 from ..db.base import get_db_connection # Added for legacy DB access
 from ..services.router_service import RouterService
 from .payment_service import PaymentService
@@ -48,8 +49,9 @@ class ClientService:
         clients_dict = []
         for client in clients:
             client_dict = client.model_dump()
-            # Get CPE count using the legacy cpes_db
-            client_dict['cpe_count'] = cpes_db.get_cpe_count_for_client(client.id)
+            # Get CPE count using SQLModel
+            cpe_count_stmt = select(func.count()).select_from(CPE).where(CPE.client_id == client.id)
+            client_dict['cpe_count'] = self.session.exec(cpe_count_stmt).one()
             clients_dict.append(client_dict)
         
         return clients_dict
@@ -114,9 +116,11 @@ class ClientService:
     
     def get_cpes_for_client(self, client_id: int) -> List[Dict[str, Any]]:
         """
-        Get CPEs for a client using the legacy cpes_db.
+        Get CPEs for a client using SQLModel.
         """
-        return cpes_db.get_cpes_for_client(client_id)
+        statement = select(CPE).where(CPE.client_id == client_id).order_by(CPE.hostname)
+        cpes = self.session.exec(statement).all()
+        return [cpe.model_dump() for cpe in cpes]
     
     # --- Service Methods ---
     def create_client_service(

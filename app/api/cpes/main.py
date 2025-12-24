@@ -1,9 +1,11 @@
 # app/api/cpes/main.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
+from sqlmodel import Session
 
 from ...core.users import require_technician
 from ...models.user import User
+from ...db.engine_sync import get_sync_session
 from ...services.cpe_service import CPEService
 from .models import CPEGlobalInfo, AssignedCPE
 
@@ -11,8 +13,9 @@ router = APIRouter()
 
 
 # --- Dependencia del Inyector de Servicio ---
-def get_cpe_service() -> CPEService:
-    return CPEService()
+def get_cpe_service(session: Session = Depends(get_sync_session)) -> CPEService:
+    return CPEService(session)
+
 
 
 # --- Endpoints de la API ---
@@ -47,6 +50,22 @@ def api_unassign_cpe(
 ):
     try:
         return service.unassign_cpe(mac)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/cpes/{mac}", status_code=status.HTTP_204_NO_CONTENT)
+def api_delete_cpe(
+    mac: str,
+    service: CPEService = Depends(get_cpe_service),
+    current_user: User = Depends(require_technician),
+):
+    """Elimina un CPE de la base de datos de forma permanente."""
+    try:
+        service.delete_cpe(mac)
+        return None
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

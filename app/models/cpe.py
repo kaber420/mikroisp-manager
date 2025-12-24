@@ -1,0 +1,17 @@
+# app/models/cpe.py
+from typing import Optional
+from datetime import datetime
+from sqlmodel import Field, SQLModel
+
+
+class CPE(SQLModel, table=True):
+    __tablename__ = "cpes"
+
+    mac: str = Field(primary_key=True)
+    hostname: Optional[str] = Field(default=None)
+    model: Optional[str] = Field(default=None)
+    firmware: Optional[str] = Field(default=None)
+    ip_address: Optional[str] = Field(default=None)
+    client_id: Optional[int] = Field(default=None, foreign_key="clients.id")
+    first_seen: Optional[datetime] = Field(default=None)
+    last_seen: Optional[datetime] = Field(default=None)

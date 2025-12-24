@@ -9,7 +9,6 @@ from typing import List, Dict, Optional
 from ...core.users import current_active_user
 from ...models.user import User
 from ...db.base import get_db_connection, get_stats_db_connection, get_stats_db_file
-from ...db.cpes_db import get_all_cpes_globally  # Reutilizamos una función ya creada
 
 # --- ¡IMPORTACIÓN CORREGIDA! (Ahora desde '.models') ---
 from .models import TopAP, TopCPE
