@@ -59,10 +59,11 @@ export class ApiClient {
  */
 export class DomUtils {
     static formatBytes(bytes) {
-        if (!bytes || bytes === 0) return '0 Bytes';
+        if (!bytes || bytes === 0 || bytes === '0') return '0 Bytes';
         const k = 1024;
         const bytesNum = parseInt(bytes, 10);
-        if (isNaN(bytesNum)) return 'N/A';
+        if (isNaN(bytesNum) || bytesNum === 0) return '0 Bytes'; // Extra safety for parsed 0
+
         const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
         const i = Math.floor(Math.log(bytesNum) / Math.log(k));
         return parseFloat((bytesNum / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
