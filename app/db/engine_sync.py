@@ -12,6 +12,7 @@ from typing import Generator
 # Database path is fixed in data/db/
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
 DATABASE_FILE = os.path.join(DATA_DIR, "db", "inventory.sqlite")
+os.makedirs(os.path.dirname(DATABASE_FILE), exist_ok=True)
 DATABASE_URL = f"sqlite:///{DATABASE_FILE}"
 
 # Create SYNC engine (como antes)

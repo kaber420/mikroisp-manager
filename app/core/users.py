@@ -15,6 +15,8 @@ from fastapi_users.authentication import (
     JWTStrategy,
 )
 from fastapi_users.db import SQLAlchemyUserDatabase
+from fastapi_users.password import PasswordHelper
+from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.engine import get_session
@@ -122,11 +124,18 @@ async def get_user_db(session: AsyncSession = Depends(get_session)):
     yield SQLAlchemyUserDatabaseByUsername(session, User)
 
 
+# --- Argon2 Password Helper ---
+# Configure passlib to use Argon2 for password hashing
+argon2_context = CryptContext(schemes=["argon2"], deprecated="auto")
+password_helper = PasswordHelper(argon2_context)
+
+
 async def get_user_manager(user_db=Depends(get_user_db)):
     """
     Dependency to get the user manager instance.
+    Uses Argon2 for password hashing via PasswordHelper.
     """
-    yield UserManager(user_db)
+    yield UserManager(user_db, password_helper)
 
 
 # --- FastAPI Users Instance ---

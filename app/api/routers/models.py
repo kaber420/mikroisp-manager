@@ -213,6 +213,7 @@ class SystemResource(BaseModel):
 class BackupCreateRequest(BaseModel):
     backup_type: str  # 'backup' or 'export'
     backup_name: str
+    overwrite: bool = False
 
 
 class RouterUserCreate(BaseModel):

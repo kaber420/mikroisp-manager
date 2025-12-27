@@ -60,6 +60,25 @@ def api_create_backup(
     user: User = Depends(get_current_active_user),
 ):
     try:
+        # Verificar si el archivo ya existe
+        existing_files = service.get_backup_files()
+        target_name = request.backup_name
+        
+        # Asegurar extensión correcta para la búsqueda
+        if request.backup_type == "backup" and not target_name.endswith(".backup"):
+            target_name += ".backup"
+        elif request.backup_type == "export" and not target_name.endswith(".rsc"):
+            target_name += ".rsc"
+
+        # Buscar coincidencia exacta
+        file_exists = any(f['name'] == target_name for f in existing_files)
+
+        if file_exists and not request.overwrite:
+            raise HTTPException(
+                status_code=409,
+                detail=f"El archivo '{target_name}' ya existe."
+            )
+
         if request.backup_type == "backup":
             if not request.backup_name.endswith(".backup"):
                 request.backup_name += ".backup"
