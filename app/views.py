@@ -145,7 +145,7 @@ async def read_clients_page(
 @router.get("/client/{client_id}", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_client_details_page(
     request: Request,
-    client_id: int,
+    client_id: str,
     current_user: User = Depends(get_current_user_or_redirect),
 ):
     return templates.TemplateResponse(
