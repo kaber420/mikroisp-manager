@@ -242,13 +242,17 @@ generate_mkcert_cert() {
     
     print_success "Certificado mkcert generado"
     
-    # Mostrar ubicación del CA
+    # Copiar CA raíz para que la web pueda servirlo
     CA_ROOT=$(mkcert -CAROOT)
+    if [[ -f "$CA_ROOT/rootCA.pem" ]]; then
+        cp "$CA_ROOT/rootCA.pem" "$SSL_DIR/rootCA.pem"
+        chmod 644 "$SSL_DIR/rootCA.pem"
+        print_success "CA raíz copiada a $SSL_DIR/rootCA.pem (accesible desde la web)"
+    fi
+    
     print_info "CA raíz ubicada en: $CA_ROOT"
     echo ""
-    echo -e "${YELLOW}Para que otros dispositivos confíen en los certificados:${NC}"
-    echo "1. Copia el archivo: $CA_ROOT/rootCA.pem"
-    echo "2. Instálalo como 'Autoridad de Certificación' en cada dispositivo"
+    echo -e "${YELLOW}Los usuarios pueden descargar el certificado desde el Dashboard de la app.${NC}"
 }
 
 create_caddyfile() {

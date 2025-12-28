@@ -10,24 +10,27 @@
             <h2 class="text-3xl font-bold text-text-primary tracking-tight">Dashboard</h2>
             <p class="text-text-secondary text-sm mt-1">Vista general de la red </p>
         </div>
-        
-        <button onclick="location.reload()" 
-                class="flex items-center gap-2 px-4 py-2 bg-surface-1 hover:bg-surface-2 border border-border-color rounded-lg text-text-primary text-sm transition-all shadow-lg hover:shadow-primary/20">
+
+        <button onclick="location.reload()"
+            class="flex items-center gap-2 px-4 py-2 bg-surface-1 hover:bg-surface-2 border border-border-color rounded-lg text-text-primary text-sm transition-all shadow-lg hover:shadow-primary/20">
             <span class="material-symbols-outlined text-[20px]">refresh</span>
             <span>Actualizar</span>
         </button>
     </div>
 
     <div id="summary-cards" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
-        <div class="relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-xl group">
-            <span class="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-primary/5 group-hover:text-primary/10 transition-colors select-none">
+
+        <div
+            class="relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-xl group">
+            <span
+                class="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-primary/5 group-hover:text-primary/10 transition-colors select-none">
                 cell_tower
             </span>
 
             <div class="relative z-10 flex justify-between items-start mb-6">
                 <div>
-                    <div class="flex items-center gap-2 text-text-secondary text-sm font-medium uppercase tracking-wider mb-2">
+                    <div
+                        class="flex items-center gap-2 text-text-secondary text-sm font-medium uppercase tracking-wider mb-2">
                         <span class="material-symbols-outlined text-primary">cell_tower</span>
                         Access Points
                     </div>
@@ -56,14 +59,17 @@
             </div>
         </div>
 
-        <div class="relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-xl group">
-            <span class="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-orange/5 group-hover:text-orange/10 transition-colors select-none">
+        <div
+            class="relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-xl group">
+            <span
+                class="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-orange/5 group-hover:text-orange/10 transition-colors select-none">
                 router
             </span>
 
             <div class="relative z-10 flex justify-between items-start mb-6">
                 <div>
-                    <div class="flex items-center gap-2 text-text-secondary text-sm font-medium uppercase tracking-wider mb-2">
+                    <div
+                        class="flex items-center gap-2 text-text-secondary text-sm font-medium uppercase tracking-wider mb-2">
                         <span class="material-symbols-outlined text-orange">router</span>
                         CPEs (Clientes)
                     </div>
@@ -91,10 +97,43 @@
                 </div>
             </div>
         </div>
+
+        <!-- SSL Security Card -->
+        <div
+            class="relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-xl group md:col-span-2">
+            <span
+                class="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-success/5 group-hover:text-success/10 transition-colors select-none">
+                lock
+            </span>
+
+            <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <div
+                        class="flex items-center gap-2 text-text-secondary text-sm font-medium uppercase tracking-wider mb-2">
+                        <span class="material-symbols-outlined text-success">verified_user</span>
+                        Seguridad SSL
+                    </div>
+                    <p id="ssl-status" class="text-sm text-text-secondary">Verificando estado...</p>
+                </div>
+
+                <div class="flex flex-wrap gap-3">
+                    <button id="download-ca-btn" onclick="downloadCACertificate()" disabled
+                        class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-primary/20 transition-all">
+                        <span class="material-symbols-outlined text-lg">download</span>
+                        Descargar Certificado CA
+                    </button>
+                    <button onclick="openSSLInstructionsModal()"
+                        class="px-4 py-2 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface-2 flex items-center gap-2 transition-all border border-white/10">
+                        <span class="material-symbols-outlined text-lg">help</span>
+                        Instrucciones
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
+
         <div class="rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md flex flex-col h-full shadow-lg">
             <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-surface-1/40">
                 <h3 class="text-lg font-semibold text-text-primary flex items-center gap-2">
@@ -118,7 +157,7 @@
                 </h3>
             </div>
             <div id="top-signal-list" class="p-4">
-                 <div class="animate-pulse space-y-2 opacity-50">
+                <div class="animate-pulse space-y-2 opacity-50">
                     <div class="h-12 bg-surface-2 rounded-lg w-full"></div>
                     <div class="h-12 bg-surface-2 rounded-lg w-full"></div>
                 </div>
@@ -128,7 +167,7 @@
 
     <div class="mt-8 rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-lg">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-white/5 pb-4">
-            
+
             <h3 class="text-lg font-semibold text-text-primary flex items-center gap-2">
                 <span class="material-symbols-outlined text-text-secondary">history</span>
                 Bitácora de Eventos
@@ -137,54 +176,205 @@
             <div class="flex items-center gap-2">
                 <label for="log-filter" class="text-xs text-text-secondary uppercase font-bold">Filtrar:</label>
                 <div class="relative">
-                    <select id="log-filter" onchange="loadEventLogs(this.value)" 
-                            class="pl-3 pr-8 py-1.5 bg-surface-2 border border-white/10 rounded-lg text-sm text-text-primary focus:outline-none focus:border-primary appearance-none cursor-pointer w-48 transition-colors hover:border-white/20">
+                    <select id="log-filter" onchange="loadEventLogs(this.value)"
+                        class="pl-3 pr-8 py-1.5 bg-surface-2 border border-white/10 rounded-lg text-sm text-text-primary focus:outline-none focus:border-primary appearance-none cursor-pointer w-48 transition-colors hover:border-white/20">
                         <option value="all">Todos los Dispositivos</option>
-                        </select>
-                    <span class="material-symbols-outlined absolute right-2 top-1.5 text-[18px] pointer-events-none text-text-secondary">arrow_drop_down</span>
+                    </select>
+                    <span
+                        class="material-symbols-outlined absolute right-2 top-1.5 text-[18px] pointer-events-none text-text-secondary">arrow_drop_down</span>
                 </div>
             </div>
         </div>
 
         <div class="overflow-x-auto">
-        <table class="w-full text-sm text-left text-text-secondary">
-            <tbody id="events-log-body">
+            <table class="w-full text-sm text-left text-text-secondary">
+                <tbody id="events-log-body">
                 </tbody>
-        </table>
-    </div>
+            </table>
+        </div>
 
-    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-white/5 px-2">
-        
-        <div class="flex items-center gap-2 text-xs text-text-secondary">
-            <span>Mostrar</span>
-            <select id="logs-page-size" onchange="changeLogPageSize(this.value)" 
+        <div
+            class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-white/5 px-2">
+
+            <div class="flex items-center gap-2 text-xs text-text-secondary">
+                <span>Mostrar</span>
+                <select id="logs-page-size" onchange="changeLogPageSize(this.value)"
                     class="bg-surface-2 border border-white/10 rounded px-2 py-1 text-text-primary focus:border-primary focus:ring-0 cursor-pointer">
-                <option value="10">10</option>
-                <option value="20">20</option>
-                <option value="50">50</option>
-            </select>
-            <span>por pág.</span>
-        </div>
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                </select>
+                <span>por pág.</span>
+            </div>
 
-        <span id="logs-pagination-info" class="text-xs text-text-secondary">
-            Cargando...
-        </span>
+            <span id="logs-pagination-info" class="text-xs text-text-secondary">
+                Cargando...
+            </span>
 
-        <div class="flex items-center gap-1">
-            <button id="btn-prev-page" onclick="changeLogPage(-1)" disabled
+            <div class="flex items-center gap-1">
+                <button id="btn-prev-page" onclick="changeLogPage(-1)" disabled
                     class="p-1 rounded-md hover:bg-surface-2 text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                <span class="material-symbols-outlined">chevron_left</span>
-            </button>
-            <button id="btn-next-page" onclick="changeLogPage(1)" disabled
+                    <span class="material-symbols-outlined">chevron_left</span>
+                </button>
+                <button id="btn-next-page" onclick="changeLogPage(1)" disabled
                     class="p-1 rounded-md hover:bg-surface-2 text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                <span class="material-symbols-outlined">chevron_right</span>
-            </button>
+                    <span class="material-symbols-outlined">chevron_right</span>
+                </button>
+            </div>
         </div>
     </div>
-    </div>
-</div>
-{% endblock %}
 
-{% block scripts %}
-<script src="/static/js/dashboard.js"></script>
-{% endblock %}
+    <!-- SSL Instructions Modal -->
+    <div id="ssl-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeSSLInstructionsModal()"></div>
+        <div
+            class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl bg-surface-1 rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-6 border-b border-white/10 flex items-center justify-between">
+                <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">security</span>
+                    Instalar Certificado CA
+                </h3>
+                <button onclick="closeSSLInstructionsModal()"
+                    class="p-2 hover:bg-surface-2 rounded-lg transition-colors">
+                    <span class="material-symbols-outlined text-text-secondary">close</span>
+                </button>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex border-b border-white/10">
+                <button onclick="switchSSLTab('windows')"
+                    class="ssl-tab active flex-1 py-3 text-sm font-semibold text-center border-b-2 border-transparent"
+                    data-tab="windows">
+                    <span class="material-symbols-outlined text-lg align-middle mr-1">desktop_windows</span> Windows
+                </button>
+                <button onclick="switchSSLTab('android')"
+                    class="ssl-tab flex-1 py-3 text-sm font-semibold text-center border-b-2 border-transparent"
+                    data-tab="android">
+                    <span class="material-symbols-outlined text-lg align-middle mr-1">android</span> Android
+                </button>
+                <button onclick="switchSSLTab('ios')"
+                    class="ssl-tab flex-1 py-3 text-sm font-semibold text-center border-b-2 border-transparent"
+                    data-tab="ios">
+                    <span class="material-symbols-outlined text-lg align-middle mr-1">phone_iphone</span> iOS/macOS
+                </button>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="p-6 overflow-y-auto flex-1">
+                <div id="ssl-tab-windows" class="ssl-tab-content">
+                    <ol class="space-y-3 text-sm text-text-secondary list-decimal list-inside">
+                        <li>Descarga el certificado usando el botón <strong class="text-white">"Descargar Certificado
+                                CA"</strong></li>
+                        <li>Haz doble clic en el archivo <code class="bg-surface-2 px-1 rounded">umonitor-ca.crt</code>
+                        </li>
+                        <li>Clic en <strong class="text-white">"Instalar certificado..."</strong></li>
+                        <li>Selecciona <strong class="text-white">"Equipo local"</strong> → Siguiente</li>
+                        <li>Selecciona <strong class="text-white">"Colocar todos los certificados en el siguiente
+                                almacén"</strong></li>
+                        <li>Clic en "Examinar" → Selecciona <strong class="text-white">"Entidades de certificación raíz
+                                de confianza"</strong></li>
+                        <li>Siguiente → Finalizar → <strong class="text-success">¡Listo!</strong></li>
+                    </ol>
+                    <p class="mt-4 text-xs text-text-secondary">Reinicia tu navegador para que los cambios surtan
+                        efecto.</p>
+                </div>
+
+                <div id="ssl-tab-android" class="ssl-tab-content hidden">
+                    <ol class="space-y-3 text-sm text-text-secondary list-decimal list-inside">
+                        <li>Descarga el certificado en tu dispositivo Android</li>
+                        <li>Ve a <strong class="text-white">Configuración → Seguridad → Más ajustes de
+                                seguridad</strong></li>
+                        <li>Toca <strong class="text-white">"Instalar desde almacenamiento"</strong> o <strong
+                                class="text-white">"Credenciales de usuario"</strong></li>
+                        <li>Selecciona el archivo <code class="bg-surface-2 px-1 rounded">umonitor-ca.crt</code></li>
+                        <li>Ponle un nombre (ej: "µMonitor CA")</li>
+                        <li>Selecciona <strong class="text-white">"VPN y apps"</strong> o <strong
+                                class="text-white">"Wi-Fi"</strong></li>
+                        <li>Confirma con tu PIN/huella → <strong class="text-success">¡Listo!</strong></li>
+                    </ol>
+                    <p class="mt-4 text-xs text-text-secondary">La ubicación exacta varía según el fabricante (Samsung,
+                        Xiaomi, etc).</p>
+                </div>
+
+                <div id="ssl-tab-ios" class="ssl-tab-content hidden">
+                    <ol class="space-y-3 text-sm text-text-secondary list-decimal list-inside">
+                        <li>Descarga el certificado en tu iPhone/iPad/Mac</li>
+                        <li>Toca el archivo descargado → <strong class="text-white">"Instalar perfil"</strong></li>
+                        <li>Ve a <strong class="text-white">Ajustes → General → VPN y Gestión de dispositivos</strong>
+                        </li>
+                        <li>Toca el perfil descargado → <strong class="text-white">"Instalar"</strong></li>
+                        <li>Introduce tu código de acceso</li>
+                        <li>Ve a <strong class="text-white">Ajustes → General → Información → Confianza de
+                                certificados</strong></li>
+                        <li>Activa el interruptor para <strong class="text-white">"µMonitor CA"</strong> → <strong
+                                class="text-success">¡Listo!</strong></li>
+                    </ol>
+                    <p class="mt-4 text-xs text-text-secondary">En macOS: Abre "Acceso a Llaveros", importa el
+                        certificado y márcalo como "Confiable".</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endblock %}
+
+    {% block scripts %}
+    <script src="/static/js/dashboard.js"></script>
+    <script>
+        // SSL Certificate Functions
+        async function checkCAStatus() {
+            try {
+                const res = await fetch('/api/security/ca-status');
+                if (res.ok) {
+                    const data = await res.json();
+                    const statusEl = document.getElementById('ssl-status');
+                    const downloadBtn = document.getElementById('download-ca-btn');
+
+                    if (data.https_active) {
+                        statusEl.innerHTML = '<span class="text-success">✅ HTTPS activo</span> - Descarga el certificado para evitar advertencias en otros dispositivos.';
+                        downloadBtn.disabled = false;
+                    } else if (data.ca_available) {
+                        statusEl.innerHTML = '<span class="text-warning">⚠️ Certificado disponible</span> - HTTPS no está configurado en modo producción.';
+                        downloadBtn.disabled = false;
+                    } else {
+                        statusEl.innerHTML = '<span class="text-text-secondary">HTTPS no configurado.</span> Ejecuta <code class="bg-surface-2 px-1 rounded">sudo bash scripts/install_proxy.sh</code>';
+                        downloadBtn.disabled = true;
+                    }
+                }
+            } catch (e) {
+                console.error('Error checking CA status:', e);
+            }
+        }
+
+        function downloadCACertificate() {
+            window.location.href = '/api/security/ca-certificate';
+        }
+
+        function openSSLInstructionsModal() {
+            document.getElementById('ssl-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeSSLInstructionsModal() {
+            document.getElementById('ssl-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        function switchSSLTab(tab) {
+            // Update tab buttons
+            document.querySelectorAll('.ssl-tab').forEach(t => {
+                t.classList.remove('active', 'border-primary', 'text-white');
+                t.classList.add('text-text-secondary');
+            });
+            const activeTab = document.querySelector(`.ssl-tab[data-tab="${tab}"]`);
+            activeTab.classList.add('active', 'border-primary', 'text-white');
+            activeTab.classList.remove('text-text-secondary');
+
+            // Update tab content
+            document.querySelectorAll('.ssl-tab-content').forEach(c => c.classList.add('hidden'));
+            document.getElementById(`ssl-tab-${tab}`).classList.remove('hidden');
+        }
+
+        // Check status on load
+        document.addEventListener('DOMContentLoaded', checkCAStatus);
+    </script>
+    {% endblock %}

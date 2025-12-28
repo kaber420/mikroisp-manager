@@ -55,6 +55,7 @@ from .api.aps import spectral as aps_spectral_api
 from .api.stats import main as stats_main_api
 from .api.plans import main as plans_main_api
 from .api.switches import main as switches_main_api
+from .api.security import main as security_main_api
 
 
 app = FastAPI(title="µMonitor Pro", version="0.5.0")
@@ -317,4 +318,5 @@ app.include_router(settings_main_api.router, prefix="/api", tags=["Settings"])
 app.include_router(stats_main_api.router, prefix="/api", tags=["Stats"])
 app.include_router(plans_main_api.router, prefix="/api", tags=["Plans"])
 app.include_router(switches_main_api.router, prefix="/api", tags=["Switches"])
+app.include_router(security_main_api.router, prefix="/api", tags=["Security"])
 
