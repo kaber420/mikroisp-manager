@@ -76,8 +76,11 @@ export const DOM_ELEMENTS = {
     resStatusIndicator: document.getElementById('res-status-indicator'),
     resStatusText: document.getElementById('res-status-text'),
     resInterfaces: document.getElementById('res-interfaces'),
-    resActiveUsers: document.getElementById('res-active-users'),
-    resSecrets: document.getElementById('res-secrets'),
+    // WAN Stats
+    resWanRx: document.getElementById('res-wan-rx'),
+    resWanTx: document.getElementById('res-wan-tx'),
+    resWanInterface: document.getElementById('res-wan-interface'),
+    wanInterfaceCard: document.getElementById('wan-interface-card'),
     // Overview Info
     infoModel: document.getElementById('info-model'),
     infoFirmware: document.getElementById('info-firmware'),
@@ -121,7 +124,8 @@ export const DOM_ELEMENTS = {
 export let state = {
     allInterfaces: [],
     currentRouterName: 'router',
-    routerId: null // <--- NUEVO: Para guardar el ID de la BD
+    routerId: null, // Para guardar el ID de la BD
+    wanInterface: null // Interfaz WAN seleccionada
 };
 
 /**
@@ -138,4 +142,12 @@ export function setAllInterfaces(newInterfaces) {
  */
 export function setCurrentRouterName(newName) {
     state.currentRouterName = newName;
+}
+
+/**
+ * Actualiza el estado global de la interfaz WAN.
+ * @param {string} wanInterfaceName - El nombre de la interfaz WAN.
+ */
+export function setWanInterface(wanInterfaceName) {
+    state.wanInterface = wanInterfaceName;
 }

@@ -198,16 +198,20 @@
                     <div class="stat-label">Memory</div>
                 </div>
                 <div class="stat-card">
-                    <div id="res-active-users" class="stat-value">0</div>
-                    <div class="stat-label">Active Users</div>
+                    <div id="res-wan-rx" class="stat-value stat-value-live">0 B</div>
+                    <div class="stat-label">WAN Download</div>
                 </div>
                 <div class="stat-card">
-                    <div id="res-secrets" class="stat-value">0</div>
-                    <div class="stat-label">PPP Secrets</div>
+                    <div id="res-wan-tx" class="stat-value stat-value-live">0 B</div>
+                    <div class="stat-label">WAN Upload</div>
                 </div>
-                <div class="stat-card">
-                    <div id="res-interfaces" class="stat-value">0</div>
-                    <div class="stat-label">Interfaces</div>
+                <div class="stat-card cursor-pointer hover:bg-surface-2 transition-colors" id="wan-interface-card"
+                    title="Click para seleccionar interfaz WAN">
+                    <div id="res-wan-interface" class="stat-value text-sm">No Config</div>
+                    <div class="stat-label flex items-center justify-center gap-1">
+                        WAN Interface
+                        <span class="material-symbols-outlined text-xs">edit</span>
+                    </div>
                 </div>
             </div>
         </div>

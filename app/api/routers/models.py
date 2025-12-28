@@ -16,6 +16,7 @@ class RouterResponse(BaseModel):
     firmware: Optional[str] = None
     last_status: Optional[str] = None
     zona_nombre: Optional[str] = None
+    wan_interface: Optional[str] = None
 
 
 class RouterCreate(BaseModel):
@@ -33,6 +34,7 @@ class RouterUpdate(BaseModel):
     zona_id: Optional[int] = None
     api_port: Optional[int] = None
     is_enabled: Optional[bool] = None
+    wan_interface: Optional[str] = None
 
 
 class ProvisionRequest(BaseModel):

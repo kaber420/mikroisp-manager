@@ -2,8 +2,8 @@
 import { ApiClient, DomUtils } from './utils.js';
 import { CONFIG, DOM_ELEMENTS } from './config.js';
 
-// --- IMPORTAR LA NUEVA FUNCIÓN initResourceStream ---
-import { loadOverviewData, loadOverviewStats, initResourceStream } from './overview.js';
+// --- IMPORTAR LA NUEVA FUNCIÓN initResourceStream y WAN functions ---
+import { loadOverviewData, loadOverviewStats, initResourceStream, loadWanInterfaceConfig, initWanSelector } from './overview.js';
 
 // Imports de módulos
 import { initInterfacesModule, loadInterfacesData } from './interfaces.js';
@@ -52,7 +52,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     initBackupModule();
 
     // 2. Carga ÚNICA de todos los datos pesados y estáticos
+    await loadWanInterfaceConfig(); // Load saved WAN interface first
     await loadFullDetailsData();
+
+    // 2.5. Inicializar selector de WAN
+    initWanSelector();
 
     // 3. Iniciar el stream de datos en vivo (CPU, RAM)
     initResourceStream();

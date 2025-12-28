@@ -278,6 +278,13 @@ def _setup_inventory_db():
         print("Migrando plans: Agregando address_list_name...")
         cursor.execute("ALTER TABLE plans ADD COLUMN address_list_name TEXT DEFAULT 'morosos';")
 
+    # --- Migration: Add wan_interface column to routers table ---
+    router_columns = [
+        col[1] for col in cursor.execute("PRAGMA table_info(routers)").fetchall()
+    ]
+    if "wan_interface" not in router_columns:
+        print("Migrando routers: Agregando wan_interface...")
+        cursor.execute("ALTER TABLE routers ADD COLUMN wan_interface TEXT;")
 
     cursor.execute(
         """

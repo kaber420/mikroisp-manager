@@ -25,7 +25,9 @@ class Router(SQLModel, table=True):
     address_list_name: Optional[str] = Field(default="morosos")
     # Options: "blacklist" (BL_), "whitelist" (WL_)
     address_list_strategy: Optional[str] = Field(default="blacklist")
+    
+    # WAN Interface for traffic monitoring
+    wan_interface: Optional[str] = Field(default=None)
 
     # Relationship
     # zona: Optional["Zona"] = Relationship(back_populates="routers")
-

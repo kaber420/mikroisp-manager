@@ -1,6 +1,6 @@
 // static/js/router_details/overview.js
 import { ApiClient, DomUtils } from './utils.js';
-import { CONFIG, DOM_ELEMENTS, setCurrentRouterName } from './config.js';
+import { CONFIG, DOM_ELEMENTS, setCurrentRouterName, setWanInterface, state } from './config.js';
 
 let liveSocket = null;
 
@@ -50,7 +50,7 @@ export function initResourceStream() {
             DOM_ELEMENTS.resStatusText.textContent = 'Stream Paused';
             DOM_ELEMENTS.resStatusText.className = 'text-text-secondary';
         }
-        
+
         // Opcional: Reintentar conexión en 5s si no fue un cierre limpio
         if (!event.wasClean) {
             console.log("Conexión perdida, reintentando en 5s...");
@@ -67,22 +67,21 @@ function updateDashboardUI(data) {
     const cpuLoad = parseInt(data.cpu_load || 0);
     if (DOM_ELEMENTS.resCpuLoad) DOM_ELEMENTS.resCpuLoad.textContent = `${cpuLoad}%`;
     if (DOM_ELEMENTS.resCpuText) DOM_ELEMENTS.resCpuText.textContent = `${cpuLoad}%`;
-    
+
     if (DOM_ELEMENTS.resCpuBar) {
         DOM_ELEMENTS.resCpuBar.style.width = `${cpuLoad}%`;
-        DOM_ELEMENTS.resCpuBar.className = `progress-value transition-all duration-500 ${
-            cpuLoad > 80 ? 'bg-danger' : (cpuLoad > 50 ? 'bg-warning' : 'bg-primary')
-        }`;
+        DOM_ELEMENTS.resCpuBar.className = `progress-value transition-all duration-500 ${cpuLoad > 80 ? 'bg-danger' : (cpuLoad > 50 ? 'bg-warning' : 'bg-primary')
+            }`;
     }
 
     // 2. Memoria
     const totalMem = parseInt(data.total_memory || 0);
     const freeMem = parseInt(data.free_memory || 0);
-    
+
     if (totalMem > 0) {
         const usedMem = totalMem - freeMem;
         const memPercent = Math.round((usedMem / totalMem) * 100);
-        
+
         if (DOM_ELEMENTS.resMemoryPerc) DOM_ELEMENTS.resMemoryPerc.textContent = `${memPercent}%`;
         if (DOM_ELEMENTS.resMemoryText) DOM_ELEMENTS.resMemoryText.textContent = `${DomUtils.formatBytes(usedMem)} / ${DomUtils.formatBytes(totalMem)}`;
         if (DOM_ELEMENTS.resMemoryBar) DOM_ELEMENTS.resMemoryBar.style.width = `${memPercent}%`;
@@ -115,14 +114,14 @@ function updateDashboardUI(data) {
     if (DOM_ELEMENTS.healthInfo) {
         if (hasVoltage || hasTemp || hasCpuTemp) {
             DOM_ELEMENTS.healthInfo.style.display = 'block';
-            
+
             // Construimos el string de información dinámicamente
             let healthHtml = '';
-            
+
             if (hasVoltage) {
                 healthHtml += `<span class="mr-3">${data.voltage}V</span>`;
             }
-            
+
             if (hasTemp) {
                 healthHtml += `<span class="mr-3" title="Board Temp">${data.temperature}°C</span>`;
             }
@@ -134,7 +133,7 @@ function updateDashboardUI(data) {
             // Necesitamos un contenedor para inyectar esto, o usamos los IDs existentes
             // Si usas los IDs del template original:
             if (DOM_ELEMENTS.resVoltage) DOM_ELEMENTS.resVoltage.textContent = hasVoltage ? `${data.voltage}V` : '';
-            
+
             // Para la temperatura, mostramos la de CPU si existe, si no la general
             if (DOM_ELEMENTS.resTemperature) {
                 if (hasCpuTemp) {
@@ -145,7 +144,7 @@ function updateDashboardUI(data) {
                     DOM_ELEMENTS.resTemperature.textContent = '';
                 }
             }
-            
+
         } else {
             // Si no hay ningún dato, ocultamos todo el bloque
             DOM_ELEMENTS.healthInfo.style.display = 'none';
@@ -164,7 +163,7 @@ export function loadOverviewData(fullDetails) {
         DOM_ELEMENTS.mainHostname.textContent = res.name || 'Router';
         DOM_ELEMENTS.resHost.textContent = CONFIG.currentHost;
         DOM_ELEMENTS.resFirmware.textContent = `RouterOS ${res.version || '...'}`;
-        
+
         const cleanName = res.name ? res.name.split(' ')[0].replace(/[^a-zA-Z0-9_-]/g, '') : 'router';
         setCurrentRouterName(cleanName);
 
@@ -177,7 +176,7 @@ export function loadOverviewData(fullDetails) {
         DOM_ELEMENTS.infoCpuDetails.textContent = `${res['cpu-count'] || 'N/A'} cores / ${res['cpu-frequency'] || 'N/A'} MHz`;
 
         DomUtils.updateBackupNameInput();
-        
+
     } catch (e) {
         console.error("Error carga estática:", e);
         DOM_ELEMENTS.mainHostname.textContent = `Error: ${CONFIG.currentHost}`;
@@ -190,17 +189,33 @@ export function stopResourceStream() {
 }
 
 /**
- * Carga las estadísticas de PPP (Secretos, Activos) para el Overview.
+ * Carga las estadísticas de PPP y WAN para el Overview.
  * AHORA RECIBE LOS DATOS DEL LOADER PRINCIPAL.
  */
 export function loadOverviewStats(fullDetails) {
     try {
         const secrets = fullDetails.pppoe_secrets;
         const active = fullDetails.pppoe_active;
+        const interfaces = fullDetails.interfaces || [];
 
-        DOM_ELEMENTS.resActiveUsers.textContent = active ? active.length : '0';
-        DOM_ELEMENTS.resSecrets.textContent = secrets ? secrets.length : '0';
+        // --- WAN Interface Traffic ---
+        const wanIfaceName = state.wanInterface;
+        if (wanIfaceName && DOM_ELEMENTS.resWanInterface) {
+            DOM_ELEMENTS.resWanInterface.textContent = wanIfaceName;
+            const wanIface = interfaces.find(i => i.name === wanIfaceName);
+            if (wanIface) {
+                if (DOM_ELEMENTS.resWanRx) {
+                    DOM_ELEMENTS.resWanRx.textContent = DomUtils.formatBytes(wanIface['rx-byte'] || 0);
+                }
+                if (DOM_ELEMENTS.resWanTx) {
+                    DOM_ELEMENTS.resWanTx.textContent = DomUtils.formatBytes(wanIface['tx-byte'] || 0);
+                }
+            }
+        } else if (DOM_ELEMENTS.resWanInterface) {
+            DOM_ELEMENTS.resWanInterface.textContent = 'No Config';
+        }
 
+        // --- PPPoE Lists ---
         if (DOM_ELEMENTS.pppoeSecretsList) {
             if (secrets) {
                 DOM_ELEMENTS.pppoeSecretsList.innerHTML = secrets.length ? secrets.map(s => `<div class="text-xs flex justify-between p-1 hover:bg-surface-2 rounded"><span>${s.name}</span><span class="${s.disabled === 'true' ? 'text-danger' : 'text-success'}">${s.disabled === 'true' ? 'Disabled' : 'Active'}</span></div>`).join('') : '<p class="text-text-secondary text-xs">No hay secretos.</p>';
@@ -218,5 +233,74 @@ export function loadOverviewStats(fullDetails) {
         }
     } catch (e) {
         console.error("Error en loadOverviewStats:", e);
+    }
+}
+
+/**
+ * Carga la configuración WAN del router desde la BD.
+ */
+export async function loadWanInterfaceConfig() {
+    try {
+        const router = await ApiClient.request(`/api/routers/${CONFIG.currentHost}`);
+        if (router && router.wan_interface) {
+            setWanInterface(router.wan_interface);
+            if (DOM_ELEMENTS.resWanInterface) {
+                DOM_ELEMENTS.resWanInterface.textContent = router.wan_interface;
+            }
+        }
+    } catch (e) {
+        console.error("Error cargando config WAN:", e);
+    }
+}
+
+/**
+ * Guarda la interfaz WAN seleccionada en la BD.
+ */
+export async function saveWanInterface(interfaceName) {
+    try {
+        await ApiClient.request(`/api/routers/${CONFIG.currentHost}`, {
+            method: 'PUT',
+            body: JSON.stringify({ wan_interface: interfaceName })
+        });
+        setWanInterface(interfaceName);
+        if (DOM_ELEMENTS.resWanInterface) {
+            DOM_ELEMENTS.resWanInterface.textContent = interfaceName;
+        }
+        DomUtils.updateFeedback(`WAN Interface set to ${interfaceName}`, true);
+    } catch (e) {
+        console.error("Error guardando WAN interface:", e);
+        DomUtils.updateFeedback(`Error saving WAN: ${e.message}`, false);
+    }
+}
+
+/**
+ * Inicializa el modal de selección de WAN.
+ */
+export function initWanSelector() {
+    if (DOM_ELEMENTS.wanInterfaceCard) {
+        DOM_ELEMENTS.wanInterfaceCard.addEventListener('click', () => {
+            openWanSelectorModal();
+        });
+    }
+}
+
+function openWanSelectorModal() {
+    // Simple prompt-based selection using the available interfaces
+    const interfaces = state.allInterfaces || [];
+    const wanCapableTypes = ['ether', 'pppoe-out', 'pptp-out', 'l2tp-out', 'vlan', 'bridge'];
+    const wanInterfaces = interfaces.filter(i => wanCapableTypes.includes(i.type));
+
+    if (wanInterfaces.length === 0) {
+        DomUtils.updateFeedback('No hay interfaces disponibles para seleccionar como WAN.', false);
+        return;
+    }
+
+    const options = wanInterfaces.map(i => `${i.name} (${i.type})`).join('\n');
+    const selected = prompt(`Selecciona la interfaz WAN:\n\n${options}\n\nEscribe el nombre de la interfaz:`, state.wanInterface || '');
+
+    if (selected && wanInterfaces.find(i => i.name === selected)) {
+        saveWanInterface(selected);
+    } else if (selected) {
+        DomUtils.updateFeedback(`Interfaz "${selected}" no encontrada.`, false);
     }
 }
