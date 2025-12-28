@@ -4,6 +4,7 @@ Payment service layer using SQLModel ORM.
 Replaces raw SQL queries from app/db/payments_db.py
 """
 from typing import List, Dict, Any, Optional
+import uuid
 from sqlmodel import Session, select
 from app.models import Payment
 
@@ -27,7 +28,7 @@ class PaymentService:
         payment = self.session.get(Payment, payment_id)
         return payment.model_dump() if payment else None
     
-    def get_payments_for_client(self, client_id: int) -> List[Dict[str, Any]]:
+    def get_payments_for_client(self, client_id: uuid.UUID) -> List[Dict[str, Any]]:
         """Get all payments for a client, ordered by most recent first."""
         statement = (
             select(Payment)
@@ -37,7 +38,7 @@ class PaymentService:
         payments = self.session.exec(statement).all()
         return [payment.model_dump() for payment in payments]
     
-    def create_payment(self, client_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_payment(self, client_id: uuid.UUID, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Create a new payment record.
         
@@ -92,7 +93,7 @@ class PaymentService:
             print(f"Error actualizando notas de pago: {e}")
             return 0
     
-    def check_payment_exists(self, client_id: int, billing_cycle: str) -> bool:
+    def check_payment_exists(self, client_id: uuid.UUID, billing_cycle: str) -> bool:
         """
         Check if a payment already exists for a client and billing cycle.
         

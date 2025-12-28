@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from typing import List
+import uuid
 from sqlmodel import Session
 
 from ...core.users import require_billing
@@ -50,7 +51,7 @@ def api_get_all_clients(
 
 @router.get("/clients/{client_id}", response_model=Client)
 def api_get_client(
-    client_id: int,
+    client_id: uuid.UUID,
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
 ):
@@ -75,7 +76,7 @@ def api_create_client(
 
 @router.put("/clients/{client_id}", response_model=Client)
 def api_update_client(
-    client_id: int,
+    client_id: uuid.UUID,
     client_update: ClientUpdate,
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
@@ -92,7 +93,7 @@ def api_update_client(
 
 @router.delete("/clients/{client_id}", status_code=status.HTTP_204_NO_CONTENT)
 def api_delete_client(
-    client_id: int,
+    client_id: uuid.UUID,
     request: Request,
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
@@ -108,7 +109,7 @@ def api_delete_client(
 
 @router.get("/clients/{client_id}/cpes", response_model=List[AssignedCPE])
 def api_get_cpes_for_client(
-    client_id: int,
+    client_id: uuid.UUID,
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
 ):
@@ -123,7 +124,7 @@ def api_get_cpes_for_client(
     status_code=status.HTTP_201_CREATED,
 )
 def api_create_client_service(
-    client_id: int,
+    client_id: uuid.UUID,
     service_data: ClientServiceCreate,
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
@@ -141,7 +142,7 @@ def api_create_client_service(
 
 @router.get("/clients/{client_id}/services", response_model=List[ClientService])
 def api_get_client_services(
-    client_id: int,
+    client_id: uuid.UUID,
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
 ):
@@ -241,7 +242,7 @@ def api_change_pppoe_profile(
     status_code=status.HTTP_201_CREATED,
 )
 def api_register_payment_and_reactivate(
-    client_id: int,
+    client_id: uuid.UUID,
     payment: PaymentCreate,
     billing_service: BillingService = Depends(get_billing_service),
     payment_service: PaymentService = Depends(get_payment_service),
@@ -273,7 +274,7 @@ def api_register_payment_and_reactivate(
 
 @router.get("/clients/{client_id}/payments", response_model=List[Payment])
 def api_get_payment_history(
-    client_id: int,
+    client_id: uuid.UUID,
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
 ):

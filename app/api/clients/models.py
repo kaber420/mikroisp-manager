@@ -1,12 +1,13 @@
 # app/api/clients/models.py
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
+import uuid
 from datetime import datetime
 
 
 # --- Modelos Pydantic (Cliente) ---
 class Client(BaseModel):
-    id: int
+    id: uuid.UUID
     name: str
     address: Optional[str] = None
     phone_number: Optional[str] = None
@@ -66,7 +67,7 @@ class ClientServiceCreate(ClientServiceBase):
 
 class ClientService(ClientServiceBase):
     id: int
-    client_id: int
+    client_id: uuid.UUID
     created_at: datetime
     plan_name: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
@@ -86,6 +87,6 @@ class PaymentCreate(PaymentBase):
 
 class Payment(PaymentBase):
     id: int
-    client_id: int
+    client_id: uuid.UUID
     fecha_pago: datetime
     model_config = ConfigDict(from_attributes=True)

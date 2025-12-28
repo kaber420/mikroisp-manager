@@ -3,6 +3,7 @@
 ClientService model for managing client internet services.
 """
 from typing import Optional
+import uuid
 from sqlmodel import Field, SQLModel, Relationship
 from datetime import datetime
 
@@ -28,7 +29,7 @@ class ClientService(SQLModel, table=True):
     __tablename__ = "client_services"
     
     id: Optional[int] = Field(default=None, primary_key=True)
-    client_id: int = Field(foreign_key="clients.id", nullable=False, index=True)
+    client_id: uuid.UUID = Field(foreign_key="clients.id", nullable=False, index=True)
     router_host: str = Field(foreign_key="routers.host", nullable=False)
     service_type: str = Field(default="pppoe", nullable=False)
     pppoe_username: Optional[str] = Field(default=None, unique=True)

@@ -4,6 +4,7 @@ Client service layer using SQLModel ORM.
 Refactored to use SQLModel instead of raw SQL from clients_db.
 """
 import logging
+import uuid
 from typing import List, Dict, Any, Optional
 from sqlmodel import Session, select
 from app.models import Client
@@ -56,7 +57,7 @@ class ClientService:
         
         return clients_dict
     
-    def get_client_by_id(self, client_id: int) -> Dict[str, Any]:
+    def get_client_by_id(self, client_id: uuid.UUID) -> Dict[str, Any]:
         """Get a single client by ID."""
         client = self.session.get(Client, client_id)
         if not client:
@@ -81,7 +82,7 @@ class ClientService:
             self.session.rollback()
             raise ValueError(f"Database error: {e}")
     
-    def update_client(self, client_id: int, client_update: Dict[str, Any]) -> Dict[str, Any]:
+    def update_client(self, client_id: uuid.UUID, client_update: Dict[str, Any]) -> Dict[str, Any]:
         """Update an existing client."""
         if not client_update:
             raise ValueError("No fields to update provided.")
@@ -104,7 +105,7 @@ class ClientService:
         result['cpe_count'] = 0
         return result
     
-    def delete_client(self, client_id: int):
+    def delete_client(self, client_id: uuid.UUID):
         """Delete a client."""
         client = self.session.get(Client, client_id)
         if not client:
@@ -114,7 +115,7 @@ class ClientService:
         self.session.delete(client)
         self.session.commit()
     
-    def get_cpes_for_client(self, client_id: int) -> List[Dict[str, Any]]:
+    def get_cpes_for_client(self, client_id: uuid.UUID) -> List[Dict[str, Any]]:
         """
         Get CPEs for a client using SQLModel.
         """
@@ -124,7 +125,7 @@ class ClientService:
     
     # --- Service Methods ---
     def create_client_service(
-        self, client_id: int, service_data: Dict[str, Any]
+        self, client_id: uuid.UUID, service_data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Crea un nuevo servicio para un cliente.
@@ -269,7 +270,7 @@ class ClientService:
                 comment=f"Service {service_db_obj['id']} - Plan {plan['name']}",
             )
     
-    def get_client_services(self, client_id: int) -> List[Dict[str, Any]]:
+    def get_client_services(self, client_id: uuid.UUID) -> List[Dict[str, Any]]:
         """Get all services for a specific client, including plan names."""
         statement = (
             select(ClientServiceModel)
@@ -295,7 +296,7 @@ class ClientService:
         return result
     
     # --- Payment Methods ---
-    def get_payment_history(self, client_id: int) -> List[Dict[str, Any]]:
+    def get_payment_history(self, client_id: uuid.UUID) -> List[Dict[str, Any]]:
         """
         Get payment history for a client using PaymentService (SQLModel).
         

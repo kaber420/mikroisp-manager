@@ -3,6 +3,7 @@
 Client model for ISP customer management.
 """
 from typing import Optional, List
+import uuid
 from sqlmodel import Field, SQLModel, Relationship
 from datetime import datetime
 
@@ -28,7 +29,7 @@ class Client(SQLModel, table=True):
     
     __tablename__ = "clients"
     
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str = Field(nullable=False)
     address: Optional[str] = Field(default=None)
     phone_number: Optional[str] = Field(default=None)

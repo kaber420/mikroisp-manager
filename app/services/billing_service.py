@@ -5,6 +5,7 @@ Refactored to use SQLModel ORM.
 """
 import logging
 from typing import Dict, Any, List
+import uuid
 from datetime import datetime, timedelta
 from sqlmodel import Session
 
@@ -44,7 +45,7 @@ class BillingService:
         return router
 
     def reactivate_client_services(
-        self, client_id: int, payment_data: Dict[str, Any]
+        self, client_id: uuid.UUID, payment_data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Register a payment and reactivate service if necessary.
@@ -222,7 +223,7 @@ class BillingService:
 
         return stats
 
-    def _suspend_technically(self, client_id: int):
+    def _suspend_technically(self, client_id: uuid.UUID):
         """Suspend service according to configured method."""
         logger.info(f"🔴 _suspend_technically called for client_id={client_id}")
         services = self.client_service.get_client_services(client_id)
@@ -297,7 +298,7 @@ class BillingService:
             except Exception as e:
                 logger.error(f"❌ Error suspendiendo servicio {service['id']}: {e}", exc_info=True)
 
-    def _ensure_service_enabled(self, client_id: int):
+    def _ensure_service_enabled(self, client_id: uuid.UUID):
         """Helper to ensure service is active (useful for nightly sweep)."""
         services = self.client_service.get_client_services(client_id)
         for service in services:

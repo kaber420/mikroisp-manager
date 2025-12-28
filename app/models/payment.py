@@ -3,6 +3,7 @@
 Payment model for client payment tracking.
 """
 from typing import Optional
+import uuid
 from sqlmodel import Field, SQLModel, Relationship
 from datetime import datetime
 
@@ -24,7 +25,7 @@ class Payment(SQLModel, table=True):
     __tablename__ = "pagos"
     
     id: Optional[int] = Field(default=None, primary_key=True)
-    client_id: int = Field(foreign_key="clients.id", nullable=False, index=True)
+    client_id: uuid.UUID = Field(foreign_key="clients.id", nullable=False, index=True)
     monto: float = Field(nullable=False)
     fecha_pago: Optional[datetime] = Field(default_factory=datetime.utcnow)
     mes_correspondiente: str = Field(nullable=False)
