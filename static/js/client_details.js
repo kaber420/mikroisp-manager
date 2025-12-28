@@ -134,8 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="flex justify-between"><span>Phone:</span> <span class="font-semibold">${client.phone_number || 'N/A'}</span></div>
             <div class="flex justify-between"><span>WhatsApp:</span> <span class="font-semibold">${client.whatsapp_number || 'N/A'}</span></div>
             <div class="flex justify-between"><span>Email:</span> <span class="font-semibold">${client.email || 'N/A'}</span></div>
-            <div class="flex justify-between"><span>Address:</span> <span class="font-semibold text-right">${client.address || 'N/A'}</span></div>
-            <div class="flex justify-between"><span>Billing Day:</span> <span class="font-semibold">${client.billing_day || '1'}</span></div>
+            <div class="flex justify-between"><span>Telegram:</span> <span class="font-semibold">${client.telegram_contact || 'N/A'}</span></div>
             <div class="flex justify-between"><span>Coordinates:</span> ${coordsLink}</div>
         `;
     }
@@ -306,36 +305,57 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Helper function for status badge
+        const getStatusBadgeClass = (status) => {
+            const classes = {
+                'active': 'bg-success/20 text-success',
+                'pendiente': 'bg-warning/20 text-warning',
+                'suspended': 'bg-danger/20 text-danger',
+                'cancelled': 'bg-surface-2 text-text-secondary'
+            };
+            return classes[status] || 'bg-surface-2 text-text-secondary';
+        };
+
         let html = '<div class="space-y-3">';
         for (const service of allServices) {
             const serviceIdentifier = service.pppoe_username || service.ip_address || 'N/A';
             const serviceTypeLabel = service.service_type === 'pppoe' ? 'PPPoE' : 'Simple Queue';
             const typeClass = service.service_type === 'pppoe' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400';
             const planDisplay = service.plan_name || service.profile_name || 'No Plan';
+            const statusLabel = service.status ? (service.status.charAt(0).toUpperCase() + service.status.slice(1)) : 'Active';
+            const statusClass = getStatusBadgeClass(service.status || 'active');
 
             html += `
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-surface-2 rounded-lg gap-4">
-                <div class="flex-1">
-                    <div class="flex items-center gap-2 mb-1">
-                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${typeClass}">${serviceTypeLabel}</span>
-                        <span class="font-mono text-sm font-semibold">${serviceIdentifier}</span>
+            <div class="flex flex-col p-4 bg-surface-2 rounded-lg gap-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${typeClass}">${serviceTypeLabel}</span>
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${statusClass}">${statusLabel}</span>
+                            <span class="font-mono text-sm font-semibold">${serviceIdentifier}</span>
+                        </div>
+                        <div class="text-xs text-text-secondary space-x-4">
+                            <span>Router: <span class="font-mono">${service.router_host || 'N/A'}</span></span>
+                            <span>Plan: <span class="font-semibold text-primary">${planDisplay}</span></span>
+                        </div>
                     </div>
-                    <div class="text-xs text-text-secondary space-x-4">
-                        <span>Router: <span class="font-mono">${service.router_host || 'N/A'}</span></span>
-                        <span>Plan: <span class="font-semibold text-primary">${planDisplay}</span></span>
+                    <div class="flex gap-2">
+                        <button onclick="openPlanChangeModal(${service.id}, '${serviceIdentifier}')" 
+                                class="px-3 py-1.5 text-xs font-semibold rounded-md bg-primary/20 text-primary hover:bg-primary/30 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">swap_horiz</span>
+                            Change Plan
+                        </button>
+                        <button onclick="deleteService(${service.id}, '${serviceIdentifier}')" 
+                                class="px-3 py-1.5 text-xs font-semibold rounded-md bg-danger/20 text-danger hover:bg-danger/30 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">delete</span>
+                            Delete
+                        </button>
                     </div>
                 </div>
-                <div class="flex gap-2">
-                    <button onclick="openPlanChangeModal(${service.id}, '${serviceIdentifier}')" 
-                            class="px-3 py-1.5 text-xs font-semibold rounded-md bg-primary/20 text-primary hover:bg-primary/30 flex items-center gap-1">
-                        <span class="material-symbols-outlined text-sm">swap_horiz</span>
-                        Change Plan
-                    </button>
-                    <button onclick="deleteService(${service.id}, '${serviceIdentifier}')" 
-                            class="px-3 py-1.5 text-xs font-semibold rounded-md bg-danger/20 text-danger hover:bg-danger/30 flex items-center gap-1">
-                        <span class="material-symbols-outlined text-sm">delete</span>
-                        Delete
-                    </button>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-text-secondary border-t border-border-color pt-3">
+                    <div><span class="font-medium">Address:</span> ${service.address || 'N/A'}</div>
+                    <div><span class="font-medium">Billing Day:</span> ${service.billing_day || 'N/A'}</div>
+                    <div><span class="font-medium">Notes:</span> ${service.notes || 'N/A'}</div>
                 </div>
             </div>`;
         }
@@ -355,11 +375,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // Filter by plan_type matching the service type
             const plans = await fetchJSON(`/api/plans/router/${routerHost}`);
             const filteredPlans = plans.filter(p => p.plan_type === serviceType);
+            allPlans = filteredPlans; // Store for later use
 
             select.innerHTML = '<option value="">Select a plan...</option>';
             for (const plan of filteredPlans) {
                 const speedDisplay = plan.max_limit || 'N/A';
-                select.innerHTML += `<option value="${plan.id}">${plan.name} (${speedDisplay})</option>`;
+                const priceDisplay = plan.price ? `$${plan.price}` : '$0.00';
+                select.innerHTML += `<option value="${plan.id}">${plan.name} - ${priceDisplay} (${speedDisplay})</option>`;
             }
 
             if (filteredPlans.length === 0) {
@@ -459,10 +481,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            // Renderizar selector de meses si tenemos datos del cliente
-            if (clientData) {
-                renderMonthSelector(clientData.billing_day);
-            }
+            // Renderizar selector de meses - get billing_day from first service if available
+            const billingDay = (allServices && allServices.length > 0)
+                ? (allServices[0].billing_day || 1)
+                : 1;
+            renderMonthSelector(billingDay);
 
             if (!payments || payments.length === 0) {
                 container.innerHTML = '<p class="text-text-secondary">No payments registered for this client.</p>';
@@ -544,18 +567,55 @@ document.addEventListener('DOMContentLoaded', () => {
     const prevYearBtn = document.getElementById('prev-year-btn');
     const nextYearBtn = document.getElementById('next-year-btn');
 
+    // Helper to get billing day from services
+    const getServiceBillingDay = () => (allServices && allServices.length > 0)
+        ? (allServices[0].billing_day || 1)
+        : 1;
+
     if (prevYearBtn) {
         prevYearBtn.addEventListener('click', () => {
             currentYear--;
-            renderMonthSelector(clientData?.billing_day);
+            renderMonthSelector(getServiceBillingDay());
         });
     }
 
     if (nextYearBtn) {
         nextYearBtn.addEventListener('click', () => {
             currentYear++;
-            renderMonthSelector(clientData?.billing_day);
+            renderMonthSelector(getServiceBillingDay());
         });
+    }
+
+    // --- Auto-fill Payment Amount based on Client's Plan ---
+    async function autoFillPaymentAmount() {
+        try {
+            // Get client's services to find their plan
+            const services = await fetchJSON(`/api/clients/${clientId}/services`);
+            if (!services || services.length === 0) return;
+
+            // Get the first service's plan (primary service)
+            const primaryService = services[0];
+            if (!primaryService.plan_id || !primaryService.router_host) return;
+
+            // Fetch plans for the router
+            const plans = await fetchJSON(`/api/plans/router/${primaryService.router_host}`);
+            if (!plans || plans.length === 0) return;
+
+            // Find the plan that matches the service
+            const clientPlan = plans.find(p => p.id === primaryService.plan_id);
+            if (!clientPlan || !clientPlan.price) return;
+
+            // Auto-fill the payment amount input
+            const amountInput = document.getElementById('payment-amount');
+            if (amountInput) {
+                amountInput.value = clientPlan.price.toFixed(2);
+                amountInput.placeholder = `Plan: ${clientPlan.name} - $${clientPlan.price.toFixed(2)}`;
+            }
+
+            console.log(`✅ Auto-filled payment amount: $${clientPlan.price} from plan "${clientPlan.name}"`);
+        } catch (e) {
+            console.warn('Could not auto-fill payment amount:', e.message);
+        }
     }
 
     // --- Carga Inicial de la Página ---
@@ -577,6 +637,9 @@ document.addEventListener('DOMContentLoaded', () => {
             loadServiceStatus();
             loadClientServices();
             loadPaymentHistory();
+
+            // Auto-fill payment amount based on client's plan
+            await autoFillPaymentAmount();
 
             const paymentForm = document.getElementById('register-payment-form');
             if (paymentForm) {

@@ -376,7 +376,12 @@ document.addEventListener('alpine:init', () => {
                     profile_name: profileNameOrPlan,
                     plan_id: this.currentService.plan_id || null,
                     ip_address: targetIp,
-                    suspension_method: this.currentService.suspension_method || 'address_list'
+                    suspension_method: this.currentService.suspension_method || 'address_list',
+                    // New service-specific fields
+                    address: this.currentService.address || null,
+                    status: this.currentService.status || 'active',
+                    billing_day: this.currentService.billing_day || null,
+                    notes: this.currentService.notes || null
                 };
 
                 const serviceRes = await fetch(`/api/clients/${this.currentClient.id}/services`, {

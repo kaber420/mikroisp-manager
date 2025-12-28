@@ -73,7 +73,7 @@ function renderLocalPlans(plans) {
 
     if (!localPlansTable) {
         localPlansTable = new TableComponent({
-            columns: ['Nombre', 'Tipo', 'Suspensión', 'Velocidad/Perfil', 'Acción'],
+            columns: ['Nombre', 'Precio', 'Tipo', 'Suspensión', 'Velocidad/Perfil', 'Acción'],
             emptyMessage: 'No hay planes locales definidos.',
             onAction: (action, payload) => {
                 if (action === 'delete') handleDeletePlan(payload.id);
@@ -98,6 +98,7 @@ function renderLocalPlans(plans) {
                 return `
                     <tr>
                         <td>${plan.name}</td>
+                        <td class="font-mono text-green-400">$${plan.price || '0.00'}</td>
                         <td>${typeBadge}</td>
                         <td class="text-xs">${methodLabel}</td>
                         <td class="font-mono text-xs">${speedOrProfile}</td>
@@ -177,6 +178,7 @@ const handleCreateLocalPlan = async (e) => {
     const payload = {
         router_host: routerHost,
         name: formData.get('name'),
+        price: parseFloat(formData.get('price')) || 0.0,
         max_limit: formData.get('max_limit') || '0',
         parent_queue: formData.get('parent_queue') || null,
         plan_type: planType,

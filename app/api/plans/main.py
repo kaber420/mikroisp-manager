@@ -19,6 +19,7 @@ class PlanBase(BaseModel):
     parent_queue: Optional[str] = None
     comment: Optional[str] = None
     router_host: str
+    price: Optional[float] = 0.0  # Price field for billing
     # New fields for unified plan management
     plan_type: Optional[str] = "simple_queue"  # "pppoe" or "simple_queue"
     profile_name: Optional[str] = None  # For PPPoE: router profile name

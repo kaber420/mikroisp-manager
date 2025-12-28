@@ -11,6 +11,7 @@ class Plan(SQLModel, table=True):
     max_limit: str = Field(nullable=False)  # ej. "10M/10M"
     parent_queue: Optional[str] = Field(default="none")
     comment: Optional[str] = Field(default=None)
+    price: float = Field(default=0.0)
 
     # Plan type: "pppoe" or "simple_queue"
     plan_type: str = Field(default="simple_queue")

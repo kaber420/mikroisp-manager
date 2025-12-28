@@ -45,7 +45,8 @@ class ClientUpdate(BaseModel):
 class AssignedCPE(BaseModel):
     mac: str
     hostname: Optional[str] = None
-    ip_address: Optional[str] = None  # <--- AGREGADO: Ahora la API puede enviar la IP
+    ip_address: Optional[str] = None
+    service_id: Optional[int] = None  # CPE can be assigned to a specific service
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -59,6 +60,11 @@ class ClientServiceBase(BaseModel):
     plan_id: Optional[int] = None
     ip_address: Optional[str] = None
     suspension_method: str
+    # New fields for service-specific data
+    address: Optional[str] = None
+    status: str = "active"
+    billing_day: Optional[int] = None
+    notes: Optional[str] = None
 
 
 class ClientServiceCreate(ClientServiceBase):

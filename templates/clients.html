@@ -165,58 +165,15 @@
                                     class="w-full bg-background border border-border-color rounded-md p-2">
                             </div>
                             <div class="md:col-span-2">
-                                <label class="block text-sm font-medium mb-1">Address</label>
-                                <input type="text" x-model="currentClient.address"
+                                <label class="block text-sm font-medium mb-1">Telegram Contact</label>
+                                <input type="text" x-model="currentClient.telegram_contact"
                                     class="w-full bg-background border border-border-color rounded-md p-2">
                             </div>
-                            <div class="grid grid-cols-2 gap-6">
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Service Status</label>
-                                    <select x-model="currentClient.service_status"
-                                        class="w-full bg-background border border-border-color rounded-md p-2">
-                                        <option value="active">Active</option>
-                                        <option value="pendiente">Pending</option>
-                                        <option value="suspended">Suspended</option>
-                                        <option value="cancelled">Cancelled</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Billing Day</label>
-                                    <input type="number" x-model.number="currentClient.billing_day" min="1" max="31"
-                                        class="w-full bg-background border border-border-color rounded-md p-2">
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1">Notes</label>
-                                <textarea x-model="currentClient.notes" rows="3"
-                                    class="w-full bg-background border border-border-color rounded-md p-2"></textarea>
-                            </div>
-                        </div>
-                        <div x-show="isEditing">
-                            <h4 class="text-md font-semibold text-text-primary mb-2">Assigned CPEs</h4>
-                            <div class="space-y-2 mb-4">
-                                <template x-if="assignedCpes.length === 0">
-                                    <p class="text-sm text-text-secondary">No CPEs assigned.</p>
-                                </template>
-                                <template x-for="cpe in assignedCpes" :key="cpe.mac">
-                                    <div class="flex items-center justify-between bg-surface-2 p-2 rounded-md">
-                                        <p class="text-sm font-mono" x-text="cpe.hostname || cpe.mac"></p>
-                                        <button type="button" @click="unassignCpe(cpe.mac)"
-                                            class="text-danger text-xs font-semibold">UNASSIGN</button>
-                                    </div>
-                                </template>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <select x-model="selectedCpeToAssign"
-                                    class="flex-grow bg-background border border-border-color rounded-md p-2">
-                                    <option value="">Select a CPE to assign...</option>
-                                    <template x-for="cpe in unassignedCpes" :key="cpe.mac">
-                                        <option :value="cpe.mac" x-text="`${cpe.hostname || 'Unnamed'} (${cpe.mac})`">
-                                        </option>
-                                    </template>
-                                </select>
-                                <button type="button" @click="assignCpe()"
-                                    class="px-3 py-1.5 text-sm font-semibold rounded-md bg-primary/20 text-primary hover:bg-primary/30">Assign</button>
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium mb-1">GPS Coordinates</label>
+                                <input type="text" x-model="currentClient.coordinates"
+                                    placeholder="e.g., 19.4326,-99.1332"
+                                    class="w-full bg-background border border-border-color rounded-md p-2">
                             </div>
                         </div>
                         <div x-show="clientError" x-text="clientError" class="form-error-main text-danger text-sm">
@@ -234,6 +191,73 @@
 
             <div x-show="currentTab === 'service'">
                 <div class="p-8 max-h-[60vh] overflow-y-auto space-y-6">
+                    <!-- Service Location & Status Section -->
+                    <div class="bg-surface-2/50 p-4 rounded-lg border border-border-color">
+                        <h4 class="text-lg font-semibold text-text-primary mb-4">Service Details</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium mb-1">Service Address</label>
+                                <input type="text" x-model="currentService.address"
+                                    placeholder="Installation/service address"
+                                    class="w-full bg-background border border-border-color rounded-md p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Service Status</label>
+                                <select x-model="currentService.status"
+                                    class="w-full bg-background border border-border-color rounded-md p-2">
+                                    <option value="active">Active</option>
+                                    <option value="pendiente">Pending</option>
+                                    <option value="suspended">Suspended</option>
+                                    <option value="cancelled">Cancelled</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Billing Day</label>
+                                <input type="number" x-model.number="currentService.billing_day" min="1" max="31"
+                                    class="w-full bg-background border border-border-color rounded-md p-2">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium mb-1">Service Notes</label>
+                                <textarea x-model="currentService.notes" rows="2"
+                                    placeholder="Notes about this service..."
+                                    class="w-full bg-background border border-border-color rounded-md p-2"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Assigned CPEs Section -->
+                    <div class="bg-surface-2/50 p-4 rounded-lg border border-border-color">
+                        <h4 class="text-lg font-semibold text-text-primary mb-4">Assigned CPEs</h4>
+                        <div class="space-y-2 mb-4">
+                            <template x-if="assignedCpes.length === 0">
+                                <p class="text-sm text-text-secondary">No CPEs assigned to this service.</p>
+                            </template>
+                            <template x-for="cpe in assignedCpes" :key="cpe.mac">
+                                <div class="flex items-center justify-between bg-surface-2 p-2 rounded-md">
+                                    <div>
+                                        <p class="text-sm font-mono font-semibold" x-text="cpe.hostname || cpe.mac"></p>
+                                        <p class="text-xs text-text-secondary" x-text="cpe.ip_address || 'No IP'"></p>
+                                    </div>
+                                    <button type="button" @click="unassignCpe(cpe.mac)"
+                                        class="text-danger text-xs font-semibold">UNASSIGN</button>
+                                </div>
+                            </template>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <select x-model="selectedCpeToAssign"
+                                class="flex-grow bg-background border border-border-color rounded-md p-2">
+                                <option value="">Select a CPE to assign...</option>
+                                <template x-for="cpe in unassignedCpes" :key="cpe.mac">
+                                    <option :value="cpe.mac" x-text="`${cpe.hostname || 'Unnamed'} (${cpe.mac})`">
+                                    </option>
+                                </template>
+                            </select>
+                            <button type="button" @click="assignCpe()"
+                                class="px-3 py-1.5 text-sm font-semibold rounded-md bg-primary/20 text-primary hover:bg-primary/30">Assign</button>
+                        </div>
+                    </div>
+
+                    <!-- Service Type Selection -->
                     <div>
                         <label class="block text-sm font-medium mb-1">Service Type</label>
                         <select x-model="currentService.service_type"
@@ -266,7 +290,8 @@
                                     <option value="">Select a plan...</option>
                                     <template x-for="plan in pppoeePlansFiltered" :key="plan.id">
                                         <option :value="plan.id"
-                                            x-text="`${plan.name} (${plan.profile_name || 'N/A'})`"></option>
+                                            x-text="`${plan.name} - $${plan.price || '0.00'} (${plan.profile_name || 'N/A'})`">
+                                        </option>
                                     </template>
                                 </select>
                                 <p class="text-xs text-text-secondary mt-1"
@@ -328,7 +353,9 @@
                                     class="w-full bg-background border border-border-color rounded-md p-2">
                                     <option value="">Select a plan...</option>
                                     <template x-for="plan in simpleQueuePlansFiltered" :key="plan.id">
-                                        <option :value="plan.id" x-text="`${plan.name} (${plan.max_limit})`"></option>
+                                        <option :value="plan.id"
+                                            x-text="`${plan.name} - $${plan.price || '0.00'} (${plan.max_limit})`">
+                                        </option>
                                     </template>
                                 </select>
                             </div>

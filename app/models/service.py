@@ -23,6 +23,10 @@ class ClientService(SQLModel, table=True):
     - suspension_method: How to suspend service (required)
     - plan_id: Foreign key to plans table (optional)
     - ip_address: Assigned IP address (optional)
+    - address: Physical service/installation address (optional)
+    - status: Service status (active, suspended, cancelled)
+    - billing_day: Day of month for billing (1-31)
+    - notes: Service-related notes (optional)
     - created_at: Service creation timestamp
     """
     
@@ -38,6 +42,11 @@ class ClientService(SQLModel, table=True):
     suspension_method: str = Field(nullable=False)
     plan_id: Optional[int] = Field(default=None)
     ip_address: Optional[str] = Field(default=None)
+    # New fields for service-specific data (moved from Client)
+    address: Optional[str] = Field(default=None)
+    status: str = Field(default="active", nullable=False)
+    billing_day: Optional[int] = Field(default=None)
+    notes: Optional[str] = Field(default=None)
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     
     # Relationships (commented to avoid circular imports)
