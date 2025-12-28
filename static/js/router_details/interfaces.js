@@ -97,7 +97,9 @@ function renderInterfaces() {
             filteredInterfaces = allModuleInterfaces;
     }
 
-    DOM_ELEMENTS.resInterfaces.textContent = filteredInterfaces.length;
+    if (DOM_ELEMENTS.resInterfaces) {
+        DOM_ELEMENTS.resInterfaces.textContent = filteredInterfaces.length;
+    }
 
     // Actualizar mensaje vacío dinámicamente
     interfacesTable.emptyMessage = currentInterfaceFilter === 'ppp'

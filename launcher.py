@@ -10,6 +10,9 @@ import secrets
 import sqlite3
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet
+import shutil
+import subprocess
+import socket
 
 # --- Imports de la App ---
 from passlib.context import CryptContext
@@ -30,7 +33,52 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
+
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+
+def get_lan_ip():
+    """Detects the primary LAN IP (not localhost)."""
+    try:
+        # Connect to a public DNS (doesn't send data) to get the interface IP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0.1)
+        # 1.1.1.1 is Cloudflare DNS, 80 is port (doesn't matter if unreachable)
+        s.connect(('1.1.1.1', 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+def is_caddy_running():
+    """Checks if Caddy service is active or process is running."""
+    # Method 1: Check systemd service (Linux only)
+    if shutil.which("systemctl"):
+        try:
+            res = subprocess.run(
+                ["systemctl", "is-active", "--quiet", "caddy"], 
+                capture_output=True
+            )
+            if res.returncode == 0:
+                return True
+        except Exception:
+            pass
+
+    # Method 2: Check process list (Cross-platform fallback)
+    # Simple check if "caddy" is in process list
+    try:
+        # This is a rough check. For nicer matching import psutil if available,
+        # but standard lib approach:
+        # pgrep is distinct to linux/unix
+        if shutil.which("pgrep"):
+            res = subprocess.run(["pgrep", "-x", "caddy"], capture_output=True)
+            if res.returncode == 0:
+                return True
+    except Exception:
+        pass
+    
+    return False
+
 
 def run_setup_wizard():
     """
@@ -171,12 +219,71 @@ if __name__ == "__main__":
     # C. Inicializar BD y Usuario
     check_and_create_first_user()
 
+    # --- NUEVO: Verificación de HTTPS (Caddy) ---
+    is_production = os.getenv("APP_ENV") == "production"
+    caddy_active = is_caddy_running()
+    
+    # Si estamos en Linux y no detectamos producción O Caddy apagado
+    # ofrecemos instalar/configurar.
+    if sys.platform.startswith("linux") and (not is_production or not caddy_active):
+        print("\n" + "!"*60)
+        print("⚠️  HTTPS / SSL no detectado o no configurado.")
+        print("   Para una experiencia segura y accesible desde la red,")
+        print("   se recomienda instalar el proxy inverso (Caddy).")
+        print("!"*60 + "\n")
+        
+        # Evitar preguntar si se pasó flag --no-setup o similar, 
+        # pero aquí preguntamos siempre si falta config.
+        try:
+            resp = input("¿Deseas instalar/configurar HTTPS ahora? (S/n): ").strip().lower()
+        except KeyboardInterrupt:
+            resp = "n"
+
+        if resp in ["", "s", "si", "y", "yes"]:
+            print("\n🔧 Lanzando asistente de instalación (requiere sudo)...")
+            script_path = os.path.join("scripts", "install_proxy.sh")
+            # Verificar existencia del script
+            if os.path.exists(script_path):
+                try:
+                    # Llamamos a sudo bash scripts/install_proxy.sh
+                    # Nota: Esto pedirá password de sudo al usuario en la terminal
+                    ret = subprocess.call(["sudo", "bash", script_path])
+                    if ret == 0:
+                        print("\n✅ Instalación de proxy finalizada.")
+                        # Recargamos .env por si cambió a production
+                        load_dotenv(ENV_FILE, override=True)
+                        is_production = os.getenv("APP_ENV") == "production"
+                        caddy_active = True # Asumimos éxito
+                    else:
+                        print("\n❌ La instalación no se completó correctamente.")
+                except Exception as e:
+                    print(f"\n❌ Error ejecutando script: {e}")
+            else:
+                print(f"\n❌ No se encontró el script: {script_path}")
+        else:
+            print("ℹ️  Omitiendo configuración HTTPS. Puedes hacerlo luego con:")
+            print("    sudo bash scripts/install_proxy.sh")
+
     # D. Arrancar
     port = os.getenv("UVICORN_PORT", "7777")
-    print("-" * 50)
-    print(f"🚀 µMonitor Pro arrancando en: http://localhost:{port}")
-    print(f"ℹ️  Para cambiar el puerto, usa: python launcher.py --config")
-    print("-" * 50)
+    lan_ip = get_lan_ip()
+    hostname = socket.gethostname()
+    
+    print("-" * 60)
+    if is_production and caddy_active:
+        print(f"🚀 µMonitor Pro (Modo Producción - HTTPS)")
+        print(f"   🏠 Local:     https://{hostname}.local")
+        print(f"   📡 Network:   https://{lan_ip}")
+        print(f"   🔌 Management: http://localhost:{port}")
+    else:
+        print(f"🚀 µMonitor Pro (Modo Desarrollo/Local)")
+        print(f"   🔌 Local:     http://localhost:{port}")
+        print(f"   📡 Network:   http://{lan_ip}:{port}")
+        print(f"   ⚠️  HTTPS no activo. Algunas funciones pueden limitarse.")
+    
+    print("-" * 60)
+    print(f"ℹ️  Para reconfigurar puerto base: python launcher.py --config")
+    print("-" * 60)
     
     
     from app.scheduler import run_scheduler
