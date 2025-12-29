@@ -255,6 +255,49 @@ class RouterService:
     def cleanup_connections(self) -> int:
         return self.adapter.cleanup_connections(self.creds.username)
 
+    def ensure_ssl_provisioned(self) -> bool:
+        """
+        Checks if the router has a valid/trusted SSL certificate.
+        If not, automatically provisions one using PKIService.
+        Returns True if provisioned (or already valid), False if failed.
+        """
+        try:
+            # 1. Check current Status
+            status = self.adapter.get_ssl_status() # Use adapter directly
+            
+            # If already secure, we are good.
+            # We check both is_trusted AND that it is enabled (ssl_enabled=True)
+            if status.get("ssl_enabled") and status.get("is_trusted") and status.get("status") == "secure":
+                logger.info(f"Router {self.host} SSL is ALREADY SECURE (Zero Trust Compliant).")
+                return True
+            
+            logger.warning(f"Router {self.host} SSL is INSECURE ({status.get('status')}). Auto-provisioning for Zero Trust...")
+            
+            # 2. Generate Certs
+            from .pki_service import PKIService
+            pki = PKIService()
+            success, key_pem, cert_pem = pki.generate_full_cert_pair(self.host)
+            
+            if not success:
+                logger.error(f"Failed to generate certificates for {self.host}")
+                return False
+            
+            # 3. Import & Apply (Atomic SSH Restart logic inside adapter)
+            result = self.adapter.import_certificate(cert_pem, key_pem)
+            
+            if result.get("status") == "success":
+                logger.info(f"✅ Auto-provisioning successful for {self.host}. Connection secured.")
+                return True
+            else:
+                logger.error(f"❌ Auto-provisioning failed for {self.host}: {result.get('message')}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error in ensure_ssl_provisioned for {self.host}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
 
 # --- CRUD Functions (Sync for background tasks) ---
 

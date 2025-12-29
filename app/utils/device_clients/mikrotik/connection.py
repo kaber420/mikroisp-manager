@@ -20,30 +20,18 @@ logger = logging.getLogger(__name__)
 _pool_cache: Dict[tuple, RouterOsApiPool] = {}
 
 
-def get_pool(host: str, username: str, password: str, port: int = 8729) -> RouterOsApiPool:
+def get_pool(host: str, username: str, password: str, port: int = 8729, force_new: bool = False) -> RouterOsApiPool:
     """
     Get or create a cached connection pool for a MikroTik device.
-    
-    This prevents creating new SSL connections on every request.
-    The pool is cached by (host, port, username) tuple.
-    
-    Args:
-        host: IP address or hostname of the MikroTik device.
-        username: API username.
-        password: API password.
-        port: API SSL port (default: 8729).
-    
-    Returns:
-        RouterOsApiPool instance (cached or newly created).
     """
     cache_key = (host, port, username)
     
-    if cache_key not in _pool_cache:
+    if force_new or cache_key not in _pool_cache:
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
         
-        _pool_cache[cache_key] = RouterOsApiPool(
+        new_pool = RouterOsApiPool(
             host,
             username=username,
             password=password,
@@ -52,28 +40,72 @@ def get_pool(host: str, username: str, password: str, port: int = 8729) -> Route
             ssl_context=ssl_context,
             plaintext_login=True,
         )
+        
+        if force_new:
+            return new_pool
+
+        _pool_cache[cache_key] = new_pool
         logger.debug(f"[MikroTik] Created new pool for {host}:{port}")
     
     return _pool_cache[cache_key]
 
 
+
 def get_api(host: str, username: str, password: str, port: int = 8729) -> RouterOsApi:
-    """
-    Get an API connection from the cached pool.
+    cache_key = (host, port, username)
     
-    Convenience wrapper around get_pool().get_api().
-    
-    Args:
-        host: IP address or hostname of the MikroTik device.
-        username: API username.
-        password: API password.
-        port: API SSL port (default: 8729).
-    
-    Returns:
-        RouterOsApi instance ready for use.
-    """
-    pool = get_pool(host, username, password, port)
-    return pool.get_api()
+    # DISABLE POOLING: Always create a fresh connection to avoid thread-safety issues
+    # caches are causing "Bad file descriptor" and "Malformed sentence" errors
+    # when mixing WebSocket (long-lived) and HTTP (short-lived) threads.
+    try:
+        # DISABLE POOLING: Always create a fresh connection to avoid thread-safety issues
+        # caches are causing "Bad file descriptor" and "Malformed sentence" errors
+        # when mixing WebSocket (long-lived) and HTTP (short-lived) threads.
+        # if cache_key in _pool_cache:
+        #     pass
+        # else:
+        #     print(f"DEBUG: Creating NEW pool for {host}")
+            
+        print(f"DEBUG: Creating FRESH connection for {host} (Pooling Disabled)")
+        # NOTE: Adapter is now bypassing this to manage pool lifecycle directly
+        # This remains for legacy support or one-off scripts
+        pool = get_pool(host, username, password, port, force_new=True)
+        return pool.get_api()
+    except (ssl.SSLError, OSError, Exception) as e:
+        error_str = str(e).lower()
+        print(f"DEBUG: Connection Error for {host}: {e}")
+        
+        # Check if it's an SSL-related error that warrants a retry
+        ssl_errors = ['ssl', 'record_layer', 'bad file descriptor', 'connection closed', 'broken pipe']
+        is_ssl_error = any(err in error_str for err in ssl_errors)
+        
+        if is_ssl_error and cache_key in _pool_cache:
+            logger.warning(f"[MikroTik] SSL error on {host}, flushing pool and retrying: {e}")
+            print(f"DEBUG: Flushing pool and retrying for {host}")
+            
+            # CRITICAL FIX: Do NOT call disconnect() on the pool here.
+            # Other threads/tasks might be using it. If we close the socket, 
+            # they will crash with "Bad file descriptor".
+            # Just remove it from cache so NEW requests get a fresh pool.
+            # The old pool will be garbage collected eventually or closed by its own tasks.
+            # try:
+            #     _pool_cache[cache_key].disconnect()
+            # except:
+            #     pass
+            del _pool_cache[cache_key]
+            
+            # Retry with fresh connection
+            try:
+                pool = get_pool(host, username, password, port)
+                return pool.get_api()
+            except Exception as retry_error:
+                logger.error(f"[MikroTik] Retry failed for {host}: {retry_error}")
+                print(f"DEBUG: Retry failed for {host}: {retry_error}")
+                raise retry_error
+        else:
+            print(f"DEBUG: Not retrying (Is SSL: {is_ssl_error}, In Cache: {cache_key in _pool_cache})")
+            # Not an SSL error or no cached pool, just re-raise
+            raise
 
 
 def remove_pool(host: str, port: int = 8729, username: str = None):

@@ -13,6 +13,7 @@ import { initQueuesModule, loadQueuesData } from './queues.js';
 import { initPlansModule, loadPlansData } from './plans.js';
 import { initUsersModule, loadUsersData } from './users.js';
 import { initBackupModule, loadBackupData } from './backup.js';
+import { initSslModule, loadSslStatus } from './ssl.js';
 
 async function loadFullDetailsData() {
     try {
@@ -50,6 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initPlansModule();
     initUsersModule();
     initBackupModule();
+    initSslModule();
 
     // 2. Carga ÚNICA de todos los datos pesados y estáticos
     await loadWanInterfaceConfig(); // Load saved WAN interface first

@@ -160,7 +160,19 @@ export function loadOverviewData(fullDetails) {
     try {
         const res = fullDetails.static_resources;
 
-        DOM_ELEMENTS.mainHostname.textContent = res.name || 'Router';
+        // [MODIFIED] Preserve child elements (SSL Badge) when updating text
+        // DOM_ELEMENTS.mainHostname.textContent = res.name || 'Router'; // OLD: This wipes children
+
+        const hostname = res.name || 'Router';
+        let textNode = DOM_ELEMENTS.mainHostname.firstChild;
+
+        // Ensure we are updating a text node, or insert one if missing
+        if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+            textNode.textContent = hostname;
+        } else {
+            // If first child is not text (e.g. badge is first), insert text before it
+            DOM_ELEMENTS.mainHostname.insertBefore(document.createTextNode(hostname), DOM_ELEMENTS.mainHostname.firstChild);
+        }
         DOM_ELEMENTS.resHost.textContent = CONFIG.currentHost;
         DOM_ELEMENTS.resFirmware.textContent = `RouterOS ${res.version || '...'}`;
 

@@ -41,7 +41,7 @@ from .models import (
     ProvisionRequest,
     ProvisionResponse,
 )
-from . import config, pppoe, system, interfaces
+from . import config, pppoe, system, interfaces, ssl as ssl_router
 
 router = APIRouter()
 
@@ -158,6 +158,30 @@ async def create_router(
 ):
     try:
         new_router = await create_router_service(session, router_data.model_dump())
+        
+        # --- AUTO-PROVISION SSL (Zero Trust) ---
+        try:
+             # Decrypt password for connection
+            from ...utils.security import decrypt_data
+            password = decrypt_data(new_router.password)
+            
+            # Init service (connects automatically)
+            service = RouterService(new_router.host, new_router, decrypted_password=password)
+            try:
+                # Trigger auto-provisioning
+                is_secure = service.ensure_ssl_provisioned()
+                if is_secure:
+                    # Update DB to reflect SSL port if it was different
+                    if new_router.api_port != new_router.api_ssl_port:
+                        await update_router_service(session, new_router.host, {"api_port": new_router.api_ssl_port})
+                        # Refresh router object
+                        new_router = await get_router_by_host_service(session, new_router.host)
+            finally:
+                service.disconnect()
+        except Exception as e:
+            # Log error but don't fail router creation
+            logging.error(f"Failed to auto-provision SSL for {new_router.host}: {e}")
+
         return new_router
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -299,6 +323,7 @@ router.include_router(config.router, prefix="/routers/{host}")
 router.include_router(pppoe.router, prefix="/routers/{host}")
 router.include_router(system.router, prefix="/routers/{host}")
 router.include_router(interfaces.router, prefix="/routers/{host}")
+router.include_router(ssl_router.router, prefix="/routers/{host}")
 
 
 # --- NUEVO ENDPOINT PARA CONEXIÓN AUTOMÁTICA ---
@@ -328,29 +353,22 @@ async def check_router_status_manual(
     try:
         # Instanciamos el servicio y ejecutamos el chequeo síncrono
         monitor = MonitorService()
-        # Esto conecta, descarga info (CPU, Ver, etc) y actualiza la DB a 'online'
-        # MonitorService still uses router_db, so we pass the dict representation if needed
-        # Or update MonitorService. For now, MonitorService expects dict-like or we need to check.
-        # MonitorService.check_router calls router_db.update_router_status.
-        # We should convert creds (Router model) to dict if MonitorService expects dict.
-        # Let's assume MonitorService needs refactoring or we pass dict.
-        creds_dict = creds.model_dump()
-        # Add password decrypted? MonitorService decrypts it? 
-        # MonitorService calls RouterService(host) which loads from DB.
-        # Wait, MonitorService.check_router(creds) -> RouterService(host).
-        # RouterService now requires 'creds' in __init__.
-        # MonitorService needs to be updated to pass creds to RouterService!
         
-        # Since we haven't refactored MonitorService yet, this call might fail if MonitorService instantiates RouterService(host).
-        # We MUST refactor MonitorService or at least check_router method.
+        # 1. Run Monitor Check (sync)
+        await asyncio.to_thread(monitor.check_router, creds.model_dump())
         
-        # Temporary fix: We will run check_router in thread, but check_router needs to be compatible with new RouterService.
-        # I will update MonitorService in next step.
-        
-        await asyncio.to_thread(monitor.check_router, creds_dict)
+        # 2. Run SSL Provisioning Check (sync logic wrapped in thread)
+        def check_ssl_provisioning():
+             from ...utils.security import decrypt_data
+             password = decrypt_data(creds.password)
+             with RouterService(host, creds, decrypted_password=password) as rs:
+                 return rs.ensure_ssl_provisioned()
+
+        is_secure = await asyncio.to_thread(check_ssl_provisioning)
+
         return {
             "status": "success",
-            "message": "Conexión verificada y datos actualizados.",
+            "message": "Conexión verificada y datos actualizados. SSL Secure: " + str(is_secure),
         }
     except Exception as e:
         # Logueamos el error pero no rompemos la API si el router no responde
