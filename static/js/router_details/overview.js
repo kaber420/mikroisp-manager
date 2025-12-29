@@ -24,10 +24,7 @@ export function initResourceStream() {
         if (DOM_ELEMENTS.resStatusIndicator) {
             DOM_ELEMENTS.resStatusIndicator.className = 'status-indicator status-online animate-pulse shadow-[0_0_8px_#22c55e]';
         }
-        if (DOM_ELEMENTS.resStatusText) {
-            DOM_ELEMENTS.resStatusText.textContent = 'Live Stream';
-            DOM_ELEMENTS.resStatusText.className = 'text-success font-bold';
-        }
+
     };
 
     liveSocket.onmessage = (event) => {
@@ -46,10 +43,7 @@ export function initResourceStream() {
         if (DOM_ELEMENTS.resStatusIndicator) {
             DOM_ELEMENTS.resStatusIndicator.className = 'status-indicator status-offline';
         }
-        if (DOM_ELEMENTS.resStatusText) {
-            DOM_ELEMENTS.resStatusText.textContent = 'Stream Paused';
-            DOM_ELEMENTS.resStatusText.className = 'text-text-secondary';
-        }
+
 
         // Opcional: Reintentar conexión en 5s si no fue un cierre limpio
         if (!event.wasClean) {
@@ -174,7 +168,7 @@ export function loadOverviewData(fullDetails) {
             DOM_ELEMENTS.mainHostname.insertBefore(document.createTextNode(hostname), DOM_ELEMENTS.mainHostname.firstChild);
         }
         DOM_ELEMENTS.resHost.textContent = CONFIG.currentHost;
-        DOM_ELEMENTS.resFirmware.textContent = `RouterOS ${res.version || '...'}`;
+
 
         const cleanName = res.name ? res.name.split(' ')[0].replace(/[^a-zA-Z0-9_-]/g, '') : 'router';
         setCurrentRouterName(cleanName);

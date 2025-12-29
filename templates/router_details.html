@@ -167,21 +167,13 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
                     </svg>
                 </a>
-                <div>
-                    <h1 id="main-hostname" class="text-2xl font-bold flex items-center gap-3">
-                        Cargando...
-                        <!-- Security Badge -->
-                        <span id="ssl-security-badge"
-                            class="hidden text-xs font-semibold px-2 py-1 rounded-full"></span>
+                <div class="flex items-center gap-3">
+                    <span id="res-status-indicator" class="status-indicator status-offline !mr-0 h-3 w-3"></span>
+                    <h1 class="text-2xl font-bold flex items-center gap-3 text-text-primary">
+                        <span id="main-hostname">Cargando...</span>
+                        <span class="text-text-secondary opacity-50 font-light">/</span>
+                        <span id="res-host" class="text-text-secondary">...</span>
                     </h1>
-                    <div class="flex items-center mt-2 text-sm text-text-secondary">
-                        <span id="res-status-indicator" class="status-indicator status-offline"></span>
-                        <span id="res-status-text">Offline</span>
-                        <span class="mx-3">•</span>
-                        <span id="res-host">...</span>
-                        <span class="mx-3">•</span>
-                        <span id="res-firmware">RouterOS ...</span>
-                    </div>
                 </div>
             </div>
         </div>
@@ -274,6 +266,13 @@
                             <div>
                                 <h3 class="text-sm font-medium text-text-secondary">CPU Details</h3>
                                 <p id="info-cpu-details" class="text-text-primary">...</p>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-medium text-text-secondary">Seguridad SSL</h3>
+                                <div class="mt-1">
+                                    <span id="ssl-security-badge"
+                                        class="hidden text-xs font-semibold px-2 py-1 rounded-full"></span>
+                                </div>
                             </div>
                         </div>
                     </div>
