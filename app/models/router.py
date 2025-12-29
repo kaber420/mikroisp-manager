@@ -28,6 +28,9 @@ class Router(SQLModel, table=True):
     
     # WAN Interface for traffic monitoring
     wan_interface: Optional[str] = Field(default=None)
+    
+    # Provisioning status (True after successful secure provisioning)
+    is_provisioned: bool = Field(default=False)
 
     # Relationship
     # zona: Optional["Zona"] = Relationship(back_populates="routers")

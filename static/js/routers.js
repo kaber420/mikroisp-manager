@@ -219,7 +219,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         isRouterProvisioned(router) {
-            return router.api_port === router.api_ssl_port;
+            return router.is_provisioned === true;
         }
     }));
 });

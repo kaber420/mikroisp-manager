@@ -11,6 +11,7 @@ class RouterResponse(BaseModel):
     api_port: int
     api_ssl_port: int
     is_enabled: bool
+    is_provisioned: bool = False
     hostname: Optional[str] = None
     model: Optional[str] = None
     firmware: Optional[str] = None

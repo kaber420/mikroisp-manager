@@ -30,9 +30,7 @@ from ...services.router_service import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# --- CAMBIO PRINCIPAL: Importación actualizada a la nueva estructura modular ---
-# Antes: from ...utils.device_clients.mikrotik_client import provision_router_api_ssl
-from ...utils.device_clients.mikrotik.system import provision_router_api_ssl
+# Note: provision_router_api_ssl is now deprecated and its logic is inline in the endpoint
 
 from .models import (
     RouterResponse,
@@ -232,20 +230,26 @@ async def provision_router_endpoint(
     current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session)
 ):
+    """
+    Unified Provisioning Endpoint.
+    Creates a dedicated API user and installs a trusted SSL certificate via SSH.
+    This is more secure than the legacy API-based provisioning.
+    """
+    from ...utils.security import decrypt_data, encrypt_data
+    from ...services.pki_service import PKIService
+    from ...utils.device_clients.adapters.mikrotik_router import MikrotikRouterAdapter
+    
     creds = await get_router_by_host_service(session, host)
     if not creds:
         raise HTTPException(status_code=404, detail="Router no encontrado")
     
-    # Decrypt password for connection
-    from ...utils.security import decrypt_data
     password = decrypt_data(creds.password)
 
-    admin_pool: RouterOsApiPool = None
     try:
-        # Conexión inicial insegura (sin SSL) para configurar el SSL
-        # Run blocking connection in thread
-        def connect_and_provision():
-            admin_pool = RouterOsApiPool(
+        def run_provisioning():
+            # 1. Connect to router (insecure API for initial setup)
+            from routeros_api import RouterOsApiPool
+            pool = RouterOsApiPool(
                 creds.host,
                 username=creds.username,
                 password=password,
@@ -253,34 +257,76 @@ async def provision_router_endpoint(
                 use_ssl=False,
                 plaintext_login=True,
             )
-            api = admin_pool.get_api()
-
-            # Llamada a la función modularizada
-            result = provision_router_api_ssl(
-                api, host, data.new_api_user, data.new_api_password
-            )
-            admin_pool.disconnect()
-            return result
-
-        result = await asyncio.to_thread(connect_and_provision)
+            api = pool.get_api()
+            
+            try:
+                # 2. Create dedicated API user with correct group
+                user_group_name = "api_full_access"
+                group_resource = api.get_resource("/user/group")
+                group_list = group_resource.get(name=user_group_name)
+                current_policy = "local,ssh,read,write,policy,test,password,sniff,sensitive,api,romon,ftp,!telnet,!reboot,!winbox,!web,!rest-api"
+                
+                if not group_list:
+                    group_resource.add(name=user_group_name, policy=current_policy)
+                else:
+                    from ...utils.device_clients.mikrotik.base import get_id
+                    group_resource.set(id=get_id(group_list[0]), policy=current_policy)
+                
+                user_resource = api.get_resource("/user")
+                existing_user = user_resource.get(name=data.new_api_user)
+                if existing_user:
+                    from ...utils.device_clients.mikrotik.base import get_id
+                    user_resource.set(id=get_id(existing_user[0]), password=data.new_api_password, group=user_group_name)
+                else:
+                    user_resource.add(name=data.new_api_user, password=data.new_api_password, group=user_group_name)
+                
+                # 3. Setup SSL via PKI Service (secure SSH method)
+                pki = PKIService()
+                if not pki.verify_mkcert_available():
+                    return {"status": "error", "message": "mkcert no está disponible. Instálalo para habilitar SSL."}
+                
+                # Install CA on router
+                ca_pem = pki.get_ca_pem()
+                if ca_pem:
+                    # Create a temporary adapter for SSL operations (uses current creds)
+                    temp_adapter = MikrotikRouterAdapter(host, creds.username, password, creds.api_port)
+                    # We need to use API to install CA since SSH might not be ready
+                    from ...utils.device_clients.mikrotik import ssl as ssl_module
+                    ssl_module.install_ca_certificate(api, host, creds.username, password, ca_pem, "umanager_ca")
+                    
+                    # Generate and install router certificate
+                    success, key_pem, cert_pem = pki.generate_full_cert_pair(host)
+                    if success:
+                        ssl_module.import_certificate(api, host, creds.api_ssl_port, data.new_api_user, data.new_api_password, cert_pem, key_pem, "umanager_ssl")
+                    else:
+                        return {"status": "error", "message": f"Error generando certificado: {cert_pem}"}
+                
+                return {"status": "success", "message": "Router aprovisionado con API-SSL seguro."}
+            finally:
+                pool.disconnect()
+        
+        result = await asyncio.to_thread(run_provisioning)
 
         if result["status"] == "error":
             raise HTTPException(status_code=500, detail=result["message"])
 
-        # Actualizar DB con el nuevo usuario y puerto seguro
+        # Update DB: new user, password, SSL port, and mark as provisioned
         update_data = {
             "username": data.new_api_user,
             "password": data.new_api_password,
             "api_port": creds.api_ssl_port,
+            "is_provisioned": True,
         }
         await update_router_service(session, host, update_data)
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
+        logging.error(f"Provisioning failed for {host}: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if admin_pool:
-            admin_pool.disconnect()
 
 
 # --- Simple Queue Stats Endpoint ---

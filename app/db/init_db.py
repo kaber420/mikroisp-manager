@@ -286,6 +286,14 @@ def _setup_inventory_db():
         print("Migrando routers: Agregando wan_interface...")
         cursor.execute("ALTER TABLE routers ADD COLUMN wan_interface TEXT;")
 
+    # --- Migration: Add is_provisioned column to routers table ---
+    if "is_provisioned" not in router_columns:
+        print("Migrando routers: Agregando is_provisioned...")
+        cursor.execute("ALTER TABLE routers ADD COLUMN is_provisioned BOOLEAN DEFAULT FALSE;")
+        # Smart default: Mark routers where api_port == api_ssl_port as already provisioned
+        cursor.execute("UPDATE routers SET is_provisioned = TRUE WHERE api_port = api_ssl_port;")
+        print("  -> Routers con api_port == api_ssl_port marcados como aprovisionados.")
+
     cursor.execute(
         """
     CREATE TABLE IF NOT EXISTS pagos (

@@ -40,7 +40,8 @@ class RouterService:
         if not self.creds:
             raise RouterConnectionError(f"Router {host} no encontrado.")
 
-        if self.creds.api_port != self.creds.api_ssl_port:
+        # Use is_provisioned flag to determine if router is ready for secure connection
+        if not self.creds.is_provisioned:
             raise RouterNotProvisionedError(
                 f"Router {host} no está aprovisionado. El servicio no puede conectar."
             )
@@ -303,7 +304,7 @@ class RouterService:
 
 def get_enabled_routers_sync(session) -> List[Router]:
     """Synchronous version of get_enabled_routers."""
-    statement = select(Router).where(Router.is_enabled == True).where(Router.api_port == Router.api_ssl_port)
+    statement = select(Router).where(Router.is_enabled == True).where(Router.is_provisioned == True)
     return session.exec(statement).all()
 
 
@@ -369,7 +370,7 @@ async def delete_router(session: AsyncSession, host: str) -> bool:
     return True
 
 async def get_enabled_routers(session: AsyncSession) -> List[Router]:
-    statement = select(Router).where(Router.is_enabled == True).where(Router.api_port == Router.api_ssl_port)
+    statement = select(Router).where(Router.is_enabled == True).where(Router.is_provisioned == True)
     result = await session.exec(statement)
     return result.all()
 

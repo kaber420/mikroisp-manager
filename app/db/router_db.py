@@ -177,9 +177,9 @@ def get_enabled_routers_from_db() -> List[Dict[str, Any]]:
     try:
         conn = get_db_connection()
         cursor = conn.execute(
-            """SELECT host, username, password, api_port, api_ssl_port 
+            """SELECT host, username, password, api_port, api_ssl_port, is_provisioned 
                FROM routers 
-               WHERE is_enabled = TRUE AND api_port = api_ssl_port"""
+               WHERE is_enabled = TRUE AND is_provisioned = TRUE"""
         )
         for row in cursor.fetchall():
             # --- CAMBIO: Descifrar la contraseña ---
