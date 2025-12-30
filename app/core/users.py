@@ -28,7 +28,7 @@ if not SECRET:
     raise RuntimeError("FATAL: SECRET_KEY not configured in .env")
 
 ACCESS_TOKEN_COOKIE_NAME = "umonitorpro_access_token"
-ACCESS_TOKEN_LIFETIME_SECONDS = 43200  # 12 hours
+ACCESS_TOKEN_LIFETIME_SECONDS = 28800  # 8 hours (standard work day)
 APP_ENV = os.getenv("APP_ENV", "development")
 
 # --- Authentication Transports ---
