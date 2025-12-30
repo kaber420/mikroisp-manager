@@ -127,6 +127,8 @@ def run_setup_wizard():
             f.write(f"APP_ENV=development\n")
             f.write(f"ALLOWED_ORIGINS={allowed_origins}\n")
             f.write(f"ALLOWED_HOSTS={allowed_hosts}\n")
+            f.write(f"# Flutter Mobile App Development (set to true to enable)\n")
+            f.write(f"FLUTTER_DEV=false\n")
         
         print(f"✅ Configuración guardada. Puerto seleccionado: {port}\n")
     except IOError as e:
