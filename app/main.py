@@ -102,12 +102,10 @@ allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:8000")
 origins = allowed_origins_env.split(",")
 
 # Flutter Mobile App Development Support
-# Set FLUTTER_DEV=true in .env to auto-allow Flutter web dev server ports
+# Set FLUTTER_DEV=true in .env to allow Flutter web dev server (port 33000)
 if os.getenv("FLUTTER_DEV", "false").lower() == "true":
-    # Flutter uses random ports in the 32000-35000 range
-    flutter_origins = [f"http://localhost:{p}" for p in range(32000, 35001)]
-    origins.extend(flutter_origins)
-    print("🦋 Flutter development mode enabled (ports 32000-35000)")
+    origins.append("http://localhost:33000")
+    print("🦋 Flutter development mode enabled (port 33000)")
 
 app.add_middleware(
     CORSMiddleware,
