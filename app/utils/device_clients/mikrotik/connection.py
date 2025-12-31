@@ -58,22 +58,13 @@ def get_api(host: str, username: str, password: str, port: int = 8729) -> Router
     # caches are causing "Bad file descriptor" and "Malformed sentence" errors
     # when mixing WebSocket (long-lived) and HTTP (short-lived) threads.
     try:
-        # DISABLE POOLING: Always create a fresh connection to avoid thread-safety issues
-        # caches are causing "Bad file descriptor" and "Malformed sentence" errors
-        # when mixing WebSocket (long-lived) and HTTP (short-lived) threads.
-        # if cache_key in _pool_cache:
-        #     pass
-        # else:
-        #     print(f"DEBUG: Creating NEW pool for {host}")
-            
-        print(f"DEBUG: Creating FRESH connection for {host} (Pooling Disabled)")
         # NOTE: Adapter is now bypassing this to manage pool lifecycle directly
         # This remains for legacy support or one-off scripts
         pool = get_pool(host, username, password, port, force_new=True)
         return pool.get_api()
     except (ssl.SSLError, OSError, Exception) as e:
         error_str = str(e).lower()
-        print(f"DEBUG: Connection Error for {host}: {e}")
+        logger.warning(f"[MikroTik] Connection error for {host}: {e}")
         
         # Check if it's an SSL-related error that warrants a retry
         ssl_errors = ['ssl', 'record_layer', 'bad file descriptor', 'connection closed', 'broken pipe']
@@ -81,17 +72,12 @@ def get_api(host: str, username: str, password: str, port: int = 8729) -> Router
         
         if is_ssl_error and cache_key in _pool_cache:
             logger.warning(f"[MikroTik] SSL error on {host}, flushing pool and retrying: {e}")
-            print(f"DEBUG: Flushing pool and retrying for {host}")
             
             # CRITICAL FIX: Do NOT call disconnect() on the pool here.
             # Other threads/tasks might be using it. If we close the socket, 
             # they will crash with "Bad file descriptor".
             # Just remove it from cache so NEW requests get a fresh pool.
             # The old pool will be garbage collected eventually or closed by its own tasks.
-            # try:
-            #     _pool_cache[cache_key].disconnect()
-            # except:
-            #     pass
             del _pool_cache[cache_key]
             
             # Retry with fresh connection
@@ -100,10 +86,8 @@ def get_api(host: str, username: str, password: str, port: int = 8729) -> Router
                 return pool.get_api()
             except Exception as retry_error:
                 logger.error(f"[MikroTik] Retry failed for {host}: {retry_error}")
-                print(f"DEBUG: Retry failed for {host}: {retry_error}")
                 raise retry_error
         else:
-            print(f"DEBUG: Not retrying (Is SSL: {is_ssl_error}, In Cache: {cache_key in _pool_cache})")
             # Not an SSL error or no cached pool, just re-raise
             raise
 

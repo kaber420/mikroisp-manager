@@ -64,9 +64,17 @@ app = FastAPI(title="µMonitor Pro", version="0.5.0")
 # --- Database Initialization ---
 @app.on_event("startup")
 async def on_startup():
-    """Initialize database tables on application startup"""
+    """Initialize database tables and background services on application startup"""
     await create_db_and_tables()
     print("✅ Database tables initialized")
+    
+    # --- Cache V2: Iniciar MonitorScheduler ---
+    # Este scheduler consulta routers suscritos y llena el cache
+    # Los WebSockets leen del cache en lugar de conectar directamente
+    from .services.monitor_scheduler import monitor_scheduler
+    import asyncio
+    asyncio.create_task(monitor_scheduler.run())
+    print("✅ MonitorScheduler iniciado (Cache V2)")
 
 
 # --- Configuración de SlowAPI ---
@@ -254,10 +262,10 @@ async def _handle_http_exception(request: Request, status_code: int, detail: str
 # ============================================================================
 @app.websocket("/ws/dashboard")
 async def websocket_dashboard(
-    websocket: WebSocket, umonitorpro_access_token: str = Cookie(None)
+    websocket: WebSocket, umonitorpro_access_token_v2: str = Cookie(None)
 ):
     # --- DEBUG: Imprimir qué está pasando ---
-    if umonitorpro_access_token is None:
+    if umonitorpro_access_token_v2 is None:
         print(
             f"⚠️ [WebSocket] Rechazado: No se encontró la cookie '{ACCESS_TOKEN_COOKIE_NAME}' (var name mismatched?)."
         )

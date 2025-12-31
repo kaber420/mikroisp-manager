@@ -8,17 +8,20 @@ from fastapi import (
     WebSocketDisconnect,
     Request,
 )
-from typing import List
-import ssl
-from routeros_api import RouterOsApiPool
 import asyncio
 import logging
+from typing import List, Optional
+import ssl
+
+from routeros_api import RouterOsApiPool
 
 from ...core.users import require_admin, require_technician
 from ...models.user import User
 from ...db import settings_db
 from ...db.engine import get_session
 from ...services.monitor_service import MonitorService
+from ...services.monitor_scheduler import monitor_scheduler
+from ...utils.cache import cache_manager
 from ...services.router_service import (
     RouterService, 
     get_all_routers as get_all_routers_service,
@@ -48,77 +51,84 @@ router = APIRouter()
 async def router_resources_stream(websocket: WebSocket, host: str):
     """
     Canal de streaming para datos en vivo del router (CPU, RAM, etc).
-    Lee el intervalo de refresco dinámicamente desde la configuración.
+    
+    IMPLEMENTACIÓN V2 (Cache In-Memory + Scheduler):
+    - NO conecta al router directamente.
+    - Se suscribe al MonitorScheduler.
+    - Lee del CacheManager local.
     """
     await websocket.accept()
-    service = None
+    
+    # 1. Obtener credenciales (BD)
+    from ...db.engine import async_session_maker
+    from ...services.router_service import get_router_by_host
+    from ...utils.security import decrypt_data
+    
+    async with async_session_maker() as session:
+        router = await get_router_by_host(session, host)
+        if not router:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+        
+        # Preparar credenciales para el scheduler
+        creds = {
+            "username": router.username,
+            "password": decrypt_data(router.password),
+            "port": router.api_ssl_port
+        }
 
+    # 2. Suscribir al Scheduler (esto inicia la conexión background si es necesario)
+    await monitor_scheduler.subscribe(host, creds)
+    
     try:
-        # 1. Get router from DB using async session
-        from ...db.engine import async_session_maker
-        from ...services.router_service import get_router_by_host
-        from ...utils.security import decrypt_data
+        # 3. Loop de lectura del Cache
+        stats_cache = cache_manager.get_store("router_stats")
         
-        async with async_session_maker() as session:
-            router = await get_router_by_host(session, host)
-            if not router:
-                await websocket.send_json({
-                    "type": "error",
-                    "data": {"message": f"Router {host} no encontrado"}
-                })
-                await websocket.close()
-                return
-        
-        # 2. Decrypt password and create service (OUTSIDE async with)
-        password = decrypt_data(router.password)
-        service = RouterService(host, router, decrypted_password=password)
-        print(f"✅ WS: RouterService creado para {host}")
-
         while True:
-            # --- A. Leer Configuración Dinámica ---
+            # Leer intervalo dinámico
             interval_setting = settings_db.get_setting("dashboard_refresh_interval")
-
             try:
-                interval = int(interval_setting) if interval_setting else 2
-                if interval < 1:
-                    interval = 1
-            except ValueError:
+                interval = max(1, int(interval_setting or 2))
+            except:
                 interval = 2
 
-            # --- B. Obtener Datos (Non-blocking) ---
-            data = await asyncio.to_thread(service.get_system_resources)
+            # Leer del Cache
+            data = stats_cache.get(host)
+            
+            if data:
+                if "error" in data:
+                     # Si hay error en el polling, notificar pero no cerrar
+                    await websocket.send_json({"type": "error", "data": {"message": data["error"]}})
+                else:
+                    # Mapeo de datos para frontend (compatible con V1)
+                    payload = {
+                        "type": "resources",
+                        "data": {
+                            "cpu_load": data.get("cpu_load", 0),
+                            "free_memory": data.get("free_memory", 0),
+                            "total_memory": data.get("total_memory", 0),
+                            "uptime": data.get("uptime", "--"),
+                            "total_disk": data.get("total_disk", 0),
+                            "free_disk": data.get("free_disk", 0),
+                            "voltage": data.get("voltage"),
+                            "temperature": data.get("temperature"),
+                            "cpu_temperature": data.get("cpu_temperature"),
+                        },
+                    }
+                    await websocket.send_json(payload)
+            else:
+                # Datos aun no disponibles (cargando...)
+                await websocket.send_json({"type": "loading", "data": {}})
 
-            # --- C. Preparar Payload ---
-            payload = {
-                "type": "resources",
-                "data": {
-                    "cpu_load": data.get("cpu-load", 0),
-                    "free_memory": data.get("free-memory", 0),
-                    "total_memory": data.get("total-memory", 0),
-                    "uptime": data.get("uptime", "--"),
-                    "total_disk": data.get("total-disk", 0),
-                    "free_disk": data.get("free-disk", 0),
-                    "voltage": data.get("voltage"),
-                    "temperature": data.get("temperature"),
-                    "cpu_temperature": data.get("cpu-temperature"),
-                },
-            }
-
-            # --- D. Enviar al Cliente ---
-            await websocket.send_json(payload)
-
-            # --- E. Dormir ---
             await asyncio.sleep(interval)
 
     except WebSocketDisconnect:
-        print(f"✅ WS: Cliente desconectado del stream {host}")
+        pass
     except Exception as e:
-        import traceback
-        print(f"❌ WS Error crítico en {host}: {e}")
-        traceback.print_exc()
+        print(f"❌ WS Error en {host}: {e}")
     finally:
-        if service:
-            service.disconnect()
+        # 4. Desuscribir (importante para cerrar conexión si es el último)
+        await monitor_scheduler.unsubscribe(host)
         try:
             await websocket.close()
         except:

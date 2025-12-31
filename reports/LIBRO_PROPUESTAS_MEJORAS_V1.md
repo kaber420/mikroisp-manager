@@ -439,12 +439,15 @@ Cuando múltiples usuarios ven el mismo router, el sistema puede:
 
 ## 4.2 Solución: Reference Counting
 
-### Algoritmo Core
+### Algoritmo Core (Validado)
+
+> [!IMPORTANT]
+> **Regla de Oro (Corrección post-V2):** La conexión de monitoreo **NUNCA** debe cerrarse mientras exista al menos **un** suscriptor activo. El cierre debe ser exclusivo cuando `count == 0`.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
-    Idle --> Conectando : Usuario 1 entra (Count=1)
+    Idle --> Conectando : Primer Usuario entra (Count=1)
     Conectando --> Monitoreando : Conexión Establecida
     Monitoreando --> Monitoreando : Loop de 1s (Broadcasting)
     Monitoreando --> Monitoreando : Usuario N entra (Count=N)
@@ -559,11 +562,26 @@ class RouterMonitorManager:
 
 # 5. Aislamiento de Canales (Lectura vs Escritura) {#5-aislamiento-canales}
 
-## 5.1 El Dilema
+## 5.1 El Problema Real (Evidencia en Código)
 
-Si usamos una sola conexión para monitoreo Y configuración:
-- El gráfico de recursos se pausa mientras se aplica una VLAN
-- Los buffers pueden mezclarse causando "Malformed sentence"
+En `app/utils/device_clients/mikrotik/connection.py` línea 57-63:
+```python
+# DISABLE POOLING: Always create a fresh connection to avoid thread-safety issues
+# caches are causing "Bad file descriptor" and "Malformed sentence" errors
+# when mixing WebSocket (long-lived) and HTTP (short-lived) threads.
+```
+
+**¿Por qué pasa esto?**
+1. WebSocket (monitoreo) mantiene una conexión abierta por minutos
+2. HTTP (configuración) intenta usar la misma conexión para enviar un comando
+3. Ambos escriben/leen del mismo socket TCP sin coordinación
+4. El router responde, pero el mensaje llega al hilo equivocado → "Malformed sentence"
+
+**Solución temporal actual:** `force_new=True` (crear conexión nueva cada vez)  
+**Problema:** Desperdicia recursos, no cierra conexiones correctamente y causa latencia.
+
+> [!WARNING]
+> **Prioridad Crítica:** El log del sistema muestra errores "Bad file descriptor". Esto confirma que mezclar lecturas (WebSocket) y escrituras (HTTP) en la misma conexión es inviable. La separación de canales es obligatoria.
 
 ## 5.2 Solución: Canales Separados
 
@@ -597,13 +615,15 @@ graph TB
 
 ### Carril de Monitoreo (ReadOnly)
 - **Propósito:** Lectura continua de CPU, RAM, tráfico
-- **Gestión:** Reference Counting (1 conexión por router)
+- **Gestión:** Reference Counting (1 conexión por router, compartida entre usuarios)
+- **Ciclo de vida:** Se abre cuando el primer usuario entra al dashboard, se cierra cuando el último sale
 - **Aislamiento:** Nunca se usa para escribir
 
 ### Carril de Configuración (Read-Write)
-- **Propósito:** Cambios (VLAN, IP, Firewall)
-- **Gestión:** One-Shot (abrir → ejecutar → cerrar)
-- **Aislamiento:** Sesión independiente
+- **Propósito:** Cambios (VLAN, IP, Firewall, PPPoE)
+- **Gestión:** One-Shot (abrir → ejecutar → cerrar inmediatamente)
+- **Ciclo de vida:** Cada request HTTP crea su propia conexión
+- **Aislamiento:** Sesión completamente independiente
 
 ## 5.3 Comparativa
 
@@ -611,7 +631,172 @@ graph TB
 |:---------------|:--------------|:---------------------|
 | Fluidez de Datos | Se pausa en escrituras | 100% ininterrumpido |
 | Integridad | Riesgo de colisión | Aislamiento total |
-| Impacto en Router | 1 Sesión | 2 Sesiones temporales |
+| Impacto en Router | 1 Sesión problemática | 2 Sesiones limpias |
+| Errores "Bad file descriptor" | Frecuentes | Eliminados |
+
+## 5.4 Implementación Propuesta
+
+### Estructura de Archivos
+
+```
+app/utils/device_clients/mikrotik/
+├── connection.py          # [MODIFICAR] Separar en dos funciones
+├── channels/
+│   ├── __init__.py
+│   ├── readonly.py        # [NUEVO] Canal de monitoreo persistente
+│   └── readwrite.py       # [NUEVO] Canal de configuración one-shot
+```
+
+### Código: Canal ReadOnly (Monitoreo)
+
+```python
+# app/utils/device_clients/mikrotik/channels/readonly.py
+from threading import RLock
+from typing import Dict
+from routeros_api import RouterOsApiPool
+
+class ReadOnlyChannelManager:
+    """Gestiona conexiones de solo lectura para monitoreo."""
+    
+    def __init__(self):
+        self._channels: Dict[str, RouterOsApiPool] = {}
+        self._ref_counts: Dict[str, int] = {}
+        self._lock = RLock()
+    
+    def acquire(self, host: str, username: str, password: str, port: int = 8729):
+        """Obtiene o crea un canal de lectura. Incrementa ref count."""
+        key = f"{host}:{port}"
+        
+        with self._lock:
+            if key not in self._channels:
+                self._channels[key] = self._create_pool(host, username, password, port)
+                self._ref_counts[key] = 0
+            
+            self._ref_counts[key] += 1
+            return self._channels[key].get_api()
+    
+    def release(self, host: str, port: int = 8729):
+        """Libera referencia. Si llega a 0, cierra la conexión."""
+        key = f"{host}:{port}"
+        
+        with self._lock:
+            if key in self._ref_counts:
+                self._ref_counts[key] -= 1
+                
+                if self._ref_counts[key] <= 0:
+                    try:
+                        self._channels[key].disconnect()
+                    except:
+                        pass
+                    del self._channels[key]
+                    del self._ref_counts[key]
+    
+    def _create_pool(self, host, username, password, port):
+        import ssl
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        
+        return RouterOsApiPool(
+            host, username=username, password=password,
+            port=port, use_ssl=True, ssl_context=ssl_context,
+            plaintext_login=True
+        )
+
+# Singleton global
+readonly_channels = ReadOnlyChannelManager()
+```
+
+### Código: Canal ReadWrite (Configuración)
+
+```python
+# app/utils/device_clients/mikrotik/channels/readwrite.py
+import ssl
+from routeros_api import RouterOsApiPool
+from contextlib import contextmanager
+
+@contextmanager
+def get_config_channel(host: str, username: str, password: str, port: int = 8729):
+    """
+    Context manager para operaciones de escritura.
+    Abre conexión, ejecuta, y cierra automáticamente.
+    """
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    
+    pool = RouterOsApiPool(
+        host, username=username, password=password,
+        port=port, use_ssl=True, ssl_context=ssl_context,
+        plaintext_login=True
+    )
+    
+    try:
+        api = pool.get_api()
+        yield api
+    finally:
+        try:
+            pool.disconnect()
+        except:
+            pass
+```
+
+### Uso en el Código
+
+**Antes (problemático):**
+```python
+# Mismo pool para todo
+api = mikrotik_connection.get_api(host, user, pass)
+api.get_resource("/system/resource").get()  # Lectura
+api.get_resource("/interface/vlan").add(...)  # Escritura - COLISIÓN!
+```
+
+**Después (aislado):**
+```python
+# Para monitoreo (WebSocket)
+from .channels.readonly import readonly_channels
+
+api = readonly_channels.acquire(host, user, pass)
+try:
+    while websocket_connected:
+        data = api.get_resource("/system/resource").get()
+        await websocket.send(data)
+finally:
+    readonly_channels.release(host)
+
+# Para configuración (HTTP)
+from .channels.readwrite import get_config_channel
+
+with get_config_channel(host, user, pass) as api:
+    api.get_resource("/interface/vlan").add(name="vlan100", ...)
+# Conexión cerrada automáticamente
+```
+
+## 5.5 Plan de Migración
+
+### Fase 1: Crear Infraestructura (1 día)
+- [ ] Crear directorio `app/utils/device_clients/mikrotik/channels/`
+- [ ] Crear `readonly.py` con `ReadOnlyChannelManager`
+- [ ] Crear `readwrite.py` con `get_config_channel`
+
+### Fase 2: Migrar WebSocket (1-2 días)
+- [ ] Modificar el handler de WebSocket para usar `readonly_channels.acquire/release`
+- [ ] Asegurar que `release()` se llame en `finally` o en evento de desconexión
+
+### Fase 3: Migrar HTTP/RouterService (1-2 días)
+- [ ] Modificar `MikrotikRouterAdapter` para usar `get_config_channel`
+- [ ] Eliminar lógica de `force_new=True` en `connection.py`
+
+### Fase 4: Limpieza
+- [ ] Deprecar funciones viejas de `connection.py`
+- [ ] Eliminar `_pool_cache` global
+
+## 5.6 Verificación
+
+1. **Abrir dashboard de un router** → Monitoreo funciona fluido
+2. **Mientras el dashboard está abierto, aplicar una VLAN** → Dashboard NO se congela
+3. **Cerrar dashboard** → Verificar en logs que la conexión ReadOnly se cerró
+4. **Revisar logs** → No deben aparecer "Bad file descriptor" ni "Malformed sentence"
 
 ---
 
