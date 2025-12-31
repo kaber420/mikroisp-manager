@@ -33,10 +33,9 @@ class ClientService:
             payment_service: Optional PaymentService instance (auto-created if not provided)
         """
         self.session = session
-        # If no PaymentService is injected, create one with the same Session
         self.payment_service = payment_service or PaymentService(session=self.session)
-        # Import here to avoid circular dependency
         from .plan_service import PlanService
+
         self.plan_service = PlanService(session)
     
     def get_all_clients(self) -> List[Dict[str, Any]]:
@@ -50,7 +49,6 @@ class ClientService:
         clients_dict = []
         for client in clients:
             client_dict = client.model_dump()
-            # Get CPE count using SQLModel
             cpe_count_stmt = select(func.count()).select_from(CPE).where(CPE.client_id == client.id)
             client_dict['cpe_count'] = self.session.exec(cpe_count_stmt).one()
             clients_dict.append(client_dict)
@@ -67,7 +65,6 @@ class ClientService:
     def create_client(self, client_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new client."""
         try:
-            # Remove any fields that shouldn't be set manually
             client_data_clean = {k: v for k, v in client_data.items() if k != 'id'}
             
             new_client = Client(**client_data_clean)
@@ -76,7 +73,7 @@ class ClientService:
             self.session.refresh(new_client)
             
             result = new_client.model_dump()
-            result['cpe_count'] = 0  # New clients start with 0 CPEs
+            result['cpe_count'] = 0
             return result
         except Exception as e:
             self.session.rollback()
@@ -101,7 +98,6 @@ class ClientService:
         self.session.refresh(client)
         
         result = client.model_dump()
-        # TODO: Add real CPE count when CPE model exists
         result['cpe_count'] = 0
         return result
     
@@ -111,7 +107,6 @@ class ClientService:
         if not client:
             raise FileNotFoundError("Client not found to delete.")
         
-        # TODO: Handle CPE updates when CPE model is migrated
         self.session.delete(client)
         self.session.commit()
     
@@ -134,9 +129,7 @@ class ClientService:
         Note: suspension_method is now determined by the Plan, not the service.
         """
         try:
-            # Añadimos el client_id al payload
             service_data_full = {**service_data, "client_id": client_id}
-            # Eliminamos id si viene por accidente
             service_data_full.pop("id", None)
 
             # Set default suspension_method for backward compatibility
@@ -150,21 +143,13 @@ class ClientService:
             self.session.commit()
             self.session.refresh(new_service)
 
-            # -------------------------------------------------
-            # 1️⃣  Si es SIMPLE_QUEUE → configuración de cola
-            # -------------------------------------------------
             if service_data.get("service_type") == "simple_queue":
                 self._apply_simple_queue_on_router(
                     new_service.model_dump(), service_data
                 )
-                # No necesitamos nada más para simple_queue
                 return new_service.model_dump()
 
-            # -------------------------------------------------
-            # 2️⃣  Si es PPPoE → crear/adoptar secret y guardar su ID
-            # -------------------------------------------------
             if service_data.get("service_type") == "pppoe":
-                # Necesitamos los datos del router
                 router_host = service_data.get("router_host")
                 if not router_host:
                     raise ValueError("router_host es requerido para PPPoE")
@@ -173,14 +158,12 @@ class ClientService:
                 if not username:
                     raise ValueError("pppoe_username es requerido para PPPoE")
 
-                # Obtener credenciales del router desde la BD
                 router_obj: Router = self.session.get(Router, router_host)
                 if not router_obj:
                     raise ValueError(f"Router {router_host} no encontrado en BD")
 
                 secret_id = None
                 with RouterService(router_host, router_obj) as rs:
-                    # Verificar si el secret ya existe
                     existing_secrets = rs.get_pppoe_secrets(username=username)
                     
                     if existing_secrets:
@@ -189,14 +172,12 @@ class ClientService:
                             f"ℹ️  Secret PPPoE para '{username}' ya existe en el router. Adoptando ID: {secret_id}"
                         )
                     else:
-                        # Crear el secret si no existe
                         secret = rs.create_pppoe_secret(
                             username=username,
                             password=service_data.get("router_secret_password", ""),
                             profile=service_data.get("profile_name", ""),
                             service_name=service_data.get("service_name", ""),
                         )
-                        # La creación puede devolver una lista o un dict
                         if isinstance(secret, list) and secret:
                             secret_id = secret[0].get("id")
                         elif isinstance(secret, dict):
@@ -210,23 +191,18 @@ class ClientService:
                             f"✅ Secret PPPoE creado en router {router_host} → id={secret_id}"
                         )
 
-                # Guardar router_secret_id en la tabla
                 new_service.router_secret_id = secret_id
                 self.session.add(new_service)
                 self.session.commit()
                 self.session.refresh(new_service)
 
-                logger.info(
-                    f"🔧 router_secret_id actualizado en DB para service_id={new_service.id}"
-                )
                 return new_service.model_dump()
 
-            # Si llega aquí, el tipo no es ni simple_queue ni pppoe
             return new_service.model_dump()
 
         except Exception as e:
             self.session.rollback()
-            # Mensajes claros para el frontend
+            self.session.rollback()
             if "UNIQUE constraint failed: client_services.pppoe_username" in str(e):
                 raise ValueError(
                     f"El nombre de usuario PPPoE '{service_data.get('pppoe_username')}' ya existe en la base de datos local."
@@ -253,7 +229,6 @@ class ClientService:
 
         router_host = service_input["router_host"]
         
-        # Obtener credenciales del router desde la BD
         router_obj: Router = self.session.get(Router, router_host)
         if not router_obj:
             raise ValueError(f"Router {router_host} no encontrado en BD")

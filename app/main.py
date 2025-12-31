@@ -103,9 +103,7 @@ app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
 APP_ENV = os.getenv("APP_ENV", "development")
 
 
-# ============================================================================
 # --- SEGURIDAD: CONFIGURACIÓN CORS ESTRICTA ---
-# ============================================================================
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:8000")
 origins = allowed_origins_env.split(",")
 
@@ -123,16 +121,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ============================================================================
 # --- SEGURIDAD: TRUSTED HOSTS ---
-# ============================================================================
 allowed_hosts = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
 
-# ============================================================================
 # --- SEGURIDAD: ORIGIN SHIELD (Protección CSRF por verificación de origen)
-# ============================================================================
 from starlette.middleware.base import BaseHTTPMiddleware
 from urllib.parse import urlparse
 
@@ -182,9 +176,7 @@ class TrustedOriginMiddleware(BaseHTTPMiddleware):
 app.add_middleware(TrustedOriginMiddleware)
 
 
-# ============================================================================
 # --- SEGURIDAD: CABECERAS DE SEGURIDAD HTTP ---
-# ============================================================================
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
@@ -207,9 +199,7 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 # Note: templates are now handled in .core.templates, imported above.
 
 
-# ============================================================================
 # --- GLOBAL EXCEPTION HANDLER ---
-# ============================================================================
 def _is_web_request(request: Request) -> bool:
     """
     Determine if the request is a browser/web request vs an API call.
@@ -257,9 +247,7 @@ async def _handle_http_exception(request: Request, status_code: int, detail: str
     return JSONResponse(status_code=status_code, content={"detail": detail})
 
 
-# ============================================================================
 # --- ENDPOINTS WEBSOCKET Y NOTIFICACIÓN INTERNA ---
-# ============================================================================
 @app.websocket("/ws/dashboard")
 async def websocket_dashboard(
     websocket: WebSocket, umonitorpro_access_token_v2: str = Cookie(None)
@@ -290,9 +278,7 @@ async def notify_monitor_update():
     return {"status": "broadcast_sent"}
 
 
-# ============================================================================
 # --- ROUTERS INCLUSION ---
-# ============================================================================
 
 # 1. Main Views (Pages & Legacy Auth)
 app.include_router(views_router)

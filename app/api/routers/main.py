@@ -33,7 +33,7 @@ from ...services.router_service import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Note: provision_router_api_ssl is now deprecated and its logic is inline in the endpoint
+
 
 from .models import (
     RouterResponse,
