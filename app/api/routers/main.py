@@ -43,6 +43,8 @@ from .models import (
     ProvisionResponse,
 )
 from . import config, pppoe, system, interfaces, ssl as ssl_router
+from ...services.provisioning_service import ProvisioningService
+from ...services.router_connector import router_connector
 
 router = APIRouter()
 
@@ -168,27 +170,7 @@ async def create_router(
         new_router = await create_router_service(session, router_data.model_dump())
         
         # --- AUTO-PROVISION SSL (Zero Trust) ---
-        try:
-             # Decrypt password for connection
-            from ...utils.security import decrypt_data
-            password = decrypt_data(new_router.password)
-            
-            # Init service (connects automatically)
-            service = RouterService(new_router.host, new_router, decrypted_password=password)
-            try:
-                # Trigger auto-provisioning
-                is_secure = service.ensure_ssl_provisioned()
-                if is_secure:
-                    # Update DB to reflect SSL port if it was different
-                    if new_router.api_port != new_router.api_ssl_port:
-                        await update_router_service(session, new_router.host, {"api_port": new_router.api_ssl_port})
-                        # Refresh router object
-                        new_router = await get_router_by_host_service(session, new_router.host)
-            finally:
-                service.disconnect()
-        except Exception as e:
-            # Log error but don't fail router creation
-            logging.error(f"Failed to auto-provision SSL for {new_router.host}: {e}")
+        await ProvisioningService.auto_provision_ssl(session, new_router)
 
         return new_router
     except ValueError as e:
@@ -256,78 +238,7 @@ async def provision_router_endpoint(
     password = decrypt_data(creds.password)
 
     try:
-        def run_provisioning():
-            # 1. Connect to router (insecure API for initial setup)
-            from routeros_api import RouterOsApiPool
-            pool = RouterOsApiPool(
-                creds.host,
-                username=creds.username,
-                password=password,
-                port=creds.api_port,
-                use_ssl=False,
-                plaintext_login=True,
-            )
-            api = pool.get_api()
-            
-            try:
-                # 2. Create dedicated API user with correct group
-                user_group_name = "api_full_access"
-                group_resource = api.get_resource("/user/group")
-                group_list = group_resource.get(name=user_group_name)
-                current_policy = "local,ssh,read,write,policy,test,password,sniff,sensitive,api,romon,ftp,!telnet,!reboot,!winbox,!web,!rest-api"
-                
-                if not group_list:
-                    group_resource.add(name=user_group_name, policy=current_policy)
-                else:
-                    from ...utils.device_clients.mikrotik.base import get_id
-                    group_resource.set(id=get_id(group_list[0]), policy=current_policy)
-                
-                user_resource = api.get_resource("/user")
-                existing_user = user_resource.get(name=data.new_api_user)
-                if existing_user:
-                    from ...utils.device_clients.mikrotik.base import get_id
-                    user_resource.set(id=get_id(existing_user[0]), password=data.new_api_password, group=user_group_name)
-                else:
-                    user_resource.add(name=data.new_api_user, password=data.new_api_password, group=user_group_name)
-                
-                # 3. Setup SSL via PKI Service (secure SSH method)
-                pki = PKIService()
-                if not pki.verify_mkcert_available():
-                    return {"status": "error", "message": "mkcert no está disponible. Instálalo para habilitar SSL."}
-                
-                # Install CA on router
-                ca_pem = pki.get_ca_pem()
-                if ca_pem:
-                    # Create a temporary adapter for SSL operations (uses current creds)
-                    temp_adapter = MikrotikRouterAdapter(host, creds.username, password, creds.api_port)
-                    # We need to use API to install CA since SSH might not be ready
-                    from ...utils.device_clients.mikrotik import ssl as ssl_module
-                    ssl_module.install_ca_certificate(api, host, creds.username, password, ca_pem, "umanager_ca")
-                    
-                    # Generate and install router certificate
-                    success, key_pem, cert_pem = pki.generate_full_cert_pair(host)
-                    if success:
-                        ssl_module.import_certificate(api, host, creds.api_ssl_port, data.new_api_user, data.new_api_password, cert_pem, key_pem, "umanager_ssl")
-                    else:
-                        return {"status": "error", "message": f"Error generando certificado: {cert_pem}"}
-                
-                return {"status": "success", "message": "Router aprovisionado con API-SSL seguro."}
-            finally:
-                pool.disconnect()
-        
-        result = await asyncio.to_thread(run_provisioning)
-
-        if result["status"] == "error":
-            raise HTTPException(status_code=500, detail=result["message"])
-
-        # Update DB: new user, password, SSL port, and mark as provisioned
-        update_data = {
-            "username": data.new_api_user,
-            "password": data.new_api_password,
-            "api_port": creds.api_ssl_port,
-            "is_provisioned": True,
-        }
-        await update_router_service(session, host, update_data)
+        result = await ProvisioningService.provision_router(session, host, creds, data)
         return result
 
     except HTTPException:
@@ -412,6 +323,38 @@ async def check_router_status_manual(
         
         # 1. Run Monitor Check (sync)
         await asyncio.to_thread(monitor.check_router, creds.model_dump())
+        
+        # 2. Update Cache immediately for UI
+        try:
+             # We need to temporarily subscribe to fetch stats if not already subscribed
+             # But router_connector.fetch_router_stats requires subscription in connector
+             # Actually, router_connector.fetch_router_stats checks: if host not in self._credentials: raise
+             # So we must ensure it's subscribed or manually fetch.
+             
+             # If we are here, we might have just provisioned, so we might not be in MonitorScheduler loop yet.
+             # MonitorScheduler.subscribe adds it to connector.
+             
+             # Let's ensure subscription first.
+             # The 'check' endpoint is often used when we want to force start monitoring too.
+             
+             # Prepare creds for subscription
+             from ...utils.security import decrypt_data
+             router_creds = {
+                "username": creds.username,
+                "password": decrypt_data(creds.password),
+                "port": creds.api_ssl_port
+             }
+             
+             # Force subscription (or refresh it)
+             await monitor_scheduler.subscribe(host, router_creds)
+             
+             # Now fetch stats using the connector which definitely has creds now
+             stats = await asyncio.to_thread(router_connector.fetch_router_stats, host)
+             if stats:
+                 cache_manager.get_store("router_stats").set(host, stats)
+                 
+        except Exception as e:
+             logging.error(f"Failed to fetch stats for cache update: {e}")
         
         # 2. Run SSL Provisioning Check (sync logic wrapped in thread)
         def check_ssl_provisioning():
