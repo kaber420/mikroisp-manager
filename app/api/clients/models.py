@@ -60,7 +60,6 @@ class ClientServiceBase(BaseModel):
     plan_id: Optional[int] = None
     ip_address: Optional[str] = None
     suspension_method: str
-    # New fields for service-specific data
     address: Optional[str] = None
     status: str = "active"
     billing_day: Optional[int] = None

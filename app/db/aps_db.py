@@ -6,12 +6,10 @@ from typing import List, Dict, Any, Optional
 import logging
 
 from .base import get_db_connection, get_stats_db_file
-
-# --- CAMBIO: Importar las funciones de cifrado ---
-from ..utils.security import encrypt_data, decrypt_data  # <-- LÍNEA CAMBIADA
+from ..utils.security import encrypt_data, decrypt_data
 
 
-# --- NUEVA FUNCIÓN (Movida desde monitor.py y mejorada) ---
+
 def get_enabled_aps_for_monitor() -> list:
     """
     Obtiene la lista de APs activos desde la BD y descifra sus contraseñas.
@@ -26,7 +24,6 @@ def get_enabled_aps_for_monitor() -> list:
 
         for row in cursor.fetchall():
             creds = dict(row)
-            # --- CAMBIO: Descifrar la contraseña ---
             creds["password"] = decrypt_data(creds["password"])
             # Default vendor to ubiquiti for backwards compatibility
             if not creds.get("vendor"):
@@ -39,7 +36,7 @@ def get_enabled_aps_for_monitor() -> list:
     return aps_to_monitor
 
 
-# --- Funciones para el Monitor ---
+
 def get_ap_status(host: str) -> Optional[str]:
     """Obtiene el último estado conocido de un AP."""
     conn = get_db_connection()
@@ -57,10 +54,6 @@ def update_ap_status(host: str, status: str, data: Optional[Dict[str, Any]] = No
     now = datetime.utcnow()
 
     if status == "online" and data:
-        # Support both legacy Ubiquiti format and new adapter format
-        # Legacy format: data = {"host": {"hostname": ..., "devmodel": ...}, "interfaces": [...]}
-        # New format: data = {"hostname": ..., "model": ..., "mac": ..., "firmware": ...}
-        
         if "host" in data and isinstance(data.get("host"), dict):
             # Legacy Ubiquiti format
             host_info = data.get("host", {})
@@ -70,7 +63,6 @@ def update_ap_status(host: str, status: str, data: Optional[Dict[str, Any]] = No
             model = host_info.get("devmodel")
             firmware = host_info.get("fwversion")
         else:
-            # New adapter format (flat dict)
             mac = data.get("mac")
             hostname = data.get("hostname")
             model = data.get("model")
@@ -103,7 +95,7 @@ def update_ap_status(host: str, status: str, data: Optional[Dict[str, Any]] = No
     conn.close()
 
 
-# --- Funciones para la API (Modificadas) ---
+
 def get_ap_credentials(host: str) -> Optional[Dict[str, Any]]:
     """Obtiene el usuario y la contraseña de un AP para la conexión en vivo."""
     conn = get_db_connection()
@@ -115,7 +107,6 @@ def get_ap_credentials(host: str) -> Optional[Dict[str, Any]]:
         return None
 
     creds_dict = dict(creds)
-    # --- CAMBIO: Descifrar la contraseña ---
     creds_dict["password"] = decrypt_data(creds_dict["password"])
     return creds_dict
 
@@ -124,7 +115,6 @@ def create_ap_in_db(ap_data: Dict[str, Any]) -> Dict[str, Any]:
     """Inserta un nuevo AP en la base de datos."""
     conn = get_db_connection()
     try:
-        # --- CAMBIO: Cifrar la contraseña antes de guardarla ---
         encrypted_password = encrypt_data(ap_data["password"])
 
         conn.execute(
@@ -223,7 +213,6 @@ def update_ap_in_db(host: str, updates: Dict[str, Any]) -> int:
     """Actualiza un AP en la base de datos y devuelve el número de filas afectadas."""
     conn = get_db_connection()
 
-    # --- CAMBIO: Cifrar la contraseña si se está actualizando ---
     if "password" in updates and updates["password"]:
         updates["password"] = encrypt_data(updates["password"])
 

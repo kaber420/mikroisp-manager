@@ -12,7 +12,7 @@ from ..models.service import ClientService as ClientServiceModel
 from ..models.router import Router
 from ..models.cpe import CPE
 from sqlmodel import func
-from ..db.base import get_db_connection # Added for legacy DB access
+from ..db.base import get_db_connection
 from ..services.router_service import RouterService
 from .payment_service import PaymentService
 

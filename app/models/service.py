@@ -9,26 +9,7 @@ from datetime import datetime
 
 
 class ClientService(SQLModel, table=True):
-    """
-    ClientService model representing internet services assigned to clients.
-    
-    Fields:
-    - id: Auto-increment primary key
-    - client_id: Foreign key to clients table (required)
-    - router_host: Foreign key to routers table (required)
-    - service_type: Type of service (pppoe, simple_queue, etc.)
-    - pppoe_username: PPPoE username (unique, optional)
-    - router_secret_id: MikroTik secret ID (optional)
-    - profile_name: MikroTik profile name (optional)
-    - suspension_method: How to suspend service (required)
-    - plan_id: Foreign key to plans table (optional)
-    - ip_address: Assigned IP address (optional)
-    - address: Physical service/installation address (optional)
-    - status: Service status (active, suspended, cancelled)
-    - billing_day: Day of month for billing (1-31)
-    - notes: Service-related notes (optional)
-    - created_at: Service creation timestamp
-    """
+    """Modelo que representa los servicios de internet asignados a los clientes."""
     
     __tablename__ = "client_services"
     
@@ -42,7 +23,6 @@ class ClientService(SQLModel, table=True):
     suspension_method: str = Field(nullable=False)
     plan_id: Optional[int] = Field(default=None)
     ip_address: Optional[str] = Field(default=None)
-    # New fields for service-specific data (moved from Client)
     address: Optional[str] = Field(default=None)
     status: str = Field(default="active", nullable=False)
     billing_day: Optional[int] = Field(default=None)
