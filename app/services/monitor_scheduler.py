@@ -6,6 +6,7 @@ from datetime import datetime
 
 from ..utils.cache import cache_manager
 from .router_connector import router_connector
+from ..db import router_db
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +104,35 @@ class MonitorScheduler:
         
         logger.info(f"[MonitorScheduler] Fully unsubscribed from {host} (timeout expired)")
 
+    async def _update_db_status(self, host: str, status: str, result: dict = None):
+        """Actualiza el estado del router en la base de datos."""
+        try:
+            await asyncio.to_thread(router_db.update_router_status, host, status, result)
+            logger.debug(f"[MonitorScheduler] DB updated: {host} -> {status}")
+        except Exception as e:
+            logger.error(f"[MonitorScheduler] Failed to update DB for {host}: {e}")
+
+    async def refresh_host(self, host: str) -> dict:
+        """
+        Realiza un poll inmediato al router y actualiza DB + cache.
+        Útil después de provisionar para mostrar 'Online' inmediatamente.
+        """
+        stats_cache = cache_manager.get_store("router_stats", default_ttl=5)
+        
+        try:
+            result = await self._poll_host(host)
+            if result:
+                stats_cache.set(host, result)
+                await self._update_db_status(host, "online", result)
+                return result
+            else:
+                await self._update_db_status(host, "offline")
+                return {"error": "No data returned"}
+        except Exception as e:
+            logger.error(f"[MonitorScheduler] refresh_host failed for {host}: {e}")
+            await self._update_db_status(host, "offline")
+            return {"error": str(e)}
+
     async def run(self):
         """Loop principal Async."""
         self._running = True
@@ -131,8 +161,10 @@ class MonitorScheduler:
                     if isinstance(result, Exception):
                         logger.error(f"[MonitorScheduler] Error polling {host}: {result}")
                         stats_cache.set(host, {"error": str(result)})
+                        await self._update_db_status(host, "offline")
                     elif result:
                         stats_cache.set(host, result)
+                        await self._update_db_status(host, "online", result)
 
                 await asyncio.sleep(self.poll_interval)
         finally:

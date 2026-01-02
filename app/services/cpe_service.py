@@ -46,12 +46,13 @@ class CPEService:
         return cpe
 
     def delete_cpe(self, mac: str) -> bool:
-        """Elimina un CPE de la base de datos."""
+        """Deshabilita un CPE (soft-delete) en la base de datos."""
         cpe = self.session.get(CPE, mac)
         if not cpe:
             raise FileNotFoundError("CPE not found.")
         
-        self.session.delete(cpe)
+        cpe.is_enabled = False
+        self.session.add(cpe)
         self.session.commit()
         return True
 
@@ -88,6 +89,7 @@ class CPEService:
                 )
                 SELECT s.*, a.hostname as ap_hostname
                 FROM LatestCPEStats s
+                INNER JOIN cpes c ON s.cpe_mac = c.mac AND c.is_enabled = 1
                 LEFT JOIN aps a ON s.ap_host = a.host
                 WHERE s.rn = 1
                 ORDER BY s.cpe_hostname, s.cpe_mac;

@@ -1,0 +1,19 @@
+# Network Topology - OSPF
+direction: right
+classes: {
+  router: {
+    style: {stroke-width: 2; border-radius: 5}
+  }
+  zone_box: {
+    style: {stroke-width: 2; stroke-dash: 3; fill: "transparent"}
+  }
+}
+
+km43: KM43 {
+  class: zone_box
+}
+
+km43.kbr_hapax2: "kbr-hapax2 (hAP ax^2)" {
+  class: router
+  style: {fill: "#e8f5e9"; stroke: "#2e7d32"}
+}

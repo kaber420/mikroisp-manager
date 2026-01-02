@@ -75,6 +75,12 @@ async def on_startup():
     import asyncio
     asyncio.create_task(monitor_scheduler.run())
     print("✅ MonitorScheduler iniciado (Cache V2)")
+    
+    # --- Cache V2: Iniciar APMonitorScheduler ---
+    # Mismo patrón para APs
+    from .services.ap_monitor_scheduler import ap_monitor_scheduler
+    asyncio.create_task(ap_monitor_scheduler.run())
+    print("✅ APMonitorScheduler iniciado (Cache V2)")
 
 
 # --- Configuración de SlowAPI ---

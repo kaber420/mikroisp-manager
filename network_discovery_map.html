@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Network Map - kbr-hapax2</title>
+    <style>
+        body { font-family: system-ui; margin: 0; padding: 20px; background: #1a1a2e; color: #eee; }
+        .container { max-width: 1200px; margin: 0 auto; background: #16213e; padding: 20px; border-radius: 12px; }
+        h1 { color: #4cc9f0; }
+        .legend { display: flex; gap: 20px; margin: 15px 0; flex-wrap: wrap; }
+        .legend-item { display: flex; align-items: center; gap: 8px; }
+        .legend-color { width: 20px; height: 20px; border-radius: 4px; }
+        .preview { text-align: center; background: #fff; padding: 20px; border-radius: 8px; margin: 20px 0; overflow: auto; }
+        .preview img { max-width: 100%; }
+        pre { background: #0f0f23; color: #4cc9f0; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 Network Map - kbr-hapax2</h1>
+        <div class="legend">
+            <div class="legend-item"><div class="legend-color" style="background:#e8f5e9;border:2px solid #2e7d32"></div> Seed Router</div>
+            <div class="legend-item"><div class="legend-color" style="background:#e3f2fd;border:2px solid #1565c0"></div> MNDP/LLDP</div>
+            <div class="legend-item"><div class="legend-color" style="background:#fff3e0;border:2px solid #ef6c00"></div> ARP</div>
+            <div class="legend-item"><div class="legend-color" style="background:#f3e5f5;border:2px solid #7b1fa2"></div> OSPF</div>
+        </div>
+        <div class="preview">
+            <img src="https://kroki.io/d2/svg/eNqFjzFvwkAMhff7FVZY2iEMF1DbY2LpUrVFKnPRhTPklGsc-YwIrfLfOQi03Rgs-T3Zz59H8IayJ65hSS0F2h4gh_ePxbNynnEtnhoD7LeVqHWwMWI08KMAmHaCPPQAUQ4Bk4jCVGO-904qA3oGJbFDztk6v0ub0z6Nn-qbGlyV1N0MuBjOxqSLGWx8CAYyYdvE1jI2kg2ZvVL116Qw8PI6Kc6pZ17ze-o6Ma5LXlW2tZ1OQUnkg4C7ar4A233q--z__vCp-mO8IIzwcTPFp-zKeLI0PrhCJ6L-CDAGbNM=" alt="Network Topology">
+        </div>
+        <h3 style="color:#7b2cbf">Código D2</h3>
+        <pre># Network Topology - OSPF
+direction: right
+classes: {
+  router: {
+    style: {stroke-width: 2; border-radius: 5}
+  }
+  zone_box: {
+    style: {stroke-width: 2; stroke-dash: 3; fill: "transparent"}
+  }
+}
+
+km43: KM43 {
+  class: zone_box
+}
+
+km43.kbr_hapax2: "kbr-hapax2 (hAP ax^2)" {
+  class: router
+  style: {fill: "#e8f5e9"; stroke: "#2e7d32"}
+}</pre>
+    </div>
+</body>
+</html>

@@ -135,6 +135,25 @@ class ProvisioningService:
                 "is_provisioned": True,
             }
             await update_router_service(session, host, update_data)
+            
+            # Subscribe to monitor and refresh immediately to show "Online" in list
+            # Note: API-SSL may need a moment to restart after provisioning
+            from .monitor_scheduler import monitor_scheduler
+            new_creds = {
+                "username": data.new_api_user,
+                "password": data.new_api_password,
+                "port": creds.api_ssl_port
+            }
+            
+            try:
+                # Wait for API-SSL to restart
+                await asyncio.sleep(2)
+                await monitor_scheduler.subscribe(host, new_creds)
+                await monitor_scheduler.refresh_host(host)
+            except Exception as e:
+                # Don't fail provisioning - scheduler will pick it up on next poll
+                logger.warning(f"Could not refresh status immediately for {host}: {e}")
+            
             return result
 
         except HTTPException:

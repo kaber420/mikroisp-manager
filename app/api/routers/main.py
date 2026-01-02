@@ -302,13 +302,14 @@ async def check_router_status_manual(
 ):
     """
     Fuerza al monitor a leer los datos del router INMEDIATAMENTE.
-    Se usa después de aprovisionar para poner el router 'Online' sin esperar 5 min.
+    Actualiza tanto el cache (para gráficas) como la DB (para la lista).
     """
+    from ...utils.security import decrypt_data
+    
     creds = await get_router_by_host_service(session, host)
     if not creds:
         raise HTTPException(status_code=404, detail="Router no encontrado")
 
-    # Validaciones básicas antes de intentar conectar
     if not creds.is_enabled:
         raise HTTPException(status_code=400, detail="El router está deshabilitado.")
 
@@ -318,57 +319,32 @@ async def check_router_status_manual(
         )
 
     try:
-        # Instanciamos el servicio y ejecutamos el chequeo síncrono
-        monitor = MonitorService()
+        # Prepare credentials
+        router_creds = {
+            "username": creds.username,
+            "password": decrypt_data(creds.password),
+            "port": creds.api_ssl_port
+        }
         
-        # 1. Run Monitor Check (sync)
-        await asyncio.to_thread(monitor.check_router, creds.model_dump())
+        # Subscribe and refresh immediately (updates cache + DB)
+        await monitor_scheduler.subscribe(host, router_creds)
+        result = await monitor_scheduler.refresh_host(host)
         
-        # 2. Update Cache immediately for UI
-        try:
-             # We need to temporarily subscribe to fetch stats if not already subscribed
-             # But router_connector.fetch_router_stats requires subscription in connector
-             # Actually, router_connector.fetch_router_stats checks: if host not in self._credentials: raise
-             # So we must ensure it's subscribed or manually fetch.
-             
-             # If we are here, we might have just provisioned, so we might not be in MonitorScheduler loop yet.
-             # MonitorScheduler.subscribe adds it to connector.
-             
-             # Let's ensure subscription first.
-             # The 'check' endpoint is often used when we want to force start monitoring too.
-             
-             # Prepare creds for subscription
-             from ...utils.security import decrypt_data
-             router_creds = {
-                "username": creds.username,
-                "password": decrypt_data(creds.password),
-                "port": creds.api_ssl_port
-             }
-             
-             # Force subscription (or refresh it)
-             await monitor_scheduler.subscribe(host, router_creds)
-             
-             # Now fetch stats using the connector which definitely has creds now
-             stats = await asyncio.to_thread(router_connector.fetch_router_stats, host)
-             if stats:
-                 cache_manager.get_store("router_stats").set(host, stats)
-                 
-        except Exception as e:
-             logging.error(f"Failed to fetch stats for cache update: {e}")
+        if "error" in result:
+            return {
+                "status": "error",
+                "message": f"No se pudo conectar: {result['error']}",
+            }
         
-        # 2. Run SSL Provisioning Check (sync logic wrapped in thread)
-        def check_ssl_provisioning():
-             from ...utils.security import decrypt_data
-             password = decrypt_data(creds.password)
-             with RouterService(host, creds, decrypted_password=password) as rs:
-                 return rs.ensure_ssl_provisioned()
-
-        is_secure = await asyncio.to_thread(check_ssl_provisioning)
-
         return {
             "status": "success",
-            "message": "Conexión verificada y datos actualizados. SSL Secure: " + str(is_secure),
+            "message": "Estado actualizado correctamente.",
+            "data": {
+                "uptime": result.get("uptime"),
+                "version": result.get("version"),
+            }
         }
     except Exception as e:
-        # Logueamos el error pero no rompemos la API si el router no responde
+        logging.error(f"check_router_status_manual failed for {host}: {e}")
         raise HTTPException(status_code=500, detail=f"Fallo al conectar: {str(e)}")
+
