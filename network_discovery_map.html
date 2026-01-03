@@ -20,15 +20,18 @@
         <h1>🌐 Network Map - kbr-hapax2</h1>
         <div class="legend">
             <div class="legend-item"><div class="legend-color" style="background:#e8f5e9;border:2px solid #2e7d32"></div> Seed Router</div>
-            <div class="legend-item"><div class="legend-color" style="background:#e3f2fd;border:2px solid #1565c0"></div> MNDP/LLDP</div>
+            <div class="legend-item"><div class="legend-color" style="background:#e3f2fd;border:2px solid #1565c0"></div> MikroTik / MNDP</div>
+            <div class="legend-item"><div class="legend-color" style="background:#f3e5f5;border:2px solid #7b1fa2"></div> Ubiquiti</div>
+            <div class="legend-item"><div class="legend-color" style="background:#e0f7fa;border:2px solid #00838f"></div> OSPF</div>
             <div class="legend-item"><div class="legend-color" style="background:#fff3e0;border:2px solid #ef6c00"></div> ARP</div>
-            <div class="legend-item"><div class="legend-color" style="background:#f3e5f5;border:2px solid #7b1fa2"></div> OSPF</div>
+            <div class="legend-item"><div class="legend-color" style="background:#ffebee;border:2px solid #c62828"></div> Unreachable</div>
+            <div class="legend-item"><div class="legend-color" style="background:#fafafa;border:2px solid #666"></div> Unknown</div>
         </div>
         <div class="preview">
-            <img src="https://kroki.io/d2/svg/eNqFjzFvwkAMhff7FVZY2iEMF1DbY2LpUrVFKnPRhTPklGsc-YwIrfLfOQi03Rgs-T3Zz59H8IayJ65hSS0F2h4gh_ePxbNynnEtnhoD7LeVqHWwMWI08KMAmHaCPPQAUQ4Bk4jCVGO-904qA3oGJbFDztk6v0ub0z6Nn-qbGlyV1N0MuBjOxqSLGWx8CAYyYdvE1jI2kg2ZvVL116Qw8PI6Kc6pZ17ze-o6Ma5LXlW2tZ1OQUnkg4C7ar4A233q--z__vCp-mO8IIzwcTPFp-zKeLI0PrhCJ6L-CDAGbNM=" alt="Network Topology">
+            <img src="https://kroki.io/d2/svg/eNq1kE9vgkAQxe98igle2jRQWP4UMWliYnqpWtL2XAIyCIGyZlmjtul37wJalGg9cdjNztuZ9367A5gj31CWwTtd0Zwud6DAbD7x7qfTiQd3MH6t9pc370mKUoYLntLCBZYuEy4t8qAssXThWwJgdM2RNWeAku9yFEXJGc1Q2aQRT1wgIwgpi5ApLIjStZi0fkR7tb5ogX5It1cN9kIUlKI2RhCnee6CzFlQlKuAYcHlxvNHkrJP03DheWYatWvN6_5FHTrULGR-EqyCLRFGolCaAm6SsQfB9oPcysfzzUullnGPMEAntnAoHxgrieBDZBC5oqmjCl8fEl-3Hd9xfGIORY8QVCGojqMKoUnqOsdxbKB24oyxvdC01rl9BCiPcCksZGm0RPkcjEU6MBbpD6YOuwCji2vziEUXKGY_KIco5Aky_QyJfQpi98Zh_4tBtM6HaP19iHaFRO-Q6P2R6C3JL6yXVCk=" alt="Network Topology">
         </div>
         <h3 style="color:#7b2cbf">Código D2</h3>
-        <pre># Network Topology - OSPF
+        <pre># Network Topology - MNDP/LLDP + ARP + OSPF
 direction: right
 classes: {
   router: {
@@ -46,7 +49,31 @@ km43: KM43 {
 km43.kbr_hapax2: "kbr-hapax2 (hAP ax^2)" {
   class: router
   style: {fill: "#e8f5e9"; stroke: "#2e7d32"}
-}</pre>
+}
+km43.n_192_168_88_249: "192.168.88.249" {
+  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
+}
+km43.kbr_hapax2 -> km43.n_192_168_88_249: "bridge"
+km43.n_192_168_88_252: "192.168.88.252" {
+  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
+}
+km43.kbr_hapax2 -> km43.n_192_168_88_252: "bridge"
+km43.n_192_168_1_254: "192.168.1.254" {
+  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
+}
+km43.kbr_hapax2 -> km43.n_192_168_1_254: "ether1"
+km43.n_192_168_1_64: "192.168.1.64" {
+  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
+}
+km43.kbr_hapax2 -> km43.n_192_168_1_64: "ether1"
+km43.n_192_168_1_204: "192.168.1.204" {
+  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
+}
+km43.kbr_hapax2 -> km43.n_192_168_1_204: "ether1"
+km43.n_192_168_1_201: "192.168.1.201" {
+  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
+}
+km43.kbr_hapax2 -> km43.n_192_168_1_201: "ether1"</pre>
     </div>
 </body>
 </html>

@@ -34,10 +34,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # but for this script top-level is fine if path is set.
 try:
     from app.db.router_db import get_router_by_host, get_routers_for_backup
-    from app.db.aps_db import get_ap_by_host_with_stats, get_all_aps_with_stats
+    from app.db.aps_db import get_ap_by_host_with_stats, get_all_aps_with_stats, get_ap_credentials
     from app.db.zonas_db import get_all_zonas
+    from app.utils.device_clients.adapters.ubiquiti_airmax import UbiquitiAirmaxAdapter
 except ImportError:
     # Allow running without app context for testing (mocking may be needed)
+    UbiquitiAirmaxAdapter = None
     pass
 
 
@@ -159,26 +161,40 @@ def get_ospf_neighbors(api) -> List[Dict[str, Any]]:
 # === RECURSIVE DISCOVERY ===
 
 def get_credentials_for_ip(ip: str) -> Optional[Dict]:
-    """Try to find credentials for an IP in the database."""
+    """Try to find credentials for an IP in the database. Returns dict with vendor info."""
+    # Check Routers first
     try:
-        from app.db.router_db import get_router_by_host
         router = get_router_by_host(ip)
         if router:
-            return {"username": router["username"], "password": router["password"], "port": router.get("api_ssl_port") or 8729}
+            return {
+                "vendor": "mikrotik",
+                "username": router["username"],
+                "password": router["password"],
+                "port": router.get("api_ssl_port") or 8729
+            }
     except:
         pass
+    
+    # Check APs
     try:
-        from app.db.ap_db import get_ap_by_host
-        ap = get_ap_by_host(ip)
-        if ap and ap.get("vendor") == "mikrotik":
-            return {"username": ap["username"], "password": ap["password"], "port": ap.get("api_port") or 8729}
+        ap = get_ap_by_host_with_stats(ip)
+        if ap:
+            creds = get_ap_credentials(ip)
+            if creds:
+                return {
+                    "vendor": ap.get("vendor", "ubiquiti"),
+                    "username": creds["username"],
+                    "password": creds["password"],
+                    "port": ap.get("api_port") or 443
+                }
     except:
         pass
+    
     return None
 
 
 def discover_from_device(host: str, username: str, password: str, port: int, sources: List[str]) -> tuple:
-    """Connect to a device and discover its neighbors. Returns (identity, info, neighbors)."""
+    """Connect to a MikroTik device and discover its neighbors. Returns (identity, info, neighbors)."""
     try:
         api = connect_router(host, username, password, port)
         identity = get_router_identity(api)
@@ -198,23 +214,69 @@ def discover_from_device(host: str, username: str, password: str, port: int, sou
         return None, None, []
 
 
+def discover_from_ubiquiti(host: str, username: str, password: str, port: int = 443) -> tuple:
+    """
+    Connect to a Ubiquiti AirMAX device and discover its connected stations.
+    Returns (identity, info, neighbors).
+    """
+    if UbiquitiAirmaxAdapter is None:
+        print(f"    ⚠ UbiquitiAirmaxAdapter not available")
+        return None, None, []
+    
+    try:
+        adapter = UbiquitiAirmaxAdapter(host, username, password, port)
+        status = adapter.get_status()
+        
+        if not status.is_online:
+            print(f"    ⚠ Ubiquiti {host}: {status.last_error}")
+            return None, None, []
+        
+        identity = status.hostname or host
+        info = {
+            "board": status.model,
+            "platform": "AirOS",
+            "version": status.firmware,
+        }
+        
+        # Convert connected clients to neighbor format
+        neighbors = []
+        for client in status.clients:
+            neighbors.append({
+                "source": "Ubiquiti",
+                "interface": "wlan",
+                "mac_address": client.mac or "",
+                "identity": client.hostname or "",
+                "ip_address": client.ip_address or "",
+                "platform": "CPE",
+                "board": "",
+            })
+        
+        adapter.disconnect()
+        return identity, info, neighbors
+    except Exception as e:
+        print(f"    ⚠ Could not connect to Ubiquiti {host}: {e}")
+        return None, None, []
+
+
 def recursive_discover(seed_host: str, seed_user: str, seed_pass: str, seed_port: int, 
-                       sources: List[str], max_depth: int = 3, max_nodes: int = 50) -> Dict:
+                       sources: List[str], max_depth: int = 3, max_nodes: int = 50,
+                       seed_vendor: str = "mikrotik") -> Dict:
     """
     BFS recursive discovery with loop protection.
+    Supports MikroTik and Ubiquiti devices.
     Returns topology dict: {nodes: [...], edges: [...]}
     """
     visited_ips = set()
-    nodes = []  # {id, ip, identity, info, depth}
+    nodes = []  # {id, ip, identity, info, depth, vendor}
     edges = []  # {from_id, to_id, from_iface, to_ip}
     
-    # Queue: (ip, username, password, port, depth, parent_id)
-    queue = [(seed_host, seed_user, seed_pass, seed_port, 0, None)]
+    # Queue: (ip, username, password, port, depth, parent_id, vendor)
+    queue = [(seed_host, seed_user, seed_pass, seed_port, 0, None, seed_vendor)]
     
     print(f"\n🔄 Recursive discovery (max depth: {max_depth}, max nodes: {max_nodes})")
     
     while queue and len(nodes) < max_nodes:
-        current_ip, username, password, port, depth, parent_id = queue.pop(0)
+        current_ip, username, password, port, depth, parent_id, vendor = queue.pop(0)
         
         # Skip if already visited
         if current_ip in visited_ips:
@@ -225,8 +287,13 @@ def recursive_discover(seed_host: str, seed_user: str, seed_pass: str, seed_port
         
         visited_ips.add(current_ip)
         
-        print(f"  [Depth {depth}] Scanning {current_ip}...")
-        identity, info, neighbors = discover_from_device(current_ip, username, password, port, sources)
+        print(f"  [Depth {depth}] Scanning {current_ip} ({vendor})...")
+        
+        # Call vendor-specific discovery
+        if vendor == "ubiquiti":
+            identity, info, neighbors = discover_from_ubiquiti(current_ip, username, password, port)
+        else:
+            identity, info, neighbors = discover_from_device(current_ip, username, password, port, sources)
         
         if not identity:
             continue
@@ -239,6 +306,7 @@ def recursive_discover(seed_host: str, seed_user: str, seed_pass: str, seed_port
             "identity": identity,
             "info": info,
             "depth": depth,
+            "vendor": vendor,
         })
         
         # Add edge from parent
@@ -258,7 +326,15 @@ def recursive_discover(seed_host: str, seed_user: str, seed_pass: str, seed_port
             # Try to get credentials from DB
             creds = get_credentials_for_ip(neighbor_ip)
             if creds:
-                queue.append((neighbor_ip, creds["username"], creds["password"], creds["port"], depth + 1, node_id))
+                queue.append((
+                    neighbor_ip, 
+                    creds["username"], 
+                    creds["password"], 
+                    creds["port"], 
+                    depth + 1, 
+                    node_id,
+                    creds.get("vendor", "mikrotik")
+                ))
             else:
                 # Add as leaf node (can't connect, no creds)
                 leaf_id = f"leaf_{len(nodes)}_{len(edges)}"
@@ -269,6 +345,7 @@ def recursive_discover(seed_host: str, seed_user: str, seed_pass: str, seed_port
                     "info": {"board": neighbor.get("board"), "platform": neighbor.get("platform")},
                     "depth": depth + 1,
                     "is_leaf": True,
+                    "vendor": "unknown",
                 })
                 edges.append({
                     "from_id": node_id,
@@ -281,7 +358,7 @@ def recursive_discover(seed_host: str, seed_user: str, seed_pass: str, seed_port
 
 
 def generate_d2_recursive(topology: Dict) -> str:
-    """Generate D2 code for recursive topology."""
+    """Generate D2 code for recursive topology with vendor-aware styling."""
     lines = [
         "# Network Topology - Recursive Discovery",
         "direction: down",
@@ -295,14 +372,25 @@ def generate_d2_recursive(topology: Dict) -> str:
         if node["info"] and node["info"].get("board"):
             label += f" ({node['info']['board']})"
         
-        # Style by depth
+        # Style by vendor and depth
         depth = node.get("depth", 0)
+        vendor = node.get("vendor", "unknown")
+        
         if depth == 0:
+            # Seed device (green)
             style = 'style: {fill: "#e8f5e9"; stroke: "#2e7d32"; stroke-width: 2}'
         elif node.get("is_leaf"):
-            style = 'style: {fill: "#ffebee"; stroke: "#c62828"}'  # Red for unreachable
-        else:
+            # Unreachable leaf (red)
+            style = 'style: {fill: "#ffebee"; stroke: "#c62828"}'
+        elif vendor == "ubiquiti":
+            # Ubiquiti device (purple)
+            style = 'style: {fill: "#f3e5f5"; stroke: "#7b1fa2"}'
+        elif vendor == "mikrotik":
+            # MikroTik device (blue)
             style = 'style: {fill: "#e3f2fd"; stroke: "#1565c0"}'
+        else:
+            # Unknown vendor (gray)
+            style = 'style: {fill: "#fafafa"; stroke: "#666"}'
         
         lines.append(f'{node_id}: "{label}" {{')
         lines.append(f"  {style}")
@@ -436,7 +524,7 @@ def generate_d2_map(seed_identity: str, seed_info: Dict, devices: List[Dict], so
         elif device["source"] == "ARP":
             style = 'style: {fill: "#fff3e0"; stroke: "#ef6c00"}'
         elif device["source"] == "OSPF":
-            style = 'style: {fill: "#f3e5f5"; stroke: "#7b1fa2"}'
+            style = 'style: {fill: "#e0f7fa"; stroke: "#00838f"}'
         else:
             style = 'style: {fill: "#fafafa"; stroke: "#666"}'
 
@@ -487,9 +575,12 @@ def generate_html(d2_code: str, title: str) -> str:
         <h1>🌐 {title}</h1>
         <div class="legend">
             <div class="legend-item"><div class="legend-color" style="background:#e8f5e9;border:2px solid #2e7d32"></div> Seed Router</div>
-            <div class="legend-item"><div class="legend-color" style="background:#e3f2fd;border:2px solid #1565c0"></div> MNDP/LLDP</div>
+            <div class="legend-item"><div class="legend-color" style="background:#e3f2fd;border:2px solid #1565c0"></div> MikroTik / MNDP</div>
+            <div class="legend-item"><div class="legend-color" style="background:#f3e5f5;border:2px solid #7b1fa2"></div> Ubiquiti</div>
+            <div class="legend-item"><div class="legend-color" style="background:#e0f7fa;border:2px solid #00838f"></div> OSPF</div>
             <div class="legend-item"><div class="legend-color" style="background:#fff3e0;border:2px solid #ef6c00"></div> ARP</div>
-            <div class="legend-item"><div class="legend-color" style="background:#f3e5f5;border:2px solid #7b1fa2"></div> OSPF</div>
+            <div class="legend-item"><div class="legend-color" style="background:#ffebee;border:2px solid #c62828"></div> Unreachable</div>
+            <div class="legend-item"><div class="legend-color" style="background:#fafafa;border:2px solid #666"></div> Unknown</div>
         </div>
         <div class="preview">
             <img src="{img_url}" alt="Network Topology">

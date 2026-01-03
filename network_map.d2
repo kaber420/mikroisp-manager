@@ -1,4 +1,4 @@
-# Network Topology - OSPF
+# Network Topology - MNDP/LLDP + ARP + OSPF
 direction: right
 classes: {
   router: {
@@ -17,3 +17,27 @@ km43.kbr_hapax2: "kbr-hapax2 (hAP ax^2)" {
   class: router
   style: {fill: "#e8f5e9"; stroke: "#2e7d32"}
 }
+km43.n_192_168_88_249: "192.168.88.249" {
+  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
+}
+km43.kbr_hapax2 -> km43.n_192_168_88_249: "bridge"
+km43.n_192_168_88_252: "192.168.88.252" {
+  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
+}
+km43.kbr_hapax2 -> km43.n_192_168_88_252: "bridge"
+km43.n_192_168_1_254: "192.168.1.254" {
+  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
+}
+km43.kbr_hapax2 -> km43.n_192_168_1_254: "ether1"
+km43.n_192_168_1_64: "192.168.1.64" {
+  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
+}
+km43.kbr_hapax2 -> km43.n_192_168_1_64: "ether1"
+km43.n_192_168_1_204: "192.168.1.204" {
+  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
+}
+km43.kbr_hapax2 -> km43.n_192_168_1_204: "ether1"
+km43.n_192_168_1_201: "192.168.1.201" {
+  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
+}
+km43.kbr_hapax2 -> km43.n_192_168_1_201: "ether1"
