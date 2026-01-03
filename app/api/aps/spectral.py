@@ -12,7 +12,7 @@ import threading
 from typing import Optional, List
 from queue import Queue, Empty
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Cookie, status
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Cookie, Query, status
 
 from ...db.aps_db import get_ap_by_host_with_stats, get_ap_credentials
 from ...utils.device_clients.mikrotik.ssh_client import MikrotikSSHClient
@@ -275,13 +275,16 @@ class SpectralScanManager:
 async def spectral_scan_websocket(
     websocket: WebSocket,
     host: str,
-    umonitorpro_access_token: str = Cookie(None)
+    umonitorpro_access_token_v2: str = Cookie(None),
+    token: str = Query(None)
 ):
     """WebSocket endpoint for real-time spectral scan data."""
     
-    # Auth check
-    if umonitorpro_access_token is None:
-        logger.warning(f"[SpectralScan] Rejected: No auth cookie for {host}")
+    # Auth check: Cookie OR Query param
+    auth_token = umonitorpro_access_token_v2 or token
+    
+    if auth_token is None:
+        logger.warning(f"[SpectralScan] Rejected: No auth cookie or token for {host}")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
     
