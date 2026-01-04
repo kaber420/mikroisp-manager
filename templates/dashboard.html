@@ -18,7 +18,7 @@
         </button>
     </div>
 
-    <div id="summary-cards" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div id="summary-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
         <div
             class="relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-xl group">
@@ -93,6 +93,46 @@
                     <div class="flex items-center gap-2">
                         <span class="size-2 rounded-full bg-danger"></span>
                         <p id="cpes-offline" class="text-lg font-bold text-danger">--</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Router Summary Card -->
+        <div
+            class="relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-xl group">
+            <span
+                class="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-cyan-500/5 group-hover:text-cyan-500/10 transition-colors select-none">
+                device_hub
+            </span>
+
+            <div class="relative z-10 flex justify-between items-start mb-6">
+                <div>
+                    <div
+                        class="flex items-center gap-2 text-text-secondary text-sm font-medium uppercase tracking-wider mb-2">
+                        <span class="material-symbols-outlined text-cyan-500">device_hub</span>
+                        Routers (Gateways)
+                    </div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="total-routers" class="text-4xl font-bold text-text-primary">--</span>
+                        <span class="text-xs text-text-secondary">Total</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="relative z-10 grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
+                <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
+                    <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Online</p>
+                    <div class="flex items-center gap-2">
+                        <span class="size-2 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
+                        <p id="routers-online" class="text-lg font-bold text-success">--</p>
+                    </div>
+                </div>
+                <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
+                    <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Offline</p>
+                    <div class="flex items-center gap-2">
+                        <span class="size-2 rounded-full bg-danger"></span>
+                        <p id="routers-offline" class="text-lg font-bold text-danger">--</p>
                     </div>
                 </div>
             </div>

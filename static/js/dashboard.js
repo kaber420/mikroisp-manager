@@ -25,7 +25,7 @@ async function loadEventLogs(hostFilter = 'all') {
     const infoSpan = document.getElementById('logs-pagination-info');
     const btnPrev = document.getElementById('btn-prev-page');
     const btnNext = document.getElementById('btn-next-page');
-    
+
     if (!tbody) return;
 
     // Si cambiamos de filtro, reseteamos a página 1
@@ -43,9 +43,9 @@ async function loadEventLogs(hostFilter = 'all') {
         const res = await fetch(url);
         if (res.ok) {
             const data = await res.json();
-            
+
             // Extraemos items y metadatos
-            const events = data.items; 
+            const events = data.items;
             currentLogTotalPages = data.total_pages;
             const totalRecords = data.total;
 
@@ -61,7 +61,7 @@ async function loadEventLogs(hostFilter = 'all') {
                     let icon = 'info';
                     let colorClass = 'text-blue-400 bg-blue-400/10';
 
-                    if (evt.event_type === 'danger') { icon = 'error'; colorClass = 'text-danger bg-danger/10'; } 
+                    if (evt.event_type === 'danger') { icon = 'error'; colorClass = 'text-danger bg-danger/10'; }
                     else if (evt.event_type === 'success') { icon = 'check_circle'; colorClass = 'text-success bg-success/10'; }
 
                     tbody.innerHTML += `
@@ -89,7 +89,7 @@ async function loadEventLogs(hostFilter = 'all') {
                 const end = Math.min(start + currentLogPageSize - 1, totalRecords);
                 infoSpan.textContent = totalRecords > 0 ? `Mostrando ${start}-${end} de ${totalRecords}` : 'Sin resultados';
             }
-            
+
             if (btnPrev) btnPrev.disabled = currentLogPage <= 1;
             if (btnNext) btnNext.disabled = currentLogPage >= currentLogTotalPages;
 
@@ -234,15 +234,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- FUNCIÓN 2: KPIs (Sin cambios lógicos, solo aseguramos IDs) ---
     async function loadInitialData() {
         try {
-            const [apsRes, cpeCountRes] = await Promise.all([
+            const [apsRes, cpeCountRes, routersRes] = await Promise.all([
                 fetch(`${API_BASE_URL}/api/aps`),
-                fetch(`${API_BASE_URL}/api/stats/cpe-count`)
+                fetch(`${API_BASE_URL}/api/stats/cpe-count`),
+                fetch(`${API_BASE_URL}/api/routers`)
             ]);
 
-            if (!apsRes.ok || !cpeCountRes.ok) throw new Error('Failed to load dashboard data');
+            if (!apsRes.ok || !cpeCountRes.ok || !routersRes.ok) throw new Error('Failed to load dashboard data');
 
             const allAps = await apsRes.json();
             const cpeCountData = await cpeCountRes.json();
+            const allRouters = await routersRes.json();
 
             let cpesOnline = 0;
             let apsOnline = 0;
@@ -254,6 +256,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
+            // Router stats
+            let routersOnline = 0;
+            allRouters.forEach(router => {
+                if (router.last_status === 'online') {
+                    routersOnline++;
+                }
+            });
+
             updateStatWithTransition('total-aps', allAps.length);
             updateStatWithTransition('aps-online', apsOnline);
             updateStatWithTransition('aps-offline', allAps.length - apsOnline);
@@ -261,13 +271,18 @@ document.addEventListener('DOMContentLoaded', () => {
             updateStatWithTransition('cpes-online', cpesOnline);
             updateStatWithTransition('cpes-offline', cpeCountData.total_cpes - cpesOnline);
 
+            // Router KPIs
+            updateStatWithTransition('total-routers', allRouters.length);
+            updateStatWithTransition('routers-online', routersOnline);
+            updateStatWithTransition('routers-offline', allRouters.length - routersOnline);
+
             loadTopStats();
 
         } catch (error) {
             console.error("Dashboard Load Error:", error);
         }
     }
-    
+
     function updateStatWithTransition(elementId, newValue) {
         const element = document.getElementById(elementId);
         if (!element) return;
@@ -282,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
             element.style.opacity = '1';
         }, 200);
     }
-    
+
     // --- INIT ---
     loadInitialData();
     window.addEventListener('data-refresh-needed', () => loadInitialData());
