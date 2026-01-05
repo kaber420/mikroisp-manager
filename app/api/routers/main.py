@@ -285,6 +285,23 @@ async def get_queue_stats(
         raise HTTPException(status_code=500, detail=f"Error fetching queue stats: {e}")
 
 
+# --- Router Historical Stats Endpoint ---
+@router.get("/routers/{host}/history")
+async def get_router_history(
+    host: str,
+    range_hours: int = 24,
+    current_user: User = Depends(require_technician),
+):
+    """
+    Get historical stats for a router (CPU, Memory, etc.) over time.
+    Default range is last 24 hours.
+    """
+    from ...db.stats_db import get_router_monitor_stats_history
+    
+    data = get_router_monitor_stats_history(host, range_hours)
+    return {"status": "success", "data": data}
+
+
 # --- Inclusión de los otros módulos de la API de routers ---
 router.include_router(config.router, prefix="/routers/{host}")
 router.include_router(pppoe.router, prefix="/routers/{host}")

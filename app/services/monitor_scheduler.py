@@ -7,12 +7,15 @@ from datetime import datetime
 from ..utils.cache import cache_manager
 from .router_connector import router_connector
 from ..db import router_db
+from ..db.stats_db import save_router_monitor_stats
 
 logger = logging.getLogger(__name__)
 
 # Configurable timeout via environment variable (default: 30 seconds)
 UNSUBSCRIBE_TIMEOUT = int(os.getenv("MONITOR_UNSUBSCRIBE_TIMEOUT", "30"))
 CLEANUP_CHECK_INTERVAL = 10  # Check for expired routers every 10 seconds
+# Interval for saving router stats to history (default: 5 minutes)
+ROUTER_HISTORY_INTERVAL = int(os.getenv("ROUTER_HISTORY_INTERVAL", "300"))
 
 
 class MonitorScheduler:
@@ -30,7 +33,8 @@ class MonitorScheduler:
         if host not in self._subscribed_routers:
             self._subscribed_routers[host] = {
                 "ref_count": 0,
-                "last_unsubscribe_time": None
+                "last_unsubscribe_time": None,
+                "last_history_save": None
             }
         
         info = self._subscribed_routers[host]
@@ -157,7 +161,8 @@ class MonitorScheduler:
                 tasks = [self._poll_host(host) for host, _ in active_targets]
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 
-                for (host, _), result in zip(active_targets, results):
+                current_time = datetime.now()
+                for (host, info), result in zip(active_targets, results):
                     if isinstance(result, Exception):
                         logger.error(f"[MonitorScheduler] Error polling {host}: {result}")
                         stats_cache.set(host, {"error": str(result)})
@@ -165,6 +170,16 @@ class MonitorScheduler:
                     elif result:
                         stats_cache.set(host, result)
                         await self._update_db_status(host, "online", result)
+                        
+                        # Save to history if enough time has passed
+                        last_save = info.get("last_history_save")
+                        if last_save is None or (current_time - last_save).total_seconds() >= ROUTER_HISTORY_INTERVAL:
+                            try:
+                                await asyncio.to_thread(save_router_monitor_stats, host, result)
+                                info["last_history_save"] = current_time
+                                logger.debug(f"[MonitorScheduler] Saved history for {host}")
+                            except Exception as e:
+                                logger.error(f"[MonitorScheduler] Failed to save history for {host}: {e}")
 
                 await asyncio.sleep(self.poll_interval)
         finally:

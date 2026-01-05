@@ -391,6 +391,33 @@ def _setup_stats_db():
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_event_logs_host ON event_logs (device_host);"
     )
+
+    # --- HISTORIAL DE ROUTERS ---
+    cursor.execute(
+        """
+    CREATE TABLE IF NOT EXISTS router_stats_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp DATETIME NOT NULL,
+        router_host TEXT NOT NULL,
+        cpu_load REAL,
+        free_memory INTEGER,
+        total_memory INTEGER,
+        free_hdd INTEGER,
+        total_hdd INTEGER,
+        voltage REAL,
+        temperature REAL,
+        uptime INTEGER,
+        board_name TEXT,
+        version TEXT
+    )
+    """
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_router_stats_host ON router_stats_history (router_host);"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_router_stats_host_ts ON router_stats_history (router_host, timestamp DESC);"
+    )
     
     # --- MIGRATIONS ---
     # Add vendor column to ap_stats_history if not exists

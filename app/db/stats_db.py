@@ -8,6 +8,107 @@ from .base import get_db_connection, get_stats_db_connection
 from .init_db import _setup_stats_db  # Usamos la función de configuración
 
 
+def save_router_monitor_stats(router_host: str, stats: Dict[str, Any]) -> bool:
+    """
+    Guarda las estadísticas de un router en la tabla de historial.
+    Retorna True si se guardó exitosamente, False en caso de error.
+    
+    Expected stats format from fetch_router_stats():
+    {
+        "cpu_load": 5,
+        "free_memory": 100000,
+        "total_memory": 200000,
+        "uptime": "1w2d",
+        "version": "7.x",
+        "board_name": "RB4011",
+        "total_disk": 16777216,
+        "free_disk": 8388608,
+        "voltage": 24.5,
+        "temperature": 35,
+        ...
+    }
+    """
+    _setup_stats_db()
+    
+    conn = get_stats_db_connection()
+    if not conn:
+        return False
+    
+    cursor = conn.cursor()
+    timestamp = datetime.utcnow()
+    
+    try:
+        # Direct mapping from flat stats dict (from fetch_router_stats)
+        cursor.execute(
+            """
+            INSERT INTO router_stats_history (
+                timestamp, router_host, cpu_load, free_memory, total_memory,
+                free_hdd, total_hdd, voltage, temperature, uptime,
+                board_name, version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (
+                timestamp,
+                router_host,
+                stats.get("cpu_load"),
+                stats.get("free_memory"),
+                stats.get("total_memory"),
+                stats.get("free_disk"),  # Renamed from free_hdd
+                stats.get("total_disk"),  # Renamed from total_hdd
+                stats.get("voltage"),
+                stats.get("temperature"),
+                stats.get("uptime"),
+                stats.get("board_name"),
+                stats.get("version"),
+            ),
+        )
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"Error guardando stats de router {router_host}: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def get_router_monitor_stats_history(
+    router_host: str, range_hours: int = 24
+) -> List[Dict[str, Any]]:
+    """
+    Retrieves historical stats for a router from the stats database.
+    
+    Args:
+        router_host: The router IP/hostname.
+        range_hours: How many hours of history to fetch (default 24).
+    
+    Returns:
+        A list of dicts with timestamp and stats.
+    """
+    conn = get_stats_db_connection()
+    if not conn:
+        return []
+    
+    try:
+        query = """
+            SELECT 
+                timestamp, cpu_load, free_memory, total_memory,
+                free_hdd, total_hdd, voltage, temperature, uptime,
+                board_name, version
+            FROM router_stats_history
+            WHERE router_host = ?
+              AND timestamp >= datetime('now', '-' || ? || ' hours')
+            ORDER BY timestamp ASC
+        """
+        cursor = conn.execute(query, (router_host, range_hours))
+        rows = [dict(row) for row in cursor.fetchall()]
+        return rows
+    except Exception as e:
+        print(f"Error fetching router history for {router_host}: {e}")
+        return []
+    finally:
+        conn.close()
+
+
 def save_device_stats(ap_host: str, status: "DeviceStatus", vendor: str = "ubiquiti"):
     """
     Saves device status from adapters to the stats database.
