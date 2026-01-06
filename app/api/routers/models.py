@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 
 
 # --- Existing Router Models ---
@@ -41,6 +41,7 @@ class RouterUpdate(BaseModel):
 class ProvisionRequest(BaseModel):
     new_api_user: str
     new_api_password: str
+    method: Literal["api", "ssh"] = "api"  # 'api' uses existing API method, 'ssh' uses pure SSH method
 
 
 class ProvisionResponse(BaseModel):

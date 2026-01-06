@@ -207,6 +207,18 @@
                             class="w-full bg-background border border-border-color rounded-md p-2">
                     </div>
 
+                    <div>
+                        <label for="provision-method" class="block text-sm font-medium mb-1">Provisioning Method</label>
+                        <select id="provision-method" x-model="currentProvisionTarget.method"
+                            class="w-full bg-background border border-border-color rounded-md p-2">
+                            <option value="api">API (Default - requires API port open)</option>
+                            <option value="ssh">SSH (Use when API is disabled)</option>
+                        </select>
+                        <p class="text-xs text-text-secondary mt-1" x-show="currentProvisionTarget.method === 'ssh'">
+                            SSH method connects via port 22 and configures api-ssl directly.
+                        </p>
+                    </div>
+
                     <div x-show="isProvisioning || provisionError || provisionSuccess" class="space-y-2 pt-4">
                         <div class="flex items-center gap-2"
                             :class="{'text-warning': isProvisioning, 'text-danger': provisionError, 'text-success': provisionSuccess}">

@@ -9,7 +9,7 @@ document.addEventListener('alpine:init', () => {
         isRouterModalOpen: false,
         isProvisionModalOpen: false,
         currentRouter: {},
-        currentProvisionTarget: { newUser: 'api-user', newPass: '' },
+        currentProvisionTarget: { newUser: 'api-user', newPass: '', method: 'api' },
         routerError: '',
         provisionError: '',
         provisionSuccess: '',
@@ -143,14 +143,15 @@ document.addEventListener('alpine:init', () => {
                 host: router.host,
                 hostname: router.hostname,
                 newUser: 'api-user',
-                newPass: ''
+                newPass: '',
+                method: 'api'
             };
             this.isProvisionModalOpen = true;
         },
 
         closeProvisionModal() {
             this.isProvisionModalOpen = false;
-            this.currentProvisionTarget = { newUser: 'api-user', newPass: '' };
+            this.currentProvisionTarget = { newUser: 'api-user', newPass: '', method: 'api' };
         },
 
         async handleProvisionSubmit() {
@@ -174,7 +175,8 @@ document.addEventListener('alpine:init', () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         new_api_user: this.currentProvisionTarget.newUser,
-                        new_api_password: this.currentProvisionTarget.newPass
+                        new_api_password: this.currentProvisionTarget.newPass,
+                        method: this.currentProvisionTarget.method
                     })
                 });
 
