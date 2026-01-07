@@ -186,3 +186,7 @@ inventory.sqlite-shm
 .env
 *.backup
 *.rsc
+
+# Sensitive data
+data/known_hosts
+data/db/

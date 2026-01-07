@@ -165,16 +165,12 @@ export async function loadHistory(rangeHours = 24) {
 }
 
 /**
- * Initialize the history tab event listener.
+ * Initialize the history charts on page load.
+ * Charts are now in the Overview tab, so load them immediately.
  */
 export function initHistoryTab() {
-    const historyTabBtn = document.querySelector('[data-tab="history"]');
-    if (historyTabBtn) {
-        historyTabBtn.addEventListener('click', () => {
-            // Load history when tab is clicked
-            loadHistory(24);
-        });
-    }
+    // Load history immediately since charts are now on the Overview tab
+    loadHistory(24);
 
     // Range selector (if present)
     const rangeSelect = document.getElementById('history-range-select');
@@ -184,3 +180,4 @@ export function initHistoryTab() {
         });
     }
 }
+

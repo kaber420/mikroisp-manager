@@ -229,8 +229,6 @@
                     class="tab-button">Users</button>
                 <button @click="activeTab = 'backup'" :class="activeTab === 'backup' ? 'active' : ''"
                     class="tab-button">Backup</button>
-                <button @click="activeTab = 'history'" :class="activeTab === 'history' ? 'active' : ''"
-                    class="tab-button" data-tab="history">History</button>
             </div>
         </div>
         <div x-show="activeTab === 'overview'" class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -322,6 +320,51 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance History Charts (moved from History tab) -->
+        <div x-show="activeTab === 'overview'" class="card">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">timeline</span>
+                    Performance History
+                </h2>
+                <div class="flex items-center gap-2">
+                    <label class="text-sm text-text-secondary">Range:</label>
+                    <select id="history-range-select"
+                        class="bg-background border border-border-color rounded-md p-2 text-sm">
+                        <option value="6">Last 6 Hours</option>
+                        <option value="24" selected>Last 24 Hours</option>
+                        <option value="72">Last 3 Days</option>
+                        <option value="168">Last 7 Days</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="history-loading" class="text-center py-8 text-text-secondary hidden">
+                <span class="material-symbols-outlined animate-spin text-3xl">refresh</span>
+                <p class="mt-2">Loading history data...</p>
+            </div>
+
+            <div id="history-no-data" class="text-center py-8 text-text-secondary hidden">
+                <span class="material-symbols-outlined text-3xl">info</span>
+                <p class="mt-2">No historical data available yet.</p>
+            </div>
+
+            <div id="history-charts-container" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-surface-2 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold mb-3">CPU Load</h3>
+                    <div class="h-64">
+                        <canvas id="history-cpu-chart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-surface-2 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold mb-3">Memory Usage</h3>
+                    <div class="h-64">
+                        <canvas id="history-memory-chart"></canvas>
                     </div>
                 </div>
             </div>
@@ -801,52 +844,7 @@
             </div>
         </div>
 
-        <!-- History Tab -->
-        <div x-show="activeTab === 'history'" class="space-y-6">
-            <div class="card">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-bold flex items-center gap-2">
-                        <span class="material-symbols-outlined text-primary">timeline</span>
-                        Router Performance History
-                    </h2>
-                    <div class="flex items-center gap-2">
-                        <label class="text-sm text-text-secondary">Range:</label>
-                        <select id="history-range-select"
-                            class="bg-background border border-border-color rounded-md p-2 text-sm">
-                            <option value="6">Last 6 Hours</option>
-                            <option value="24" selected>Last 24 Hours</option>
-                            <option value="72">Last 3 Days</option>
-                            <option value="168">Last 7 Days</option>
-                        </select>
-                    </div>
-                </div>
 
-                <div id="history-loading" class="text-center py-8 text-text-secondary hidden">
-                    <span class="material-symbols-outlined animate-spin text-3xl">refresh</span>
-                    <p class="mt-2">Loading history data...</p>
-                </div>
-
-                <div id="history-no-data" class="text-center py-8 text-text-secondary hidden">
-                    <span class="material-symbols-outlined text-3xl">info</span>
-                    <p class="mt-2">No historical data available yet.</p>
-                </div>
-
-                <div id="history-charts-container" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-surface-2 rounded-lg p-4">
-                        <h3 class="text-lg font-semibold mb-3">CPU Load</h3>
-                        <div class="h-64">
-                            <canvas id="history-cpu-chart"></canvas>
-                        </div>
-                    </div>
-                    <div class="bg-surface-2 rounded-lg p-4">
-                        <h3 class="text-lg font-semibold mb-3">Memory Usage</h3>
-                        <div class="h-64">
-                            <canvas id="history-memory-chart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <div x-show="activeTab === 'backup'" class="card">
             <h2 class="text-xl font-bold mb-4">Gestión de Backups</h2>
