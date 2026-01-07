@@ -145,9 +145,14 @@ class TrustedOriginMiddleware(BaseHTTPMiddleware):
     """
 
     UNSAFE_METHODS = {"POST", "PUT", "DELETE", "PATCH"}
+    SAFE_PATHS = {"/api/internal/"}  # Internal endpoints that don't need origin check
 
     async def dispatch(self, request: Request, call_next):
         if request.method in self.UNSAFE_METHODS:
+            # Skip origin check for internal/safe paths
+            if any(request.url.path.startswith(path) for path in self.SAFE_PATHS):
+                return await call_next(request)
+            
             origin = request.headers.get("origin")
             referer = request.headers.get("referer")
 
@@ -159,22 +164,43 @@ class TrustedOriginMiddleware(BaseHTTPMiddleware):
                 parsed = urlparse(referer)
                 request_origin = f"{parsed.scheme}://{parsed.netloc}"
 
-            # If no origin info at all (e.g., direct curl without headers), allow.
-            # This is for internal/API tools. Browser attacks ALWAYS send Origin/Referer.
-            if request_origin:
-                # Normalize and check against allowed origins
-                is_trusted = False
-                for allowed in origins:  # 'origins' from CORS config
-                    if request_origin == allowed or request_origin.rstrip("/") == allowed.rstrip("/"):
-                        is_trusted = True
-                        break
-
-                if not is_trusted:
-                    print(f"🛡️ [Origin Shield] BLOCKED request from untrusted origin: {request_origin}")
+            # SECURITY: Block requests without Origin/Referer from browsers.
+            # Exception: Allow if it's likely a non-browser client (API tools).
+            # Browser requests for POST/PUT/DELETE ALWAYS include Origin or Referer.
+            if not request_origin:
+                # Check if this looks like an API client (has Authorization header)
+                # or internal tool vs a browser without origin headers (suspicious)
+                has_auth = request.headers.get("authorization") is not None
+                if not has_auth:
+                    print(f"🛡️ [Origin Shield] BLOCKED: Missing Origin/Referer for {request.method} {request.url.path}")
                     return JSONResponse(
                         status_code=status.HTTP_403_FORBIDDEN,
-                        content={"detail": "Forbidden: Invalid origin"}
+                        content={"detail": "Forbidden: Missing origin information"}
                     )
+                # Allow API clients with explicit auth
+                return await call_next(request)
+            
+            # Normalize both sides for comparison
+            is_trusted = False
+            request_origin_normalized = request_origin.rstrip("/")
+            
+            for allowed in origins:
+                allowed_normalized = allowed.rstrip("/")
+                # Support both http and https for the same host in development
+                if request_origin_normalized == allowed_normalized:
+                    is_trusted = True
+                    break
+                # Also check if only the scheme differs (http vs https)
+                if request_origin_normalized.replace("https://", "http://") == allowed_normalized.replace("https://", "http://"):
+                    is_trusted = True
+                    break
+
+            if not is_trusted:
+                print(f"🛡️ [Origin Shield] BLOCKED request from untrusted origin: {request_origin}")
+                return JSONResponse(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    content={"detail": "Forbidden: Invalid origin"}
+                )
 
         return await call_next(request)
 
@@ -186,11 +212,83 @@ app.add_middleware(TrustedOriginMiddleware)
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
+    
+    # Prevenir que el sitio sea embebido en iframes (Clickjacking)
     response.headers["X-Frame-Options"] = "DENY"
+    
+    # Prevenir que el navegador intente adivinar el tipo de contenido (MIME Sniffing)
     response.headers["X-Content-Type-Options"] = "nosniff"
+    
+    # Filtro XSS legacy para navegadores antiguos
     response.headers["X-XSS-Protection"] = "1; mode=block"
+    
+    # Controlar cuánta información se envía en el Referer
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    
+    # HSTS: Forzar HTTPS (solo si APP_ENV es producción)
+    if os.getenv("APP_ENV", "development") == "production":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+    
+    # Permissions Policy: Restringir acceso a hardware y APIs sensibles si no se usan
+    # Ajusta según las necesidades de tu app (cámara, micro, gps, etc.)
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+    
     return response
+
+
+# --- SEGURIDAD: RATE LIMITING MIDDLEWARE ---
+# Simple in-memory rate limiter for authentication endpoints
+from collections import defaultdict
+from time import time
+
+_rate_limit_store = defaultdict(list)
+_RATE_LIMITS = {
+    "/auth/cookie/login": (5, 60),      # 5 attempts per 60 seconds
+    "/auth/register": (3, 60),           # 3 attempts per 60 seconds  
+    "/auth/jwt/login": (10, 60),         # 10 attempts per 60 seconds (API)
+}
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """Rate limiting for sensitive authentication endpoints"""
+    path = request.url.path
+    
+    # Check if this path needs rate limiting
+    if path in _RATE_LIMITS and request.method == "POST":
+        max_requests, window_seconds = _RATE_LIMITS[path]
+        client_ip = request.client.host if request.client else "unknown"
+        key = f"{client_ip}:{path}"
+        
+        now = time()
+        # Clean old entries outside the time window
+        _rate_limit_store[key] = [
+            timestamp for timestamp in _rate_limit_store[key]
+            if now - timestamp < window_seconds
+        ]
+        
+        # Check if rate limit exceeded
+        if len(_rate_limit_store[key]) >= max_requests:
+            if path == "/auth/cookie/login":
+                # Return HTML error for web login
+                return templates.TemplateResponse(
+                    "login.html",
+                    {
+                        "request": request,
+                        "error_message": "⚠️ Demasiados intentos fallidos. Por favor, espera 1 minuto.",
+                    },
+                    status_code=429,
+                )
+            else:
+                # Return JSON error for API endpoints
+                return JSONResponse(
+                    content={"error": "Rate limit exceeded. Please try again later."},
+                    status_code=429
+                )
+        
+        # Record this request
+        _rate_limit_store[key].append(now)
+    
+    return await call_next(request)
 
 
 # --- Configuración de Directorios ---
@@ -258,15 +356,36 @@ async def _handle_http_exception(request: Request, status_code: int, detail: str
 async def websocket_dashboard(
     websocket: WebSocket, umonitorpro_access_token_v2: str = Cookie(None)
 ):
-    # --- DEBUG: Imprimir qué está pasando ---
+    # --- SECURITY: Validate authentication cookie ---
     if umonitorpro_access_token_v2 is None:
         print(
-            f"⚠️ [WebSocket] Rechazado: No se encontró la cookie '{ACCESS_TOKEN_COOKIE_NAME}' (var name mismatched?)."
+            f"⚠️ [WebSocket] Rechazado: No se encontró la cookie '{ACCESS_TOKEN_COOKIE_NAME}'."
         )
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
+    
+    # --- SECURITY: Validate Origin header to prevent CSWSH ---
+    # (Cross-Site WebSocket Hijacking)
+    origin = websocket.headers.get("origin")
+    if origin:
+        origin_normalized = origin.rstrip("/")
+        is_trusted_origin = False
+        for allowed in origins:
+            allowed_normalized = allowed.rstrip("/")
+            if origin_normalized == allowed_normalized:
+                is_trusted_origin = True
+                break
+            # Also check http vs https variance
+            if origin_normalized.replace("https://", "http://") == allowed_normalized.replace("https://", "http://"):
+                is_trusted_origin = True
+                break
+        
+        if not is_trusted_origin:
+            print(f"🛡️ [WebSocket] BLOCKED: Untrusted origin {origin}")
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
 
-    # ----------------------------------------
+    # --- Accept connection ---
     await manager.connect(websocket)
     try:
         while True:
@@ -290,6 +409,7 @@ async def notify_monitor_update():
 app.include_router(views_router)
 
 # 2. FastAPI Users Routers (Behavior largely replaces old manual auth)
+# Rate limiting is handled by rate_limit_middleware for auth endpoints
 app.include_router(
     fastapi_users.get_auth_router(auth_backend_jwt),
     prefix="/auth/jwt",

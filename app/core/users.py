@@ -41,7 +41,7 @@ cookie_transport = CookieTransport(
     cookie_max_age=ACCESS_TOKEN_LIFETIME_SECONDS,
     cookie_httponly=True,  # Prevent XSS attacks
     cookie_secure=(APP_ENV == "production"),  # HTTPS only in production
-    cookie_samesite="lax",  # CSRF protection
+    cookie_samesite="lax",  # CSRF protection (lax is usually best for compatibility)
 )
 
 

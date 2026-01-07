@@ -200,7 +200,13 @@ def start_api_server():
     host = os.getenv("UVICORN_HOST", "0.0.0.0")
     port = int(os.getenv("UVICORN_PORT", 7777))
 
-    config = Config(app=fastapi_app, host=host, port=port, log_level="info")
+    config = Config(
+        app=fastapi_app, 
+        host=host, 
+        port=port, 
+        log_level="info",
+        server_header=False  # --- SEGURIDAD: No revelar 'server: uvicorn' ---
+    )
     try:
         Server(config).run()
     except KeyboardInterrupt:

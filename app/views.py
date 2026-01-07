@@ -29,6 +29,7 @@ async def get_current_user_or_redirect(
 @router.get("/login", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_login_form(request: Request):
     """Login page"""
+    # Rate limit is applied to POST /auth/cookie/login in main.py
     return templates.TemplateResponse("login.html", {"request": request})
 
 @router.get("/403", response_class=HTMLResponse, tags=["Auth & Pages"])
