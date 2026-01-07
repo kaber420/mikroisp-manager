@@ -190,3 +190,5 @@ inventory.sqlite-shm
 # Sensitive data
 data/known_hosts
 data/db/
+.git_backup/config
+.git_backup/COMMIT_EDITMSG
