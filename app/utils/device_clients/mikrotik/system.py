@@ -286,7 +286,7 @@ def kill_zombie_sessions(api: RouterOsApi, username: str) -> int:
         def get_id_val(s):
             try:
                 return int(s.get(".id", "").replace("*", ""), 16)
-            except:
+            except (ValueError, AttributeError):  # Invalid ID format, sort last
                 return 0
 
         sessions.sort(key=get_id_val)

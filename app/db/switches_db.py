@@ -93,6 +93,13 @@ def create_switch_in_db(switch_data: Dict[str, Any]) -> Dict[str, Any]:
     return new_switch
 
 
+_SWITCH_ALLOWED_COLUMNS = frozenset([
+    "username", "password", "zona_id", "api_port", "api_ssl_port", "is_enabled",
+    "hostname", "model", "firmware", "mac_address", "location", "notes",
+    "last_status", "last_checked"
+])
+
+
 def update_switch_in_db(host: str, updates: Dict[str, Any]) -> int:
     """
     Función genérica para actualizar cualquier campo de un switch.
@@ -100,6 +107,11 @@ def update_switch_in_db(host: str, updates: Dict[str, Any]) -> int:
     """
     if not updates:
         return 0
+    
+    # Validate column names against whitelist to prevent SQL injection
+    invalid_keys = set(updates.keys()) - _SWITCH_ALLOWED_COLUMNS
+    if invalid_keys:
+        raise ValueError(f"Invalid column names: {invalid_keys}")
 
     # Cifrar la contraseña si se está actualizando
     if "password" in updates and updates["password"]:
@@ -107,11 +119,11 @@ def update_switch_in_db(host: str, updates: Dict[str, Any]) -> int:
 
     conn = get_db_connection()
     try:
-        set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])
+        set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])  # nosec B608
         values = list(updates.values())
         values.append(host)
 
-        query = f"UPDATE switches SET {set_clause} WHERE host = ?"
+        query = f"UPDATE switches SET {set_clause} WHERE host = ?"  # nosec B608
         cursor = conn.execute(query, tuple(values))
         conn.commit()
         return cursor.rowcount

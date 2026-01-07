@@ -119,7 +119,7 @@ class MikrotikRouterAdapter(BaseDeviceAdapter):
         if self._pool_ref:
              try:
                  self._pool_ref.disconnect()
-             except:
+             except Exception:  # nosec B110 - Pool disconnect cleanup
                  pass
              self._pool_ref = None
              self._internal_api = None

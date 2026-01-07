@@ -257,8 +257,8 @@ def get_aggregate_interface_stats(api: RouterOsApi) -> Dict[str, int]:
                  # Current bits/sec usually requires /interface/monitor-traffic or is in 'print stats' in newer versions?
                  # 'print stats' usually has cumulative bytes.
                  # 'monitor-traffic' is needed for live throughput.
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to get interface stats: {e}")
 
     # Monitor traffic for throughput (expensive if many interfaces, but accurate)
     for iface_name in filtered_interfaces:
@@ -270,8 +270,8 @@ def get_aggregate_interface_stats(api: RouterOsApi) -> Dict[str, int]:
                  rx_bps = mikrotik_parsers.parse_throughput_bps(data.get("rx-bits-per-second")) or 0
                  total_tx_speed += tx_bps
                  total_rx_speed += rx_bps
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to monitor traffic for {iface_name}: {e}")
 
     return {
         "tx_bytes": total_tx,

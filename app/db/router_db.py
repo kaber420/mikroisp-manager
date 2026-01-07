@@ -87,6 +87,12 @@ def create_router_in_db(router_data: Dict[str, Any]) -> Dict[str, Any]:
     return new_router
 
 
+_ROUTER_ALLOWED_COLUMNS = frozenset([
+    "username", "password", "zona_id", "api_port", "api_ssl_port", "is_enabled",
+    "is_provisioned", "hostname", "model", "firmware", "last_status", "last_checked"
+])
+
+
 def update_router_in_db(host: str, updates: Dict[str, Any]) -> int:
     """
     Función genérica para actualizar cualquier campo de un router.
@@ -94,18 +100,23 @@ def update_router_in_db(host: str, updates: Dict[str, Any]) -> int:
     """
     if not updates:
         return 0
+    
+    # Validate column names against whitelist to prevent SQL injection
+    invalid_keys = set(updates.keys()) - _ROUTER_ALLOWED_COLUMNS
+    if invalid_keys:
+        raise ValueError(f"Invalid column names: {invalid_keys}")
 
-    # --- CAMBIO: Cifrar la contraseña si se está actualizando ---
+    # Cifrar la contraseña si se está actualizando
     if "password" in updates and updates["password"]:
         updates["password"] = encrypt_data(updates["password"])
 
     conn = get_db_connection()
     try:
-        set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])
+        set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])  # nosec B608
         values = list(updates.values())
         values.append(host)
 
-        query = f"UPDATE routers SET {set_clause} WHERE host = ?"
+        query = f"UPDATE routers SET {set_clause} WHERE host = ?"  # nosec B608
         cursor = conn.execute(query, tuple(values))
         conn.commit()
         return cursor.rowcount

@@ -239,10 +239,10 @@ def import_certificate(
                 if f.get("name") in [cert_filename, key_filename]:
                     try:
                          file_resource.remove(id=f.get(".id"))
-                    except:
-                         pass
-        except:
-            pass
+                    except Exception:  # nosec B110 - Cleanup, ignore failures
+                         logger.debug("Failed to remove temp file during cleanup")
+        except Exception:  # nosec B110 - Cleanup errors are non-critical
+            logger.debug("Failed to list files for cleanup")
         
         # === STEP 5: FLUSH LOCAL POOL ===
         mikrotik_connection.remove_pool(host, port, username)
@@ -260,8 +260,9 @@ def import_certificate(
         try:
             if ssh_client:
                try: ssh_client.disconnect() 
-               except: pass
-        except:
+               except Exception:  # nosec B110
+                   pass  # SSH already disconnected is OK
+        except Exception:  # nosec B110 - Cleanup in finally block
             pass
 
 
@@ -304,8 +305,8 @@ def install_ca_certificate(
             if cert.get("name") == ca_remote_path or cert.get("name") == ca_name:
                 try:
                     cert_resource.remove(id=cert.get(".id"))
-                except:
-                    pass
+                except Exception:  # nosec B110 - Old CA removal is optional
+                    logger.debug("Failed to remove old CA certificate")
 
         cert_resource.call("import", {
             "file-name": ca_remote_path,

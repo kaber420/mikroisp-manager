@@ -30,21 +30,34 @@ def get_all_zonas() -> List[Dict[str, Any]]:
     return zonas
 
 
+_ZONA_ALLOWED_COLUMNS = frozenset([
+    "nombre", "descripcion", "notas_sensibles", "direccion", "contacto"
+])
+
+
 def update_zona_details(
     zona_id: int, updates: Dict[str, Any]
 ) -> Optional[Dict[str, Any]]:
+    if not updates:
+        return get_zona_by_id(zona_id)
+    
+    # Validate column names against whitelist to prevent SQL injection
+    invalid_keys = set(updates.keys()) - _ZONA_ALLOWED_COLUMNS
+    if invalid_keys:
+        raise ValueError(f"Invalid column names: {invalid_keys}")
+    
     conn = get_db_connection()
 
     if "notas_sensibles" in updates and updates["notas_sensibles"] is not None:
         updates["notas_sensibles"] = encrypt_data(updates["notas_sensibles"])
 
-    set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])
+    set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])  # nosec B608
     values = list(updates.values())
     values.append(zona_id)
 
     try:
         cursor = conn.execute(
-            f"UPDATE zonas SET {set_clause} WHERE id = ?", tuple(values)
+            f"UPDATE zonas SET {set_clause} WHERE id = ?", tuple(values)  # nosec B608
         )
         conn.commit()
         if cursor.rowcount == 0:
@@ -103,24 +116,40 @@ def get_infra_by_zona_id(zona_id: int) -> Optional[Dict[str, Any]]:
     return dict(row) if row else None
 
 
+_INFRA_ALLOWED_COLUMNS = frozenset([
+    "router_principal", "router_respaldo", "switch_principal", "switch_respaldo",
+    "ups_modelo", "ups_capacidad", "panel_solar", "bateria_modelo", "bateria_capacidad",
+    "rack_tipo", "rack_unidades", "notas"
+])
+
+
 def update_or_create_infra(zona_id: int, infra_data: Dict[str, Any]) -> Dict[str, Any]:
+    if not infra_data:
+        existing = get_infra_by_zona_id(zona_id)
+        return existing if existing else {}
+    
+    # Validate column names against whitelist to prevent SQL injection
+    invalid_keys = set(infra_data.keys()) - _INFRA_ALLOWED_COLUMNS
+    if invalid_keys:
+        raise ValueError(f"Invalid column names: {invalid_keys}")
+    
     conn = get_db_connection()
     existing_infra = get_infra_by_zona_id(zona_id)
 
     if existing_infra:
-        set_clause = ", ".join([f"{key} = ?" for key in infra_data.keys()])
+        set_clause = ", ".join([f"{key} = ?" for key in infra_data.keys()])  # nosec B608
         values = list(infra_data.values())
         values.append(zona_id)
         conn.execute(
-            f"UPDATE zona_infraestructura SET {set_clause} WHERE zona_id = ?",
+            f"UPDATE zona_infraestructura SET {set_clause} WHERE zona_id = ?",  # nosec B608
             tuple(values),
         )
     else:
-        columns = ", ".join(infra_data.keys())
+        columns = ", ".join(infra_data.keys())  # nosec B608
         placeholders = ", ".join(["?"] * len(infra_data))
         values = list(infra_data.values())
         conn.execute(
-            f"INSERT INTO zona_infraestructura (zona_id, {columns}) VALUES (?, {placeholders})",
+            f"INSERT INTO zona_infraestructura (zona_id, {columns}) VALUES (?, {placeholders})",  # nosec B608
             (zona_id, *values),
         )
 

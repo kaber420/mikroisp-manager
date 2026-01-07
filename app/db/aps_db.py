@@ -209,18 +209,33 @@ def get_ap_by_host_with_stats(host: str) -> Optional[Dict[str, Any]]:
     return dict(row) if row else None
 
 
+_APS_ALLOWED_COLUMNS = frozenset([
+    "username", "password", "zona_id", "is_enabled", "monitor_interval",
+    "mac", "hostname", "model", "firmware", "last_status", "last_seen", 
+    "last_checked", "vendor", "api_port"
+])
+
+
 def update_ap_in_db(host: str, updates: Dict[str, Any]) -> int:
     """Actualiza un AP en la base de datos y devuelve el número de filas afectadas."""
+    if not updates:
+        return 0
+    
+    # Validate column names against whitelist to prevent SQL injection
+    invalid_keys = set(updates.keys()) - _APS_ALLOWED_COLUMNS
+    if invalid_keys:
+        raise ValueError(f"Invalid column names: {invalid_keys}")
+    
     conn = get_db_connection()
 
     if "password" in updates and updates["password"]:
         updates["password"] = encrypt_data(updates["password"])
 
-    set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])
+    set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])  # nosec B608
     values = list(updates.values())
     values.append(host)
 
-    cursor = conn.execute(f"UPDATE aps SET {set_clause} WHERE host = ?", tuple(values))
+    cursor = conn.execute(f"UPDATE aps SET {set_clause} WHERE host = ?", tuple(values))  # nosec B608
     conn.commit()
     rowcount = cursor.rowcount
     conn.close()

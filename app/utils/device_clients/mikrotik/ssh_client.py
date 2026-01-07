@@ -155,7 +155,7 @@ class MikrotikSSHClient:
         if not self.is_connected():
             raise RuntimeError("SSH client is not connected")
         
-        return self._client.exec_command(command, get_pty=get_pty, timeout=timeout)
+        return self._client.exec_command(command, get_pty=get_pty, timeout=timeout)  # nosec B601
     
     def open_sftp(self) -> paramiko.SFTPClient:
         """

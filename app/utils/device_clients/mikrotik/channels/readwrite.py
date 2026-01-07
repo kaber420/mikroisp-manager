@@ -31,5 +31,5 @@ def get_config_channel(host: str, username: str, password: str, port: int = 8729
     finally:
         try:
             pool.disconnect()
-        except:
+        except Exception:  # nosec B110 - Disconnect cleanup, safe to ignore
             pass
