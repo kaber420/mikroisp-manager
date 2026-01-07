@@ -101,6 +101,19 @@
                                     x-text="ap.airtime_total_usage != null ? `${(ap.airtime_total_usage / 10.0).toFixed(1)}%` : 'N/A'">
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right">
+                                    <!-- Provision button for MikroTik APs only -->
+                                    <template x-if="ap.vendor === 'mikrotik' && !ap.is_provisioned">
+                                        <button @click.stop="openProvisionModal(ap)"
+                                            class="px-2 py-1 text-xs font-semibold rounded-md bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 mr-2"
+                                            title="Provision AP">Provision</button>
+                                    </template>
+                                    <!-- Secured badge for provisioned MikroTik APs -->
+                                    <template x-if="ap.vendor === 'mikrotik' && ap.is_provisioned">
+                                        <span
+                                            class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success/20 text-success border border-success/30 mr-2">
+                                            <span class="material-symbols-outlined text-xs mr-1">lock</span>Secured
+                                        </span>
+                                    </template>
                                     <button @click.stop="openModal(ap)"
                                         class="text-text-secondary hover:text-primary p-1 mr-2"><span
                                             class="material-symbols-outlined">edit</span></button>
@@ -228,9 +241,13 @@
             </form>
         </div>
     </div>
+
+    <!-- Provision Modal (Shared Component) -->
+    {% include 'partials/provision_modal.html' %}
 </div>
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/provision.js" defer></script>
 <script src="/static/js/aps.js" defer></script>
 {% endblock %}

@@ -2,6 +2,9 @@
 
 document.addEventListener('alpine:init', () => {
     Alpine.data('apManager', () => ({
+        // Spread the shared provisioning mixin
+        ...window.provisionMixin,
+
         // State
         aps: [],
         allZones: [],
@@ -311,6 +314,12 @@ document.addEventListener('alpine:init', () => {
         getZoneName(zoneId) {
             const zone = this.allZones.find(z => z.id === zoneId);
             return zone ? zone.nombre : 'Unassigned';
+        },
+
+        // Override openProvisionModal to set AP-specific values
+        openProvisionModal(ap) {
+            // Call base mixin method with AP-specific config
+            window.provisionMixin.openProvisionModal.call(this, ap, 'AP', '/api/aps');
         },
     }));
 });

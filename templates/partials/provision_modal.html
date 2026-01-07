@@ -1,0 +1,83 @@
+{#
+Shared Provisioning Modal Component
+Usage: {% raw %}{% include 'partials/provision_modal.html' %}{% endraw %}
+
+Requires parent Alpine component to have provisionMixin (from provision.js)
+#}
+<div x-show="isProvisionModalOpen" x-cloak
+    class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div @click.away="closeProvisionModal()"
+        class="bg-surface-1 border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <form @submit.prevent="handleProvisionSubmit()">
+            <div class="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
+                <h3 class="text-2xl font-bold text-white">
+                    Provision <span x-text="provisionDeviceType"></span>:
+                    <span x-text="currentProvisionTarget.hostname || currentProvisionTarget.host"></span>
+                </h3>
+                <button type="button" @click="closeProvisionModal()"
+                    class="text-text-secondary hover:text-white text-2xl">&times;</button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <p class="text-text-secondary">
+                    This will create a new dedicated API user and set up an SSL certificate on the MikroTik device.
+                    Please define the credentials for this <strong>new</strong> user.
+                </p>
+
+                <div>
+                    <label for="provision-new-user" class="block text-sm font-medium mb-1 text-text-secondary">New API
+                        Username</label>
+                    <input type="text" id="provision-new-user" x-model="currentProvisionTarget.newUser" required
+                        class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                </div>
+
+                <div>
+                    <label for="provision-new-pass" class="block text-sm font-medium mb-1 text-text-secondary">New API
+                        Password</label>
+                    <div class="flex gap-2">
+                        <input type="password" id="provision-new-pass" x-model="currentProvisionTarget.newPass" required
+                            class="flex-1 bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                        <button type="button" @click="generatePassword()"
+                            class="px-3 py-2 rounded-lg text-sm font-semibold text-white bg-white/10 hover:bg-white/20 transition-colors"
+                            title="Generate secure password">
+                            <span class="material-symbols-outlined text-sm">password</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="provision-method"
+                        class="block text-sm font-medium mb-1 text-text-secondary">Provisioning Method</label>
+                    <select id="provision-method" x-model="currentProvisionTarget.method"
+                        class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                        <option value="ssh" class="bg-surface-1">SSH (Recommended - most secure)</option>
+                        <option value="api" class="bg-surface-1">API (requires API port open)</option>
+                    </select>
+                    <p class="text-xs text-text-secondary mt-1" x-show="currentProvisionTarget.method === 'ssh'">
+                        SSH method connects via port 22 and configures API-SSL directly.
+                    </p>
+                </div>
+
+                <div x-show="isProvisioning || provisionError || provisionSuccess" class="space-y-2 pt-4">
+                    <div class="flex items-center gap-2"
+                        :class="{'text-warning': isProvisioning, 'text-danger': provisionError, 'text-success': provisionSuccess}">
+                        <span x-show="isProvisioning"
+                            class="material-symbols-outlined text-base animate-spin">sync</span>
+                        <span
+                            x-text="isProvisioning ? 'Provisioning, please wait...' : (provisionError || provisionSuccess)"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-6 bg-white/5 rounded-b-lg flex justify-end gap-4">
+                <button type="button" @click="closeProvisionModal()"
+                    class="px-4 py-2 rounded-lg text-sm font-semibold text-text-secondary hover:text-white hover:bg-white/10 transition-colors">Cancel</button>
+                <button type="submit" :disabled="isProvisioning"
+                    class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span x-show="isProvisioning" class="material-symbols-outlined text-base animate-spin">sync</span>
+                    Start Provisioning
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

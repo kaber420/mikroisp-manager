@@ -40,6 +40,10 @@ class AP(BaseModel):
     vendor: Optional[str] = "ubiquiti"  # "ubiquiti" or "mikrotik"
     role: Optional[str] = "access_point"  # "access_point" or "switch"
     api_port: Optional[int] = 443
+    # Provisioning fields
+    api_ssl_port: Optional[int] = 8729
+    is_provisioned: bool = False
+    last_provision_attempt: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -51,6 +55,7 @@ class APCreate(BaseModel):
     is_enabled: bool = True
     monitor_interval: Optional[int] = None
     api_port: int = 443
+    api_ssl_port: int = 8729  # SSL API port for MikroTik
     vendor: str = "ubiquiti"  # "ubiquiti" or "mikrotik"
     role: str = "access_point"  # "access_point" or "switch"
 
@@ -62,6 +67,8 @@ class APUpdate(BaseModel):
     is_enabled: Optional[bool] = None
     monitor_interval: Optional[int] = None
     api_port: Optional[int] = None
+    api_ssl_port: Optional[int] = None
+    is_provisioned: Optional[bool] = None
     vendor: Optional[str] = None
     role: Optional[str] = None
 

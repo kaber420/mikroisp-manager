@@ -335,6 +335,17 @@ async def get_router_by_host(session: AsyncSession, host: str) -> Optional[Route
     return router
 
 async def create_router(session: AsyncSession, router_data: dict) -> Router:
+    """Create a new router in the database.
+    
+    Raises:
+        ValueError: If a router with the same host already exists.
+    """
+    # Check if router with this host already exists
+    host = router_data.get("host")
+    existing_router = await session.get(Router, host)
+    if existing_router:
+        raise ValueError(f"Ya existe un router con la IP '{host}'. Use editar para modificarlo.")
+    
     # Encrypt password
     if "password" in router_data:
         router_data["password"] = encrypt_data(router_data["password"])

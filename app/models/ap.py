@@ -27,6 +27,12 @@ class AP(SQLModel, table=True):
     role: Optional[str] = Field(default="access_point")
     # api_port: custom port for API connections (default 443 for Ubiquiti, 8729 for MikroTik SSL)
     api_port: Optional[int] = Field(default=443)
+    
+    # Provisioning fields (for MikroTik APs)
+    api_ssl_port: Optional[int] = Field(default=8729)
+    is_provisioned: bool = Field(default=False)
+    last_provision_attempt: Optional[datetime] = Field(default=None)
+    last_provision_error: Optional[str] = Field(default=None)
 
     # Relationship
     # zona: Optional["Zona"] = Relationship(back_populates="aps")

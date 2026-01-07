@@ -43,7 +43,7 @@ from .models import (
     ProvisionResponse,
 )
 from . import config, pppoe, system, interfaces, ssl as ssl_router
-from ...services.provisioning_service import ProvisioningService
+from ...services.provisioning import MikrotikProvisioningService
 from ...services.router_connector import router_connector
 
 router = APIRouter()
@@ -219,27 +219,62 @@ async def delete_router(
 async def provision_router_endpoint(
     host: str,
     data: ProvisionRequest,
+    request: Request,
     current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session)
 ):
     """
     Unified Provisioning Endpoint.
     Creates a dedicated API user and installs a trusted SSL certificate via SSH.
-    This is more secure than the legacy API-based provisioning.
+    Uses the shared MikrotikProvisioningService for all MikroTik devices.
     """
     from ...utils.security import decrypt_data, encrypt_data
-    from ...services.pki_service import PKIService
-    from ...utils.device_clients.adapters.mikrotik_router import MikrotikRouterAdapter
+    from ...core.audit import log_action
     
+    # 1. Get router from database
     creds = await get_router_by_host_service(session, host)
     if not creds:
         raise HTTPException(status_code=404, detail="Router no encontrado")
     
-    password = decrypt_data(creds.password)
+    # 2. Decrypt current password
+    current_password = decrypt_data(creds.password)
+    ssl_port = creds.api_ssl_port or 8729
 
     try:
-        result = await ProvisioningService.provision_router(session, host, creds, data)
-        return result
+        # 3. Run provisioning via shared service
+        result = await MikrotikProvisioningService.provision_device(
+            host=host,
+            current_username=creds.username,
+            current_password=current_password,
+            new_user=data.new_api_user,
+            new_password=data.new_api_password,
+            ssl_port=ssl_port,
+            method=data.method,
+            device_type="router",
+            current_api_port=creds.api_port or 8728
+        )
+        
+        if result.get("status") == "error":
+            raise HTTPException(status_code=500, detail=result.get("message", "Provisioning failed"))
+        
+        # 4. Update router in database with new credentials
+        update_data = {
+            "username": data.new_api_user,
+            "password": data.new_api_password,
+            "api_port": ssl_port,  # Now use SSL port for connections
+            "is_provisioned": True,
+        }
+        await update_router_service(session, host, update_data)
+        
+        # 5. Audit log
+        log_action("PROVISION", "router", host, user=current_user, request=request)
+        
+        # 6. Return successful response
+        return ProvisionResponse(
+            status="success",
+            message=result.get("message", "Router provisioned successfully with API-SSL"),
+            method_used=result.get("method_used", data.method)
+        )
 
     except HTTPException:
         raise

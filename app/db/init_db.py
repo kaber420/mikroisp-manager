@@ -294,6 +294,34 @@ def _setup_inventory_db():
         cursor.execute("UPDATE routers SET is_provisioned = TRUE WHERE api_port = api_ssl_port;")
         print("  -> Routers con api_port == api_ssl_port marcados como aprovisionados.")
 
+    # --- Migration: Add provisioning fields to aps table ---
+    ap_columns = [
+        col[1] for col in cursor.execute("PRAGMA table_info(aps)").fetchall()
+    ]
+
+    if "is_provisioned" not in ap_columns:
+        print("Migrando aps: Agregando is_provisioned...")
+        cursor.execute("ALTER TABLE aps ADD COLUMN is_provisioned BOOLEAN DEFAULT FALSE;")
+
+    if "api_ssl_port" not in ap_columns:
+        print("Migrando aps: Agregando api_ssl_port...")
+        cursor.execute("ALTER TABLE aps ADD COLUMN api_ssl_port INTEGER DEFAULT 8729;")
+        
+    if "last_provision_attempt" not in ap_columns:
+        print("Migrando aps: Agregando last_provision_attempt...")
+        cursor.execute("ALTER TABLE aps ADD COLUMN last_provision_attempt DATETIME;")
+
+    if "last_provision_error" not in ap_columns:
+        print("Migrando aps: Agregando last_provision_error...")
+        cursor.execute("ALTER TABLE aps ADD COLUMN last_provision_error TEXT;")
+
+    # Smart default: Mark MikroTik APs already using SSL port (8729) as provisioned
+    cursor.execute("""
+        UPDATE aps SET is_provisioned = TRUE 
+        WHERE vendor = 'mikrotik' AND api_port = 8729;
+    """)
+    # Note: This update runs on each startup but is idempotent
+
     cursor.execute(
         """
     CREATE TABLE IF NOT EXISTS pagos (

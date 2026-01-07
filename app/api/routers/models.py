@@ -47,6 +47,7 @@ class ProvisionRequest(BaseModel):
 class ProvisionResponse(BaseModel):
     status: str
     message: str
+    method_used: Optional[str] = None
 
 
 class GenericActionResponse(BaseModel):

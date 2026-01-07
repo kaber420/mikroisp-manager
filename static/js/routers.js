@@ -2,33 +2,36 @@
 
 document.addEventListener('alpine:init', () => {
     Alpine.data('routerManager', () => ({
+        // Spread the shared provisioning mixin
+        ...window.provisionMixin,
+
         // State
         routers: [],
         allZones: [],
         isLoading: true,
         isRouterModalOpen: false,
-        isProvisionModalOpen: false,
         currentRouter: {},
-        currentProvisionTarget: { newUser: 'api-user', newPass: '', method: 'api' },
         routerError: '',
-        provisionError: '',
-        provisionSuccess: '',
-        isProvisioning: false,
         isEditing: false,
 
-        // --- INIT ACTUALIZADO ---
+        // --- INIT ---
         async init() {
             this.isLoading = true;
             await this.loadData();
             this.isLoading = false;
 
-            // NUEVO: Reactividad
+            // Reactividad global
             window.addEventListener('data-refresh-needed', () => {
                 if (!this.isRouterModalOpen && !this.isProvisionModalOpen) {
                     console.log("⚡ Routers: Recargando estado...");
                     this.loadData();
                 }
             });
+        },
+
+        // Alias for the mixin's auto-refresh after provisioning
+        async loadInitialData() {
+            return this.loadData();
         },
 
         // Methods
@@ -44,7 +47,7 @@ document.addEventListener('alpine:init', () => {
                 this.allZones = await zonesRes.json();
             } catch (error) {
                 console.error('Error loading data:', error);
-                this.routerError = error.message; // Show error on main page if needed
+                this.routerError = error.message;
             }
         },
 
@@ -61,7 +64,6 @@ document.addEventListener('alpine:init', () => {
                 this.currentRouter = {
                     ...router,
                     password: '', // Clear password for security
-
                 };
             } else {
                 this.isEditing = false;
@@ -71,7 +73,6 @@ document.addEventListener('alpine:init', () => {
                     api_port: 8728,
                     username: 'admin',
                     password: '',
-
                 };
             }
             this.isRouterModalOpen = true;
@@ -134,90 +135,10 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        // Provisioning Modal
+        // Override openProvisionModal to set Router-specific values
         openProvisionModal(router) {
-            this.provisionError = '';
-            this.provisionSuccess = '';
-            this.isProvisioning = false;
-            this.currentProvisionTarget = {
-                host: router.host,
-                hostname: router.hostname,
-                newUser: 'api-user',
-                newPass: '',
-                method: 'api'
-            };
-            this.isProvisionModalOpen = true;
-        },
-
-        closeProvisionModal() {
-            this.isProvisionModalOpen = false;
-            this.currentProvisionTarget = { newUser: 'api-user', newPass: '', method: 'api' };
-        },
-
-        async handleProvisionSubmit() {
-            this.provisionError = '';
-            this.provisionSuccess = '';
-            this.isProvisioning = true;
-
-            // Validación de campos
-            if (!this.currentProvisionTarget.newUser || !this.currentProvisionTarget.newPass) {
-                this.provisionError = 'Username and password are required.';
-                this.isProvisioning = false;
-                return;
-            }
-
-            try {
-                // PASO 1: Aprovisionar (Crear usuario API y Certificados)
-                const host = this.currentProvisionTarget.host;
-
-                const provResponse = await fetch(`/api/routers/${encodeURIComponent(host)}/provision`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        new_api_user: this.currentProvisionTarget.newUser,
-                        new_api_password: this.currentProvisionTarget.newPass,
-                        method: this.currentProvisionTarget.method
-                    })
-                });
-
-                if (!provResponse.ok) {
-                    const err = await provResponse.json();
-                    throw new Error(err.detail || 'Provisioning failed.');
-                }
-
-                // Mensaje intermedio para que el usuario sepa qué pasa
-                this.provisionSuccess = 'Provisioned! Verifying connectivity...';
-
-                // PASO 2: Conexión Automática (Auto-Check)
-                // Llamamos al endpoint que acabamos de crear para llenar la DB
-                const checkResponse = await fetch(`/api/routers/${encodeURIComponent(host)}/check`, {
-                    method: 'POST'
-                });
-
-                if (!checkResponse.ok) {
-                    throw new Error('Provisioned successfully, but initial connection failed. Please check manually.');
-                }
-
-                // PASO 3: Éxito Total y Actualización de UI
-                this.provisionSuccess = 'Success! Router is Online.';
-
-                // Recargamos la tabla de fondo para que aparezca el punto verde "Online"
-                await this.loadData();
-
-                // Cerramos el modal después de un breve retraso para que lean el mensaje
-                setTimeout(() => {
-                    this.closeProvisionModal();
-                }, 1500);
-
-            } catch (error) {
-                this.provisionError = error.message;
-                // Si falló en el paso 2, al menos recargamos para mostrar que ya está provisionado (aunque esté offline)
-                if (error.message.includes('initial connection')) {
-                    await this.loadData();
-                }
-            } finally {
-                this.isProvisioning = false;
-            }
+            // Call base mixin method with router-specific config
+            window.provisionMixin.openProvisionModal.call(this, router, 'Router', '/api/routers');
         },
 
         isRouterProvisioned(router) {

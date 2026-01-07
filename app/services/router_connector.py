@@ -129,6 +129,15 @@ class RouterConnector:
                 
                 r = resource_list[0]
                 
+                # Execute /system/identity command to get hostname
+                identity_list = []
+                try:
+                    identity_list = api.get_resource("/system/identity").get()
+                except Exception:
+                    pass
+
+                hostname = identity_list[0].get("name") if identity_list else None
+
                 # Execute /system/health command (optional, not all routers support it)
                 health_list = []
                 try:
@@ -166,6 +175,7 @@ class RouterConnector:
                             cpu_temperature = sensor["cpu-temp"]
                 
                 # Build response
+                # Note: We provide both underscores and hyphens for compatibility with different consumers (DB vs Frontend)
                 return {
                     "cpu_load": r.get("cpu-load"),
                     "free_memory": r.get("free-memory"),
@@ -173,6 +183,9 @@ class RouterConnector:
                     "uptime": r.get("uptime"),
                     "version": r.get("version"),
                     "board_name": r.get("board-name"),
+                    "board-name": r.get("board-name"), # Computed for DB compatibility
+                    "name": hostname, # Computed for DB compatibility (hostname)
+                    "hostname": hostname, # Alias
                     "total_disk": r.get("total-hdd-space", r.get("total-disk-space")),
                     "free_disk": r.get("free-hdd-space", r.get("free-disk-space")),
                     "voltage": voltage,
