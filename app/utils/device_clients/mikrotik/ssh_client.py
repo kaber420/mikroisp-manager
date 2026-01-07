@@ -7,6 +7,7 @@ across different modules (spectral scan, backup service, etc.).
 """
 
 import logging
+from pathlib import Path
 from typing import Optional, Tuple, Any
 
 import paramiko
@@ -30,6 +31,9 @@ class MikrotikSSHClient:
             print(stdout.read().decode())
     """
     
+    # Default path for storing known host keys (relative to project root)
+    DEFAULT_KNOWN_HOSTS_PATH = Path(__file__).resolve().parents[4] / "data" / "known_hosts"
+    
     def __init__(
         self,
         host: str,
@@ -37,7 +41,8 @@ class MikrotikSSHClient:
         password: str,
         port: int = 22,
         connect_timeout: int = 10,
-        banner_timeout: int = 10
+        banner_timeout: int = 10,
+        known_hosts_file: Optional[Path] = None
     ):
         """
         Initialize the SSH client.
@@ -49,6 +54,8 @@ class MikrotikSSHClient:
             port: SSH port (default: 22).
             connect_timeout: Connection timeout in seconds (default: 10).
             banner_timeout: Banner timeout in seconds (default: 10).
+            known_hosts_file: Path to known_hosts file for TOFU security.
+                              Defaults to data/known_hosts in project root.
         """
         self.host = host
         self.username = username
@@ -56,6 +63,7 @@ class MikrotikSSHClient:
         self.port = port
         self.connect_timeout = connect_timeout
         self.banner_timeout = banner_timeout
+        self.known_hosts_file = known_hosts_file or self.DEFAULT_KNOWN_HOSTS_PATH
         self._client: Optional[paramiko.SSHClient] = None
         self._sftp: Optional[paramiko.SFTPClient] = None
     
@@ -68,7 +76,15 @@ class MikrotikSSHClient:
         """
         try:
             self._client = paramiko.SSHClient()
+            
+            # TOFU (Trust On First Use): Load known host keys if file exists
+            if self.known_hosts_file.exists():
+                self._client.load_host_keys(str(self.known_hosts_file))
+                logger.debug(f"[SSH] Loaded known hosts from {self.known_hosts_file}")
+            
+            # AutoAddPolicy: Trust new hosts on first connection, save their key
             self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            
             self._client.connect(
                 hostname=self.host,
                 port=self.port,
@@ -79,6 +95,12 @@ class MikrotikSSHClient:
                 look_for_keys=False,
                 allow_agent=False
             )
+            
+            # Persist host keys after successful connection
+            self.known_hosts_file.parent.mkdir(parents=True, exist_ok=True)
+            self._client.save_host_keys(str(self.known_hosts_file))
+            logger.debug(f"[SSH] Saved host keys to {self.known_hosts_file}")
+            
             logger.info(f"[SSH] Connected to {self.host}:{self.port}")
             return True
         except Exception as e:
