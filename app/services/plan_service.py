@@ -1,14 +1,20 @@
 # app/services/plan_service.py
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from sqlmodel import Session, select
-from fastapi import HTTPException
 
 from ..models.plan import Plan
 from ..models.router import Router
+from .base_service import BaseCRUDService
 
-class PlanService:
+
+class PlanService(BaseCRUDService[Plan]):
+    """
+    Service for Plan CRUD operations.
+    Inherits generic methods from BaseCRUDService and adds plan-specific logic.
+    """
+    
     def __init__(self, session: Session):
-        self.session = session
+        super().__init__(session, Plan)
 
     def get_all_plans(self) -> List[Dict[str, Any]]:
         """
@@ -33,7 +39,10 @@ class PlanService:
         return self.session.exec(statement).all()
 
     def create_plan(self, plan_data: Dict[str, Any]) -> Plan:
-        """Crea un nuevo plan en la base de datos."""
+        """
+        Crea un nuevo plan en la base de datos.
+        Overrides base to add uniqueness validation (router_host + name).
+        """
         # Validar unicidad (router_host + name)
         existing = self.session.exec(
             select(Plan).where(
@@ -45,26 +54,9 @@ class PlanService:
         if existing:
             raise ValueError(f"El plan '{plan_data['name']}' ya existe en este router.")
 
-        try:
-            new_plan = Plan(**plan_data)
-            self.session.add(new_plan)
-            self.session.commit()
-            self.session.refresh(new_plan)
-            return new_plan
-        except Exception as e:
-            self.session.rollback()
-            raise ValueError(f"Error creando plan: {str(e)}")
+        # Use base class create for the actual DB operation
+        return super().create(plan_data)
 
-    def get_plan_by_id(self, plan_id: int) -> Plan:
-        plan = self.session.get(Plan, plan_id)
-        if not plan:
-            raise HTTPException(status_code=404, detail="Plan no encontrado")
-        return plan
-
-    def delete_plan(self, plan_id: int):
-        plan = self.session.get(Plan, plan_id)
-        if not plan:
-            raise HTTPException(status_code=404, detail="Plan no encontrado")
-        
-        self.session.delete(plan)
-        self.session.commit()
+    # Inherited from BaseCRUDService:
+    # - get_by_id(id) -> Plan (replaces get_plan_by_id)
+    # - delete(id) -> None (replaces delete_plan)

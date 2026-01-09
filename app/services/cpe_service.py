@@ -66,9 +66,16 @@ class CPEService:
         statement = select(func.count()).select_from(CPE).where(CPE.client_id == client_id)
         return self.session.exec(statement).one()
 
-    def get_all_cpes_globally(self) -> List[Dict[str, Any]]:
+    def get_all_cpes_globally(self, status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        Obtiene todos los CPEs con sus datos de estado más recientes y el nombre del AP.
+        Obtiene todos los CPEs con sus datos de estado más recientes, nombre del AP, y estado persistido.
+        
+        Args:
+            status_filter: Opcional. Filtrar por estado: 'active', 'offline', 'disabled', o None para todos.
+        
+        Returns:
+            Lista de CPEs con campo 'status': 'active', 'offline', o 'disabled'.
+        
         Nota: Esta función usa SQL crudo porque hace ATTACH DATABASE a stats_db.
         """
         from ..db.base import get_db_connection, get_stats_db_file
@@ -77,8 +84,23 @@ class CPEService:
         stats_db_file = get_stats_db_file()
 
         if not os.path.exists(stats_db_file):
-            conn.close()
-            return []
+            # Return only CPEs from inventory (no stats available)
+            try:
+                query = "SELECT mac, hostname, model, firmware, ip_address, is_enabled, status, last_seen FROM cpes ORDER BY hostname, mac"
+                cursor = conn.execute(query)
+                rows = []
+                for row in cursor.fetchall():
+                    cpe = dict(row)
+                    cpe['cpe_mac'] = cpe.pop('mac')
+                    cpe['cpe_hostname'] = cpe.pop('hostname', None)
+                    # Use is_enabled to override status to 'disabled'
+                    if not cpe.get('is_enabled', True):
+                        cpe['status'] = 'disabled'
+                    # status is already set from DB ('active' or 'offline')
+                    rows.append(cpe)
+                return self._apply_status_filter(rows, status_filter)
+            finally:
+                conn.close()
 
         try:
             conn.execute(f"ATTACH DATABASE '{stats_db_file}' AS stats_db")
@@ -87,17 +109,30 @@ class CPEService:
                     SELECT *, ROW_NUMBER() OVER(PARTITION BY cpe_mac ORDER BY timestamp DESC) as rn
                     FROM stats_db.cpe_stats_history
                 )
-                SELECT s.*, a.hostname as ap_hostname
-                FROM LatestCPEStats s
-                INNER JOIN cpes c ON s.cpe_mac = c.mac AND c.is_enabled = 1
+                SELECT s.*, a.hostname as ap_hostname, c.is_enabled, c.status, c.last_seen
+                FROM cpes c
+                LEFT JOIN LatestCPEStats s ON s.cpe_mac = c.mac AND s.rn = 1
                 LEFT JOIN aps a ON s.ap_host = a.host
-                WHERE s.rn = 1
-                ORDER BY s.cpe_hostname, s.cpe_mac;
+                ORDER BY s.cpe_hostname, c.mac;
             """
             cursor = conn.execute(query)
-            rows = [dict(row) for row in cursor.fetchall()]
-            return rows
+            rows = []
+            for row in cursor.fetchall():
+                cpe = dict(row)
+                # Use is_enabled to override status to 'disabled'
+                if not cpe.get('is_enabled', True):
+                    cpe['status'] = 'disabled'
+                # status is already set from DB ('active' or 'offline')
+                rows.append(cpe)
+            return self._apply_status_filter(rows, status_filter)
         except sqlite3.OperationalError as e:
             raise RuntimeError(f"Error al adjuntar la base de datos de estadísticas: {e}")
         finally:
             conn.close()
+
+    def _apply_status_filter(self, rows: List[Dict[str, Any]], status_filter: Optional[str]) -> List[Dict[str, Any]]:
+        """Helper to filter rows by status."""
+        if not status_filter:
+            return rows
+        return [row for row in rows if row.get('status') == status_filter]
+

@@ -80,6 +80,6 @@ def delete_plan(
     current_user: User = Depends(require_admin)
 ):
     from ...core.audit import log_action
-    service.delete_plan(plan_id)
+    service.delete(plan_id)
     log_action("DELETE", "plan", str(plan_id), user=current_user, request=request)
     return

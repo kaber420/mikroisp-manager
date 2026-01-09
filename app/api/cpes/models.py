@@ -28,6 +28,8 @@ class CPEDetail(BaseModel):
 class CPEGlobalInfo(CPEDetail):
     ap_host: Optional[str] = None
     ap_hostname: Optional[str] = None
+    status: Optional[str] = None  # 'active', 'offline', 'disabled'
+    is_enabled: Optional[bool] = None
     model_config = ConfigDict(from_attributes=True)
 
 

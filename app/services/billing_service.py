@@ -84,7 +84,7 @@ class BillingService:
                         method = None
                         plan_obj = None
                         if service.get("plan_id"):
-                            plan_obj = self.plan_service.get_plan_by_id(service["plan_id"])
+                            plan_obj = self.plan_service.get_by_id(service["plan_id"])
                             if plan_obj:
                                 method = getattr(plan_obj, "suspension_method", None)
                         
@@ -112,7 +112,7 @@ class BillingService:
 
                             elif method == "queue_limit" and ip:
                                 # Need to know the original plan speed
-                                plan_obj = self.plan_service.get_plan_by_id(service["plan_id"])
+                                plan_obj = self.plan_service.get_by_id(service["plan_id"])
                                 plan = plan_obj.model_dump()
                                 if plan:
                                     rs.activate_user_limit(ip, plan["max_limit"])
@@ -240,7 +240,7 @@ class BillingService:
                 method = None
                 plan_obj = None
                 if service.get("plan_id"):
-                    plan_obj = self.plan_service.get_plan_by_id(service["plan_id"])
+                    plan_obj = self.plan_service.get_by_id(service["plan_id"])
                     if plan_obj:
                         method = getattr(plan_obj, "suspension_method", None)
                 

@@ -38,6 +38,7 @@ def _setup_inventory_db():
         ("default_monitor_interval", "300"),
         ("dashboard_refresh_interval", "5"),
         ("suspension_run_hour", "02:00"),
+        ("cpe_stale_cycles", "3"),  # Number of cycles to wait before marking CPE offline
     ]
     cursor.executemany(
         "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", default_settings
@@ -225,11 +226,19 @@ def _setup_inventory_db():
         """
     CREATE TABLE IF NOT EXISTS cpes (
         mac TEXT PRIMARY KEY, hostname TEXT, model TEXT, firmware TEXT, ip_address TEXT, client_id INTEGER,
-        first_seen DATETIME, last_seen DATETIME,
+        first_seen DATETIME, last_seen DATETIME, status TEXT DEFAULT 'offline',
         FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE SET NULL
     )
     """
     )
+
+    # --- Migration: Add status column to cpes table ---
+    cpe_columns = [
+        col[1] for col in cursor.execute("PRAGMA table_info(cpes)").fetchall()
+    ]
+    if "status" not in cpe_columns:
+        print("Migrando cpes: Agregando status...")
+        cursor.execute("ALTER TABLE cpes ADD COLUMN status TEXT DEFAULT 'offline';")
 
     cursor.execute(
         """

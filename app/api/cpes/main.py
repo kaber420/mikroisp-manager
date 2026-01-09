@@ -1,6 +1,6 @@
 # app/api/cpes/main.py
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import List, Optional
 from sqlmodel import Session
 
 from ...core.users import require_technician
@@ -74,10 +74,16 @@ def api_delete_cpe(
 
 @router.get("/cpes/all", response_model=List[CPEGlobalInfo])
 def api_get_all_cpes_globally(
+    status_filter: Optional[str] = Query(
+        None,
+        alias="status",
+        description="Filter by status: 'active', 'offline', 'disabled'"
+    ),
     service: CPEService = Depends(get_cpe_service),
     current_user: User = Depends(require_technician),
 ):
+    """Get all CPEs globally with status (active/fallen/disabled)."""
     try:
-        return service.get_all_cpes_globally()
+        return service.get_all_cpes_globally(status_filter=status_filter)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

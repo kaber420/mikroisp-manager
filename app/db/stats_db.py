@@ -227,10 +227,13 @@ def _update_cpe_inventory_from_status(status: "DeviceStatus"):
     """
     Updates the CPE inventory table from a DeviceStatus object.
     Works with any vendor (Ubiquiti, MikroTik, etc.)
+    Sets status to 'active' for seen CPEs.
     """
     from ..utils.device_clients.adapters.base import DeviceStatus
     
     if not status.clients:
+        # Still run stale check even if no clients seen
+        _mark_stale_cpes_offline()
         return
     
     conn = get_db_connection()
@@ -241,14 +244,15 @@ def _update_cpe_inventory_from_status(status: "DeviceStatus"):
         for client in status.clients:
             cursor.execute(
                 """
-                INSERT INTO cpes (mac, hostname, model, firmware, ip_address, first_seen, last_seen)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO cpes (mac, hostname, model, firmware, ip_address, first_seen, last_seen, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
                 ON CONFLICT(mac) DO UPDATE SET
                     hostname = COALESCE(excluded.hostname, hostname),
                     model = COALESCE(excluded.model, model),
                     firmware = COALESCE(excluded.firmware, firmware),
                     ip_address = COALESCE(excluded.ip_address, ip_address),
-                    last_seen = excluded.last_seen
+                    last_seen = excluded.last_seen,
+                    status = 'active'
                 """,
                 (
                     client.mac,
@@ -265,10 +269,15 @@ def _update_cpe_inventory_from_status(status: "DeviceStatus"):
         print(f"Error updating CPE inventory: {e}")
     finally:
         conn.close()
+    
+    # Mark stale CPEs as offline
+    _mark_stale_cpes_offline()
 
 
 def _update_cpe_inventory(data: dict):
-    """Actualiza la tabla de inventario de CPEs (dispositivos) en la DB de inventario."""
+    """Actualiza la tabla de inventario de CPEs (dispositivos) en la DB de inventario.
+    Sets status to 'active' for seen CPEs.
+    """
     conn = get_db_connection()
     cursor = conn.cursor()
     now = datetime.utcnow()
@@ -277,12 +286,13 @@ def _update_cpe_inventory(data: dict):
         remote = cpe.get("remote", {})
         cursor.execute(
             """
-        INSERT INTO cpes (mac, hostname, model, firmware, ip_address, first_seen, last_seen)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO cpes (mac, hostname, model, firmware, ip_address, first_seen, last_seen, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
         ON CONFLICT(mac) DO UPDATE SET
             hostname = excluded.hostname, model = excluded.model,
             firmware = excluded.firmware, ip_address = excluded.ip_address,
-            last_seen = excluded.last_seen
+            last_seen = excluded.last_seen,
+            status = 'active'
         """,
             (
                 cpe.get("mac"),
@@ -296,6 +306,53 @@ def _update_cpe_inventory(data: dict):
         )
     conn.commit()
     conn.close()
+    
+    # Mark stale CPEs as offline
+    _mark_stale_cpes_offline()
+
+
+def _mark_stale_cpes_offline():
+    """
+    Marks CPEs as 'offline' if they haven't been seen for (monitor_interval * cpe_stale_cycles) seconds.
+    Only affects CPEs with status='active' and is_enabled=True.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Get settings
+        cursor.execute("SELECT value FROM settings WHERE key = 'default_monitor_interval'")
+        row = cursor.fetchone()
+        monitor_interval = int(row['value']) if row else 300
+        
+        cursor.execute("SELECT value FROM settings WHERE key = 'cpe_stale_cycles'")
+        row = cursor.fetchone()
+        stale_cycles = int(row['value']) if row else 3
+        
+        # Calculate threshold in seconds
+        threshold_seconds = monitor_interval * stale_cycles
+        
+        # Mark stale CPEs as offline
+        cursor.execute(
+            """
+            UPDATE cpes 
+            SET status = 'offline'
+            WHERE status = 'active' 
+              AND is_enabled = 1
+              AND last_seen < datetime('now', '-' || ? || ' seconds')
+            """,
+            (threshold_seconds,)
+        )
+        
+        affected = cursor.rowcount
+        if affected > 0:
+            print(f"Marcados {affected} CPEs como offline (no vistos en {threshold_seconds}s).")
+        
+        conn.commit()
+    except Exception as e:
+        print(f"Error marking stale CPEs offline: {e}")
+    finally:
+        conn.close()
 
 
 def save_full_snapshot(ap_host: str, data: dict):
@@ -433,13 +490,26 @@ def save_full_snapshot(ap_host: str, data: dict):
             conn.close()
 
 
-def get_cpes_for_ap_from_stats(host: str) -> List[Dict[str, Any]]:
+def get_cpes_for_ap_from_stats(host: str, status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     Obtiene la lista de CPEs más recientes para un AP específico desde la DB de estadísticas.
+    Incluye el campo 'status' calculado: 'active', 'fallen', o 'disabled'.
+    
+    Args:
+        host: AP host/IP
+        status_filter: Opcional. Filtrar por status: 'active', 'fallen', 'disabled'.
     """
+    from datetime import datetime, timedelta
+    
     conn = get_stats_db_connection()
     if not conn:
         return []
+    
+    main_conn = get_db_connection()
+    
+    # Threshold: 10 minutes for "fallen" status
+    threshold_minutes = 10
+    threshold_time = datetime.utcnow() - timedelta(minutes=threshold_minutes)
 
     try:
         query = """
@@ -458,8 +528,47 @@ def get_cpes_for_ap_from_stats(host: str) -> List[Dict[str, Any]]:
             FROM LatestCPEStats WHERE rn = 1 ORDER BY signal DESC;
         """
         cursor = conn.execute(query, (host,))
-        rows = [dict(row) for row in cursor.fetchall()]
-        return rows
+        stats_rows = [dict(row) for row in cursor.fetchall()]
+        
+        # Fetch is_enabled from main DB for each CPE
+        cpe_macs = [r['cpe_mac'] for r in stats_rows]
+        is_enabled_map = {}
+        if cpe_macs:
+            placeholders = ','.join('?' * len(cpe_macs))
+            cpe_query = f"SELECT mac, is_enabled FROM cpes WHERE mac IN ({placeholders})"
+            cpe_cursor = main_conn.execute(cpe_query, cpe_macs)
+            for row in cpe_cursor.fetchall():
+                is_enabled_map[row['mac']] = row['is_enabled']
+        
+        results = []
+        for row in stats_rows:
+            mac = row['cpe_mac']
+            is_enabled = is_enabled_map.get(mac, True)  # Default to enabled if not found
+            row['is_enabled'] = is_enabled
+            
+            # Calculate status
+            if not is_enabled:
+                row['status'] = 'disabled'
+            else:
+                stats_time = row.get('timestamp')
+                if isinstance(stats_time, str):
+                    try:
+                        stats_time = datetime.fromisoformat(stats_time.replace('Z', '+00:00'))
+                    except ValueError:
+                        stats_time = None
+                if stats_time and stats_time >= threshold_time:
+                    row['status'] = 'active'
+                else:
+                    row['status'] = 'fallen'
+            
+            # Apply filter
+            if status_filter is None or row['status'] == status_filter:
+                results.append(row)
+        
+        return results
     finally:
         if conn:
             conn.close()
+        if main_conn:
+            main_conn.close()
+

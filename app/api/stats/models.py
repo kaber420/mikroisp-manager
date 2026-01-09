@@ -17,3 +17,10 @@ class TopCPE(BaseModel):
     ap_host: str
     signal: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)
+
+
+class CPECount(BaseModel):
+    total_cpes: int
+    active: int
+    offline: int
+    disabled: int

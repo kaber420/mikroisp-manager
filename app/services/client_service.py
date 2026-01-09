@@ -217,7 +217,7 @@ class ClientService:
         if not plan_id:
             raise ValueError("Se requiere un plan_id para servicios de cola simple")
 
-        plan_obj = self.plan_service.get_plan_by_id(plan_id)
+        plan_obj = self.plan_service.get_by_id(plan_id)
         # Convert to dict for compatibility with existing code
         plan = plan_obj.model_dump()
 
@@ -260,7 +260,7 @@ class ClientService:
             # Fetch plan name if plan_id is set
             if service.plan_id:
                 try:
-                    plan = self.plan_service.get_plan_by_id(service.plan_id)
+                    plan = self.plan_service.get_by_id(service.plan_id)
                     service_dict["plan_name"] = plan.name
                 except Exception:
                     service_dict["plan_name"] = None
@@ -304,7 +304,7 @@ class ClientService:
             raise FileNotFoundError(f"Service {service_id} not found")
         
         # Get the new plan
-        new_plan_obj = self.plan_service.get_plan_by_id(new_plan_id)
+        new_plan_obj = self.plan_service.get_by_id(new_plan_id)
         new_plan = new_plan_obj.model_dump()
         
         old_plan_id = service.plan_id

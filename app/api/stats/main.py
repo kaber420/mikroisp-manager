@@ -11,7 +11,7 @@ from ...models.user import User
 from ...db.base import get_db_connection, get_stats_db_connection, get_stats_db_file
 
 # --- ¡IMPORTACIÓN CORREGIDA! (Ahora desde '.models') ---
-from .models import TopAP, TopCPE
+from .models import TopAP, TopCPE, CPECount
 
 router = APIRouter()
 
@@ -99,15 +99,34 @@ def get_top_cpes_by_weak_signal(
     return rows
 
 
-@router.get("/stats/cpe-count", response_model=Dict[str, int])
+@router.get("/stats/cpe-count", response_model=CPECount)
 def get_cpe_total_count(
     conn: sqlite3.Connection = Depends(get_inventory_db),
     current_user: User = Depends(current_active_user),
 ):
     try:
+        # Total count
         cursor = conn.execute("SELECT COUNT(*) FROM cpes")
-        count = cursor.fetchone()[0]
-        return {"total_cpes": count}
+        total = cursor.fetchone()[0]
+
+        # Active count
+        cursor = conn.execute("SELECT COUNT(*) FROM cpes WHERE status='active' AND is_enabled=1")
+        active = cursor.fetchone()[0]
+
+        # Offline count
+        cursor = conn.execute("SELECT COUNT(*) FROM cpes WHERE status='offline' AND is_enabled=1")
+        offline = cursor.fetchone()[0]
+
+        # Disabled count
+        cursor = conn.execute("SELECT COUNT(*) FROM cpes WHERE is_enabled=0")
+        disabled = cursor.fetchone()[0]
+
+        return {
+            "total_cpes": total,
+            "active": active,
+            "offline": offline,
+            "disabled": disabled,
+        }
     except sqlite3.Error as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
 

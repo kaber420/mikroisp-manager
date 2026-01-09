@@ -1,8 +1,12 @@
 # app/services/zone_service.py
+"""
+ZoneService: Service layer for Zone CRUD operations.
+Inherits from BaseCRUDService and adds zone-specific logic (encryption, dependency checks).
+"""
 import os
 import uuid
 import aiofiles
-from fastapi import UploadFile
+from fastapi import UploadFile, HTTPException
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from sqlmodel import Session, select, text
@@ -10,12 +14,25 @@ from sqlalchemy.exc import IntegrityError
 
 from ..models.zona import Zona, ZonaInfra, ZonaDocumento, ZonaNote
 from ..utils.security import encrypt_data, decrypt_data
+from .base_service import BaseCRUDService
 
-class ZoneService:
+
+class ZoneService(BaseCRUDService[Zona]):
+    """
+    Service for Zone CRUD operations.
+    Inherits generic methods from BaseCRUDService and adds zone-specific logic:
+    - Encryption/decryption of sensitive notes
+    - Dependency checks before deletion (APs, Routers)
+    - FileNotFoundError exceptions for backward compatibility with controllers
+    """
+    
     def __init__(self, session: Session):
-        self.session = session
+        super().__init__(session, Zona)
+
+    # --- Overridden CRUD methods for backward compatibility ---
 
     def create_zona(self, nombre: str) -> Zona:
+        """Create a new zone with uniqueness validation."""
         existing = self.session.exec(select(Zona).where(Zona.nombre == nombre)).first()
         if existing:
             raise ValueError(f"El nombre de la zona '{nombre}' ya existe.")
@@ -31,11 +48,18 @@ class ZoneService:
             raise ValueError(f"El nombre de la zona '{nombre}' ya existe.")
 
     def get_all_zonas(self) -> List[Zona]:
+        """Get all zones ordered by name. Uses inherited get_all with custom ordering."""
         return self.session.exec(select(Zona).order_by(Zona.nombre)).all()
 
     def get_zona(self, zona_id: int) -> Zona:
-        zona = self.session.get(Zona, zona_id)
-        if not zona:
+        """
+        Get zone by ID with decryption of sensitive notes.
+        Raises FileNotFoundError for backward compatibility with controllers.
+        """
+        try:
+            zona = super().get_by_id(zona_id)
+        except HTTPException:
+            # Re-raise as FileNotFoundError for backward compatibility
             raise FileNotFoundError("Zona no encontrada.")
         
         # Decrypt sensitive notes if present
@@ -44,6 +68,10 @@ class ZoneService:
         return zona
 
     def update_zona(self, zona_id: int, update_data: Dict[str, Any]) -> Zona:
+        """
+        Update zone with encryption of sensitive notes.
+        Raises FileNotFoundError for backward compatibility.
+        """
         zona = self.session.get(Zona, zona_id)
         if not zona:
             raise FileNotFoundError("Zona no encontrada.")
@@ -67,6 +95,10 @@ class ZoneService:
         return zona
 
     def delete_zona(self, zona_id: int):
+        """
+        Delete zone with dependency checks (APs, Routers).
+        Raises FileNotFoundError for backward compatibility.
+        """
         # Check for dependencies manually since they are not yet SQLModels
         # Check APs
         res_aps = self.session.exec(text("SELECT 1 FROM aps WHERE zona_id = :id"), params={"id": zona_id}).first()
@@ -85,11 +117,10 @@ class ZoneService:
         self.session.delete(zona)
         self.session.commit()
 
-    # --- Métodos de Detalles y Documentación ---
+    # --- Zone Details and Documentation Methods ---
 
     def get_zona_details(self, zona_id: int) -> Zona:
-        # We return the Zona object, which has relationships loaded (or lazy loaded)
-        # The Pydantic response model will handle serialization
+        """Get zone with all details and decrypted notes."""
         zona = self.session.get(Zona, zona_id)
         if not zona:
             raise FileNotFoundError("Zona no encontrada.")
@@ -107,6 +138,7 @@ class ZoneService:
     def update_infraestructura(
         self, zona_id: int, infra_data: Dict[str, Any]
     ) -> ZonaInfra:
+        """Update or create infrastructure data for a zone."""
         infra = self.session.exec(select(ZonaInfra).where(ZonaInfra.zona_id == zona_id)).first()
         
         if infra:
@@ -124,6 +156,7 @@ class ZoneService:
     async def upload_documento(
         self, zona_id: int, file: UploadFile, descripcion: Optional[str]
     ) -> ZonaDocumento:
+        """Upload a document for a zone."""
         file_type = "image" if file.content_type.startswith("image/") else "document"
         file_extension = os.path.splitext(file.filename)[1]
         saved_filename = f"{uuid.uuid4()}{file_extension}"
@@ -152,6 +185,7 @@ class ZoneService:
         return new_doc
 
     def delete_documento(self, doc_id: int):
+        """Delete a document and its file."""
         doc = self.session.get(ZonaDocumento, doc_id)
         if not doc:
             raise FileNotFoundError("Documento no encontrado.")
@@ -165,11 +199,12 @@ class ZoneService:
         self.session.delete(doc)
         self.session.commit()
 
-    # --- Métodos de Notas ---
+    # --- Note Methods ---
 
     def create_note_for_zona(
         self, zona_id: int, title: str, content: str, is_encrypted: bool
     ) -> ZonaNote:
+        """Create a note for a zone with optional encryption."""
         final_content = encrypt_data(content) if is_encrypted else content
         
         new_note = ZonaNote(
@@ -188,6 +223,7 @@ class ZoneService:
         return new_note
 
     def get_note(self, note_id: int) -> ZonaNote:
+        """Get a note by ID with decryption."""
         note = self.session.get(ZonaNote, note_id)
         if not note:
             raise FileNotFoundError("Nota no encontrada.")
@@ -199,6 +235,7 @@ class ZoneService:
     def update_note(
         self, note_id: int, title: str, content: str, is_encrypted: bool
     ) -> ZonaNote:
+        """Update a note with optional encryption."""
         note = self.session.get(ZonaNote, note_id)
         if not note:
             raise FileNotFoundError("Nota no encontrada para actualizar.")
@@ -208,7 +245,7 @@ class ZoneService:
         note.title = title
         note.content = final_content
         note.is_encrypted = is_encrypted
-        note.updated_at = datetime.utcnow() # Manually update timestamp if not auto-updated by DB trigger (SQLModel default_factory only works on insert usually, unless sa_column_kwargs onupdate is set)
+        note.updated_at = datetime.utcnow()
         
         self.session.add(note)
         self.session.commit()
@@ -219,6 +256,7 @@ class ZoneService:
         return note
 
     def delete_note(self, note_id: int):
+        """Delete a note by ID."""
         note = self.session.get(ZonaNote, note_id)
         if not note:
             raise FileNotFoundError("Nota no encontrada para eliminar.")
