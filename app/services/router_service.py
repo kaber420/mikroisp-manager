@@ -393,6 +393,7 @@ from ..db.engine import get_session
 async def get_router_service(host: str, session: AsyncSession = Depends(get_session)):
     """
     Obtiene una instancia de RouterService y asegura que la conexión se cierre correctamente.
+    REQUIERE que el router esté aprovisionado (is_provisioned=True).
     """
     service = None
     try:
@@ -423,3 +424,57 @@ async def get_router_service(host: str, session: AsyncSession = Depends(get_sess
                 logger.debug(f"✅ Conexión con {host} cerrada correctamente.")
             except Exception as e:
                 logger.error(f"❌ Error cerrando conexión con {host}: {e}")
+
+
+async def get_router_service_for_provisioning(host: str, session: AsyncSession = Depends(get_session)):
+    """
+    Obtiene un adapter de conexión para routers que NO están aprovisionados.
+    
+    Usado por endpoints de SSL/provisioning que necesitan conectar a routers
+    antes de que tengan is_provisioned=True.
+    
+    NOTA: Este NO es un RouterService completo, es solo el adapter directo.
+    """
+    adapter = None
+    try:
+        # Obtener credenciales del router desde la BD
+        router = await get_router_by_host(session, host)
+        if not router:
+            raise RouterConnectionError(f"Router {host} no encontrado en la DB.")
+        
+        # Decrypt password
+        password = decrypt_data(router.password)
+        
+        # Create adapter directly (bypassing is_provisioned check)
+        from ..utils.device_clients.adapters.mikrotik_router import MikrotikRouterAdapter
+        adapter = MikrotikRouterAdapter(
+            host=host,
+            username=router.username,
+            password=password,
+            port=router.api_ssl_port  # Intentar SSL primero
+        )
+        
+        # Return a simple object with the adapter and host
+        class ProvisioningContext:
+            def __init__(self, host, adapter, creds):
+                self.host = host
+                self.adapter = adapter
+                self.creds = creds
+        
+        yield ProvisioningContext(host, adapter, router)
+        
+    except RouterConnectionError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error en get_router_service_for_provisioning para {host}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+    finally:
+        # Cerrar la conexión
+        if adapter:
+            try:
+                adapter.disconnect()
+            except Exception:
+                pass
+

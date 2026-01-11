@@ -21,13 +21,11 @@ logger = logging.getLogger(__name__)
 def generate_certificate_ssh(
     ssh_client: MikrotikSSHClient,
     host: str,
-    cert_name: str = None
+    cert_name: str = None,
+    router_os_version: str = "6"
 ) -> Dict[str, Any]:
     """
     Generate SSL certificate directly on the router via SSH commands.
-    
-    This method creates the certificate natively on RouterOS without
-    needing SFTP file uploads. The private key stays on the device.
     
     Compatible with RouterOS v6 and v7.
     
@@ -35,6 +33,7 @@ def generate_certificate_ssh(
         ssh_client: Connected MikrotikSSHClient instance
         host: Router IP (used as common-name)
         cert_name: Optional certificate name (generated if not provided)
+        router_os_version: Major version string ("6" or "7")
         
     Returns:
         Dict with status, cert_name on success, or error message
@@ -46,62 +45,108 @@ def generate_certificate_ssh(
         cert_name = f"umanager_ssl_{timestamp}"
     
     try:
-        # Step 1: Create certificate with private key
-        logger.info(f"[SSL] Creating certificate '{cert_name}' on router...")
-        create_cmd = (
-            f'/certificate add name={cert_name} common-name={host} '
-            f'key-size=2048 days-valid=3650 key-usage=tls-server,digital-signature,key-encipherment'
-        )
-        _, stdout, stderr = ssh_client.exec_command(create_cmd)
-        out = stdout.read().decode().strip()
-        err = stderr.read().decode().strip()
+        logger.info(f"[SSL] Creating certificate '{cert_name}' (v{router_os_version}) on router...")
         
-        if err and 'failure' in err.lower():
-            return {"status": "error", "message": f"Failed to create certificate: {err}"}
-        
-        t.sleep(1)
-        
-        # Step 2: Sign the certificate (self-signed)
-        logger.info(f"[SSL] Signing certificate '{cert_name}'...")
-        sign_cmd = f'/certificate sign {cert_name}'
-        _, stdout, stderr = ssh_client.exec_command(sign_cmd)
-        out = stdout.read().decode().strip()
-        err = stderr.read().decode().strip()
-        
-        # Wait for signing (can take seconds on slower devices)
-        t.sleep(3)
-        
-        # Step 3: Verify certificate exists with private key (K flag)
-        verify_cmd = f'/certificate print where name="{cert_name}"'
-        _, stdout, _ = ssh_client.exec_command(verify_cmd)
-        cert_check = stdout.read().decode()
-        logger.info(f"[SSL] Certificate verification: {cert_check}")
-        
-        # Check for K flag (has private key)
-        if 'K' not in cert_check:
-            # Certificate might have a different name - try finding by common-name
-            alt_cmd = f'/certificate print where common-name="{host}"'
-            _, stdout, _ = ssh_client.exec_command(alt_cmd)
-            alt_check = stdout.read().decode()
+        # Determine commands based on version
+        if router_os_version.startswith("7"):
+            # RouterOS v7: Path-style commands
+            # Step 1: Add template
+            create_cmd = (
+                f'/certificate/add name={cert_name} common-name={host} '
+                f'key-size=2048 days-valid=3650 '
+                f'key-usage=tls-server,digital-signature,key-encipherment'
+            )
+            _, stdout, stderr = ssh_client.exec_command(create_cmd)
+            err = stderr.read().decode().strip()
+            if err and 'failure' in err.lower():
+                return {"status": "error", "message": f"Failed to create certificate template: {err}"}
             
-            if 'K' in alt_check:
-                # Find the actual name from this output
-                for line in alt_check.split('\n'):
-                    if 'K' in line and host in line:
-                        parts = line.split()
-                        for part in parts:
-                            if 'name=' in part.lower():
-                                cert_name = part.split('=')[1].strip('"')
+            t.sleep(1)
+            
+            # Step 2: Sign the certificate (self-sign by leaving ca blank)
+            # For v7, we need to use sign with the template name
+            logger.info(f"[SSL] Signing certificate '{cert_name}' (v7 self-sign)...")
+            sign_cmd = f'/certificate/sign {cert_name}'
+            _, stdout, stderr = ssh_client.exec_command(sign_cmd)
+            sign_out = stdout.read().decode().strip()
+            sign_err = stderr.read().decode().strip()
+            logger.info(f"[SSL] Sign output: {sign_out} | {sign_err}")
+            
+        else:
+            # RouterOS v6: Legacy syntax
+            create_cmd = (
+                f'/certificate add name={cert_name} common-name={host} '
+                f'key-size=2048 days-valid=3650 '
+                f'key-usage=digital-signature,key-encipherment,tls-server'
+            )
+            _, stdout, stderr = ssh_client.exec_command(create_cmd)
+            err = stderr.read().decode().strip()
+            if err and 'failure' in err.lower():
+                return {"status": "error", "message": f"Failed to create certificate: {err}"}
+            
+            t.sleep(1)
+            
+            # Step 2: Sign the certificate
+            logger.info(f"[SSL] Signing certificate '{cert_name}'...")
+            sign_cmd = f'/certificate sign {cert_name}'
+            _, stdout, stderr = ssh_client.exec_command(sign_cmd)
+        
+        # Wait for signing (crucial for v6 to generate key)
+        t.sleep(5)
+        
+        # Step 3: Find the certificate by common-name (most reliable after signing)
+        # RouterOS may rename certs after signing (e.g. add suffix)
+        find_cmd = f'/certificate print where common-name="{host}"'
+        _, stdout, _ = ssh_client.exec_command(find_cmd)
+        cert_list = stdout.read().decode()
+        logger.info(f"[SSL] Certificates with CN={host}: {cert_list}")
+        
+        # Parse the output to find a cert with K flag (private key)
+        actual_cert_name = None
+        for line in cert_list.split('\n'):
+            # Look for lines with K flag and extract the name
+            if 'K' in line:
+                # Format is typically: "0 K   umanager_ssl_123  192.168.88.1"
+                parts = line.split()
+                for i, part in enumerate(parts):
+                    if part == 'K' or 'K' in part:
+                        # The name is usually right after flags
+                        # Skip numeric index and flags, get the name
+                        for p in parts[1:]:
+                            # Clean the part of any non-alphanumeric chars except underscore
+                            if not p.isdigit() and p not in ['K', 'L', 'A', 'T', 'R', 'C', 'E', 'KL', 'KLA', 'KLAT', 'KLATE']:
+                                actual_cert_name = p.strip().strip('"').strip("'")
                                 break
                         break
-            else:
-                return {
-                    "status": "error", 
-                    "message": f"Certificate created but has no private key. Check router logs."
-                }
+                if actual_cert_name:
+                    break
         
-        logger.info(f"[SSL] Certificate '{cert_name}' created and signed successfully")
-        return {"status": "success", "cert_name": cert_name}
+        if not actual_cert_name:
+            # Fallback: try detail print
+            detail_cmd = f'/certificate print detail where common-name="{host}"'
+            _, stdout, _ = ssh_client.exec_command(detail_cmd)
+            detail_out = stdout.read().decode()
+            
+            if 'private-key=yes' in detail_out or 'K' in detail_out:
+                # Extract name from detail output
+                for line in detail_out.split('\n'):
+                    if 'name=' in line.lower():
+                        # Format: "name=cert_name" or "name: cert_name"
+                        if '=' in line:
+                            actual_cert_name = line.split('=')[1].strip().strip('"').split()[0]
+                        break
+        
+        if not actual_cert_name:
+            return {
+                "status": "error", 
+                "message": f"Certificate created but cannot find it by common-name={host}. Check router."
+            }
+        
+        # Clean the name of any stray characters
+        actual_cert_name = actual_cert_name.strip().strip('"').strip("'")
+        
+        logger.info(f"[SSL] Certificate '{actual_cert_name}' created and signed successfully")
+        return {"status": "success", "cert_name": actual_cert_name}
         
     except Exception as e:
         logger.error(f"[SSL] Certificate generation failed: {e}")
@@ -303,15 +348,12 @@ def import_certificate(
             if not ssh_client.connect():
                  raise Exception("SSH connection failed. Cannot apply certificate reliably.")
             
-            # Combine SET CERTIFICATE and RESTART in one command/script
-            # 1. Set cert + disable (atomic-ish transaction)
-            # 2. Delay
-            # 3. Enable
-            # CRITICAL: Use [find name=api-ssl dynamic=no] to avoid hitting read-only dynamic sessions
+            # Use simple command syntax compatible with both v6 and v7
+            # Avoid [find name=...] which can fail on some configurations
             command = (
-                f"/ip service set [find name=api-ssl dynamic=no] certificate={found_cert_name} disabled=yes; "
+                f"/ip service set api-ssl certificate={found_cert_name} disabled=yes; "
                 ":delay 1; "
-                "/ip service set [find name=api-ssl dynamic=no] disabled=no"
+                "/ip service set api-ssl disabled=no"
             )
             
             ssh_client.exec_command(command)

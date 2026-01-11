@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from typing import Literal, Optional
 from enum import Enum
 
-from ...services.router_service import RouterService, get_router_service
+from ...services.router_service import RouterService, get_router_service, get_router_service_for_provisioning
 from ...services.pki_service import PKIService
 from ...models.user import User
 from ...core.users import require_admin, require_technician
@@ -47,15 +47,17 @@ class SSLStatusResponse(BaseModel):
 
 @router.get("/ssl/status", response_model=SSLStatusResponse)
 def get_ssl_status(
-    service: RouterService = Depends(get_router_service),
+    ctx = Depends(get_router_service_for_provisioning),
     user: User = Depends(require_technician),
 ):
     """
     Get the current SSL/TLS status of a router.
     Returns whether SSL is enabled, if the certificate is trusted, etc.
+    
+    NOTE: This endpoint works for both provisioned and non-provisioned routers.
     """
     try:
-        status_data = service.adapter.get_ssl_status()
+        status_data = ctx.adapter.get_ssl_status()
         return SSLStatusResponse(**status_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error checking SSL status: {e}")
@@ -64,7 +66,7 @@ def get_ssl_status(
 @router.post("/ssl/provision", response_model=SSLProvisionResponse)
 def provision_ssl(
     request: SSLProvisionRequest,
-    service: RouterService = Depends(get_router_service),
+    ctx = Depends(get_router_service_for_provisioning),
     user: User = Depends(require_admin),
 ):
     """
@@ -73,6 +75,8 @@ def provision_ssl(
     Methods:
     - router-side: Router generates CSR, server signs it (more secure)
     - server-side: Server generates key+cert pair (fallback)
+    
+    NOTE: This endpoint works for both provisioned and non-provisioned routers.
     """
     pki = PKIService()
     
@@ -83,8 +87,8 @@ def provision_ssl(
             detail="mkcert is not available. Install it to enable SSL provisioning."
         )
     
-    host = service.host
-    adapter = service.adapter
+    host = ctx.host
+    adapter = ctx.adapter
     
     try:
         # Step 1: Install CA on router (if requested)
@@ -142,7 +146,7 @@ def provision_ssl(
 
 @router.post("/ssl/install-ca")
 def install_ca_only(
-    service: RouterService = Depends(get_router_service),
+    ctx = Depends(get_router_service_for_provisioning),
     user: User = Depends(require_admin),
 ):
     """
@@ -155,7 +159,7 @@ def install_ca_only(
     if not ca_pem:
         raise HTTPException(status_code=500, detail="CA certificate not found")
     
-    result = service.adapter.install_ca_certificate(ca_pem)
+    result = ctx.adapter.install_ca_certificate(ca_pem)
     
     if result.get("status") == "error":
         raise HTTPException(status_code=500, detail=result.get("message"))

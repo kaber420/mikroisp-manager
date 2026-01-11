@@ -156,6 +156,32 @@ class MikrotikProvisioningService:
             
             logger.info(f"[SSH Provisioning] Conectado a {host}")
             
+            # Detect RouterOS Version
+            _, stdout, _ = ssh_client.exec_command("/system resource print")
+            resource_output = stdout.read().decode()
+            logger.debug(f"[SSH Provisioning] Resource output: {resource_output[:500]}")
+            router_os_version = "6" # Default fallback
+            
+            # Try multiple patterns to find version
+            for line in resource_output.split('\n'):
+                line_lower = line.lower().strip()
+                # Pattern 1: "version: 7.12.1"
+                if 'version' in line_lower and ':' in line:
+                    ver_str = line.split(':')[-1].strip().split()[0]
+                    logger.info(f"[SSH Provisioning] Found version string: '{ver_str}'")
+                    if ver_str.startswith('7'):
+                        router_os_version = "7"
+                    break
+                # Pattern 2: "version=7.12.1" (value-list format)
+                elif 'version=' in line_lower:
+                    ver_str = line.split('=')[-1].strip().split()[0]
+                    logger.info(f"[SSH Provisioning] Found version string: '{ver_str}'")
+                    if ver_str.startswith('7'):
+                        router_os_version = "7"
+                    break
+            
+            logger.info(f"[SSH Provisioning] Detected RouterOS v{router_os_version}")
+            
             # 2. Create API user group and user
             policy = (
                 "local,ssh,read,write,policy,test,password,sniff,sensitive,"
@@ -239,43 +265,111 @@ class MikrotikProvisioningService:
             time.sleep(1)
             logger.info(f"[SSH Provisioning] CA importado")
             
-            # Close SFTP - no longer needed
-            sftp.close()
-            
-            # 3b. Generate certificate DIRECTLY ON THE ROUTER using ssl module
-            from ...utils.device_clients.mikrotik.ssl import generate_certificate_ssh
-            
-            cert_result = generate_certificate_ssh(ssh_client, host)
-            
-            if cert_result["status"] != "success":
+            # 3b. Generate certificate on SERVER and upload (proven v7 method from git history)
+            success, key_pem, cert_pem = pki.generate_full_cert_pair(host)
+            if not success:
+                sftp.close()
                 return {
                     "status": "error",
-                    "message": f"Error generando certificado: {cert_result.get('message', 'Unknown error')}"
+                    "message": f"Error generando certificado: {cert_pem}"
                 }
             
-            cert_name = cert_result["cert_name"]
-            logger.info(f"[SSH Provisioning] Certificado '{cert_name}' listo")
+            timestamp = int(time.time())
+            cert_filename = f"umanager_ssl_{timestamp}.crt"
+            key_filename = f"umanager_ssl_{timestamp}.key"
             
-            # 4. Configure api-ssl service with the certificate
-            service_set_cmd = f'/ip service set api-ssl certificate="{cert_name}" port={ssl_port} disabled=no'
-            _, stdout, stderr = ssh_client.exec_command(service_set_cmd)
-            set_result = stdout.read().decode() + stderr.read().decode()
-            if set_result.strip():
-                logger.warning(f"[SSH Provisioning] Resultado set api-ssl: {set_result}")
+            with sftp.file(cert_filename, "w") as f:
+                f.write(cert_pem.encode("utf-8"))
+            
+            with sftp.file(key_filename, "w") as f:
+                f.write(key_pem.encode("utf-8"))
+            
+            time.sleep(0.5)
+            sftp.close()
+            
+            # Import cert and key
+            import_cert_cmd = f'/certificate import file-name={cert_filename} passphrase=""'
+            ssh_client.exec_command(import_cert_cmd)
             time.sleep(1)
             
-            # 5. Verify service configuration
-            check_service_cmd = '/ip service print where name=api-ssl'
+            import_key_cmd = f'/certificate import file-name={key_filename} passphrase=""'
+            ssh_client.exec_command(import_key_cmd)
+            time.sleep(1)
+            logger.info(f"[SSH Provisioning] Certificado del router importado")
+            
+            # 4. Find the cert name by common-name (host IP)
+            find_cert_cmd = f'/certificate print where common-name="{host}"'
+            _, stdout, _ = ssh_client.exec_command(find_cert_cmd)
+            cert_output = stdout.read().decode()
+            logger.info(f"[SSH Provisioning] Certificados encontrados: {cert_output}")
+            
+            # Parse the certificate name - look for one with K flag (private key)
+            cert_name = None
+            for line in cert_output.split('\n'):
+                if 'K' in line and host in line:
+                    parts = line.split()
+                    for p in parts:
+                        if (not p.startswith(('K', 'L', 'A', 'T', 'R', 'C', 'E')) 
+                                and not p.isdigit() and len(p) > 3):
+                            cert_name = p.strip().strip('"')
+                            break
+                    if cert_name:
+                        break
+            
+            if not cert_name:
+                # Fallback: use the base name of imported file
+                cert_name = cert_filename.replace('.crt', '').replace('.pem', '')
+                logger.warning(
+                    f"[SSH Provisioning] No se encontró nombre de cert, "
+                    f"usando fallback: {cert_name}"
+                )
+            
+            logger.info(f"[SSH Provisioning] Usando certificado: {cert_name}")
+            
+            # 5. Configure and enable api-ssl service
+            # Use simple command syntax compatible with both v6 and v7
+            # First, try to set the certificate and enable the service
+            service_cmd = f'/ip service set api-ssl certificate="{cert_name}" disabled=no port={ssl_port}'
+            _, stdout, stderr = ssh_client.exec_command(service_cmd)
+            set_output = stdout.read().decode()
+            set_error = stderr.read().decode()
+            
+            if set_error and 'no such item' in set_error.lower():
+                # Fallback: try with number selector (api-ssl is usually index 6)
+                logger.warning(f"[SSH Provisioning] Fallback: api-ssl no encontrado por nombre, intentando con selector")
+                service_cmd_alt = f'/ip service set 6 certificate="{cert_name}" disabled=no port={ssl_port}'
+                ssh_client.exec_command(service_cmd_alt)
+            
+            time.sleep(2)  # Give RouterOS time to apply changes
+            
+            logger.info(f"[SSH Provisioning] Comando api-ssl ejecutado")
+            
+            # Verify service configuration with detail output
+            check_service_cmd = '/ip service print detail where name=api-ssl'
             _, stdout, _ = ssh_client.exec_command(check_service_cmd)
             service_output = stdout.read().decode()
             logger.info(f"[SSH Provisioning] Estado final api-ssl: {service_output}")
             
             # Check if certificate is actually assigned
-            if 'certificate=' not in service_output or 'none' in service_output.lower():
-                logger.error("[SSH Provisioning] api-ssl no tiene certificado asignado")
+            # Look for certificate= followed by our cert name (not "none" or empty)
+            cert_assigned = False
+            if cert_name in service_output:
+                cert_assigned = True
+            elif 'certificate=' in service_output:
+                # Extract certificate value and check it's not empty/none
+                for line in service_output.split('\n'):
+                    if 'certificate=' in line:
+                        cert_value = line.split('certificate=')[1].split()[0].strip().strip('"')
+                        if cert_value and cert_value.lower() not in ['none', '""', "''", '']:
+                            cert_assigned = True
+                            logger.info(f"[SSH Provisioning] Certificado asignado detectado: {cert_value}")
+                        break
+            
+            if not cert_assigned:
+                logger.error(f"[SSH Provisioning] api-ssl no tiene certificado asignado. Output: {service_output}")
                 return {
                     "status": "error",
-                    "message": f"No se pudo asignar certificado '{cert_name}' a api-ssl."
+                    "message": f"No se pudo asignar certificado '{cert_name}' a api-ssl. Verifica que el certificado tenga private key (flag K)."
                 }
             
             logger.info(f"[SSH Provisioning] api-ssl habilitado en puerto {ssl_port}")

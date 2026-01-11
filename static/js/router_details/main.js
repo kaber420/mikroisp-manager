@@ -13,7 +13,8 @@ import { initQueuesModule, loadQueuesData } from './queues.js';
 import { initPlansModule, loadPlansData } from './plans.js';
 import { initUsersModule, loadUsersData } from './users.js';
 import { initBackupModule, loadBackupData } from './backup.js';
-import { initSslModule, loadSslStatus } from './ssl.js';
+// import { initSslModule, loadSslStatus } from './ssl.js'; // LEGACY
+import { SslBadge } from '../components/ssl_badge.js';
 import { initHistoryTab } from './history.js';
 
 async function loadFullDetailsData() {
@@ -52,7 +53,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     initPlansModule();
     initUsersModule();
     initBackupModule();
-    initSslModule();
+    // initSslModule(); // LEGACY
+    new SslBadge({
+        deviceType: 'routers',
+        host: CONFIG.currentHost
+    }).init();
+
     initHistoryTab();
 
     // 2. Carga ÚNICA de todos los datos pesados y estáticos

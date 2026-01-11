@@ -970,53 +970,6 @@
     </div>
 </div>
 
-<!-- SSL Configuration Modal -->
-<div id="ssl-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center">
-    <div class="bg-surface-1 rounded-lg shadow-xl w-full max-w-md">
-        <div class="p-6 border-b border-border-color flex justify-between items-center">
-            <h4 class="text-xl font-bold">Configurar SSL/TLS</h4>
-            <button id="close-ssl-modal-btn"
-                class="text-text-secondary hover:text-text-primary text-2xl">&times;</button>
-        </div>
-        <div class="p-6">
-            <form id="ssl-provision-form">
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-2">Método de Generación</label>
-                    <select id="ssl-method" name="method"
-                        class="w-full bg-background border border-border-color rounded-md p-2">
-                        <option value="router-side">🔒 Router-Side (Recomendado)</option>
-                        <option value="server-side">🖥️ Server-Side (Fallback)</option>
-                    </select>
-                    <p class="text-xs text-text-secondary mt-1">
-                        Router-Side: La clave privada nunca sale del router.<br>
-                        Server-Side: El servidor genera y envía las claves.
-                    </p>
-                </div>
-                <div class="mb-4">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" id="ssl-install-ca" name="install_ca" checked
-                            class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
-                        <span class="text-sm">Instalar CA en el Router</span>
-                    </label>
-                    <p class="text-xs text-text-secondary mt-1">
-                        Permite que el router confíe en el servidor.
-                    </p>
-                </div>
-                <div id="ssl-status-info" class="mb-4 p-3 rounded-md bg-surface-2 text-sm hidden">
-                    <!-- Status info will be populated by JS -->
-                </div>
-                <div class="flex justify-end gap-4">
-                    <button type="button" id="cancel-ssl-btn"
-                        class="px-4 py-2 rounded-md text-sm font-semibold">Cancelar</button>
-                    <button type="submit" id="provision-ssl-btn"
-                        class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">
-                        Provisionar SSL
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
