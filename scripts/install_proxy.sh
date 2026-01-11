@@ -215,6 +215,16 @@ generate_self_signed_cert() {
     
     print_success "Certificado generado en $SSL_DIR/"
     print_warning "Los navegadores mostrarán advertencia 'No seguro'"
+
+    # Copiar al directorio estático de la app para bootstrapping
+    mkdir -p "$APP_DIR/static"
+    cp "$SSL_DIR/server.crt" "$APP_DIR/static/ca.crt"
+    chmod 644 "$APP_DIR/static/ca.crt"
+    # Cambiar dueño al usuario real (que probablemente ejecutó sudo)
+    if [ ! -z "$SUDO_USER" ]; then
+        chown "$SUDO_USER:$SUDO_USER" "$APP_DIR/static/ca.crt"
+    fi
+    print_success "Certificado copiado a $APP_DIR/static/ca.crt (para bootstrapping)"
 }
 
 generate_mkcert_cert() {
@@ -248,6 +258,16 @@ generate_mkcert_cert() {
         cp "$CA_ROOT/rootCA.pem" "$SSL_DIR/rootCA.pem"
         chmod 644 "$SSL_DIR/rootCA.pem"
         print_success "CA raíz copiada a $SSL_DIR/rootCA.pem (accesible desde la web)"
+        
+        # Copiar al directorio estático de la app para bootstrapping
+        mkdir -p "$APP_DIR/static"
+        cp "$CA_ROOT/rootCA.pem" "$APP_DIR/static/ca.crt"
+        chmod 644 "$APP_DIR/static/ca.crt"
+        # Cambiar dueño al usuario real
+        if [ ! -z "$SUDO_USER" ]; then
+            chown "$SUDO_USER:$SUDO_USER" "$APP_DIR/static/ca.crt"
+        fi
+        print_success "CA raíz copiada a $APP_DIR/static/ca.crt (para bootstrapping)"
     fi
     
     print_info "CA raíz ubicada en: $CA_ROOT"

@@ -18,6 +18,96 @@ from . import connection as mikrotik_connection
 logger = logging.getLogger(__name__)
 
 
+def generate_certificate_ssh(
+    ssh_client: MikrotikSSHClient,
+    host: str,
+    cert_name: str = None
+) -> Dict[str, Any]:
+    """
+    Generate SSL certificate directly on the router via SSH commands.
+    
+    This method creates the certificate natively on RouterOS without
+    needing SFTP file uploads. The private key stays on the device.
+    
+    Compatible with RouterOS v6 and v7.
+    
+    Args:
+        ssh_client: Connected MikrotikSSHClient instance
+        host: Router IP (used as common-name)
+        cert_name: Optional certificate name (generated if not provided)
+        
+    Returns:
+        Dict with status, cert_name on success, or error message
+    """
+    import time as t
+    
+    if not cert_name:
+        timestamp = int(t.time())
+        cert_name = f"umanager_ssl_{timestamp}"
+    
+    try:
+        # Step 1: Create certificate with private key
+        logger.info(f"[SSL] Creating certificate '{cert_name}' on router...")
+        create_cmd = (
+            f'/certificate add name={cert_name} common-name={host} '
+            f'key-size=2048 days-valid=3650 key-usage=tls-server,digital-signature,key-encipherment'
+        )
+        _, stdout, stderr = ssh_client.exec_command(create_cmd)
+        out = stdout.read().decode().strip()
+        err = stderr.read().decode().strip()
+        
+        if err and 'failure' in err.lower():
+            return {"status": "error", "message": f"Failed to create certificate: {err}"}
+        
+        t.sleep(1)
+        
+        # Step 2: Sign the certificate (self-signed)
+        logger.info(f"[SSL] Signing certificate '{cert_name}'...")
+        sign_cmd = f'/certificate sign {cert_name}'
+        _, stdout, stderr = ssh_client.exec_command(sign_cmd)
+        out = stdout.read().decode().strip()
+        err = stderr.read().decode().strip()
+        
+        # Wait for signing (can take seconds on slower devices)
+        t.sleep(3)
+        
+        # Step 3: Verify certificate exists with private key (K flag)
+        verify_cmd = f'/certificate print where name="{cert_name}"'
+        _, stdout, _ = ssh_client.exec_command(verify_cmd)
+        cert_check = stdout.read().decode()
+        logger.info(f"[SSL] Certificate verification: {cert_check}")
+        
+        # Check for K flag (has private key)
+        if 'K' not in cert_check:
+            # Certificate might have a different name - try finding by common-name
+            alt_cmd = f'/certificate print where common-name="{host}"'
+            _, stdout, _ = ssh_client.exec_command(alt_cmd)
+            alt_check = stdout.read().decode()
+            
+            if 'K' in alt_check:
+                # Find the actual name from this output
+                for line in alt_check.split('\n'):
+                    if 'K' in line and host in line:
+                        parts = line.split()
+                        for part in parts:
+                            if 'name=' in part.lower():
+                                cert_name = part.split('=')[1].strip('"')
+                                break
+                        break
+            else:
+                return {
+                    "status": "error", 
+                    "message": f"Certificate created but has no private key. Check router logs."
+                }
+        
+        logger.info(f"[SSL] Certificate '{cert_name}' created and signed successfully")
+        return {"status": "success", "cert_name": cert_name}
+        
+    except Exception as e:
+        logger.error(f"[SSL] Certificate generation failed: {e}")
+        return {"status": "error", "message": str(e)}
+
+
 def generate_csr(
     api: RouterOsApi,
     host: str,

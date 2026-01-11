@@ -23,6 +23,24 @@ function switchDetails(host) {
             await this.loadInterfaces();
             await this.loadVlans();
             this.connectWebSocket();
+            this.initSslBadge();
+        },
+
+        // Initialize SSL Badge
+        initSslBadge() {
+            const sslBadgeElement = document.getElementById('ssl-security-badge');
+            if (sslBadgeElement) {
+                // Load SSL Badge component dynamically
+                import('/static/js/components/ssl_badge.js').then(({ SslBadge }) => {
+                    const sslBadge = new SslBadge({
+                        deviceType: 'switches',
+                        host: this.host
+                    });
+                    sslBadge.init();
+                }).catch(err => {
+                    console.warn('Could not load SSL Badge component:', err);
+                });
+            }
         },
 
         // Load switch data from API

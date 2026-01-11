@@ -640,6 +640,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadApDetails();
     loadChartData('24h');
 
+    // Initialize SSL Badge for MikroTik APs (badge element only exists for MikroTik)
+    const sslBadgeElement = document.getElementById('ssl-security-badge');
+    if (sslBadgeElement) {
+        // Load SSL Badge component dynamically
+        import('/static/js/components/ssl_badge.js').then(({ SslBadge }) => {
+            const sslBadge = new SslBadge({
+                deviceType: 'aps',
+                host: currentHost
+            });
+            sslBadge.init();
+        }).catch(err => {
+            console.warn('Could not load SSL Badge component:', err);
+        });
+    }
+
     const editCancelButton = document.getElementById('edit-cancel-button');
     const editApForm = document.getElementById('edit-ap-form');
 

@@ -107,8 +107,19 @@
                                             class="px-2 py-1 text-xs font-semibold rounded-md bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 mr-2"
                                             title="Provision AP">Provision</button>
                                     </template>
+                                    <!-- Repair button for provisioned MikroTik APs that are offline -->
+                                    <template
+                                        x-if="ap.vendor === 'mikrotik' && ap.is_provisioned && ap.last_status === 'offline'">
+                                        <button @click.stop="repairAp(ap)"
+                                            class="px-2 py-1 text-xs font-semibold rounded-md bg-warning/20 text-warning hover:bg-warning/30 mr-2"
+                                            title="Reparar conexión / Re-aprovisionar">
+                                            <span class="material-symbols-outlined text-sm align-middle">build</span>
+                                            Reparar
+                                        </button>
+                                    </template>
                                     <!-- Secured badge for provisioned MikroTik APs -->
-                                    <template x-if="ap.vendor === 'mikrotik' && ap.is_provisioned">
+                                    <template
+                                        x-if="ap.vendor === 'mikrotik' && ap.is_provisioned && ap.last_status !== 'offline'">
                                         <span
                                             class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success/20 text-success border border-success/30 mr-2">
                                             <span class="material-symbols-outlined text-xs mr-1">lock</span>Secured
@@ -203,6 +214,23 @@
                         <input type="number" id="monitor_interval" x-model="currentAp.monitor_interval"
                             placeholder="Default (Global)"
                             class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                    </div>
+
+                    <!-- Security Actions (MikroTik only, when editing) -->
+                    <div x-show="isEditing && currentAp.vendor === 'mikrotik'" class="pt-4 border-t border-white/10">
+                        <h4 class="text-sm font-semibold text-text-primary mb-2">Security Actions</h4>
+                        <div class="bg-white/5 p-4 rounded-lg flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-text-primary">SSL Certificate</p>
+                                <p class="text-xs text-text-secondary">Update or repair the secure connection
+                                    certificate.</p>
+                            </div>
+                            <button type="button" @click="repairAp(currentAp)"
+                                class="px-3 py-1.5 text-xs font-semibold rounded bg-warning/20 text-warning hover:bg-warning/30 border border-warning/20 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-sm">sync_lock</span>
+                                Update Certificate
+                            </button>
+                        </div>
                     </div>
 
                     <div class="mt-4 pt-4 border-t border-white/10">

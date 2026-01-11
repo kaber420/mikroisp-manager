@@ -170,7 +170,8 @@ async def create_router(
         new_router = await create_router_service(session, router_data.model_dump())
         
         # --- AUTO-PROVISION SSL (Zero Trust) ---
-        await ProvisioningService.auto_provision_ssl(session, new_router)
+        # DISABLE AUTO-PROVISION per user request (point of failure)
+        # await ProvisioningService.auto_provision_ssl(session, new_router)
 
         return new_router
     except ValueError as e:
@@ -400,3 +401,66 @@ async def check_router_status_manual(
         logging.error(f"check_router_status_manual failed for {host}: {e}")
         raise HTTPException(status_code=500, detail=f"Fallo al conectar: {str(e)}")
 
+
+# --- ENDPOINT DE REPARACIÓN/RECUPERACIÓN ---
+@router.post("/routers/{host}/repair", status_code=status.HTTP_200_OK)
+async def repair_router_connection(
+    host: str,
+    reset_provision: bool = False,
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Repara/recupera un router que está en estado de error.
+    
+    Acciones que realiza:
+    1. Limpia el estado de backoff (errores consecutivos)
+    2. Limpia la caché de conexiones
+    3. Limpia el pool de conexiones SSL
+    4. Si reset_provision=True, marca is_provisioned=False para permitir re-aprovisionar
+    
+    Args:
+        host: IP del router
+        reset_provision: Si es True, permite volver a ejecutar el aprovisionamiento SSL
+    
+    Returns:
+        Estado de la operación y siguientes pasos recomendados
+    """
+    from ...core.audit import log_action
+    
+    # 1. Verificar que el router existe
+    creds = await get_router_by_host_service(session, host)
+    if not creds:
+        raise HTTPException(status_code=404, detail="Router no encontrado")
+    
+    # 2. Resetear estado de conexión en el scheduler
+    reset_result = monitor_scheduler.reset_connection(host)
+    
+    # 3. Opcionalmente marcar como no aprovisionado para re-aprovisionar
+    if reset_provision:
+        update_data = {
+            "is_provisioned": False  # Solo esto - NO cambiar puertos
+        }
+        await update_router_service(session, host, update_data)
+        reset_result["provision_reset"] = True
+        reset_result["message"] += " Listo para re-aprovisionar SSL."
+    
+    # 4. Audit log
+    log_action("REPAIR", "router", host, user=current_user, details={
+        "reset_provision": reset_provision
+    })
+    
+    return {
+        "status": "success",
+        "message": reset_result["message"],
+        "provision_reset": reset_provision,
+        "next_steps": [
+            "Intente conectar nuevamente desde el Dashboard",
+            "Si persisten errores SSL, use reset_provision=true para re-aprovisionar",
+            "Verifique que el router esté encendido y accesible en la red"
+        ] if not reset_provision else [
+            "El router ahora muestra el botón 'Provision' en la lista",
+            "Haga clic en 'Provision' para re-configurar SSL",
+            "Use las credenciales admin del router"
+        ]
+    }

@@ -90,6 +90,14 @@
                                             class="px-2 py-1 text-xs font-semibold rounded-md bg-orange/20 text-orange hover:bg-orange/30"
                                             title="Provision Router">Provision</button>
                                     </template>
+                                    <template x-if="isRouterProvisioned(router) && router.last_status === 'offline'">
+                                        <button @click.stop="repairRouter(router)"
+                                            class="px-2 py-1 text-xs font-semibold rounded-md bg-warning/20 text-warning hover:bg-warning/30"
+                                            title="Reparar conexión">
+                                            <span class="material-symbols-outlined text-sm align-middle">build</span>
+                                            Reparar
+                                        </button>
+                                    </template>
                                     <button @click.stop="openRouterModal(router)"
                                         class="text-text-secondary hover:text-primary" title="Edit Router">
                                         <span class="material-symbols-outlined">edit</span>
@@ -166,9 +174,24 @@
                         </div>
                     </div>
 
+                    <!-- Security / Provisioning Override (NEW) -->
+                    <div x-show="isEditing" class="pt-4 border-t border-border-color mt-6">
+                        <h4 class="text-md font-semibold text-text-primary mb-2">Security Actions</h4>
+                        <div class="bg-surface-2 p-4 rounded-lg flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-text-primary">SSL Certificate</p>
+                                <p class="text-xs text-text-secondary">Update or repair the secure connection
+                                    certificate.</p>
+                            </div>
+                            <button type="button" @click="repairRouter(currentRouter)"
+                                class="px-3 py-1.5 text-xs font-semibold rounded bg-warning/20 text-warning hover:bg-warning/30 border border-warning/20 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-sm">sync_lock</span>
+                                Update Certificate
+                            </button>
+                        </div>
+                    </div>
 
-
-                    <div x-show="routerError" x-text="routerError" class="text-danger text-sm"></div>
+                    <div x-show="routerError" x-text="routerError" class="text-danger text-sm mt-4"></div>
                 </div>
 
                 <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end gap-4">

@@ -344,6 +344,63 @@ async def get_ap_history(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/aps/{host}/ssl/status")
+async def get_ap_ssl_status(
+    host: str,
+    service: APService = Depends(get_ap_service),
+    current_user: User = Depends(require_technician),
+):
+    """
+    Obtiene el estado SSL/TLS de un AP MikroTik.
+    Retorna si SSL está habilitado, si el certificado es confiable, etc.
+    """
+    from ...utils.device_clients.adapter_factory import get_device_adapter
+    from ...utils.security import decrypt_data
+    from ...models.ap import AP as APModel
+    from ...db.engine import async_session_maker
+    
+    # Get AP from database
+    async with async_session_maker() as session:
+        ap = await session.get(APModel, host)
+        if not ap:
+            raise HTTPException(status_code=404, detail=f"AP {host} not found")
+        
+        # Only MikroTik APs support SSL status check
+        if ap.vendor != "mikrotik":
+            return {
+                "ssl_enabled": False,
+                "is_trusted": False,
+                "status": "not_applicable",
+                "message": f"SSL status only available for MikroTik devices. This AP is: {ap.vendor}"
+            }
+        
+        vendor = ap.vendor
+        username = ap.username
+        password = decrypt_data(ap.password)
+        port = ap.api_port or 8729
+    
+    adapter = None
+    try:
+        # Get adapter (MikrotikWirelessAdapter inherits get_ssl_status from MikrotikRouterAdapter)
+        adapter = get_device_adapter(
+            host=host,
+            username=username,
+            password=password,
+            vendor=vendor,
+            port=port,
+        )
+        
+        # Call inherited method from MikrotikRouterAdapter
+        status_data = adapter.get_ssl_status()
+        return status_data
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking SSL status: {e}")
+    finally:
+        if adapter:
+            adapter.disconnect()
+
+
 @router.get("/aps/{host}/wireless-interfaces")
 async def get_wireless_interfaces(
     host: str,
@@ -359,6 +416,8 @@ async def get_wireless_interfaces(
         return {"interfaces": interfaces}
     except APNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except APUnreachableError as e:
+        raise HTTPException(status_code=503, detail=str(e))
 
 
 @router.post("/aps/validate", status_code=200)
@@ -562,3 +621,79 @@ async def get_provision_status(
         last_provision_attempt=ap.last_provision_attempt,
         last_provision_error=ap.last_provision_error
     )
+
+
+# --- Repair/Recovery Endpoint for APs ---
+@router.post("/aps/{host}/repair", status_code=status.HTTP_200_OK)
+async def repair_ap_connection(
+    host: str,
+    reset_provision: bool = False,
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Repara/recupera un AP MikroTik que está en estado de error.
+    
+    Acciones que realiza:
+    1. Limpia el estado de backoff (errores consecutivos)
+    2. Limpia la caché de conexiones
+    3. Si reset_provision=True, marca is_provisioned=False para permitir re-aprovisionar
+    
+    Args:
+        host: IP del AP
+        reset_provision: Si es True, permite volver a ejecutar el aprovisionamiento SSL
+    
+    Returns:
+        Estado de la operación y siguientes pasos recomendados
+    """
+    from ...models.ap import AP as APModel
+    from ...core.audit import log_action
+    from ...services.ap_monitor_scheduler import ap_monitor_scheduler
+    
+    # 1. Verificar que el AP existe
+    ap = await session.get(APModel, host)
+    if not ap:
+        raise HTTPException(status_code=404, detail="AP no encontrado")
+    
+    # 2. Solo para MikroTik APs
+    if ap.vendor != "mikrotik":
+        raise HTTPException(
+            status_code=400,
+            detail=f"La reparación de aprovisionamiento solo aplica para MikroTik. Este AP es: {ap.vendor}"
+        )
+    
+    # 3. Reset connection state in scheduler (if available)
+    reset_result = {"message": "Estado de conexión limpiado."}
+    try:
+        if hasattr(ap_monitor_scheduler, 'reset_connection'):
+            reset_result = ap_monitor_scheduler.reset_connection(host)
+    except Exception as e:
+        reset_result = {"message": f"Advertencia al limpiar caché: {e}"}
+    
+    # 4. Opcionalmente marcar como no aprovisionado para re-aprovisionar
+    if reset_provision:
+        ap.is_provisioned = False
+        ap.last_provision_error = None
+        await session.commit()
+        reset_result["provision_reset"] = True
+        reset_result["message"] = "Estado de aprovisionamiento reseteado. Listo para re-aprovisionar SSL."
+    
+    # 5. Audit log
+    log_action("REPAIR", "ap", host, user=current_user, details={
+        "reset_provision": reset_provision
+    })
+    
+    return {
+        "status": "success",
+        "message": reset_result.get("message", "Operación completada"),
+        "provision_reset": reset_provision,
+        "next_steps": [
+            "Intente conectar nuevamente desde el Dashboard",
+            "Si persisten errores SSL, use reset_provision=true para re-aprovisionar",
+            "Verifique que el AP esté encendido y accesible en la red"
+        ] if not reset_provision else [
+            "El AP ahora muestra el botón 'Provision' en la lista",
+            "Haga clic en 'Provision' para re-configurar SSL",
+            "Use las credenciales admin del AP"
+        ]
+    }

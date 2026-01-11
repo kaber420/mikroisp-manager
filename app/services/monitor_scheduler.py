@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 from typing import Dict, List
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from ..utils.cache import cache_manager
 from .router_connector import router_connector
@@ -34,10 +34,20 @@ class MonitorScheduler:
             self._subscribed_routers[host] = {
                 "ref_count": 0,
                 "last_unsubscribe_time": None,
-                "last_history_save": None
+                "last_history_save": None,
+                "backoff_until": None,  # Backoff exponencial para errores
+                "consecutive_failures": 0
             }
         
         info = self._subscribed_routers[host]
+        
+        # Check backoff: si hubo error reciente, no intentar reconectar aún
+        if info.get("backoff_until"):
+            elapsed = (datetime.now() - info["backoff_until"]).total_seconds()
+            if elapsed < 0:
+                logger.warning(f"[MonitorScheduler] Skipping subscribe to {host} - in backoff ({-elapsed:.0f}s remaining)")
+                raise Exception(f"Router {host} en período de espera por errores previos")
+        
         was_zero = info["ref_count"] <= 0
         
         info["ref_count"] += 1
@@ -48,10 +58,19 @@ class MonitorScheduler:
         
         try:
             await router_connector.subscribe(host, creds)
+            # Conexión exitosa: resetear backoff
+            info["consecutive_failures"] = 0
+            info["backoff_until"] = None
             logger.info(f"[MonitorScheduler] Subscribed to {host} (ref_count={info['ref_count']})")
         except Exception as e:
             logger.error(f"[MonitorScheduler] Failed to subscribe to {host}: {e}")
             info["ref_count"] -= 1
+            # Aplicar backoff exponencial (5s, 10s, 20s, 40s, max 60s)
+            info["consecutive_failures"] = info.get("consecutive_failures", 0) + 1
+            backoff_seconds = min(5 * (2 ** (info["consecutive_failures"] - 1)), 60)
+            info["backoff_until"] = datetime.now() + timedelta(seconds=backoff_seconds)
+            logger.warning(f"[MonitorScheduler] Backoff for {host}: {backoff_seconds}s (failures: {info['consecutive_failures']})")
+            
             if info["ref_count"] <= 0:
                 del self._subscribed_routers[host]
             raise
@@ -115,6 +134,52 @@ class MonitorScheduler:
             logger.debug(f"[MonitorScheduler] DB updated: {host} -> {status}")
         except Exception as e:
             logger.error(f"[MonitorScheduler] Failed to update DB for {host}: {e}")
+
+    def reset_connection(self, host: str) -> dict:
+        """
+        Resetea el estado de conexión de un router (backoff, errores, etc.)
+        sin eliminarlo ni perder su configuración.
+        
+        Útil para recuperar un router que entró en estado de error.
+        
+        Returns:
+            dict con status y mensaje
+        """
+        # 1. Limpiar estado en el scheduler
+        if host in self._subscribed_routers:
+            info = self._subscribed_routers[host]
+            info["backoff_until"] = None
+            info["consecutive_failures"] = 0
+            info["last_unsubscribe_time"] = None
+            logger.info(f"[MonitorScheduler] Reset backoff state for {host}")
+        
+        # 2. Limpiar caché de stats
+        try:
+            stats_cache = cache_manager.get_store("router_stats")
+            stats_cache.delete(host)
+            logger.info(f"[MonitorScheduler] Cleared stats cache for {host}")
+        except Exception as e:
+            logger.warning(f"[MonitorScheduler] Could not clear cache for {host}: {e}")
+        
+        # 3. Limpiar pool de conexiones del router
+        try:
+            from ..utils.device_clients.mikrotik import connection as mikrotik_conn
+            mikrotik_conn.remove_pool(host)
+            logger.info(f"[MonitorScheduler] Cleared connection pool for {host}")
+        except Exception as e:
+            logger.warning(f"[MonitorScheduler] Could not clear pool for {host}: {e}")
+        
+        # 4. Limpiar credenciales del connector (forzará re-autenticación)
+        try:
+            router_connector.cleanup_credentials(host)
+            logger.info(f"[MonitorScheduler] Cleared credentials for {host}")
+        except Exception as e:
+            logger.warning(f"[MonitorScheduler] Could not clear credentials for {host}: {e}")
+        
+        return {
+            "status": "success",
+            "message": f"Estado de conexión reseteado para {host}. Listo para reconectar."
+        }
 
     async def refresh_host(self, host: str) -> dict:
         """

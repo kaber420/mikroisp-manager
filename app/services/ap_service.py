@@ -361,6 +361,14 @@ class APService:
                 }
                 for i in detailed
             ]
+        except Exception as e:
+            error_msg = str(e).lower()
+            if 'ssl' in error_msg or 'handshake' in error_msg:
+                raise APUnreachableError(
+                    f"Error de conexión SSL al AP {host}. "
+                    f"Verifique el certificado del dispositivo. Detalle: {e}"
+                )
+            raise APUnreachableError(f"No se pudo conectar al AP {host}: {e}")
         finally:
             adapter.disconnect()
     

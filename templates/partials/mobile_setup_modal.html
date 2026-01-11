@@ -1,0 +1,92 @@
+<!-- Mobile Setup QR Modal -->
+<div x-data="{ 
+    open: false, 
+    loading: false, 
+    config: null, 
+    error: null,
+    async loadConfig() {
+        this.loading = true;
+        this.error = null;
+        try {
+            const resp = await fetch('/api/security/bootstrap-config');
+            if (!resp.ok) {
+                const data = await resp.json();
+                throw new Error(data.detail || 'Error loading config');
+            }
+            this.config = await resp.json();
+        } catch (e) {
+            this.error = e.message;
+        } finally {
+            this.loading = false;
+        }
+    }
+}" x-on:open-mobile-setup.window="open = true; loadConfig()" x-show="open" x-cloak
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+    x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+
+    <div @click.away="open = false"
+        class="bg-surface-1 border border-border-color rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl"
+        x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95"
+        x-transition:enter-end="opacity-100 scale-100">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-primary/20 p-2 rounded-lg">
+                    <span class="material-symbols-outlined text-primary text-2xl">qr_code_2</span>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-text-primary">📱 µMonitor Pro Mobile</h3>
+                    <p class="text-text-secondary text-sm">Escanea para configurar la app</p>
+                </div>
+            </div>
+            <button @click="open = false" class="text-text-secondary hover:text-text-primary transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <!-- Loading State -->
+        <template x-if="loading">
+            <div class="flex items-center justify-center py-12">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+        </template>
+
+        <!-- Error State -->
+        <template x-if="error && !loading">
+            <div class="bg-danger/10 border border-danger/30 rounded-lg p-4 text-center">
+                <span class="material-symbols-outlined text-danger text-3xl mb-2">error</span>
+                <p class="text-danger" x-text="error"></p>
+            </div>
+        </template>
+
+        <!-- Content -->
+        <template x-if="config && !loading && !error">
+            <div>
+                <!-- QR Code -->
+                <div class="bg-white p-4 rounded-xl mx-auto w-fit mb-4 shadow-lg">
+                    <img src="/api/security/bootstrap-qr.png" alt="QR Code" width="200" height="200" class="block">
+                </div>
+
+                <!-- Info -->
+                <div class="bg-surface-2/50 border border-border-color rounded-lg p-4 space-y-2">
+                    <div class="flex items-start gap-2">
+                        <span class="text-text-secondary text-sm min-w-[80px]">Servidor:</span>
+                        <span class="text-text-primary font-mono text-sm break-all" x-text="config.server_url"></span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="text-text-secondary text-sm min-w-[80px]">Fingerprint:</span>
+                        <span class="text-text-primary font-mono text-xs break-all" x-text="config.ca_sha256"></span>
+                    </div>
+                </div>
+
+                <!-- Instructions -->
+                <p class="text-text-secondary text-sm text-center mt-4">
+                    En la app: Menú ⚙️ → Zero Trust CA → Escanear QR
+                </p>
+            </div>
+        </template>
+    </div>
+</div>

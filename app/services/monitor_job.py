@@ -44,19 +44,10 @@ def run_monitor_cycle():
         aps = devices["aps"]
         routers = devices["routers"]
 
-        # --- BLOQUE: AUTO-LIMPIEZA DE ROUTERS ---
-        if routers:
-            logger.info(
-                "🧹 Ejecutando limpieza preventiva de conexiones en Routers..."
-            )
-
-            for r_conf in routers:
-                try:
-                    # Conecta, limpia zombies y desconecta
-                    with RouterService(r_conf["host"]) as rs:
-                        rs.cleanup_connections()
-                except Exception:
-                    pass  # No dejamos que un error de limpieza detenga el monitor
+        # --- BLOQUE: AUTO-LIMPIEZA DE ROUTERS (DESHABILITADO) ---
+        # NOTA: La limpieza secuencial se removió porque causaba bloqueos fatales
+        # si un router no respondía (no hay timeout por defecto en sockets).
+        # La limpieza ahora ocurre de forma asíncrona dentro de cada worker.
         # ----------------------------------------------
 
         if not aps and not routers:

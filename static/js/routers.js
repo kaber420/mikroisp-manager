@@ -141,6 +141,32 @@ document.addEventListener('alpine:init', () => {
             window.provisionMixin.openProvisionModal.call(this, router, 'Router', '/api/routers');
         },
 
+        // Repair router - allows re-provisioning
+        async repairRouter(router) {
+            const hostname = router.hostname || router.host;
+
+            if (!confirm(`¿Desea permitir re-aprovisionar el router "${hostname}"?\n\nEsto mostrará el botón "Provision" para configurar SSL nuevamente.`)) {
+                return;
+            }
+
+            try {
+                const url = `/api/routers/${encodeURIComponent(router.host)}/repair?reset_provision=true`;
+                const response = await fetch(url, { method: 'POST' });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Error al reparar router');
+                }
+
+                showToast('Router listo para re-aprovisionar', 'success');
+                await this.loadData();
+
+            } catch (error) {
+                console.error('Repair error:', error);
+                showToast(`Error: ${error.message}`, 'danger');
+            }
+        },
+
         isRouterProvisioned(router) {
             return router.is_provisioned === true;
         }

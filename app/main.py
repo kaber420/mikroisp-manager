@@ -81,6 +81,12 @@ async def on_startup():
     from .services.ap_monitor_scheduler import ap_monitor_scheduler
     asyncio.create_task(ap_monitor_scheduler.run())
     print("✅ APMonitorScheduler iniciado (Cache V2)")
+    
+    # --- Cache V2: Iniciar SwitchMonitorScheduler ---
+    # Mismo patrón para Switches
+    from .services.switch_monitor_scheduler import switch_monitor_scheduler
+    asyncio.create_task(switch_monitor_scheduler.run())
+    print("✅ SwitchMonitorScheduler iniciado (Cache V2)")
 
 
 # --- Configuración de SlowAPI ---
@@ -145,7 +151,7 @@ class TrustedOriginMiddleware(BaseHTTPMiddleware):
     """
 
     UNSAFE_METHODS = {"POST", "PUT", "DELETE", "PATCH"}
-    SAFE_PATHS = {"/api/internal/"}  # Internal endpoints that don't need origin check
+    SAFE_PATHS = {"/api/internal/", "/auth/jwt/login"}  # Internal endpoints & Login don't need Origin check
 
     async def dispatch(self, request: Request, call_next):
         if request.method in self.UNSAFE_METHODS:

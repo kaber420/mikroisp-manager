@@ -321,5 +321,35 @@ document.addEventListener('alpine:init', () => {
             // Call base mixin method with AP-specific config
             window.provisionMixin.openProvisionModal.call(this, ap, 'AP', '/api/aps');
         },
+
+        // Repair AP - allows re-provisioning
+        async repairAp(ap) {
+            const hostname = ap.hostname || ap.host;
+
+            if (!confirm(`¿Desea permitir re-aprovisionar el AP "${hostname}"?\n\nEsto mostrará el botón "Provision" para configurar SSL nuevamente.`)) {
+                return;
+            }
+
+            try {
+                const url = `/api/aps/${encodeURIComponent(ap.host)}/repair?reset_provision=true`;
+                const response = await fetch(url, { method: 'POST' });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Error al reparar AP');
+                }
+
+                showToast('AP listo para re-aprovisionar', 'success');
+                await this.loadInitialData();
+
+            } catch (error) {
+                console.error('Repair error:', error);
+                showToast(`Error: ${error.message}`, 'danger');
+            }
+        },
+
+        isApProvisioned(ap) {
+            return ap.is_provisioned === true;
+        }
     }));
 });

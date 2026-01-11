@@ -76,81 +76,90 @@ class SwitchResponse(BaseModel):
 async def switch_resources_stream(websocket: WebSocket, host: str):
     """
     WebSocket endpoint for streaming live switch metrics.
-    Sends CPU, RAM, ports status in real-time.
+    Uses SwitchMonitorScheduler + Cache for efficient connection pooling.
     """
     await websocket.accept()
-    service = None
     
+    # Get switch data
+    switch_data = switches_db.get_switch_by_host(host)
+    if not switch_data:
+        await websocket.send_json({"error": f"Switch {host} not found"})
+        await websocket.close()
+        return
+    
+    from ...services.switch_monitor_scheduler import switch_monitor_scheduler
+    from ...utils.cache import cache_manager
+
+    # Prepare credentials
+    password = switch_data.get("password", "")
+    port = switch_data.get("api_ssl_port") or switch_data.get("api_port", 8728)
+    
+    creds = {
+        "username": switch_data.get("username", ""),
+        "password": password,
+        "port": port
+    }
+
     try:
-        # Get switch data and create service
-        switch_data = switches_db.get_switch_by_host(host)
-        if not switch_data:
-            await websocket.send_json({"error": f"Switch {host} not found"})
-            await websocket.close()
-            return
+        # Subscribe triggers immediate poll
+        await switch_monitor_scheduler.subscribe(host, creds)
         
-        service = switch_service.SwitchService(host, switch_data)
+        stats_cache = cache_manager.get_store("switch_stats")
         
         while True:
-            try:
-                # Get system resources
-                resources = service.get_system_resources()
-                
-                # Build payload
-                payload = {
-                    "type": "switch_status",
-                    "host": host,
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "data": {
-                        "cpu_load": resources.get("cpu-load"),
-                        "memory_used": None,
-                        "memory_total": resources.get("total-memory"),
-                        "memory_free": resources.get("free-memory"),
-                        "uptime": resources.get("uptime"),
-                        "version": resources.get("version"),
-                        "board_name": resources.get("board-name"),
-                        "identity": resources.get("name"),
-                    }
-                }
-                
-                # Calculate memory percentage
-                total_mem = resources.get("total-memory", 0)
-                free_mem = resources.get("free-memory", 0)
-                if total_mem and free_mem:
-                    used_mem = int(total_mem) - int(free_mem)
-                    payload["data"]["memory_used"] = used_mem
-                    payload["data"]["memory_percent"] = round((used_mem / int(total_mem)) * 100, 1)
-                
-                await websocket.send_json(payload)
-                
-            except RuntimeError as e:
-                if "Cannot call \"send\" once a close message has been sent" in str(e):
-                    logger.info(f"WebSocket connection closed for switch {host} loop.")
-                    break
-                logger.error(f"Runtime error in switch stream for {host}: {e}")
-                
-            except Exception as e:
-                logger.error(f"Error getting switch resources for {host}: {e}")
-                try:
+            data = stats_cache.get(host)
+            
+            if data:
+                if "error" in data:
                     await websocket.send_json({
                         "type": "error",
                         "host": host,
-                        "message": str(e)
+                        "message": data["error"]
                     })
-                except RuntimeError:
-                    # Connection likely closed
-                    break
+                else:
+                    total_mem = data.get("total_memory", 0)
+                    free_mem = data.get("free_memory", 0)
+                    used_mem = 0
+                    mem_percent = 0
+                    
+                    try:
+                        t = int(total_mem) if total_mem else 0
+                        f = int(free_mem) if free_mem else 0
+                        if t > 0:
+                            used_mem = t - f
+                            mem_percent = round((used_mem / t) * 100, 1)
+                    except (ValueError, TypeError):
+                        pass
+
+                    payload = {
+                        "type": "switch_status",
+                        "host": host,
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "data": {
+                            "cpu_load": data.get("cpu_load"),
+                            "memory_used": used_mem,
+                            "memory_total": total_mem,
+                            "memory_free": free_mem,
+                            "memory_percent": mem_percent,
+                            "uptime": data.get("uptime"),
+                            "version": data.get("version"),
+                            "board_name": data.get("board_name"),
+                            "identity": data.get("name"),
+                        }
+                    }
+                    
+                    await websocket.send_json(payload)
+            else:
+                await websocket.send_json({"type": "loading", "data": {}})
             
-            # Wait before next update
-            await asyncio.sleep(5)
+            await asyncio.sleep(2)
             
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected for switch {host}")
     except Exception as e:
         logger.error(f"WebSocket error for switch {host}: {e}")
     finally:
-        if service:
-            service.disconnect()
+        await switch_monitor_scheduler.unsubscribe(host)
 
 
 # --- CRUD Endpoints ---
@@ -514,3 +523,35 @@ async def get_switch_port_stats(
     except Exception as e:
         logger.error(f"Error getting port stats for switch {host}: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.get("/switches/{host}/ssl/status")
+async def get_switch_ssl_status(
+    host: str,
+    current_user: User = Depends(require_technician),
+):
+    """
+    Obtiene el estado SSL/TLS de un Switch MikroTik.
+    Retorna si SSL está habilitado, si el certificado es confiable, etc.
+    
+    MikrotikSwitchAdapter hereda de MikrotikRouterAdapter y tiene acceso a get_ssl_status().
+    """
+    switch_data = switch_service.get_switch_by_host(host)
+    if not switch_data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found")
+    
+    try:
+        service = switch_service.get_switch_service(host)
+        
+        # MikrotikSwitchAdapter inherits get_ssl_status from MikrotikRouterAdapter
+        status_data = service.get_ssl_status()
+        service.disconnect()
+        
+        return status_data
+        
+    except switch_service.SwitchConnectionError as e:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error getting SSL status for switch {host}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
