@@ -180,44 +180,78 @@ class MikrotikProvisioningService:
                         router_os_version = "7"
                     break
             
-            logger.info(f"[SSH Provisioning] Detected RouterOS v{router_os_version}")
-            
             # 2. Create API user group and user
-            policy = (
-                "local,ssh,read,write,policy,test,password,sniff,sensitive,"
-                "api,romon,ftp,!telnet,!reboot,!winbox,!web,!rest-api"
-            )
+            # Adjust policy based on version
+            base_policy = "local,ssh,read,write,policy,test,password,sniff,sensitive,api,romon,ftp,!telnet,!reboot,!winbox,!web"
+            if router_os_version == "7":
+                policy = f"{base_policy},!rest-api"
+            else:
+                # v6 does not have rest-api policy
+                policy = base_policy
             
-            # Create group (ignore error if exists)
-            group_cmd = (
-                f':do {{ /user group add name={new_group} policy="{policy}" }} '
-                f'on-error={{}}'
-            )
-            ssh_client.exec_command(group_cmd)
+            logger.info(f"[SSH Provisioning] Gestionando grupo '{new_group}'...")
+            
+            # Simple, robust group creation
+            # Try to add, catch error if exists
+            group_add_cmd = f'/user group add name={new_group} policy="{policy}"'
+            _, stdout, stderr = ssh_client.exec_command(group_add_cmd)
+            g_out = stdout.read().decode()
+            g_err = stderr.read().decode()
+            
+            if g_err and "already exists" not in g_err.lower():
+                logger.error(f"[SSH Provisioning] Error creando grupo: {g_err}")
+                # Don't return error yet, try to proceed in case it's a transient issue
+            elif "already exists" in g_err.lower():
+                logger.info(f"[SSH Provisioning] Grupo '{new_group}' ya existe. Asegurando permisos...")
+                # Update permissions just in case
+                group_set_cmd = f'/user group set [find name={new_group}] policy="{policy}"'
+                ssh_client.exec_command(group_set_cmd)
+
             time.sleep(0.5)
             
             # Create or update user
-            # First try to find if user exists
-            check_user_cmd = f'/user print where name="{new_user}"'
-            _, stdout, _ = ssh_client.exec_command(check_user_cmd)
-            user_output = stdout.read().decode()
+            logger.info(f"[SSH Provisioning] Gestionando usuario '{new_user}'...")
             
-            if new_user in user_output:
-                # User exists, update password and group
+            # Check existence first
+            check_cmd = f'/user print count-only where name="{new_user}"'
+            _, stdout, _ = ssh_client.exec_command(check_cmd)
+            count_str = stdout.read().decode().strip()
+            
+            if count_str and count_str.isdigit() and int(count_str) > 0:
+                logger.info(f"[SSH Provisioning] Usuario existe. Actualizando contraseña y grupo...")
                 user_cmd = (
                     f'/user set [find name="{new_user}"] '
                     f'password="{new_password}" group={new_group}'
                 )
             else:
-                # Create new user
+                logger.info(f"[SSH Provisioning] Creando nuevo usuario...")
                 user_cmd = (
                     f'/user add name="{new_user}" '
                     f'password="{new_password}" group={new_group}'
                 )
             
-            ssh_client.exec_command(user_cmd)
-            time.sleep(0.5)
-            logger.info(f"[SSH Provisioning] Usuario '{new_user}' configurado")
+            _, stdout, stderr = ssh_client.exec_command(user_cmd)
+            u_out = stdout.read().decode()
+            u_err = stderr.read().decode()
+            
+            if u_err and "already exists" not in u_err.lower():
+                logger.warning(f"[SSH Provisioning] Error gestionando usuario: {u_err}")
+            
+            time.sleep(1)
+            
+            # FINAL VERIFICATION of user checking
+            verify_user_cmd = f'/user print count-only where name="{new_user}"'
+            _, stdout, _ = ssh_client.exec_command(verify_user_cmd)
+            final_count = stdout.read().decode().strip()
+            
+            if not final_count or not final_count.isdigit() or int(final_count) == 0:
+                 logger.error(f"[SSH Provisioning] FALLO CRÍTICO: El usuario '{new_user}' no se encuentra después de intentar crearlo.")
+                 return {
+                     "status": "error", 
+                     "message": f"No se pudo crear el usuario API '{new_user}'. Error: {u_err}"
+                 }
+                 
+            logger.info(f"[SSH Provisioning] Usuario '{new_user}' verificado correctamente.")
             
             # 3. Setup SSL certificates via PKI Service
             pki = PKIService()
@@ -265,7 +299,7 @@ class MikrotikProvisioningService:
             time.sleep(1)
             logger.info(f"[SSH Provisioning] CA importado")
             
-            # 3b. Generate certificate on SERVER and upload (proven v7 method from git history)
+            # 3b. Generate certificate on SERVER and upload (Restored)
             success, key_pem, cert_pem = pki.generate_full_cert_pair(host)
             if not success:
                 sftp.close()
@@ -284,65 +318,145 @@ class MikrotikProvisioningService:
             with sftp.file(key_filename, "w") as f:
                 f.write(key_pem.encode("utf-8"))
             
-            time.sleep(0.5)
+            time.sleep(2) # Allow checking filesystem sync
             sftp.close()
+
+            # Verify files were uploaded (Diagnostic only)
+            # using terse for reliable parsing
+            verify_files_cmd = f'/file print terse where name~"umanager"'
+            _, stdout, _ = ssh_client.exec_command(verify_files_cmd)
+            files_output = stdout.read().decode()
+            logger.info(f"[SSH Provisioning] Verificación de archivos (RAW): {files_output}")
             
-            # Import cert and key
-            import_cert_cmd = f'/certificate import file-name={cert_filename} passphrase=""'
-            ssh_client.exec_command(import_cert_cmd)
-            time.sleep(1)
+            if cert_filename not in files_output:
+                logger.warning(f"[SSH Provisioning] ADVERTENCIA: {cert_filename} no aparece en '/file print' todavía. Intentando importar de todas formas...")
+            else:
+                logger.info(f"[SSH Provisioning] Archivos verificados en disco.")
             
-            import_key_cmd = f'/certificate import file-name={key_filename} passphrase=""'
-            ssh_client.exec_command(import_key_cmd)
-            time.sleep(1)
-            logger.info(f"[SSH Provisioning] Certificado del router importado")
+            logger.info(f"[SSH Provisioning] Iniciando importación...")
+            
+            # Import cert and key with robust error checking
+            # Try standard 'file-name' first, fallback to 'file' if needed
+            for file_type, fname in [("CERT", cert_filename), ("KEY", key_filename)]:
+                logger.info(f"[SSH Provisioning] Importando {file_type}: {fname}")
+                
+                # Command 1: Standard
+                cmd = f'/certificate import file-name={fname} passphrase=""'
+                _, stdout, stderr = ssh_client.exec_command(cmd)
+                out = stdout.read().decode()
+                err = stderr.read().decode()
+                
+                # Check for common successes
+                if "imported" in out.lower() or "passphrase" in out.lower(): # sometimes it asks for passphrase even if provided
+                    logger.info(f"[SSH Provisioning] {file_type} importado (Std Output): {out}")
+                elif err and "no such item" in err.lower(): # v6 sometimes prefers 'file'
+                    logger.warning(f"[SSH Provisioning] Standard import failed, trying legacy syntax for {fname}")
+                    legacy_cmd = f'/certificate import file={fname} passphrase=""'
+                    ssh_client.exec_command(legacy_cmd)
+                else:
+                    logger.info(f"[SSH Provisioning] {file_type} Output: {out} | Err: {err}")
+                
+                time.sleep(2) # Increased wait for slow devices
+            
+            logger.info(f"[SSH Provisioning] Proceso de importación finalizado")
             
             # 4. Find the cert name by common-name (host IP)
-            find_cert_cmd = f'/certificate print where common-name="{host}"'
+            # Use 'terse' for easier parsing across versions
+            find_cert_cmd = f'/certificate print terse where common-name="{host}"'
             _, stdout, _ = ssh_client.exec_command(find_cert_cmd)
             cert_output = stdout.read().decode()
-            logger.info(f"[SSH Provisioning] Certificados encontrados: {cert_output}")
+            logger.info(f"[SSH Provisioning] Certificados encontrados (RAW): {cert_output}")
             
-            # Parse the certificate name - look for one with K flag (private key)
+            # Smart parsing for v6/v7 compatibility
             cert_name = None
-            for line in cert_output.split('\n'):
-                if 'K' in line and host in line:
-                    parts = line.split()
-                    for p in parts:
-                        if (not p.startswith(('K', 'L', 'A', 'T', 'R', 'C', 'E')) 
-                                and not p.isdigit() and len(p) > 3):
-                            cert_name = p.strip().strip('"')
-                            break
-                    if cert_name:
+            has_private_key = False
+            
+            for line in cert_output.splitlines():
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                    
+                # Parse flags (always at the start in terse mode, e.g., "0 K T name=...")
+                # v7: 0 K T name=...
+                # v6: 0 K name=...
+                
+                # Check for Private Key flag 'K'
+                # In terse output, flags are usually space-separated before properties
+                # But to be safe, we check if 'K' appears in the flags section (before first key=value)
+                
+                parts = line.split()
+                flags_part = ""
+                properties_start_idx = 0
+                
+                # Find where properties start (k=v)
+                for i, part in enumerate(parts):
+                    if '=' in part:
+                        properties_start_idx = i
                         break
+                    if not part.isdigit(): # skip index number
+                        flags_part += part
+                
+                current_k = 'K' in flags_part
+                
+                # Extract name
+                current_name = None
+                for part in parts[properties_start_idx:]:
+                    if part.startswith('name='):
+                        current_name = part.split('=', 1)[1].strip('"')
+                        break
+                
+                if current_name:
+                    cert_name = current_name
+                    if current_k:
+                        has_private_key = True
+                        break # Found a perfect match
             
             if not cert_name:
                 # Fallback: use the base name of imported file
                 cert_name = cert_filename.replace('.crt', '').replace('.pem', '')
                 logger.warning(
-                    f"[SSH Provisioning] No se encontró nombre de cert, "
+                    f"[SSH Provisioning] No se encontró certificado en print output, "
                     f"usando fallback: {cert_name}"
                 )
             
-            logger.info(f"[SSH Provisioning] Usando certificado: {cert_name}")
+            logger.info(f"[SSH Provisioning] Usando certificado: {cert_name} (Tiene llave privada: {has_private_key})")
+            
+            if not has_private_key and cert_name:
+                 logger.warning(f"[SSH Provisioning] ALERTA: El certificado {cert_name} no parece tener llave privada (K). Intentando re-importar llave...")
+                 # Last ditch effort: Try to import key again specifically
+                 import_key_retry = f'/certificate import file-name={key_filename} passphrase=""'
+                 ssh_client.exec_command(import_key_retry)
+                 time.sleep(2)
             
             # 5. Configure and enable api-ssl service
-            # Use simple command syntax compatible with both v6 and v7
-            # First, try to set the certificate and enable the service
-            service_cmd = f'/ip service set api-ssl certificate="{cert_name}" disabled=no port={ssl_port}'
-            _, stdout, stderr = ssh_client.exec_command(service_cmd)
-            set_output = stdout.read().decode()
-            set_error = stderr.read().decode()
+            # Split commands for better stability on v6
+            logger.info(f"[SSH Provisioning] Configurando servicio api-ssl con certificado '{cert_name}'...")
             
-            if set_error and 'no such item' in set_error.lower():
-                # Fallback: try with number selector (api-ssl is usually index 6)
-                logger.warning(f"[SSH Provisioning] Fallback: api-ssl no encontrado por nombre, intentando con selector")
-                service_cmd_alt = f'/ip service set 6 certificate="{cert_name}" disabled=no port={ssl_port}'
-                ssh_client.exec_command(service_cmd_alt)
+            # Step 1: Set certificate (keep disabled for a moment)
+            # using 'numbers' selector combined with 'find' is the most robust method across versions
+            set_cert_cmd = f'/ip service set [find name=api-ssl] certificate="{cert_name}"'
+            ssh_client.exec_command(set_cert_cmd)
+            time.sleep(1)
             
-            time.sleep(2)  # Give RouterOS time to apply changes
+            # Verify if certificate took
+            check_cert_cmd = '/ip service print detail where name=api-ssl'
+            _, stdout, _ = ssh_client.exec_command(check_cert_cmd)
+            check_output = stdout.read().decode()
             
-            logger.info(f"[SSH Provisioning] Comando api-ssl ejecutado")
+            if cert_name not in check_output and f'certificate="{cert_name}"' not in check_output:
+                logger.warning(f"[SSH Provisioning] La asignación directa falló. Intentando método alternativo (legacy numeric)...")
+                # Fallback: legacy method trying to enable port + cert in one go, but using numeric ID 0-10 scan
+                # Just try to set on the item found by print
+                scan_cmd = f'/ip service set [find name=api-ssl] certificate="{cert_name}" port={ssl_port}'
+                ssh_client.exec_command(scan_cmd)
+                time.sleep(1)
+            
+            # Step 2: Enable service and set port
+            enable_cmd = f'/ip service set [find name=api-ssl] disabled=no port={ssl_port}'
+            ssh_client.exec_command(enable_cmd)
+            time.sleep(2)  # Give RouterOS time to restart service
+            
+            logger.info(f"[SSH Provisioning] Comandos de servicio ejecutados")
             
             # Verify service configuration with detail output
             check_service_cmd = '/ip service print detail where name=api-ssl'

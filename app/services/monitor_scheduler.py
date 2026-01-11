@@ -63,7 +63,14 @@ class MonitorScheduler:
             info["backoff_until"] = None
             logger.info(f"[MonitorScheduler] Subscribed to {host} (ref_count={info['ref_count']})")
         except Exception as e:
-            logger.error(f"[MonitorScheduler] Failed to subscribe to {host}: {e}")
+            # Sanitize error message to hide passwords
+            error_msg = str(e)
+            if "password=" in error_msg:
+                import re
+                # Mask value in password=... pattern (case insensitive)
+                error_msg = re.sub(r'password=[^ \t\n\r\f\v]+"?', 'password=******', error_msg, flags=re.IGNORECASE)
+                
+            logger.error(f"[MonitorScheduler] Failed to subscribe to {host}: {error_msg}")
             info["ref_count"] -= 1
             # Aplicar backoff exponencial (5s, 10s, 20s, 40s, max 60s)
             info["consecutive_failures"] = info.get("consecutive_failures", 0) + 1
@@ -73,7 +80,8 @@ class MonitorScheduler:
             
             if info["ref_count"] <= 0:
                 del self._subscribed_routers[host]
-            raise
+            # Don't raise the raw exception with password either - raise a sanitized one or just the class
+            raise Exception(error_msg)
 
     async def unsubscribe(self, host: str) -> None:
         """Desuscribe un router. Si ref_count=0, marca para limpieza con timeout."""
