@@ -42,3 +42,21 @@ Antes de añadir una librería externa, justifica por qué no puede resolverse c
 
 ### 6.5. Estándar de Commits (Conventional Commits)
 Usa mensajes de commit claros y estructurados. Ejemplo: `feat: add ssl indicator`, `fix: router timeout`. Esto permite entender el progreso y generar changelogs automáticos.
+
+## 7. Gestión de Documentación y Planificación
+
+### 7.1. Reportes Privados (`reports/`)
+La carpeta `reports/` está destinada exclusivamente para **documentación interna de desarrollo**.
+*   **Privacidad**: Estos archivos **NUNCA** deben subirse al repositorio remoto (GitHub). Están protegidos por `.gitignore` para vivir localmente.
+*   **Uso**: Úsalos para documentar estrategias, investigaciones, deuda técnica o manuales de operación interna.
+
+### 7.2. Tareas Grandes vs Pequeñas
+*   **Tareas Complejas (Refactoring/Features Grandes)**: Si un cambio requiere múltiples fases o un diseño arquitectónico profundo, **DEBE** crearse un reporte/plan en `reports/`. Esto asegura que la estrategia sobreviva a la sesión actual.
+*   **Tareas Simples/Rápidas**: Para cambios puntuales o fixes rápidos, el plan efímero de la sesión de chat (artifacts de memoria) es suficiente. No ensucies la carpeta `reports/` innecesariamente.
+
+### 7.3. Espacio de Trabajo Temporal (`.drafts`)
+*   Se recomienda usar una carpeta `.drafts/` (también ignorada por git) para archivos temporales, pruebas de concepto o borradores.
+*   **Regla de Limpieza**: Al finalizar una tarea, la carpeta de trabajo debe limpiarse.
+    *   Si un borrador es valioso: Muévelo a `reports/` con un nombre descriptivo.
+    *   Si es temporal: Elimínalo.
+*   No dejes archivos basura ("feature_v1_test2.py") flotando en la raíz del proyecto.

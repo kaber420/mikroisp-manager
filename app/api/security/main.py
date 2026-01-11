@@ -119,7 +119,7 @@ def get_bootstrap_qr_image(
 ):
     """
     Genera y devuelve la imagen QR de configuración para la app móvil.
-    Solo accesible por administradores.
+    Guarda el archivo en static/qr_codes para evitar regeneración constante.
     """
     try:
         import qrcode
@@ -137,7 +137,6 @@ def get_bootstrap_qr_image(
         )
     
     # Detect real IP address to ensure mobile connectivity
-    # This trick connects to a public DNS (doesn't send data) to find the route's source IP
     import socket
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -148,31 +147,47 @@ def get_bootstrap_qr_image(
         s.close()
         server_url = f"https://{local_ip}"  # Assume HTTPS for Zero Trust
     except Exception:
-        # Fallback to request URL if detection fails, though this is unlikely in a network
         server_url = str(request.base_url).rstrip("/")
         if "x-forwarded-proto" in request.headers:
             proto = request.headers["x-forwarded-proto"]
             host = request.headers.get("x-forwarded-host", request.headers.get("host", ""))
             server_url = f"{proto}://{host}"
     
+    # Define file path based on content hash (fingerprint + host) to invalidate if they change
+    # We use a simple hash of the payload to ensure uniqueness
+    import hashlib
+    payload_str = f"{server_url}|{fingerprint}"
+    payload_hash = hashlib.md5(payload_str.encode()).hexdigest()[:10]
+    
+    qr_filename = f"bootstrap_{payload_hash}.png"
+    # Ensure directory exists (relative to project root based on this file location)
+    # app/api/security/main.py -> ../../../static/qr_codes
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    qr_dir = os.path.join(base_dir, "static", "qr_codes")
+    os.makedirs(qr_dir, exist_ok=True)
+    
+    qr_path = os.path.join(qr_dir, qr_filename)
+    
+    # If file exists, return it directly
+    if os.path.exists(qr_path):
+        return FileResponse(qr_path, media_type="image/png")
+        
+    # Generate QR code
     payload = {
         "server_url": server_url,
         "ca_sha256": fingerprint
     }
     
-    # Generate QR code
     qr = qrcode.QRCode(version=1, box_size=10, border=4)
     qr.add_data(json.dumps(payload))
     qr.make(fit=True)
     
     img = qr.make_image(fill_color="black", back_color="white")
     
-    # Save to bytes buffer
-    buffer = io.BytesIO()
-    img.save(buffer, format="PNG")
-    buffer.seek(0)
+    # Save to disk
+    img.save(qr_path)
     
-    return StreamingResponse(buffer, media_type="image/png")
+    return FileResponse(qr_path, media_type="image/png")
 
 
 @router.get("/security/bootstrap-qr", response_class=HTMLResponse)

@@ -200,3 +200,12 @@ bootstrap_qr.png
 downloaded_ca.crt
 reports/arquitectura_zero_trust_ca.md
 static/ca.crt
+
+# Temporary Workspaces (Drafts & Scratchpads)
+.drafts/
+.scratch/
+tmp/
+
+# Generated Assets
+static/qr_codes/
+
