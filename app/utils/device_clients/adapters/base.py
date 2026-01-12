@@ -37,6 +37,8 @@ class ConnectedClient:
     # Connection info
     uptime: Optional[int] = None  # seconds
     interface: Optional[str] = None  # Which interface they're connected to
+    ssid: Optional[str] = None  # SSID of the network (ROS7 wifi)
+    band: Optional[str] = None  # Band (2ghz, 5ghz, etc.)
     
     # Extra vendor-specific data
     extra: Dict[str, Any] = field(default_factory=dict)

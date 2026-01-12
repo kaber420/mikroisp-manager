@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (filteredCPEs.length === 0) {
             const emptyRow = document.createElement('tr');
-            emptyRow.innerHTML = `<td colspan="7" class="text-center p-8 text-text-secondary">No CPEs match the current filter.</td>`;
+            emptyRow.innerHTML = `<td colspan="9" class="text-center p-8 text-text-secondary">No CPEs match the current filter.</td>`;
             tableBody.appendChild(emptyRow);
         } else {
             filteredCPEs.forEach(cpe => {
@@ -95,6 +95,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap font-semibold text-text-primary">${cpe.cpe_hostname || "Unnamed Device"}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-text-secondary">${apLink}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-text-secondary">${cpe.ssid || "N/A"}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-text-secondary">${cpe.band || "N/A"}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-text-primary font-semibold">${signalStrength}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-text-secondary font-mono">${cpe.cpe_mac}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-text-secondary font-mono">${cpe.ip_address || "No IP"}</td>
@@ -119,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tableBody.style.opacity = '0.6';
 
         if (allCPEs.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="7" class="text-center p-8 text-text-secondary">Loading CPE data...</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="9" class="text-center p-8 text-text-secondary">Loading CPE data...</td></tr>';
         }
 
         setTimeout(async () => {
@@ -132,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderCPEs();
             } catch (error) {
                 console.error("Error loading CPE data:", error);
-                tableBody.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-danger">Failed to load network data. Please check the API.</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="9" class="text-center p-8 text-danger">Failed to load network data. Please check the API.</td></tr>`;
             } finally {
                 setTimeout(() => {
                     if (tableBody) {

@@ -121,6 +121,8 @@ class MikrotikWirelessAdapter(MikrotikRouterAdapter):
                     rx_throughput_kbps=c["rx_throughput_kbps"],
                     uptime=c["uptime"],
                     interface=c["interface"],
+                    ssid=c.get("ssid"),
+                    band=c.get("band"),
                     extra=extra_data
                 ))
             
@@ -215,6 +217,8 @@ class MikrotikWirelessAdapter(MikrotikRouterAdapter):
                 rx_throughput_kbps=c["rx_throughput_kbps"],
                 uptime=c["uptime"],
                 interface=c["interface"],
+                ssid=c.get("ssid"),
+                band=c.get("band"),
                 extra=c.get("extra", {})
             )
             for c in clients_data

@@ -483,6 +483,15 @@ def _setup_stats_db():
     if "rx_rate" not in cpe_stats_columns:
         print("Migrando cpe_stats_history: Agregando columna rx_rate...")
         cursor.execute("ALTER TABLE cpe_stats_history ADD COLUMN rx_rate INTEGER;")
+    
+    # Add ssid and band columns for ROS7 wifi registration
+    if "ssid" not in cpe_stats_columns:
+        print("Migrando cpe_stats_history: Agregando columna ssid...")
+        cursor.execute("ALTER TABLE cpe_stats_history ADD COLUMN ssid TEXT;")
+    if "band" not in cpe_stats_columns:
+        print("Migrando cpe_stats_history: Agregando columna band...")
+        cursor.execute("ALTER TABLE cpe_stats_history ADD COLUMN band TEXT;")
 
     stats_conn.commit()
     stats_conn.close()
+

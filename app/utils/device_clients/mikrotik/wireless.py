@@ -4,6 +4,7 @@ from routeros_api.api import RouterOsApi
 
 # Import shared parsers and interfaces
 from . import parsers as mikrotik_parsers
+from . import ip as mikrotik_ip
 from .interfaces import MikrotikInterfaceManager
 
 logger = logging.getLogger(__name__)
@@ -153,6 +154,17 @@ def get_connected_clients(api: RouterOsApi) -> List[Dict[str, Any]]:
         except Exception:
              return []
 
+    # Fetch ARP table for enrichment
+    arp_map = {}
+    try:
+        arp_entries = mikrotik_ip.get_arp_entries(api)
+        for entry in arp_entries:
+            if mac := entry.get("mac-address"):
+                # Normalize MAC to uppercase for consistent matching
+                arp_map[mac.upper()] = entry
+    except Exception as e:
+        logger.warning(f"Failed to fetch ARP table for enrichment: {e}")
+
     clients = []
     for reg in registrations:
         # Parse fields using the shared parser module
@@ -170,10 +182,22 @@ def get_connected_clients(api: RouterOsApi) -> List[Dict[str, Any]]:
         # If not found (legacy wireless sometimes calculates p-throughput or similar, but often doesn't give realtime rate in table)
         # We leave as None if not available.
         
+        mac = reg.get("mac-address")
+        client_ip = reg.get("last-ip")
+        client_comment = reg.get("comment")
+
+        # ARP Enrichment: fill missing IP/hostname from ARP table
+        # Normalize MAC lookup to uppercase
+        if mac and (arp_info := arp_map.get(mac.upper())):
+            if not client_ip:
+                client_ip = arp_info.get("address")
+            if not client_comment:
+                client_comment = arp_info.get("comment")
+
         client = {
-            "mac": reg.get("mac-address"),
-            "hostname": reg.get("comment"),
-            "ip_address": reg.get("last-ip"),
+            "mac": mac,
+            "hostname": client_comment,
+            "ip_address": client_ip,
             "signal": signal,
             "tx_rate": tx_rate,
             "rx_rate": rx_rate,
@@ -184,6 +208,9 @@ def get_connected_clients(api: RouterOsApi) -> List[Dict[str, Any]]:
             "rx_throughput_kbps": int(rx_throughput) if rx_throughput else None,
             "uptime": mikrotik_parsers.parse_uptime(reg.get("uptime", "0s")),
             "interface": reg.get("interface"),
+            # New fields for ROS7 wifi/wifiwave2
+            "ssid": reg.get("ssid"),
+            "band": reg.get("band"),
             # Include raw extra data for adapters to use if needed
             "extra": {
                 "rx_signal": reg.get("signal-strength"),
@@ -192,7 +219,6 @@ def get_connected_clients(api: RouterOsApi) -> List[Dict[str, Any]]:
                 "noise_floor": reg.get("noise-floor"),
                 "p_throughput": reg.get("p-throughput"),
                 "distance": reg.get("distance"),
-                "band": reg.get("band"),
                 "auth_type": reg.get("auth-type"),
             }
         }

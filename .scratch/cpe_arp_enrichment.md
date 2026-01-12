@@ -35,59 +35,76 @@ def get_arp_entries(api: RouterOsApi) -> List[Dict[str, Any]]:
         return []
 ```
 
-### 2. Modificar `wireless.py`
+### 3. Modificar `wireless.py`
 Actualizar `get_connected_clients` para cruzar datos.
 
 #### Pasos:
-1.  Importar el módulo `ip` en `wireless.py`.
-2.  Obtener entradas ARP una sola vez al inicio de la función (para reducir llamadas API).
-3.  Crear un mapa (diccionario) de ARP indexado por MAC Address.
-4.  Al iterar sobre las registraciones inalámbricas, buscar la MAC en el mapa ARP.
-5.  Enriquecer:
-    *   **IP Address**: Si `last-ip` está ausente, usar la IP del ARP.
-    *   **Hostname/Comentario**: Si el comentario de wireless está vacío, intentar usar el comentario del ARP (que a menudo contiene nombres de host si vienen de DHCP estático o dinámico con script).
+1.  Importar los módulos `ip` y `ppp` en `wireless.py`.
+2.  Obtener **ARP** (`ip.get_arp_entries`) y **PPP Active** (`ppp.get_pppoe_active_connections`) al inicio.
+3.  Crear mapas (diccionarios) indexados por MAC Address para ambos.
+    *   `arp_map`: MAC -> Entry (para Static/DHCP)
+    *   `ppp_map`: Caller ID (MAC) -> Entry (para PPPoE)
+4.  Al iterar sobre las registraciones inalámbricas:
+    *   Buscar en `arp_map` primero.
+    *   Si no hay IP válida, buscar en `ppp_map`.
+5.  Enriquecer `ip_address` y `hostname`/`comment` según corresponda.
 
 #### Lógica de Enriquecimiento:
 
 ```python
 # ... importaciones
 from . import ip as mikrotik_ip
+from . import ppp as mikrotik_ppp
 
 def get_connected_clients(api: RouterOsApi) -> List[Dict[str, Any]]:
     # ... código existente ...
     
-    # 1. Obtener ARP
+    # 1. Obtener Tablas Auxiliares (ARP y PPP Active)
     arp_entries = mikrotik_ip.get_arp_entries(api)
     arp_map = {entry.get("mac-address"): entry for entry in arp_entries if entry.get("mac-address")}
+    
+    ppp_active = mikrotik_ppp.get_pppoe_active_connections(api)
+    ppp_map = {entry.get("caller-id"): entry for entry in ppp_active if entry.get("caller-id")}
 
     clients = []
     for reg in registrations:
         mac = reg.get("mac-address")
         
-        # Datos base
+        # Datos base de Wireless
         client_ip = reg.get("last-ip")
+        # El comentario en RegistrationTable a menudo está vacío, PERO:
+        # En Mikrotik Wireless, 'comment' es un campo editable manualmente.
+        # En PPP Active, 'name' es el usuario PPPoE (útil como hostname).
         client_comment = reg.get("comment")
         
-        # 2. Match con ARP
+        # 2. Match con ARP (Prioridad 1 para IP, Prioridad 2 para nombre)
         arp_info = arp_map.get(mac)
-        
         if arp_info:
-            # Si no hay IP en wireless, usamos la de ARP
             if not client_ip:
                 client_ip = arp_info.get("address")
-            
-            # Si no hay comentario en wireless, usamos el de ARP (potencialmente hostname)
             if not client_comment:
+                # ARP comment puede ser útil, pero a veces es autogenerado
                 client_comment = arp_info.get("comment")
-                
-                # Bonus: Si en el futuro se quiere "DHCP Leases" para hostname real, sería otro cruce similiar.
-                # Por ahora, ARP 'comment' a veces trae info útil.
+        
+        # 3. Match con PPP (Prioridad para IP si ARP falló, y EXCELENTE para 'hostname' real del cliente)
+        #    Si es un cliente PPPoE, su IP real está aquí.
+        ppp_info = ppp_map.get(mac)
+        if ppp_info:
+            # Si aún no tenemos IP (que sea válida) o si preferimos la de la sesión activa:
+            # Nota: A veces ARP tiene IP de enlace local, PPP tiene la IP pública/remota real.
+            # Preferimos PPP address si existe.
+            if ppp_info.get("address"):
+                client_ip = ppp_info.get("address")
+            
+            # PPP 'name' es el usuario (ej: 'cliente_juan'), mucho mejor que un comentario vacío.
+            if ppp_info.get("name"):
+                 client_comment = ppp_info.get("name")
         
         # Construcción del cliente (actualizado)
         client = {
             "mac": mac,
-            "hostname": client_comment, # Ahora puede venir de ARP
-            "ip_address": client_ip,    # Ahora puede venir de ARP
+            "hostname": client_comment,
+            "ip_address": client_ip,
             # ... resto de campos ...
         }
         clients.append(client)
@@ -95,12 +112,22 @@ def get_connected_clients(api: RouterOsApi) -> List[Dict[str, Any]]:
     return clients
 ```
 
-## Consideraciones Adicionales (Mejoras al documento original)
+## Hallazgos y Estado Actual
 
-1.  **Status ARP**: Las entradas ARP pueden estar `invalid` o `incomplete`.
-    *   *Propuesta*: Ignorar entradas ARP que no sean válidas (DC - Dynamic Complete, o S - Static) si es posible, aunque simplemente machear por MAC suele ser seguro.
-2.  **Performance**: La tabla ARP puede ser grande en redes muy saturadas (miles de entradas).
-    *   *Mitigación*: La conversión a diccionario `arp_map` es O(N) y la búsqueda O(1), lo cual es eficiente en Python. A nivel Mikrotik, `/ip/arp/print` es liviano.
-3.  **DHCP Leases**: Si el objetivo real es "hostname" (nombre del dispositivo), la tabla ARP a veces no lo tiene (solo tiene IP/MAC). La tabla `/ip/dhcp-server/lease` es la fuente más fidedigna para `host-name`.
-    *   *Análisis*: La solicitud del usuario pide explícitamente **ARP**. Sin embargo, sugeriré en el chat que si el ARP no trae el hostname, DHCP Leases es el siguiente paso lógico. Mantendremos el alcance en ARP por ahora según la solicitud.
-4.  **Manejo de Errores**: Si falla la llamada a ARP, el flujo principal de `get_connected_clients` **no debe fallar**. Se debe capturar excepción y proceder sin enriquecimiento (graceful degradation).
+### ✅ Implementado
+- **IP Address desde ARP**: Funciona correctamente. Si la registration table no tiene `last-ip`, se obtiene de `/ip/arp`.
+- **MAC Address**: Siempre disponible desde la registration table.
+- **Normalización de MAC**: Se normalizan a mayúsculas para asegurar match entre tablas.
+
+### ❌ Hostname - Limitación Descubierta
+El hostname que muestra Winbox en la tabla ARP **no está almacenado** en la tabla ARP. Winbox hace un lookup dinámico (NetBIOS/mDNS) al dispositivo cliente en tiempo real.
+
+### Opciones Futuras para Hostname
+1. **NetBIOS Name Query**: Enviar query UDP puerto 137 a cada IP cliente. Requiere acceso de red directo.
+2. **mDNS/Bonjour**: Escuchar broadcast mDNS en la red. Requiere presencia en el mismo segmento.
+3. **Campo manual**: Permitir al usuario asignar nombres a MACs en la BD local.
+4. **PPP Active** (si aplica): Para clientes PPPoE, el `name` del PPP secret es el identificador del cliente.
+
+Por ahora, el enriquecimiento con ARP para IP está activo y funcionando.
+
+

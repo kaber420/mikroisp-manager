@@ -176,8 +176,9 @@ def save_device_stats(ap_host: str, status: "DeviceStatus", vendor: str = "ubiqu
                     signal_chain0, signal_chain1, noisefloor, cpe_tx_power, distance, 
                     dl_capacity, ul_capacity, airmax_cinr_rx, airmax_usage_rx, 
                     airmax_cinr_tx, airmax_usage_tx, throughput_rx_kbps, throughput_tx_kbps, 
-                    total_rx_bytes, total_tx_bytes, cpe_uptime, ccq, tx_rate, rx_rate
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    total_rx_bytes, total_tx_bytes, cpe_uptime, ccq, tx_rate, rx_rate,
+                    ssid, band
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     timestamp,
@@ -206,6 +207,8 @@ def save_device_stats(ap_host: str, status: "DeviceStatus", vendor: str = "ubiqu
                     client.ccq,
                     client.tx_rate,
                     client.rx_rate,
+                    client.ssid,
+                    client.band,
                 ),
             )
         

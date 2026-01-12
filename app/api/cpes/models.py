@@ -22,6 +22,8 @@ class CPEDetail(BaseModel):
     cpe_uptime: Optional[int] = None
     eth_plugged: Optional[bool] = None
     eth_speed: Optional[int] = None
+    ssid: Optional[str] = None
+    band: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 
