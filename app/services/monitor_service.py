@@ -2,6 +2,7 @@
 import logging
 from typing import Dict, Any
 
+from ..core.constants import DeviceVendor, DeviceStatus
 from ..utils.device_clients.adapter_factory import get_device_adapter
 from ..services.router_service import (
     RouterService,
@@ -41,12 +42,12 @@ class MonitorService:
     def check_ap(self, ap_config: Dict[str, Any]):
         """Verifica el estado de un AP usando adaptadores, guarda estadísticas y envía alertas."""
         host = ap_config["host"]
-        vendor = ap_config.get("vendor", "ubiquiti")
+        vendor = ap_config.get("vendor", DeviceVendor.UBIQUITI)
         logger.info(f"--- Verificando AP en {host} (vendor: {vendor}) ---")
 
         try:
             # Get the appropriate adapter based on vendor
-            port = ap_config.get("api_port") or (443 if vendor == "ubiquiti" else 8729)
+            port = ap_config.get("api_port") or (443 if vendor == DeviceVendor.UBIQUITI else 8729)
             
             adapter = get_device_adapter(
                 host=host,
@@ -61,7 +62,7 @@ class MonitorService:
                 previous_status = get_ap_status(host)
 
                 if status and status.is_online:
-                    current_status = "online"
+                    current_status = DeviceStatus.ONLINE
                     hostname = status.hostname or host
                     logger.info(f"Estado de '{hostname}' ({host}): ONLINE")
 
@@ -139,25 +140,25 @@ class MonitorService:
         previous_status = get_router_status(host)
 
         if status_data:
-            current_status = "online"
+            current_status = DeviceStatus.ONLINE
             hostname = status_data.get("name", host)
             logger.info(f"Estado de Router '{hostname}' ({host}): ONLINE")
 
             update_router_status(host, current_status, data=status_data)
 
-            if previous_status == "offline":
+            if previous_status == DeviceStatus.OFFLINE:
                 message = f"✅ *ROUTER RECUPERADO*\n\nEl Router *{hostname}* (`{host}`) ha vuelto a estar en línea."
                 add_event_log(
                     host, "router", "success", f"Router {hostname} ({host}) recuperado."
                 )
                 send_telegram_alert(message)
         else:
-            current_status = "offline"
+            current_status = DeviceStatus.OFFLINE
             logger.warning(f"Estado de Router {host}: OFFLINE")
 
             update_router_status(host, current_status)
 
-            if previous_status != "offline":
+            if previous_status != DeviceStatus.OFFLINE:
                 router_info = get_router_by_host(host)
                 hostname = (
                     router_info.get("hostname")

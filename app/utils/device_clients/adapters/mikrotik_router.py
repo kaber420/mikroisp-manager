@@ -6,6 +6,7 @@ from .base import BaseDeviceAdapter, DeviceStatus, ConnectedClient
 from ..mikrotik import system, ip, firewall, queues, ppp, ssl
 from ..mikrotik import connection as mikrotik_connection
 from ..mikrotik.interfaces import MikrotikInterfaceManager
+from ....core.constants import DeviceVendor, DeviceRole
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ class MikrotikRouterAdapter(BaseDeviceAdapter):
 
     @property
     def vendor(self) -> str:
-        return "mikrotik"
+        return DeviceVendor.MIKROTIK
 
     def _get_api(self) -> RouterOsApi:
         """
@@ -81,7 +82,7 @@ class MikrotikRouterAdapter(BaseDeviceAdapter):
             return DeviceStatus(
                 host=self.host,
                 vendor=self.vendor,
-                role="router",
+                role=DeviceRole.ROUTER,
                 hostname=sys_res.get("name"),
                 model=sys_res.get("model") or sys_res.get("board-name"),
                 firmware=sys_res.get("version"),
@@ -95,7 +96,7 @@ class MikrotikRouterAdapter(BaseDeviceAdapter):
             )
         except Exception as e:
             logger.error(f"Error getting router status: {e}")
-            return DeviceStatus(host=self.host, vendor=self.vendor, role="router", is_online=False, last_error=str(e))
+            return DeviceStatus(host=self.host, vendor=self.vendor, role=DeviceRole.ROUTER, is_online=False, last_error=str(e))
 
     def get_connected_clients(self) -> List[ConnectedClient]:
         # Routers don't have "connected clients" in the AP sense (wireless registration).

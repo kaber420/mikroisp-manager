@@ -13,6 +13,7 @@ from ..utils.device_clients.adapters.base import DeviceStatus, ConnectedClient
 from ..db import settings_db, stats_db
 from ..db.base import get_stats_db_connection
 from ..utils.device_clients.mikrotik import wireless as mikrotik_wireless
+from ..core.constants import DeviceVendor
 
 from ..api.aps.models import (
     AP as APResponse, # Renamed to avoid conflict with DB model
@@ -218,8 +219,8 @@ class APService:
         password = decrypt_data(ap.password)
         
         # Get the appropriate adapter based on vendor
-        vendor = ap.vendor or "ubiquiti"
-        port = ap.api_port or (443 if vendor == "ubiquiti" else 8729)
+        vendor = ap.vendor or DeviceVendor.UBIQUITI
+        port = ap.api_port or (443 if vendor == DeviceVendor.UBIQUITI else 8729)
         
         adapter = get_device_adapter(
             host=host,
@@ -334,8 +335,8 @@ class APService:
         if not ap:
             raise APNotFoundError(f"AP no encontrado: {host}")
         
-        vendor = ap.vendor or "ubiquiti"
-        if vendor != "mikrotik":
+        vendor = ap.vendor or DeviceVendor.UBIQUITI
+        if vendor != DeviceVendor.MIKROTIK:
             return []  # Solo MikroTik tiene múltiples interfaces
         
         password = decrypt_data(ap.password)

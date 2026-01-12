@@ -3,6 +3,7 @@ import logging
 from typing import Dict, Optional
 from datetime import datetime
 
+from ..core.constants import CredentialKeys
 from ..utils.device_clients.mikrotik.channels import readonly_channels
 
 logger = logging.getLogger(__name__)
@@ -42,9 +43,9 @@ class RouterConnector:
             await asyncio.to_thread(
                 readonly_channels.acquire,
                 host,
-                creds["username"],
-                creds["password"],
-                creds.get("port", 8729)
+                creds[CredentialKeys.USERNAME],
+                creds[CredentialKeys.PASSWORD],
+                creds.get(CredentialKeys.PORT, 8729)
             )
             logger.info(f"[RouterConnector] Subscribed to {host}")
         except Exception as e:
@@ -69,7 +70,7 @@ class RouterConnector:
         
         # Get port before potentially deleting credentials
         creds = self._credentials[host]
-        port = creds.get("port", 8729)
+        port = creds.get(CredentialKeys.PORT, 8729)
         
         # Release physical connection (offload blocking I/O)
         try:
@@ -116,9 +117,9 @@ class RouterConnector:
             # Acquire API connection
             api = readonly_channels.acquire(
                 host,
-                creds["username"],
-                creds["password"],
-                creds.get("port", 8729)
+                creds[CredentialKeys.USERNAME],
+                creds[CredentialKeys.PASSWORD],
+                creds.get(CredentialKeys.PORT, 8729)
             )
             
             try:
@@ -196,7 +197,7 @@ class RouterConnector:
             
             finally:
                 # Always release the API connection
-                readonly_channels.release(host, creds.get("port", 8729))
+                readonly_channels.release(host, creds.get(CredentialKeys.PORT, 8729))
         
         except Exception as e:
             logger.error(f"[RouterConnector] Error fetching stats from {host}: {e}")

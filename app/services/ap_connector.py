@@ -9,6 +9,7 @@ import logging
 from typing import Dict, Optional
 from datetime import datetime
 
+from ..core.constants import CredentialKeys, DeviceVendor
 from ..utils.device_clients.adapter_factory import get_device_adapter
 from ..utils.device_clients.adapters.base import BaseDeviceAdapter, DeviceStatus
 
@@ -47,13 +48,13 @@ class APConnector:
             adapter = await asyncio.to_thread(
                 get_device_adapter,
                 host=host,
-                username=creds["username"],
-                password=creds["password"],
-                vendor=creds.get("vendor", "mikrotik"),
-                port=creds.get("port", 8729)
+                username=creds[CredentialKeys.USERNAME],
+                password=creds[CredentialKeys.PASSWORD],
+                vendor=creds.get("vendor", DeviceVendor.MIKROTIK),
+                port=creds.get(CredentialKeys.PORT, 8729)
             )
             self._adapters[host] = adapter
-            logger.info(f"[APConnector] Subscribed to {host} ({creds.get('vendor', 'mikrotik')})")
+            logger.info(f"[APConnector] Subscribed to {host} ({creds.get('vendor', DeviceVendor.MIKROTIK)})")
         except Exception as e:
             logger.error(f"[APConnector] Failed to subscribe to {host}: {e}")
             if host in self._credentials:

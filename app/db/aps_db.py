@@ -7,6 +7,7 @@ import logging
 
 from .base import get_db_connection, get_stats_db_file
 from ..utils.security import encrypt_data, decrypt_data
+from ..core.constants import DeviceStatus
 
 
 
@@ -53,7 +54,7 @@ def update_ap_status(host: str, status: str, data: Optional[Dict[str, Any]] = No
     cursor = conn.cursor()
     now = datetime.utcnow()
 
-    if status == "online" and data:
+    if status == DeviceStatus.ONLINE and data:
         if "host" in data and isinstance(data.get("host"), dict):
             # Legacy Ubiquiti format
             host_info = data.get("host", {})

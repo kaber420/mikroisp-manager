@@ -9,6 +9,7 @@ from .base import get_db_connection
 
 # --- CAMBIO: Importar las funciones de cifrado ---
 from ..utils.security import encrypt_data, decrypt_data
+from ..core.constants import DeviceStatus
 
 # --- Funciones CRUD para la API ---
 
@@ -169,7 +170,7 @@ def update_router_status(host: str, status: str, data: Optional[Dict[str, Any]] 
         now = datetime.utcnow()
         update_data = {"last_status": status, "last_checked": now}
 
-        if status == "online" and data:
+        if status == DeviceStatus.ONLINE and data:
             update_data["hostname"] = data.get("name")
             update_data["model"] = data.get("board-name")
             update_data["firmware"] = data.get("version")

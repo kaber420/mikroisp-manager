@@ -7,6 +7,7 @@ from datetime import datetime
 from ..utils.cache import cache_manager
 from .switch_connector import switch_connector
 from ..db import switches_db
+from ..core.constants import DeviceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -67,17 +68,17 @@ class SwitchMonitorScheduler:
             result = await self._poll_host(host)
             if result and "error" not in result:
                 stats_cache.set(host, result)
-                await self._update_db_status(host, "online", result)
+                await self._update_db_status(host, DeviceStatus.ONLINE, result)
                 logger.info(f"[SwitchMonitorScheduler] Immediate poll success for {host}")
                 return result
             else:
                 stats_cache.set(host, result or {"error": "No data"})
-                await self._update_db_status(host, "offline")
+                await self._update_db_status(host, DeviceStatus.OFFLINE)
                 return result or {"error": "No data"}
         except Exception as e:
             logger.error(f"[SwitchMonitorScheduler] refresh_host failed for {host}: {e}")
             stats_cache.set(host, {"error": str(e)})
-            await self._update_db_status(host, "offline")
+            await self._update_db_status(host, DeviceStatus.OFFLINE)
             return {"error": str(e)}
 
     async def unsubscribe(self, host: str) -> None:
@@ -169,10 +170,10 @@ class SwitchMonitorScheduler:
                     if isinstance(result, Exception):
                         logger.error(f"[SwitchMonitorScheduler] Error polling {host}: {result}")
                         stats_cache.set(host, {"error": str(result)})
-                        await self._update_db_status(host, "offline")
+                        await self._update_db_status(host, DeviceStatus.OFFLINE)
                     elif result:
                         stats_cache.set(host, result)
-                        await self._update_db_status(host, "online", result)
+                        await self._update_db_status(host, DeviceStatus.ONLINE, result)
 
                 await asyncio.sleep(self.poll_interval)
         finally:

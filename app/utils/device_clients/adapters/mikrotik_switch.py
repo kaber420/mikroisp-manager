@@ -11,6 +11,7 @@ from routeros_api.api import RouterOsApi
 
 from .mikrotik_router import MikrotikRouterAdapter
 from .base import DeviceStatus
+from ....core.constants import DeviceRole
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ class MikrotikSwitchAdapter(MikrotikRouterAdapter):
     @property
     def role(self) -> str:
         """Device role identifier."""
-        return "switch"
+        return DeviceRole.SWITCH
 
     def get_status(self) -> DeviceStatus:
         """
@@ -51,7 +52,7 @@ class MikrotikSwitchAdapter(MikrotikRouterAdapter):
         return DeviceStatus(
             host=status.host,
             vendor=status.vendor,
-            role="switch",
+            role=DeviceRole.SWITCH,
             hostname=status.hostname,
             model=status.model,
             firmware=status.firmware,

@@ -202,8 +202,8 @@ reports/arquitectura_zero_trust_ca.md
 static/ca.crt
 
 # Temporary Workspaces (Drafts & Scratchpads)
-.drafts/
-.scratch/
+
+# .scratch/
 tmp/
 
 # Generated Assets

@@ -9,6 +9,7 @@ import urllib3
 from typing import List, Optional
 
 from .base import BaseDeviceAdapter, DeviceStatus, ConnectedClient
+from ....core.constants import DeviceVendor, DeviceRole
 
 # Disable SSL warnings for self-signed certificates
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -36,7 +37,7 @@ class UbiquitiAirmaxAdapter(BaseDeviceAdapter):
     
     @property
     def vendor(self) -> str:
-        return "ubiquiti"
+        return DeviceVendor.UBIQUITI
     
     def _authenticate(self) -> bool:
         """Authenticate with the AirOS device."""
@@ -82,7 +83,7 @@ class UbiquitiAirmaxAdapter(BaseDeviceAdapter):
                 return DeviceStatus(
                     host=self.host,
                     vendor=self.vendor,
-                    role="access_point",
+                    role=DeviceRole.ACCESS_POINT,
                     is_online=False,
                     last_error="Authentication failed"
                 )
@@ -95,7 +96,7 @@ class UbiquitiAirmaxAdapter(BaseDeviceAdapter):
                 return DeviceStatus(
                     host=self.host,
                     vendor=self.vendor,
-                    role="access_point",
+                    role=DeviceRole.ACCESS_POINT,
                     is_online=False,
                     last_error="Session expired and re-auth failed"
                 )
@@ -104,7 +105,7 @@ class UbiquitiAirmaxAdapter(BaseDeviceAdapter):
                 return DeviceStatus(
                     host=self.host,
                     vendor=self.vendor,
-                    role="access_point",
+                    role=DeviceRole.ACCESS_POINT,
                     is_online=False,
                     last_error="Could not fetch status data"
                 )

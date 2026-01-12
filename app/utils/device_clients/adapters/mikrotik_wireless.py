@@ -17,6 +17,7 @@ from ..mikrotik import connection as mikrotik_connection
 from ..mikrotik import parsers as mikrotik_parsers
 # NEW: Import the shared wireless module
 from ..mikrotik import wireless as mikrotik_wireless_lib
+from ....core.constants import DeviceVendor, DeviceRole
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ class MikrotikWirelessAdapter(MikrotikRouterAdapter):
     
     @property
     def vendor(self) -> str:
-        return "mikrotik"
+        return DeviceVendor.MIKROTIK
     
     # _get_api is already implemented in MikrotikRouterAdapter
     
@@ -151,7 +152,7 @@ class MikrotikWirelessAdapter(MikrotikRouterAdapter):
             return DeviceStatus(
                 host=self.host,
                 vendor=self.vendor,
-                role="access_point",
+                role=DeviceRole.ACCESS_POINT,
                 hostname=system_data.get("name"),
                 model=system_data.get("model") or system_data.get("board-name"),
                 mac=system_mac,
@@ -186,7 +187,7 @@ class MikrotikWirelessAdapter(MikrotikRouterAdapter):
             return DeviceStatus(
                 host=self.host,
                 vendor=self.vendor,
-                role="access_point",
+                role=DeviceRole.ACCESS_POINT,
                 is_online=False,
                 last_error=str(e)
             )

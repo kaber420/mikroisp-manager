@@ -8,6 +8,7 @@ from ..utils.cache import cache_manager
 from .router_connector import router_connector
 from ..db import router_db
 from ..db.stats_db import save_router_monitor_stats
+from ..core.constants import DeviceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -200,14 +201,14 @@ class MonitorScheduler:
             result = await self._poll_host(host)
             if result:
                 stats_cache.set(host, result)
-                await self._update_db_status(host, "online", result)
+                await self._update_db_status(host, DeviceStatus.ONLINE, result)
                 return result
             else:
-                await self._update_db_status(host, "offline")
+                await self._update_db_status(host, DeviceStatus.OFFLINE)
                 return {"error": "No data returned"}
         except Exception as e:
             logger.error(f"[MonitorScheduler] refresh_host failed for {host}: {e}")
-            await self._update_db_status(host, "offline")
+            await self._update_db_status(host, DeviceStatus.OFFLINE)
             return {"error": str(e)}
 
     async def run(self):
@@ -239,10 +240,10 @@ class MonitorScheduler:
                     if isinstance(result, Exception):
                         logger.error(f"[MonitorScheduler] Error polling {host}: {result}")
                         stats_cache.set(host, {"error": str(result)})
-                        await self._update_db_status(host, "offline")
+                        await self._update_db_status(host, DeviceStatus.OFFLINE)
                     elif result:
                         stats_cache.set(host, result)
-                        await self._update_db_status(host, "online", result)
+                        await self._update_db_status(host, DeviceStatus.ONLINE, result)
                         
                         # Save to history if enough time has passed
                         last_save = info.get("last_history_save")

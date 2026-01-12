@@ -10,6 +10,7 @@ from typing import Dict, Any, Optional, List
 
 from .base import get_db_connection
 from ..utils.security import encrypt_data, decrypt_data
+from ..core.constants import DeviceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +175,7 @@ def update_switch_status(host: str, status: str, data: Optional[Dict[str, Any]] 
         now = datetime.utcnow()
         update_data = {"last_status": status, "last_checked": now}
 
-        if status == "online" and data:
+        if status == DeviceStatus.ONLINE and data:
             update_data["hostname"] = data.get("name")
             update_data["model"] = data.get("board-name")
             update_data["firmware"] = data.get("version")

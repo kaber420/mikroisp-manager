@@ -15,6 +15,7 @@ from datetime import datetime
 from ..utils.cache import cache_manager
 from .ap_connector import ap_connector
 from ..db import aps_db
+from ..core.constants import DeviceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -146,14 +147,14 @@ class APMonitorScheduler:
             result = await self._poll_host(host)
             if result and "error" not in result:
                 stats_cache.set(host, result)
-                await self._update_db_status(host, "online", result)
+                await self._update_db_status(host, DeviceStatus.ONLINE, result)
                 return result
             else:
-                await self._update_db_status(host, "offline")
+                await self._update_db_status(host, DeviceStatus.OFFLINE)
                 return result or {"error": "No data returned"}
         except Exception as e:
             logger.error(f"[APMonitorScheduler] refresh_host failed for {host}: {e}")
-            await self._update_db_status(host, "offline")
+            await self._update_db_status(host, DeviceStatus.OFFLINE)
             return {"error": str(e)}
 
     async def run(self):
@@ -211,14 +212,14 @@ class APMonitorScheduler:
                     if isinstance(result, Exception):
                         logger.error(f"[APMonitorScheduler] Error polling {host}: {result}")
                         stats_cache.set(host, {"error": str(result)})
-                        await self._update_db_status(host, "offline")
+                        await self._update_db_status(host, DeviceStatus.OFFLINE)
                     elif result and "error" not in result:
                         stats_cache.set(host, result)
-                        await self._update_db_status(host, "online", result)
+                        await self._update_db_status(host, DeviceStatus.ONLINE, result)
                         logger.debug(f"[APMonitorScheduler] Polled {host} successfully")
                     elif result:
                         stats_cache.set(host, result)
-                        await self._update_db_status(host, "offline")
+                        await self._update_db_status(host, DeviceStatus.OFFLINE)
 
                 await asyncio.sleep(TICK_INTERVAL)
         finally:
