@@ -1,43 +1,16 @@
-# Network Topology - MNDP/LLDP + ARP + OSPF
-direction: right
-classes: {
-  router: {
-    style: {stroke-width: 2; border-radius: 5}
-  }
-  zone_box: {
-    style: {stroke-width: 2; stroke-dash: 3; fill: "transparent"}
-  }
+# Network Topology - Recursive Discovery
+direction: down
+
+node_0: "chr-1 (CHR)" {
+  style: {fill: "#e8f5e9"; stroke: "#2e7d32"; stroke-width: 2}
+}
+leaf_1_0: "192.168.122.1" {
+  style: {fill: "#ffebee"; stroke: "#c62828"}
+}
+node_2: "chr2 (CHR)" {
+  style: {fill: "#e3f2fd"; stroke: "#1565c0"}
 }
 
-km43: KM43 {
-  class: zone_box
-}
-
-km43.kbr_hapax2: "kbr-hapax2 (hAP ax^2)" {
-  class: router
-  style: {fill: "#e8f5e9"; stroke: "#2e7d32"}
-}
-km43.n_192_168_88_249: "192.168.88.249" {
-  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
-}
-km43.kbr_hapax2 -> km43.n_192_168_88_249: "bridge"
-km43.n_192_168_88_252: "192.168.88.252" {
-  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
-}
-km43.kbr_hapax2 -> km43.n_192_168_88_252: "bridge"
-km43.n_192_168_1_254: "192.168.1.254" {
-  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
-}
-km43.kbr_hapax2 -> km43.n_192_168_1_254: "ether1"
-km43.n_192_168_1_64: "192.168.1.64" {
-  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
-}
-km43.kbr_hapax2 -> km43.n_192_168_1_64: "ether1"
-km43.n_192_168_1_204: "192.168.1.204" {
-  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
-}
-km43.kbr_hapax2 -> km43.n_192_168_1_204: "ether1"
-km43.n_192_168_1_201: "192.168.1.201" {
-  style: {fill: "#fff3e0"; stroke: "#ef6c00"}
-}
-km43.kbr_hapax2 -> km43.n_192_168_1_201: "ether1"
+node_0 -> leaf_1_0: "ether1"
+node_0 -> node_2: "10.0.5.2"
+node_2 -> node_0: "ether2"

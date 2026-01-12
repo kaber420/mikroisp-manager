@@ -1,18 +1,4 @@
 #!/usr/bin/env python3
-"""
-Network Discovery & D2 Mapping Tool (Enhanced)
-
-Discovers network topology using multiple sources:
-- MNDP/LLDP (layer 2 neighbors)
-- ARP table (all connected devices)
-- OSPF neighbors (routing peers)
-
-Supports device selection from uManager database.
-
-Usage:
-    python3 discovery_demo.py
-"""
-
 import os
 import sys
 import ssl
@@ -28,7 +14,9 @@ load_dotenv()
 from routeros_api import RouterOsApiPool
 
 # Add app to path for database access
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# We need to add the project root (parent of scripts) to path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
 
 # Define DB accessors inside main or usage to avoid circular imports if any, 
 # but for this script top-level is fine if path is set.
@@ -37,9 +25,17 @@ try:
     from app.db.aps_db import get_ap_by_host_with_stats, get_all_aps_with_stats, get_ap_credentials
     from app.db.zonas_db import get_all_zonas
     from app.utils.device_clients.adapters.ubiquiti_airmax import UbiquitiAirmaxAdapter
-except ImportError:
+except ImportError as e:
+    print(f"⚠ Import Error: {e}")
+    print(f"  sys.path: {sys.path}")
     # Allow running without app context for testing (mocking may be needed)
     UbiquitiAirmaxAdapter = None
+    # If these are missing, the script will crash later when calling get_devices_from_db
+    # We define dummy functions to avoid NameError if import fails, or let it crash with better message
+    def get_routers_for_backup(): return []
+    def get_all_aps_with_stats(): return []
+    def get_ap_by_host_with_stats(h): return None
+    def get_ap_credentials(h): return None
     pass
 
 
@@ -262,11 +258,14 @@ def recursive_discover(seed_host: str, seed_user: str, seed_pass: str, seed_port
                        sources: List[str], max_depth: int = 3, max_nodes: int = 50,
                        seed_vendor: str = "mikrotik") -> Dict:
     """
-    BFS recursive discovery with loop protection.
+    BFS recursive discovery with loop protection and deduplication.
     Supports MikroTik and Ubiquiti devices.
     Returns topology dict: {nodes: [...], edges: [...]}
     """
     visited_ips = set()
+    visited_identities = {} # map identity -> node_id
+    leaf_ips = {}           # map ip -> leaf_node_id
+    
     nodes = []  # {id, ip, identity, info, depth, vendor}
     edges = []  # {from_id, to_id, from_iface, to_ip}
     
@@ -278,14 +277,19 @@ def recursive_discover(seed_host: str, seed_user: str, seed_pass: str, seed_port
     while queue and len(nodes) < max_nodes:
         current_ip, username, password, port, depth, parent_id, vendor = queue.pop(0)
         
-        # Skip if already visited
+        # Normalize IP
+        if not current_ip: continue
+        
+        # Skip if this specific IP was already fully processed as a NODE
         if current_ip in visited_ips:
+            # If we have a parent, we might still need to add an edge if it's not already there?
+            # But usually we add edge when we queue it.
+            # However, if we found a loop via a NEW path, we might want to record it?
+            # For simplicity, skip.
             continue
         
         if depth > max_depth:
             continue
-        
-        visited_ips.add(current_ip)
         
         print(f"  [Depth {depth}] Scanning {current_ip} ({vendor})...")
         
@@ -297,9 +301,27 @@ def recursive_discover(seed_host: str, seed_user: str, seed_pass: str, seed_port
         
         if not identity:
             continue
+            
+        # Check if we have seen this IDENTITY before (e.g. same router, different IP)
+        if identity in visited_identities:
+            existing_node_id = visited_identities[identity]
+            print(f"    → Loop detected: {identity} is already node {existing_node_id}")
+            if parent_id:
+                edges.append({
+                    "from_id": parent_id,
+                    "to_id": existing_node_id,
+                    "label": current_ip,
+                })
+            # Mark this IP as visited so we don't scan it again, but don't add new node
+            visited_ips.add(current_ip)
+            continue
+
+        visited_ips.add(current_ip)
         
         # Add node
         node_id = f"node_{len(nodes)}"
+        visited_identities[identity] = node_id
+        
         nodes.append({
             "id": node_id,
             "ip": current_ip,
@@ -317,15 +339,65 @@ def recursive_discover(seed_host: str, seed_user: str, seed_pass: str, seed_port
                 "label": current_ip,
             })
         
+        # Deduplicate neighbors by IP locally
+        unique_neighbors_map = {}
+        for n in neighbors:
+            nip = n.get("ip_address")
+            if nip and nip not in unique_neighbors_map:
+                unique_neighbors_map[nip] = n
+            # If same IP, maybe prioritize one source over another? 
+            # MNDP usually has better info than ARP. Existing order is MNDP, ARP, OSPF.
+            # So first one wins is usually fine if sources are ordered.
+            
+        unique_neighbors = list(unique_neighbors_map.values())
+        
         # Queue neighbors for next depth
-        for neighbor in neighbors:
+        for neighbor in unique_neighbors:
             neighbor_ip = neighbor.get("ip_address")
-            if not neighbor_ip or neighbor_ip in visited_ips:
+            neighbor_identity = neighbor.get("identity")
+            
+            if not neighbor_ip:
                 continue
+                
+            # Self-loop check (simple IP check)
+            if neighbor_ip == current_ip:
+                continue
+
+            # Check if neighbor is already a known NODE by IDENTITY
+            if neighbor_identity and neighbor_identity in visited_identities:
+                 edges.append({
+                    "from_id": node_id,
+                    "to_id": visited_identities[neighbor_identity],
+                    "label": neighbor.get("interface", ""),
+                })
+                 continue
+
+            # Check if neighbor is already a known NODE by IP
+            # (We only track visited_ips for successful scans, but we check here)
+            if neighbor_ip in visited_ips:
+                 # Find the node that has this IP (scan nodes list?)
+                 # Optimized: we could keep a map ip->node_id but visited_ips is just a set.
+                 # Let's find it.
+                 target_id = None
+                 for n in nodes:
+                     if n["ip"] == neighbor_ip:
+                         target_id = n["id"]
+                         break
+                 if target_id:
+                     edges.append({
+                        "from_id": node_id,
+                        "to_id": target_id,
+                        "label": neighbor.get("interface", ""),
+                    })
+                 continue
             
             # Try to get credentials from DB
             creds = get_credentials_for_ip(neighbor_ip)
             if creds:
+                # Add to queue (BFS)
+                # Check if already in queue? BFS handles visited_ips check at pop, 
+                # but we can optimize by checking if we already queued it?
+                # For now simple logic is fine.
                 queue.append((
                     neighbor_ip, 
                     creds["username"], 
@@ -336,22 +408,34 @@ def recursive_discover(seed_host: str, seed_user: str, seed_pass: str, seed_port
                     creds.get("vendor", "mikrotik")
                 ))
             else:
-                # Add as leaf node (can't connect, no creds)
-                leaf_id = f"leaf_{len(nodes)}_{len(edges)}"
-                nodes.append({
-                    "id": leaf_id,
-                    "ip": neighbor_ip,
-                    "identity": neighbor.get("identity") or neighbor_ip,
-                    "info": {"board": neighbor.get("board"), "platform": neighbor.get("platform")},
-                    "depth": depth + 1,
-                    "is_leaf": True,
-                    "vendor": "unknown",
-                })
-                edges.append({
-                    "from_id": node_id,
-                    "to_id": leaf_id,
-                    "label": neighbor.get("interface", ""),
-                })
+                # It's a LEAF (unreachable or no creds)
+                # Check if we already have a leaf for this IP
+                if neighbor_ip in leaf_ips:
+                    # Link to existing leaf
+                    edges.append({
+                        "from_id": node_id,
+                        "to_id": leaf_ips[neighbor_ip],
+                        "label": neighbor.get("interface", ""),
+                    })
+                else:
+                    # Create new leaf
+                    leaf_id = f"leaf_{len(nodes)}_{len(leaf_ips)}"
+                    leaf_ips[neighbor_ip] = leaf_id
+                    
+                    nodes.append({
+                        "id": leaf_id,
+                        "ip": neighbor_ip,
+                        "identity": neighbor.get("identity") or neighbor_ip,
+                        "info": {"board": neighbor.get("board"), "platform": neighbor.get("platform")},
+                        "depth": depth + 1,
+                        "is_leaf": True,
+                        "vendor": "unknown",
+                    })
+                    edges.append({
+                        "from_id": node_id,
+                        "to_id": leaf_id,
+                        "label": neighbor.get("interface", ""),
+                    })
     
     print(f"✓ Discovered {len(nodes)} nodes, {len(edges)} connections")
     return {"nodes": nodes, "edges": edges}
