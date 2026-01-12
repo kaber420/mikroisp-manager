@@ -38,4 +38,13 @@ class CPEGlobalInfo(CPEDetail):
 class AssignedCPE(BaseModel):
     mac: str
     hostname: Optional[str] = None
+    ip_address: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
+
+
+class CPEUpdate(BaseModel):
+    """Model for partial CPE updates (manual IP, hostname, model)."""
+    ip_address: Optional[str] = None
+    hostname: Optional[str] = None
+    model: Optional[str] = None
+

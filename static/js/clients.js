@@ -290,83 +290,91 @@ document.addEventListener('alpine:init', () => {
             }
 
             try {
-                let routerResourceId = '';
-                let profileNameOrPlan = '';
-                let targetIp = null;
+                // DETECTAR SI ES EDICIÓN (UPDATE) O CREACIÓN (CREATE)
+                const isUpdate = !!this.currentService.id;
 
-                // LÓGICA SIMPLE QUEUE (Usa BD Plans)
-                if (service_type === 'simple_queue') {
-                    if (!this.selectedPlan) {
-                        this.serviceError = 'Please select a Service Plan.';
-                        return;
+                let routerResourceId = this.currentService.router_secret_id;
+                let profileNameOrPlan = this.currentService.profile_name || (this.selectedPlan ? this.selectedPlan.name : '');
+                let targetIp = this.currentService.ip_address;
+
+                // SOLO PROVISIONAR EN ROUTER SI ES CREACIÓN (O si se implementa lógica de re-provisioning)
+                // En modo edición, asumimos que el router ya tiene la config o se usa "Change Plan" para cambios de red.
+                if (!isUpdate) {
+                    // LÓGICA SIMPLE QUEUE (Usa BD Plans)
+                    if (service_type === 'simple_queue') {
+                        if (!this.selectedPlan) {
+                            this.serviceError = 'Please select a Service Plan.';
+                            return;
+                        }
+                        // Try detected IP first, then manual IP
+                        targetIp = this.detectClientIp() || this.currentService.manual_ip;
+                        if (!targetIp) {
+                            this.serviceError = 'Please enter a manual IP address or assign a CPE with detected IP.';
+                            return;
+                        }
+
+                        const queuePayload = {
+                            name: this.currentClient.name,
+                            target: targetIp,
+                            max_limit: this.selectedPlan.max_limit,
+                            parent: this.selectedPlan.parent_queue || 'none',
+                            comment: `Client-ID:${this.currentClient.id} | Plan:${this.selectedPlan.name}`
+                        };
+
+                        const routerRes = await fetch(`/api/routers/${router_host}/write/add-simple-queue`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(queuePayload)
+                        });
+
+                        if (!routerRes.ok) throw new Error(`Router Error: ${(await routerRes.json()).detail}`);
+
+                        const newQueue = await routerRes.json();
+                        routerResourceId = newQueue.id || newQueue['.id'] || targetIp;
+                        profileNameOrPlan = this.selectedPlan.name;
+
+                        // LÓGICA PPPoE (Usa Plan con profile_name)
+                    } else if (service_type === 'pppoe') {
+                        const { pppoe_username, password } = this.currentService;
+
+                        // Validar que se haya seleccionado un plan
+                        if (!this.selectedPlan) {
+                            this.serviceError = 'Please select a PPPoE Plan.';
+                            return;
+                        }
+
+                        if (!pppoe_username || !password) {
+                            this.serviceError = 'PPPoE Username and Password are required.';
+                            return;
+                        }
+
+                        // Obtener el profile_name del plan seleccionado
+                        const profileFromPlan = this.selectedPlan.profile_name || 'default';
+
+                        const pppoePayload = {
+                            username: pppoe_username,
+                            password: password,
+                            service: 'pppoe',
+                            profile: profileFromPlan,
+                            comment: `Client-ID: ${this.currentClient.id} | Plan: ${this.selectedPlan.name}`
+                        };
+
+                        const routerRes = await fetch(`/api/routers/${router_host}/pppoe/secrets`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(pppoePayload)
+                        });
+
+                        if (!routerRes.ok) {
+                            const err = await routerRes.json().catch(() => ({ detail: 'Unknown Router Error' }));
+                            throw new Error(`Router Error: ${err.detail}`);
+                        }
+
+                        const newSecret = await routerRes.json();
+                        routerResourceId = newSecret['.id'];
+                        profileNameOrPlan = profileFromPlan;
                     }
-                    targetIp = this.detectClientIp();
-                    if (!targetIp) {
-                        this.serviceError = 'Client needs an assigned CPE with an IP address to create a queue.';
-                        return;
-                    }
-
-                    const queuePayload = {
-                        name: this.currentClient.name,
-                        target: targetIp,
-                        max_limit: this.selectedPlan.max_limit,
-                        parent: this.selectedPlan.parent_queue || 'none',
-                        comment: `Client-ID:${this.currentClient.id} | Plan:${this.selectedPlan.name}`
-                    };
-
-                    const routerRes = await fetch(`/api/routers/${router_host}/write/add-simple-queue`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(queuePayload)
-                    });
-
-                    if (!routerRes.ok) throw new Error(`Router Error: ${(await routerRes.json()).detail}`);
-
-                    const newQueue = await routerRes.json();
-                    routerResourceId = newQueue.id || newQueue['.id'] || targetIp;
-                    profileNameOrPlan = this.selectedPlan.name;
-
-                    // LÓGICA PPPoE (Usa Plan con profile_name)
-                } else if (service_type === 'pppoe') {
-                    const { pppoe_username, password } = this.currentService;
-
-                    // Validar que se haya seleccionado un plan
-                    if (!this.selectedPlan) {
-                        this.serviceError = 'Please select a PPPoE Plan.';
-                        return;
-                    }
-
-                    if (!pppoe_username || !password) {
-                        this.serviceError = 'PPPoE Username and Password are required.';
-                        return;
-                    }
-
-                    // Obtener el profile_name del plan seleccionado
-                    const profileFromPlan = this.selectedPlan.profile_name || 'default';
-
-                    const pppoePayload = {
-                        username: pppoe_username,
-                        password: password,
-                        service: 'pppoe',
-                        profile: profileFromPlan,
-                        comment: `Client-ID: ${this.currentClient.id} | Plan: ${this.selectedPlan.name}`
-                    };
-
-                    const routerRes = await fetch(`/api/routers/${router_host}/pppoe/secrets`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(pppoePayload)
-                    });
-
-                    if (!routerRes.ok) {
-                        const err = await routerRes.json().catch(() => ({ detail: 'Unknown Router Error' }));
-                        throw new Error(`Router Error: ${err.detail}`);
-                    }
-
-                    const newSecret = await routerRes.json();
-                    routerResourceId = newSecret['.id'];
-                    profileNameOrPlan = profileFromPlan;
-                }
+                } // FIN if (!isUpdate)
 
                 const serviceData = {
                     router_host,
@@ -374,7 +382,7 @@ document.addEventListener('alpine:init', () => {
                     pppoe_username: service_type === 'pppoe' ? this.currentService.pppoe_username : this.currentClient.name,
                     router_secret_id: routerResourceId,
                     profile_name: profileNameOrPlan,
-                    plan_id: this.currentService.plan_id || null,
+                    plan_id: this.currentService.plan_id || (this.selectedPlan ? this.selectedPlan.id : null),
                     ip_address: targetIp,
                     suspension_method: this.currentService.suspension_method || 'address_list',
                     // New service-specific fields
@@ -384,15 +392,24 @@ document.addEventListener('alpine:init', () => {
                     notes: this.currentService.notes || null
                 };
 
-                const serviceRes = await fetch(`/api/clients/${this.currentClient.id}/services`, {
-                    method: 'POST',
+                // URL y Método dinámicos
+                const url = isUpdate
+                    ? `/api/services/${this.currentService.id}`
+                    : `/api/clients/${this.currentClient.id}/services`;
+
+                const method = isUpdate ? 'PUT' : 'POST';
+
+                console.log(`Saving Service: ${method} ${url}`, serviceData);
+
+                const serviceRes = await fetch(url, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(serviceData)
                 });
 
                 if (!serviceRes.ok) throw new Error(`API Error: ${(await serviceRes.json()).detail}`);
 
-                showToast('Service saved successfully!', 'success');
+                showToast(isUpdate ? 'Service updated successfully!' : 'Service created successfully!', 'success');
                 this.closeClientModal();
 
             } catch (error) {

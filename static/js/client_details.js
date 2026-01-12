@@ -340,6 +340,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                     <div class="flex gap-2">
+                        <button onclick="openEditServiceModal(${service.id})" 
+                                class="px-3 py-1.5 text-xs font-semibold rounded-md bg-secondary/20 text-secondary hover:bg-secondary/30 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">edit</span>
+                            Edit
+                        </button>
                         <button onclick="openPlanChangeModal(${service.id}, '${serviceIdentifier}')" 
                                 class="px-3 py-1.5 text-xs font-semibold rounded-md bg-primary/20 text-primary hover:bg-primary/30 flex items-center gap-1">
                             <span class="material-symbols-outlined text-sm">swap_horiz</span>
@@ -445,6 +450,76 @@ document.addEventListener('DOMContentLoaded', () => {
             loadServiceStatus();
         } catch (error) {
             errorEl.textContent = `Error: ${error.message}`;
+            errorEl.classList.remove('hidden');
+        }
+    }
+
+    // --- Edit Service Modal Functions ---
+    let currentServiceForEdit = null;
+
+    window.openEditServiceModal = function (serviceId) {
+        currentServiceForEdit = allServices.find(s => s.id === serviceId);
+        if (!currentServiceForEdit) {
+            showToast('Service not found', 'danger');
+            return;
+        }
+
+        document.getElementById('edit-service-id').value = serviceId;
+        const identifier = currentServiceForEdit.pppoe_username || currentServiceForEdit.ip_address || 'N/A';
+        document.getElementById('edit-service-identifier').value = identifier;
+        document.getElementById('edit-service-notes').value = currentServiceForEdit.notes || '';
+        document.getElementById('edit-service-error').classList.add('hidden');
+
+        // Populate Billing Day Select
+        const billingSelect = document.getElementById('edit-service-billing-day');
+        billingSelect.innerHTML = '<option value="">Select Day...</option>';
+        for (let i = 1; i <= 28; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = i;
+            if (currentServiceForEdit.billing_day === i) {
+                option.selected = true;
+            }
+            billingSelect.appendChild(option);
+        }
+
+        document.getElementById('edit-service-modal').classList.remove('hidden');
+    };
+
+    window.closeEditServiceModal = function () {
+        document.getElementById('edit-service-modal').classList.add('hidden');
+    };
+
+    async function handleEditServiceSubmit(e) {
+        e.preventDefault();
+        const errorEl = document.getElementById('edit-service-error');
+        errorEl.classList.add('hidden');
+
+        const serviceId = document.getElementById('edit-service-id').value;
+        const billingDay = document.getElementById('edit-service-billing-day').value;
+        const notes = document.getElementById('edit-service-notes').value;
+
+        if (!billingDay) {
+            errorEl.textContent = 'Please select a billing day.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
+        try {
+            await fetchJSON(`/api/services/${serviceId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    billing_day: parseInt(billingDay, 10),
+                    notes: notes
+                })
+            });
+
+            showToast('Service updated successfully!', 'success');
+            closeEditServiceModal();
+            loadClientServices(); // Reload list to show changes
+        } catch (error) {
+            errorEl.textContent = `Error updating service: ${error.message}`;
             errorEl.classList.remove('hidden');
         }
     }
@@ -649,6 +724,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const planChangeForm = document.getElementById('plan-change-form');
             if (planChangeForm) {
                 planChangeForm.addEventListener('submit', handlePlanChangeSubmit);
+            }
+
+            const editServiceForm = document.getElementById('edit-service-form');
+            if (editServiceForm) {
+                editServiceForm.addEventListener('submit', handleEditServiceSubmit);
             }
 
         } catch (error) {

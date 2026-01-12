@@ -32,10 +32,10 @@ Permitir "fijar" una IP conocida a un CPE detectado para usos futuros.
 
 ### Tareas Técnicas
 - [x] Verificar validación en `app/api/clients/services.py`: **Verificado**. El método `create_client_service` YA acepta `ip_address` manual. No se requieren cambios en ClientService.
-- [ ] Implementar `PUT /api/cpes/{mac}` para edición manual.
-    - [ ] Agregar método `update_cpe` en `CPEService`.
-    - [ ] Implementar persistencia: que `get_all_cpes_globally` combine datos en vivo con datos DB (priorizando IP de DB si la viva es nula).
-- [ ] Ajustar UI (Frontend) para permitir input de IP manual.
+- [x] Implementar `PUT /api/cpes/{mac}` para edición manual.
+    - [x] Agregar método `update_cpe` en `CPEService`.
+    - [x] Implementar persistencia: que `get_all_cpes_globally` combine datos en vivo con datos DB (priorizando IP de DB si la viva es nula).
+- [x] Ajustar UI (Frontend) para permitir input de IP manual.
 
 ## Detalles de Implementación Técnica (Validado)
 

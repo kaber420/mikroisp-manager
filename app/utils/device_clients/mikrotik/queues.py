@@ -38,6 +38,8 @@ def _get_or_create_pcq_queue_type(
     return name
 
 
+from .base import get_id  # Import local helper
+
 def add_simple_queue_with_pcq(
     api: RouterOsApiPool,
     name: str,
@@ -49,6 +51,7 @@ def add_simple_queue_with_pcq(
 ):
     """
     Crea una Simple Queue para un cliente utilizando PCQ para la gestión de ancho de banda.
+    Si ya existe una cola con el mismo nombre, la actualiza.
     """
     rate_upload_val = max_limit_upload.replace("M", "000k")
     rate_download_val = max_limit_download.replace("M", "000k")
@@ -67,15 +70,28 @@ def add_simple_queue_with_pcq(
     )
 
     simple_q_resource = api.get_resource("/queue/simple")
-    result = simple_q_resource.add(
-        name=name,
-        target=target,
-        parent=parent,
-        queue=f"{pcq_upload_name}/{pcq_download_name}",
-        max_limit=f"{max_limit_upload}/{max_limit_download}",
-        comment=comment,
-    )
-    return _handle_response(result, f"PCQ Queue '{name}' created successfully.")
+    
+    # Check if queue exists
+    existing_queues = simple_q_resource.get(name=name)
+    queue_params = {
+        "name": name,
+        "target": target,
+        "parent": parent,
+        "queue": f"{pcq_upload_name}/{pcq_download_name}",
+        "max_limit": f"{max_limit_upload}/{max_limit_download}",
+        "comment": comment,
+    }
+
+    if existing_queues:
+        queue_id = get_id(existing_queues[0])
+        result = simple_q_resource.set(id=queue_id, **queue_params)
+        msg = f"PCQ Queue '{name}' updated successfully."
+        logger.info(msg)
+    else:
+        result = simple_q_resource.add(**queue_params)
+        msg = f"PCQ Queue '{name}' created successfully."
+
+    return _handle_response(result, msg)
 
 
 def add_simple_queue(
@@ -86,14 +102,35 @@ def add_simple_queue(
     parent: str = "none",
     comment: str = "",
 ):
-    """Crea una nueva Simple Queue (sin PCQ)."""
+    """Crea una nueva Simple Queue (sin PCQ). Si ya existe, actualiza."""
     res = api.get_resource("/queue/simple")
     if not parent:
         parent = "none"
-    result = res.add(
-        name=name, target=target, max_limit=max_limit, parent=parent, comment=comment
-    )
-    return _handle_response(result, f"Simple Queue '{name}' created successfully.")
+        
+    queue_params = {
+        "name": name, 
+        "target": target, 
+        "max_limit": max_limit, 
+        "parent": parent, 
+        "comment": comment
+    }
+    
+    # Check if queue exists
+    existing = res.get(name=name)
+    
+    if existing:
+        queue_id = get_id(existing[0])
+        # Update existing queue
+        # Note: .set() takes id as argument, and other params as kwargs
+        result = res.set(id=queue_id, **queue_params)
+        msg = f"Simple Queue '{name}' updated successfully."
+        logger.info(f"Queue '{name}' already exists. Updating...")
+    else:
+        # Create new queue
+        result = res.add(**queue_params)
+        msg = f"Simple Queue '{name}' created successfully."
+        
+    return _handle_response(result, msg)
 
 
 def get_simple_queues(api: RouterOsApiPool):

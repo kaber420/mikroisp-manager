@@ -35,6 +35,53 @@ document.addEventListener('DOMContentLoaded', () => {
     window.deleteCPE = deleteCPE;
 
     /**
+     * Updates a CPE property via the API.
+     * @param {string} mac - CPE MAC address
+     * @param {object} updateData - Object with fields to update
+     */
+    async function updateCPE(mac, updateData) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/cpes/${encodeURIComponent(mac)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updateData)
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ detail: 'Error desconocido' }));
+                throw new Error(errorData.detail || 'Failed to update CPE');
+            }
+            loadAllCPEs();
+            return true;
+        } catch (error) {
+            console.error("Error updating CPE:", error);
+            alert(`Error al actualizar CPE: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Opens a prompt to edit the CPE IP address.
+     * @param {string} mac - CPE MAC address
+     * @param {string} currentIp - Current IP address (or empty)
+     */
+    async function editCpeIp(mac, currentIp) {
+        const newIp = prompt('Introduce la dirección IP para este CPE:', currentIp || '');
+        if (newIp === null) return; // Cancelled
+        if (newIp === '') {
+            alert('La IP no puede estar vacía. Usa "No IP" para indicar sin IP.');
+            return;
+        }
+        // Basic IP validation
+        const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+        if (!ipRegex.test(newIp)) {
+            alert('IP inválida. Formato esperado: xxx.xxx.xxx.xxx');
+            return;
+        }
+        await updateCPE(mac, { ip_address: newIp });
+    }
+    window.editCpeIp = editCpeIp;
+
+    /**
      * Devuelve la clase y el texto para un badge de estado basado en la señal.
      * @param {number|null} signal - El nivel de señal del CPE en dBm.
      * @returns {{badgeClass: string, text: string}}
@@ -89,6 +136,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const apLink = cpe.ap_host ? `<a href="/ap/${cpe.ap_host}" class="text-primary hover:underline">${cpe.ap_hostname || cpe.ap_host}</a>` : 'N/A';
 
+                const ipDisplay = cpe.ip_address || "No IP";
+                const ipClass = cpe.ip_address ? "text-text-secondary" : "text-warning";
+
                 row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="text-xs font-semibold px-2 py-1 rounded-full ${status.badgeClass}">${status.text}</span>
@@ -99,8 +149,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="px-6 py-4 whitespace-nowrap text-text-secondary">${cpe.band || "N/A"}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-text-primary font-semibold">${signalStrength}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-text-secondary font-mono">${cpe.cpe_mac}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-text-secondary font-mono">${cpe.ip_address || "No IP"}</td>
+                    <td class="px-6 py-4 whitespace-nowrap ${ipClass} font-mono cursor-pointer hover:text-primary" 
+                        onclick="editCpeIp('${cpe.cpe_mac}', '${cpe.ip_address || ''}')" title="Click para editar IP">
+                        ${ipDisplay} <span class="material-symbols-outlined text-xs align-middle opacity-50">edit</span>
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap">
+                        <button onclick="editCpeIp('${cpe.cpe_mac}', '${cpe.ip_address || ''}')" class="text-text-secondary hover:text-primary transition-colors mr-2" title="Editar IP">
+                            <span class="material-symbols-outlined">edit</span>
+                        </button>
                         <button onclick="deleteCPE('${cpe.cpe_mac}')" class="text-danger hover:text-red-400 transition-colors" title="Eliminar CPE">
                             <span class="material-symbols-outlined">delete</span>
                         </button>

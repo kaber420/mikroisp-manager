@@ -2,12 +2,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import List, Optional
 from sqlmodel import Session
+import uuid
 
 from ...core.users import require_technician
 from ...models.user import User
 from ...db.engine_sync import get_sync_session
 from ...services.cpe_service import CPEService
-from .models import CPEGlobalInfo, AssignedCPE
+from .models import CPEGlobalInfo, AssignedCPE, CPEUpdate
 
 router = APIRouter()
 
@@ -30,7 +31,7 @@ def api_get_unassigned_cpes(
 @router.post("/cpes/{mac}/assign/{client_id}", response_model=AssignedCPE)
 def api_assign_cpe_to_client(
     mac: str,
-    client_id: int,
+    client_id: uuid.UUID,
     service: CPEService = Depends(get_cpe_service),
     current_user: User = Depends(require_technician),
 ):
@@ -66,6 +67,22 @@ def api_delete_cpe(
     try:
         service.delete_cpe(mac)
         return None
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/cpes/{mac}", response_model=AssignedCPE)
+def api_update_cpe(
+    mac: str,
+    update_data: CPEUpdate,
+    service: CPEService = Depends(get_cpe_service),
+    current_user: User = Depends(require_technician),
+):
+    """Update CPE properties (IP address, hostname, model)."""
+    try:
+        return service.update_cpe(mac, update_data.model_dump(exclude_none=True))
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

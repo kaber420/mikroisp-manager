@@ -363,8 +363,24 @@
 
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-surface-2 p-3 rounded-md">
                             <div>
-                                <span class="text-xs text-text-secondary block">Target (Client IP)</span>
-                                <span class="font-mono text-sm" x-text="detectClientIp() || 'No IP Assigned'"></span>
+                                <span class="text-xs text-text-secondary block mb-1">Target (Client IP)</span>
+                                <!-- Show detected IP as badge + allow manual override -->
+                                <template x-if="detectClientIp()">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-mono text-sm text-success bg-success/10 px-2 py-1 rounded"
+                                            x-text="detectClientIp()"></span>
+                                        <span class="text-xs text-success">✓ Auto-detectada</span>
+                                    </div>
+                                </template>
+                                <!-- No IP detected: show input field -->
+                                <template x-if="!detectClientIp()">
+                                    <div>
+                                        <input type="text" x-model="currentService.manual_ip"
+                                            placeholder="Ej: 10.0.0.50"
+                                            class="w-full bg-background border border-warning rounded-md p-1.5 text-sm font-mono">
+                                        <p class="text-xs text-warning mt-1">⚠️ Escribe la IP del CPE manualmente</p>
+                                    </div>
+                                </template>
                             </div>
                             <div>
                                 <span class="text-xs text-text-secondary block">Max Limit</span>
@@ -409,5 +425,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/clients.js" defer></script>
+<script src="/static/js/clients.js?v=3" defer></script>
 {% endblock %}

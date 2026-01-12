@@ -51,6 +51,18 @@ class ClientService:
             client_dict = client.model_dump()
             cpe_count_stmt = select(func.count()).select_from(CPE).where(CPE.client_id == client.id)
             client_dict['cpe_count'] = self.session.exec(cpe_count_stmt).one()
+            
+            # Fetch billing_day from latest service
+            service_stmt = (
+                select(ClientServiceModel)
+                .where(ClientServiceModel.client_id == client.id)
+                .order_by(ClientServiceModel.created_at.desc())
+                .limit(1)
+            )
+            latest_service = self.session.exec(service_stmt).first()
+            if latest_service and latest_service.billing_day:
+                client_dict['billing_day'] = latest_service.billing_day
+                
             clients_dict.append(client_dict)
         
         return clients_dict
