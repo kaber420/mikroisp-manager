@@ -179,7 +179,22 @@ class MikrotikWirelessAdapter(MikrotikRouterAdapter):
                     "band": wireless_info.get("band"),
                     "wireless_type": wireless_type,
                     "has_wireless": wireless_type is not None,
-                }
+                },
+                interfaces=[{
+                    "name": i["name"],
+                    "ssid": (
+                        i.get("original_record", {}).get("configuration.ssid") or 
+                        i.get("original_record", {}).get("ssid") or 
+                        i["name"]
+                    ),
+                    "band": i["band"],
+                    "frequency": i["frequency"],
+                    "width": i["width"],
+                    "tx_power": i["tx_power"],
+                    "mac": i.get("original_record", {}).get("mac-address"),
+                    "disabled": i.get("original_record", {}).get("disabled") == "true",
+                    "running": i.get("original_record", {}).get("running") == "true",
+                } for i in wireless_interfaces]
             )
             
         except Exception as e:

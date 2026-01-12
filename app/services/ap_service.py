@@ -358,7 +358,18 @@ class APService:
                     "name": i["name"],
                     "type": i["type"],
                     "band": i["band"],
-                    "frequency": str(i["frequency"])
+                    "frequency": str(i["frequency"]) if i.get("frequency") else None,
+                    "channel_width": str(i.get("width")) if i.get("width") else None,
+                    "ssid": (
+                        i.get("ssid") or  # Direct field from wireless.py
+                        i.get("original_record", {}).get("configuration.ssid") or 
+                        i.get("original_record", {}).get("ssid") or 
+                        None
+                    ),
+                    "tx_power": i.get("tx_power"),
+                    "mac": i.get("original_record", {}).get("mac-address"),
+                    "disabled": i.get("original_record", {}).get("disabled") == "true",
+                    "running": i.get("original_record", {}).get("running") == "true",
                 }
                 for i in detailed
             ]

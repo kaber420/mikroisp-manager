@@ -183,6 +183,7 @@ class APConnector:
                     "platform": status.extra.get("platform") if status.extra else None,
                     "wireless_type": status.extra.get("wireless_type") if status.extra else None,
                 },
+                "interfaces": status.interfaces,
                 "timestamp": datetime.now().isoformat(),
             }
         

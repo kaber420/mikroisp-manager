@@ -91,6 +91,10 @@ class DeviceStatus:
     # Extra vendor-specific data
     extra: Dict[str, Any] = field(default_factory=dict)
 
+    # List of all wireless interfaces (for dual-band APs)
+    # format: [{name, band, frequency, ssid, tx_power, ...}, ...]
+    interfaces: List[Dict[str, Any]] = field(default_factory=list)
+
 
 class BaseDeviceAdapter(ABC):
     """

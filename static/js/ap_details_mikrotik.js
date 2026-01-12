@@ -28,6 +28,7 @@
          */
         init: function (apData) {
             initSpectralScan();
+            loadInterfacesList();
             // Update MikroTik-specific fields if present in initial data
             if (apData.extra) {
                 updateMikrotikFields(apData.extra);
@@ -114,6 +115,82 @@
         if (uptimeEl && extra.uptime) {
             uptimeEl.textContent = extra.uptime;
         }
+    }
+
+    // ============================================================================
+    // WIRELESS INTERFACES LIST (Dual-Band Support)
+    // ============================================================================
+    async function loadInterfacesList() {
+        const API_BASE_URL = window.APDetailsCore?.API_BASE_URL || window.location.origin;
+        const currentHost = window.APDetailsCore?.currentHost || window.location.pathname.split('/').pop();
+        const interfacesListDiv = document.getElementById('interfaces-list');
+
+        if (!interfacesListDiv) return;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/aps/${encodeURIComponent(currentHost)}/wireless-interfaces`);
+            if (!response.ok) throw new Error('Failed to fetch interfaces');
+
+            const data = await response.json();
+            const interfaces = data.interfaces || [];
+
+            renderInterfacesList(interfaces, interfacesListDiv);
+        } catch (error) {
+            console.error('Error loading interfaces list:', error);
+            interfacesListDiv.innerHTML = '<p class="text-danger col-span-full text-center py-4">Failed to load interfaces.</p>';
+        }
+    }
+
+    function renderInterfacesList(interfaces, container) {
+        if (!interfaces || interfaces.length === 0) {
+            container.innerHTML = '<p class="text-text-secondary col-span-full text-center py-4">No wireless interfaces detected.</p>';
+            return;
+        }
+
+        container.innerHTML = '';
+
+        interfaces.forEach(iface => {
+            const card = document.createElement('div');
+
+            // Determine band color
+            let bandColor = 'border-text-secondary';
+            let bandLabel = iface.band || 'Unknown';
+            let bandIcon = 'wifi';
+
+            if (iface.band === '5ghz') {
+                bandColor = 'border-primary';
+                bandLabel = '5GHz';
+                bandIcon = 'wifi';
+            } else if (iface.band === '2ghz') {
+                bandColor = 'border-success';
+                bandLabel = '2.4GHz';
+                bandIcon = 'wifi_2_bar';
+            }
+
+            card.className = `bg-surface-2 rounded-lg border-l-4 ${bandColor} p-4 flex flex-col gap-2 transition-all hover:shadow-lg`;
+
+            const freqText = iface.frequency ? `${iface.frequency} MHz` : '--';
+            const widthText = iface.channel_width ? `${iface.channel_width} MHz` : '--';
+            const ssidText = iface.ssid || '--';
+            const nameText = iface.name || 'Unknown Interface';
+
+            card.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-xl">${bandIcon}</span>
+                        <span class="font-bold text-text-primary">${nameText}</span>
+                    </div>
+                    <span class="text-xs font-semibold px-2 py-1 rounded-full bg-black bg-opacity-20">${bandLabel}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-text-secondary mt-2">
+                    <span>SSID:</span><span class="font-semibold text-text-primary text-right">${ssidText}</span>
+                    <span>Frequency:</span><span class="font-semibold text-text-primary text-right">${freqText}</span>
+                    <span>Channel Width:</span><span class="font-semibold text-text-primary text-right">${widthText}</span>
+                </div>
+            `;
+
+            container.appendChild(card);
+        });
     }
 
     // ============================================================================

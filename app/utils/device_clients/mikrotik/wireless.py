@@ -89,11 +89,22 @@ def get_wireless_interfaces_detailed(api: RouterOsApi) -> List[Dict[str, Any]]:
                 
                 tx_power = mon_data.get("tx-power")
                 width = iface.get("channel.width") or iface.get("channel-width")
+            
+            # SSID extraction for ROS7 wifi/wifiwave2
+            # Try various locations where SSID might be stored
+            ssid = (
+                iface.get("configuration.ssid") or  # Flattened config
+                iface.get("ssid") or                # Direct field
+                None
+            )
 
         # --- Legacy 'wireless' logic ---
         else:
             freq = iface.get("frequency", "")
             width = iface.get("channel-width", "")
+            
+            # SSID for legacy wireless
+            ssid = iface.get("ssid") or iface.get("mode")  # In AP mode, ssid is directly available
             
             # Band parsing from frequency
             if freq:
@@ -121,6 +132,7 @@ def get_wireless_interfaces_detailed(api: RouterOsApi) -> List[Dict[str, Any]]:
             "band": band,
             "frequency": freq,
             "width": width,
+            "ssid": ssid,  # Now directly available
             "tx_power": tx_power,
             "original_record": iface  # keep reference if needed
         })
