@@ -209,3 +209,4 @@ tmp/
 # Generated Assets
 static/qr_codes/
 
+.drafts/implementation_plan.md

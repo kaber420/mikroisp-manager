@@ -9,9 +9,10 @@ from typing import List, Dict, Optional
 from ...core.users import current_active_user
 from ...models.user import User
 from ...db.base import get_db_connection, get_stats_db_connection, get_stats_db_file
+from ...core.constants import DeviceStatus, CPEStatus
 
 # --- ¡IMPORTACIÓN CORREGIDA! (Ahora desde '.models') ---
-from .models import TopAP, TopCPE, CPECount
+from .models import TopAP, TopCPE, CPECount, SwitchCount
 
 router = APIRouter()
 
@@ -110,11 +111,11 @@ def get_cpe_total_count(
         total = cursor.fetchone()[0]
 
         # Active count
-        cursor = conn.execute("SELECT COUNT(*) FROM cpes WHERE status='active' AND is_enabled=1")
+        cursor = conn.execute(f"SELECT COUNT(*) FROM cpes WHERE status='{CPEStatus.ACTIVE}' AND is_enabled=1")
         active = cursor.fetchone()[0]
 
         # Offline count
-        cursor = conn.execute("SELECT COUNT(*) FROM cpes WHERE status='offline' AND is_enabled=1")
+        cursor = conn.execute(f"SELECT COUNT(*) FROM cpes WHERE status='{CPEStatus.OFFLINE}' AND is_enabled=1")
         offline = cursor.fetchone()[0]
 
         # Disabled count
@@ -126,6 +127,36 @@ def get_cpe_total_count(
             "active": active,
             "offline": offline,
             "disabled": disabled,
+        }
+    except sqlite3.Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+
+
+@router.get("/stats/switch-count", response_model=SwitchCount)
+def get_switch_total_count(
+    conn: sqlite3.Connection = Depends(get_inventory_db),
+    current_user: User = Depends(current_active_user),
+):
+    """
+    Returns the count of switches by status.
+    """
+    try:
+        # Total count
+        cursor = conn.execute("SELECT COUNT(*) FROM switches")
+        total = cursor.fetchone()[0]
+
+        # Online count
+        cursor = conn.execute(f"SELECT COUNT(*) FROM switches WHERE last_status = '{DeviceStatus.ONLINE}' AND is_enabled = 1")
+        online = cursor.fetchone()[0]
+
+        # Offline count
+        cursor = conn.execute(f"SELECT COUNT(*) FROM switches WHERE last_status = '{DeviceStatus.OFFLINE}' AND is_enabled = 1")
+        offline = cursor.fetchone()[0]
+
+        return {
+            "total_switches": total,
+            "online": online,
+            "offline": offline,
         }
     except sqlite3.Error as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")

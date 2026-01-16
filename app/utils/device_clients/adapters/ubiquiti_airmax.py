@@ -125,7 +125,7 @@ class UbiquitiAirmaxAdapter(BaseDeviceAdapter):
         return DeviceStatus(
             host=self.host,
             vendor=self.vendor,
-            role="access_point",
+            role=DeviceRole.ACCESS_POINT,
             hostname=host_info.get("hostname"),
             model=host_info.get("devmodel"),
             mac=interfaces[1].get("hwaddr") if len(interfaces) > 1 else None,

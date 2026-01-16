@@ -234,10 +234,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- FUNCIÓN 2: KPIs (Sin cambios lógicos, solo aseguramos IDs) ---
     async function loadInitialData() {
         try {
-            const [apsRes, cpeCountRes, routersRes] = await Promise.all([
+            const [apsRes, cpeCountRes, routersRes, switchCountRes] = await Promise.all([
                 fetch(`${API_BASE_URL}/api/aps`),
                 fetch(`${API_BASE_URL}/api/stats/cpe-count`),
-                fetch(`${API_BASE_URL}/api/routers`)
+                fetch(`${API_BASE_URL}/api/routers`),
+                fetch(`${API_BASE_URL}/api/stats/switch-count`)
             ]);
 
             if (!apsRes.ok || !cpeCountRes.ok || !routersRes.ok) throw new Error('Failed to load dashboard data');
@@ -245,6 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const allAps = await apsRes.json();
             const cpeCountData = await cpeCountRes.json();
             const allRouters = await routersRes.json();
+            const switchCountData = switchCountRes.ok ? await switchCountRes.json() : { total_switches: 0, online: 0, offline: 0 };
 
             let cpesOnline = 0;
             let apsOnline = 0;
@@ -275,6 +277,11 @@ document.addEventListener('DOMContentLoaded', () => {
             updateStatWithTransition('total-routers', allRouters.length);
             updateStatWithTransition('routers-online', routersOnline);
             updateStatWithTransition('routers-offline', allRouters.length - routersOnline);
+
+            // Switch KPIs
+            updateStatWithTransition('total-switches', switchCountData.total_switches);
+            updateStatWithTransition('switches-online', switchCountData.online);
+            updateStatWithTransition('switches-offline', switchCountData.offline);
 
             loadTopStats();
 

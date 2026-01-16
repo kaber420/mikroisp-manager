@@ -77,7 +77,7 @@ class MonitorService:
                         "mac": status.mac,
                     })
 
-                    if previous_status == "offline":
+                    if previous_status == DeviceStatus.OFFLINE:
                         message = f"✅ *AP RECUPERADO*\n\nEl AP *{hostname}* (`{host}`) ha vuelto a estar en línea."
                         add_event_log(
                             host,
@@ -98,9 +98,9 @@ class MonitorService:
 
     def _handle_offline_ap(self, host: str, previous_status: str):
         logger.warning(f"Estado de {host}: OFFLINE")
-        update_ap_status(host, "offline")
+        update_ap_status(host, DeviceStatus.OFFLINE)
 
-        if previous_status != "offline":
+        if previous_status != DeviceStatus.OFFLINE:
             ap_info = get_ap_by_host_with_stats(host)
             hostname = (
                 ap_info.get("hostname")

@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional
 
 from .base import get_db_connection, get_stats_db_connection
 from .init_db import _setup_stats_db  # Usamos la función de configuración
+from ..core.constants import CPEStatus
 
 
 def save_router_monitor_stats(router_host: str, stats: Dict[str, Any]) -> bool:

@@ -13,7 +13,7 @@ from ..utils.device_clients.adapters.base import DeviceStatus, ConnectedClient
 from ..db import settings_db, stats_db
 from ..db.base import get_stats_db_connection
 from ..utils.device_clients.mikrotik import wireless as mikrotik_wireless
-from ..core.constants import DeviceVendor
+from ..core.constants import DeviceVendor, DeviceStatus
 
 from ..api.aps.models import (
     AP as APResponse, # Renamed to avoid conflict with DB model
@@ -301,7 +301,7 @@ class APService:
                 model=status.model,
                 mac=status.mac,
                 firmware=status.firmware,
-                last_status="online",
+                last_status=DeviceStatus.ONLINE,
                 client_count=status.client_count,
                 noise_floor=status.noise_floor,
                 chanbw=status.channel_width,

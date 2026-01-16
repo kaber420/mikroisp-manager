@@ -129,7 +129,12 @@ def remove_service_plan(api: RouterOsApi, plan_name: str) -> Dict[str, bool]:
 
 
 def add_pppoe_server(
-    api: RouterOsApi, service_name: str, interface: str, default_profile: str
+    api: RouterOsApi,
+    service_name: str,
+    interface: str,
+    default_profile: str,
+    one_session_per_host: bool = True,
+    keepalive_timeout: int = 10,
 ):
     server_res = api.get_resource("/interface/pppoe-server/server")
     if not server_res.get(interface=interface):
@@ -140,6 +145,8 @@ def add_pppoe_server(
                 "default-profile": default_profile,
                 "authentication": "mschap2",
                 "disabled": "no",
+                "one-session-per-host": "yes" if one_session_per_host else "no",
+                "keepalive-timeout": str(keepalive_timeout),
             }
         )
     return {

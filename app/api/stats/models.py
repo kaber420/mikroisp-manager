@@ -24,3 +24,9 @@ class CPECount(BaseModel):
     active: int
     offline: int
     disabled: int
+
+
+class SwitchCount(BaseModel):
+    total_switches: int
+    online: int
+    offline: int

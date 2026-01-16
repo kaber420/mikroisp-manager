@@ -585,15 +585,35 @@
                     </div>
                     <div>
                         <h4 class="text-base font-semibold">Añadir Servidor</h4>
-                        <form id="add-pppoe-form" class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <input type="text" name="service_name" placeholder="Nombre (ej. pppoe-lan)"
-                                value="pppoe-server"
-                                class="w-full bg-background border border-border-color rounded-md p-2" required>
-                            <select name="interface"
-                                class="w-full bg-background border border-border-color rounded-md p-2 interface-select"
-                                required></select>
+                        <form id="add-pppoe-form" class="space-y-3">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <input type="text" name="service_name" placeholder="Nombre (ej. pppoe-lan)"
+                                    value="pppoe-server"
+                                    class="w-full bg-background border border-border-color rounded-md p-2" required>
+                                <select name="interface"
+                                    class="w-full bg-background border border-border-color rounded-md p-2 interface-select"
+                                    required></select>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" id="one-session-per-host" name="one_session_per_host"
+                                        class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" checked>
+                                    <label for="one-session-per-host" class="text-sm text-text-primary">
+                                        One Session Per Host
+                                    </label>
+                                </div>
+                                <div>
+                                    <label for="keepalive-timeout"
+                                        class="block text-xs font-medium text-text-secondary mb-1">Keepalive Timeout
+                                        (s)</label>
+                                    <input type="number" id="keepalive-timeout" name="keepalive_timeout" value="10"
+                                        min="1" max="120"
+                                        class="w-full bg-background border border-border-color rounded-md p-2">
+                                </div>
+                            </div>
                             <button type="submit"
-                                class="h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover">Añadir</button>
+                                class="h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover w-full">Añadir
+                                Servidor</button>
                         </form>
                     </div>
                 </div>

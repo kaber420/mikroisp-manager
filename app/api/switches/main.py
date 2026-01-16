@@ -15,6 +15,7 @@ from ...core.users import require_technician
 from ...models.user import User
 from ...services import switch_service
 from ...db import switches_db
+from ...core.constants import DeviceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -367,7 +368,7 @@ async def check_switch_status(
                 "hostname": resources.get("name"),
                 "model": resources.get("board-name"),
                 "firmware": resources.get("version"),
-                "last_status": "online",
+                "last_status": DeviceStatus.ONLINE,
             }
             switches_db.update_switch_in_db(host, update_data)
             
@@ -384,7 +385,7 @@ async def check_switch_status(
             }
         else:
             # Update status to offline
-            switches_db.update_switch_in_db(host, {"last_status": "offline"})
+            switches_db.update_switch_in_db(host, {"last_status": DeviceStatus.OFFLINE})
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
                 detail="Could not retrieve system info from switch"
@@ -394,7 +395,7 @@ async def check_switch_status(
         raise
     except Exception as e:
         # Update status to offline on error
-        switches_db.update_switch_in_db(host, {"last_status": "offline"})
+        switches_db.update_switch_in_db(host, {"last_status": DeviceStatus.OFFLINE})
         logger.error(f"Error checking switch {host}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 

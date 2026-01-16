@@ -7,6 +7,7 @@ import uuid
 
 from ..models.cpe import CPE
 from ..db.base import get_db_connection, get_stats_db_file
+from ..core.constants import CPEStatus
 
 
 class CPEService:
@@ -126,7 +127,7 @@ class CPEService:
                     cpe['cpe_hostname'] = cpe.pop('hostname', None)
                     # Use is_enabled to override status to 'disabled'
                     if not cpe.get('is_enabled', True):
-                        cpe['status'] = 'disabled'
+                        cpe['status'] = CPEStatus.DISABLED
                     # status is already set from DB ('active' or 'offline')
                     rows.append(cpe)
                 return self._apply_status_filter(rows, status_filter)
@@ -158,7 +159,7 @@ class CPEService:
                 cpe.pop('db_ip_address', None)
                 # Use is_enabled to override status to 'disabled'
                 if not cpe.get('is_enabled', True):
-                    cpe['status'] = 'disabled'
+                    cpe['status'] = CPEStatus.DISABLED
                 # status is already set from DB ('active' or 'offline')
                 rows.append(cpe)
             return self._apply_status_filter(rows, status_filter)

@@ -12,9 +12,16 @@ const handleAddPppoe = async (e) => {
     e.preventDefault();
     try {
         const data = new FormData(DOM_ELEMENTS.addPppoeForm);
+        const payload = {
+            service_name: data.get('service_name'),
+            interface: data.get('interface'),
+            default_profile: 'default',
+            one_session_per_host: data.get('one_session_per_host') === 'on',
+            keepalive_timeout: parseInt(data.get('keepalive_timeout'), 10) || 10
+        };
         await ApiClient.request(`/api/routers/${CONFIG.currentHost}/write/add-pppoe-server`, {
             method: 'POST',
-            body: JSON.stringify({ service_name: data.get('service_name'), interface: data.get('interface'), default_profile: 'default' })
+            body: JSON.stringify(payload)
         });
         DomUtils.updateFeedback('Servidor PPPoE Añadido', true);
         DOM_ELEMENTS.addPppoeForm.reset();
@@ -33,7 +40,7 @@ const handleAddPlan = async (e) => {
         // Lógica para pool
         const poolInputValue = data.pool_input;
         delete data.pool_input;
-        
+
         // Detectar si es CIDR (contiene /), rango (contiene - y .), o nombre de pool
         if (poolInputValue && poolInputValue.includes('.')) {
             if (poolInputValue.includes('/')) {
@@ -66,19 +73,19 @@ function cidrToRange(cidr) {
     const [ip, prefixStr] = cidr.split('/');
     const prefix = parseInt(prefixStr, 10);
     const octets = ip.split('.').map(Number);
-    
+
     // Convertir IP a número de 32 bits
     const ipNum = (octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3];
-    
+
     // Calcular máscara y rango
     const mask = ~((1 << (32 - prefix)) - 1) >>> 0;
     const networkAddr = ipNum & mask;
     const broadcastAddr = networkAddr | (~mask >>> 0);
-    
+
     // Primer IP usable (network + 1) y última IP usable (broadcast - 1)
     const firstUsable = networkAddr + 1;
     const lastUsable = broadcastAddr - 1;
-    
+
     // Convertir de vuelta a octetos
     const toOctets = (num) => [
         (num >>> 24) & 255,
@@ -86,7 +93,7 @@ function cidrToRange(cidr) {
         (num >>> 8) & 255,
         num & 255
     ].join('.');
-    
+
     return `${toOctets(firstUsable)}-${toOctets(lastUsable)}`;
 }
 

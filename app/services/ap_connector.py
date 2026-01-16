@@ -1,113 +1,66 @@
-# app/services/ap_connector.py
-"""
-APConnector: Gestiona conexiones a APs multi-vendor.
-Análogo a RouterConnector pero usando el patrón de adaptadores.
-"""
-
 import asyncio
 import logging
 from typing import Dict, Optional
 from datetime import datetime
 
+from .base_connector import BaseDeviceConnector
 from ..core.constants import CredentialKeys, DeviceVendor
 from ..utils.device_clients.adapter_factory import get_device_adapter
 from ..utils.device_clients.adapters.base import BaseDeviceAdapter, DeviceStatus
 
 logger = logging.getLogger(__name__)
 
-
-class APConnector:
+class APConnector(BaseDeviceConnector):
     """
-    Abstraction layer for AP connection management.
-    
-    Responsibilities:
-    - Manage AP credentials and adapters
-    - Handle connection lifecycle (subscribe/unsubscribe)
-    - Provide high-level data fetching methods
-    - Support multi-vendor (Ubiquiti, MikroTik)
+    APConnector: Gestiona conexiones a APs multi-vendor.
+    Uses adapter pattern and inherits plumbing from BaseDeviceConnector.
     """
     
     def __init__(self):
+        super().__init__()
         self._adapters: Dict[str, BaseDeviceAdapter] = {}  # host -> adapter
-        self._credentials: Dict[str, dict] = {}  # host -> creds
-        logger.info("[APConnector] Initialized")
-    
-    async def subscribe(self, host: str, creds: dict) -> None:
+
+    async def _connect(self, host: str, creds: dict) -> None:
         """
-        Subscribe to an AP by creating a persistent adapter.
-        
-        Args:
-            host: AP hostname/IP
-            creds: Dictionary with keys: username, password, vendor, port
+        Create adapter and store it.
         """
-        # Store credentials
-        self._credentials[host] = creds
-        
         # Create adapter (offload to thread pool as some adapters may block)
-        try:
-            adapter = await asyncio.to_thread(
-                get_device_adapter,
-                host=host,
-                username=creds[CredentialKeys.USERNAME],
-                password=creds[CredentialKeys.PASSWORD],
-                vendor=creds.get("vendor", DeviceVendor.MIKROTIK),
-                port=creds.get(CredentialKeys.PORT, 8729)
-            )
-            self._adapters[host] = adapter
-            logger.info(f"[APConnector] Subscribed to {host} ({creds.get('vendor', DeviceVendor.MIKROTIK)})")
-        except Exception as e:
-            logger.error(f"[APConnector] Failed to subscribe to {host}: {e}")
-            if host in self._credentials:
-                del self._credentials[host]
-            raise
-    
-    async def unsubscribe(self, host: str) -> None:
+        adapter = await asyncio.to_thread(
+            get_device_adapter,
+            host=host,
+            username=creds[CredentialKeys.USERNAME],
+            password=creds[CredentialKeys.PASSWORD],
+            vendor=creds.get("vendor", DeviceVendor.MIKROTIK),
+            port=creds.get(CredentialKeys.PORT, 8729)
+        )
+        self._adapters[host] = adapter
+        # Logged in BaseDeviceConnector
+
+    async def _disconnect(self, host: str) -> None:
         """
-        Unsubscribe from an AP.
-        NOTE: Does NOT clean up immediately - MonitorScheduler handles cleanup.
-        
-        Args:
-            host: AP hostname/IP
+        Mark for cleanup. Actual disconnect happens in cleanup_credentials.
         """
-        if host not in self._credentials:
-            logger.warning(f"[APConnector] Attempted to unsubscribe from unknown host: {host}")
-            return
-        
-        logger.debug(f"[APConnector] Marked {host} for potential cleanup")
-    
-    def cleanup(self, host: str) -> None:
+        self.logger.debug(f"Marked {host} for potential cleanup")
+
+    def cleanup_credentials(self, host: str) -> None:
         """
-        Clean up adapter and credentials for a host.
-        Called by APMonitorScheduler when ref_count reaches 0.
-        
-        Args:
-            host: AP hostname/IP
+        Clean up adapter and credentials.
         """
         if host in self._adapters:
             try:
                 self._adapters[host].disconnect()
             except Exception as e:
-                logger.error(f"[APConnector] Error disconnecting {host}: {e}")
+                self.logger.error(f"Error disconnecting {host}: {e}")
             del self._adapters[host]
         
-        if host in self._credentials:
-            del self._credentials[host]
-        
-        logger.info(f"[APConnector] Cleaned up {host}")
-    
+        super().cleanup_credentials(host)
+
+    # Alias for compatibility with APMonitorScheduler
+    cleanup = cleanup_credentials
+
     def fetch_ap_stats(self, host: str) -> dict:
         """
         Fetch monitoring statistics from an AP.
-        This is a synchronous method (runs in thread pool from scheduler).
-        
-        Args:
-            host: AP hostname/IP
-            
-        Returns:
-            Dictionary with AP statistics
-            
-        Raises:
-            Exception: If AP is not subscribed or fetch fails
         """
         if host not in self._adapters:
             raise ValueError(f"AP {host} is not subscribed")
@@ -154,7 +107,7 @@ class APConnector:
                 else:
                     uptime_str = f"{minutes}m"
             
-            # Build response (compatible with WebSocket format)
+            # Build response
             return {
                 "host": host,
                 "hostname": status.hostname,
@@ -188,9 +141,8 @@ class APConnector:
             }
         
         except Exception as e:
-            logger.error(f"[APConnector] Error fetching stats from {host}: {e}")
+            self.logger.error(f"Error fetching stats from {host}: {e}")
             raise
-
 
 # Singleton instance
 ap_connector = APConnector()

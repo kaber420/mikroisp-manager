@@ -130,6 +130,8 @@ class AddPppoeServerRequest(BaseModel):
     service_name: str
     interface: str
     default_profile: str
+    one_session_per_host: bool = True
+    keepalive_timeout: int = 10
 
 
 # --- Models from pppoe.py ---
