@@ -106,8 +106,8 @@ def get_cpe_total_count(
     current_user: User = Depends(current_active_user),
 ):
     try:
-        # Total count
-        cursor = conn.execute("SELECT COUNT(*) FROM cpes")
+        # Total count (Only Enabled)
+        cursor = conn.execute("SELECT COUNT(*) FROM cpes WHERE is_enabled=1")
         total = cursor.fetchone()[0]
 
         # Active count
