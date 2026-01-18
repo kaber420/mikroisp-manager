@@ -86,3 +86,11 @@
   porque el nuevo método de manipulación directa de estilos
   no las requiere.
 */
+
+/* Clase para aplicar blur a valores individuales durante la carga */
+.data-loading {
+    filter: blur(4px);
+    opacity: 0.6;
+    transition: filter 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}

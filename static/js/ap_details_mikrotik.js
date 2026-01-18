@@ -59,8 +59,9 @@
          */
         renderCPEExtra: function (cpe) {
             const ccq = cpe.ccq != null ? `${cpe.ccq}%` : 'N/A';
-            const txRate = cpe.tx_rate != null ? `${(cpe.tx_rate / 1000000).toFixed(1)} Mbps` : 'N/A';
-            const rxRate = cpe.rx_rate != null ? `${(cpe.rx_rate / 1000000).toFixed(1)} Mbps` : 'N/A';
+            // tx_rate and rx_rate come from backend as Mbps (integer), no conversion needed
+            const txRate = cpe.tx_rate != null ? `${cpe.tx_rate} Mbps` : 'N/A';
+            const rxRate = cpe.rx_rate != null ? `${cpe.rx_rate} Mbps` : 'N/A';
             return `
                 <span>CCQ:</span><span class="font-semibold text-text-primary text-right">${ccq}</span>
                 <span>TX/RX Rate:</span><span class="font-semibold text-text-primary text-right">${txRate} / ${rxRate}</span>

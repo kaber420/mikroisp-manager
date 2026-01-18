@@ -144,6 +144,7 @@ def get_connected_clients(api: RouterOsApi) -> List[Dict[str, Any]]:
     """
     Returns a unified list of connected clients (CPEs) with parsed statistics.
     Handles legacy and modern wireless packages transparently.
+    For legacy (v6), SSID and band are backfilled from interface details.
     """
     manager = MikrotikInterfaceManager(api)
     # Detect type first
@@ -154,6 +155,14 @@ def get_connected_clients(api: RouterOsApi) -> List[Dict[str, Any]]:
     reg_path = manager.get_registration_table_path(wtype)
     if not reg_path:
         return []
+
+    # Build interface map for backfilling SSID/band on legacy devices
+    interface_map: Dict[str, Dict[str, Any]] = {}
+    try:
+        detailed_interfaces = get_wireless_interfaces_detailed(api)
+        interface_map = {iface['name']: iface for iface in detailed_interfaces}
+    except Exception as e:
+        logger.warning(f"Failed to get detailed interface info for backfill: {e}")
 
     registrations = []
     try:
@@ -206,11 +215,34 @@ def get_connected_clients(api: RouterOsApi) -> List[Dict[str, Any]]:
             if not client_comment:
                 client_comment = arp_info.get("comment")
 
+        # Get SSID and band from registration (available in ROS7)
+        client_ssid = reg.get("ssid")
+        client_band = reg.get("band")
+        client_interface = reg.get("interface")
+
+        # Backfill SSID/band from interface details for legacy (ROS6) devices
+        if (not client_ssid or not client_band) and client_interface:
+            if iface_info := interface_map.get(client_interface):
+                if not client_ssid:
+                    client_ssid = iface_info.get("ssid")
+                if not client_band:
+                    client_band = iface_info.get("band")
+
+        # Signal chains and SNR
+        signal_ch0 = mikrotik_parsers.parse_signal(reg.get("signal-strength-ch0"))
+        signal_ch1 = mikrotik_parsers.parse_signal(reg.get("signal-strength-ch1"))
+        snr_val = mikrotik_parsers.parse_snr(reg.get("signal-to-noise"))
+        noise_floor = mikrotik_parsers.parse_signal(reg.get("noise-floor"))
+
         client = {
             "mac": mac,
             "hostname": client_comment,
             "ip_address": client_ip,
             "signal": signal,
+            "signal_chain0": signal_ch0,
+            "signal_chain1": signal_ch1,
+            "snr": snr_val,
+            "noise_floor": noise_floor,
             "tx_rate": tx_rate,
             "rx_rate": rx_rate,
             "ccq": mikrotik_parsers.parse_int(reg.get("tx-ccq") or reg.get("ccq")),
@@ -219,15 +251,16 @@ def get_connected_clients(api: RouterOsApi) -> List[Dict[str, Any]]:
             "tx_throughput_kbps": int(tx_throughput) if tx_throughput else None,
             "rx_throughput_kbps": int(rx_throughput) if rx_throughput else None,
             "uptime": mikrotik_parsers.parse_uptime(reg.get("uptime", "0s")),
-            "interface": reg.get("interface"),
-            # New fields for ROS7 wifi/wifiwave2
-            "ssid": reg.get("ssid"),
-            "band": reg.get("band"),
+            "interface": client_interface,
+            # Use backfilled values
+            "ssid": client_ssid,
+            "band": client_band,
             # Include raw extra data for adapters to use if needed
             "extra": {
                 "rx_signal": reg.get("signal-strength"),
                 "signal_ch0": reg.get("signal-strength-ch0"),
                 "signal_ch1": reg.get("signal-strength-ch1"),
+                "signal_to_noise": reg.get("signal-to-noise"),
                 "noise_floor": reg.get("noise-floor"),
                 "p_throughput": reg.get("p-throughput"),
                 "distance": reg.get("distance"),

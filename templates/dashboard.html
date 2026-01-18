@@ -8,7 +8,6 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
             <h2 class="text-3xl font-bold text-text-primary tracking-tight">Dashboard</h2>
-            <p class="text-text-secondary text-sm mt-1">Vista general de la red </p>
         </div>
 
         <button onclick="location.reload()"
@@ -63,14 +62,14 @@
             class="relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-xl group">
             <span
                 class="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-orange/5 group-hover:text-orange/10 transition-colors select-none">
-                router
+                settings_input_antenna
             </span>
 
             <div class="relative z-10 flex justify-between items-start mb-6">
                 <div>
                     <div
                         class="flex items-center gap-2 text-text-secondary text-sm font-medium uppercase tracking-wider mb-2">
-                        <span class="material-symbols-outlined text-orange">router</span>
+                        <span class="material-symbols-outlined text-orange">settings_input_antenna</span>
                         CPEs (Clientes)
                     </div>
                     <div class="flex items-baseline gap-2">
@@ -103,14 +102,14 @@
             class="relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-xl group">
             <span
                 class="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-cyan-500/5 group-hover:text-cyan-500/10 transition-colors select-none">
-                device_hub
+                dns
             </span>
 
             <div class="relative z-10 flex justify-between items-start mb-6">
                 <div>
                     <div
                         class="flex items-center gap-2 text-text-secondary text-sm font-medium uppercase tracking-wider mb-2">
-                        <span class="material-symbols-outlined text-cyan-500">device_hub</span>
+                        <span class="material-symbols-outlined text-cyan-500">dns</span>
                         Routers (Gateways)
                     </div>
                     <div class="flex items-baseline gap-2">
@@ -143,14 +142,14 @@
             class="relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-xl group">
             <span
                 class="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-purple-500/5 group-hover:text-purple-500/10 transition-colors select-none">
-                toggle_on
+                lan
             </span>
 
             <div class="relative z-10 flex justify-between items-start mb-6">
                 <div>
                     <div
                         class="flex items-center gap-2 text-text-secondary text-sm font-medium uppercase tracking-wider mb-2">
-                        <span class="material-symbols-outlined text-purple-500">toggle_on</span>
+                        <span class="material-symbols-outlined text-purple-500">lan</span>
                         Switches
                     </div>
                     <div class="flex items-baseline gap-2">
@@ -207,6 +206,11 @@
                     class="px-4 py-2 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface-2 flex items-center gap-2 transition-all border border-white/10">
                     <span class="material-symbols-outlined text-lg">help</span>
                     Instrucciones
+                </button>
+                <button @click="$dispatch('open-mobile-setup')"
+                    class="px-4 py-2 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface-2 flex items-center gap-2 transition-all border border-white/10">
+                    <span class="material-symbols-outlined text-lg">qr_code_2</span>
+                    Mobile Setup
                 </button>
             </div>
         </div>

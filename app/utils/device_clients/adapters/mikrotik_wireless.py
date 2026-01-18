@@ -112,6 +112,9 @@ class MikrotikWirelessAdapter(MikrotikRouterAdapter):
                     hostname=c["hostname"],
                     ip_address=c["ip_address"],
                     signal=c["signal"],
+                    signal_chain0=c.get("signal_chain0"),
+                    signal_chain1=c.get("signal_chain1"),
+                    noisefloor=c.get("noise_floor"),
                     tx_rate=c["tx_rate"],
                     rx_rate=c["rx_rate"],
                     ccq=c["ccq"],
@@ -123,7 +126,7 @@ class MikrotikWirelessAdapter(MikrotikRouterAdapter):
                     interface=c["interface"],
                     ssid=c.get("ssid"),
                     band=c.get("band"),
-                    extra=extra_data
+                    extra={**extra_data, "snr": c.get("snr")}
                 ))
             
             # Calculate average noise floor if not available from interface
@@ -234,7 +237,10 @@ class MikrotikWirelessAdapter(MikrotikRouterAdapter):
                 interface=c["interface"],
                 ssid=c.get("ssid"),
                 band=c.get("band"),
-                extra=c.get("extra", {})
+                signal_chain0=c.get("signal_chain0"),
+                signal_chain1=c.get("signal_chain1"),
+                noisefloor=c.get("noise_floor"),
+                extra={**c.get("extra", {}), "snr": c.get("snr")}
             )
             for c in clients_data
         ]

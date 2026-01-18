@@ -119,8 +119,11 @@ def get_bootstrap_qr_image(
 ):
     """
     Genera y devuelve la imagen QR de configuración para la app móvil.
-    Guarda el archivo en static/qr_codes para evitar regeneración constante.
+    Guarda el archivo en data/qr_codes para evitar regeneración constante.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         import qrcode
     except ImportError:
@@ -156,21 +159,28 @@ def get_bootstrap_qr_image(
     # Define file path based on content hash (fingerprint + host) to invalidate if they change
     # We use a simple hash of the payload to ensure uniqueness
     import hashlib
+    from pathlib import Path
+    
     payload_str = f"{server_url}|{fingerprint}"
     payload_hash = hashlib.md5(payload_str.encode()).hexdigest()[:10]
     
     qr_filename = f"bootstrap_{payload_hash}.png"
-    # Ensure directory exists (relative to project root based on this file location)
-    # app/api/security/main.py -> ../../../static/qr_codes
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-    qr_dir = os.path.join(base_dir, "static", "qr_codes")
-    os.makedirs(qr_dir, exist_ok=True)
+    # Use Path for more robust path resolution
+    # This file is at app/api/security/main.py, so go up 3 levels to project root
+    base_dir = Path(__file__).resolve().parent.parent.parent.parent
+    qr_dir = base_dir / "data" / "qr_codes"
     
-    qr_path = os.path.join(qr_dir, qr_filename)
+    try:
+        qr_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        logger.error(f"Error creating QR directory {qr_dir}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error creating QR directory: {e}")
+    
+    qr_path = qr_dir / qr_filename
     
     # If file exists, return it directly
-    if os.path.exists(qr_path):
-        return FileResponse(qr_path, media_type="image/png")
+    if qr_path.exists():
+        return FileResponse(str(qr_path), media_type="image/png")
         
     # Generate QR code
     payload = {
@@ -178,16 +188,21 @@ def get_bootstrap_qr_image(
         "ca_sha256": fingerprint
     }
     
-    qr = qrcode.QRCode(version=1, box_size=10, border=4)
-    qr.add_data(json.dumps(payload))
-    qr.make(fit=True)
+    try:
+        qr = qrcode.QRCode(version=1, box_size=10, border=4)
+        qr.add_data(json.dumps(payload))
+        qr.make(fit=True)
+        
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Save to disk
+        img.save(str(qr_path))
+        logger.info(f"QR code saved to {qr_path}")
+    except Exception as e:
+        logger.error(f"Error generating QR code: {e}")
+        raise HTTPException(status_code=500, detail=f"Error generating QR code: {e}")
     
-    img = qr.make_image(fill_color="black", back_color="white")
-    
-    # Save to disk
-    img.save(qr_path)
-    
-    return FileResponse(qr_path, media_type="image/png")
+    return FileResponse(str(qr_path), media_type="image/png")
 
 
 @router.get("/security/bootstrap-qr", response_class=HTMLResponse)

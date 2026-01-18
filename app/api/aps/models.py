@@ -95,6 +95,7 @@ class CPEDetail(BaseModel):
     ccq: Optional[int] = None  # Client Connection Quality (%)
     tx_rate: Optional[int] = None  # TX rate in Mbps
     rx_rate: Optional[int] = None  # RX rate in Mbps
+    extra: Optional[Dict[str, Any]] = None
     model_config = ConfigDict(from_attributes=True)
 
 

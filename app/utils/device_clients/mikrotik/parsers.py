@@ -172,6 +172,7 @@ def parse_rate(rate_str: Optional[str]) -> Optional[int]:
     
     Examples:
         "300Mbps" -> 300
+        "144.4Mbps" -> 144
         "1200" -> 1200
     
     Args:
@@ -183,8 +184,23 @@ def parse_rate(rate_str: Optional[str]) -> Optional[int]:
     if not rate_str:
         return None
     try:
-        match = re.search(r"(\d+)", str(rate_str))
-        return int(match.group(1)) if match else None
+        s = str(rate_str).strip()
+        # Try to find number with unit first for better accuracy
+        # Matches: 144.4Mbps, 300Mbps
+        match = re.search(r"([\d\.]+)\s*Mbps", s, re.IGNORECASE)
+        if match:
+             return int(float(match.group(1)))
+             
+        match_gbps = re.search(r"([\d\.]+)\s*Gbps", s, re.IGNORECASE)
+        if match_gbps:
+             return int(float(match_gbps.group(1)) * 1000)
+
+        # Fallback: find the first number (integer or float)
+        match_num = re.search(r"(\d+(\.\d+)?)", s)
+        if match_num:
+            return int(float(match_num.group(1)))
+            
+        return None
     except (ValueError, AttributeError):
         return None
 
@@ -232,5 +248,22 @@ def parse_int(value: Optional[str]) -> Optional[int]:
         return None
     try:
         return int(value)
+    except (ValueError, TypeError):
+        return None
+
+def parse_snr(snr_str: Optional[str]) -> Optional[int]:
+    """
+    Parse Signal-to-Noise Ratio (SNR).
+    
+    Args:
+        snr_str: SNR value from RouterOS.
+    
+    Returns:
+        SNR in dB as integer, or None.
+    """
+    if not snr_str:
+        return None
+    try:
+        return int(str(snr_str).strip())
     except (ValueError, TypeError):
         return None

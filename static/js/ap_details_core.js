@@ -464,9 +464,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ============================================================================
     // LOAD AP DETAILS
     // ============================================================================
+
+    // IDs of elements that contain dynamic data values (not labels)
+    const dynamicDataElements = [
+        'detail-host', 'detail-status', 'detail-model', 'detail-essid',
+        'detail-mac', 'detail-firmware', 'detail-zona', 'detail-clients',
+        'detail-noise', 'detail-frequency', 'detail-throughput', 'detail-total-data',
+        'detail-gps', 'detail-sats', 'detail-airtime', 'detail-uptime',
+        'detail-cpu-load', 'detail-memory', 'detail-platform', 'detail-wireless-type'
+    ];
+
+    function toggleDataLoading(isLoading) {
+        dynamicDataElements.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                if (isLoading) {
+                    el.classList.add('data-loading');
+                } else {
+                    el.classList.remove('data-loading');
+                }
+            }
+        });
+    }
+
     function loadApDetails() {
-        if (deviceInfoCard) { deviceInfoCard.style.filter = 'blur(4px)'; deviceInfoCard.style.opacity = '0.6'; }
-        if (clientListSection) { clientListSection.style.filter = 'blur(4px)'; clientListSection.style.opacity = '0.6'; }
+        // Apply blur only to dynamic data values, not the entire card
+        toggleDataLoading(true);
 
         setTimeout(async () => {
             try {
@@ -531,8 +554,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.getElementById('main-hostname').textContent = 'Error';
             } finally {
                 setTimeout(() => {
-                    if (deviceInfoCard) { deviceInfoCard.style.filter = 'blur(0px)'; deviceInfoCard.style.opacity = '1'; }
-                    if (clientListSection) { clientListSection.style.filter = 'blur(0px)'; clientListSection.style.opacity = '1'; }
+                    toggleDataLoading(false);
                 }, 50);
             }
         }, 300);
