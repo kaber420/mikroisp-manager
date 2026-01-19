@@ -170,6 +170,7 @@ def _setup_inventory_db():
         password TEXT NOT NULL, 
         zona_id INTEGER, 
         is_enabled BOOLEAN DEFAULT TRUE,
+        is_provisioned BOOLEAN DEFAULT FALSE,
         hostname TEXT, 
         model TEXT, 
         firmware TEXT, 
@@ -182,6 +183,17 @@ def _setup_inventory_db():
     )
     """
     )
+
+    # --- Migration: Add is_provisioned column to switches table ---
+    switch_columns = [
+        col[1] for col in cursor.execute("PRAGMA table_info(switches)").fetchall()
+    ]
+    if "is_provisioned" not in switch_columns:
+        print("Migrando switches: Agregando is_provisioned...")
+        cursor.execute("ALTER TABLE switches ADD COLUMN is_provisioned BOOLEAN DEFAULT FALSE;")
+        # Smart default: Mark switches where api_port == api_ssl_port as already provisioned
+        cursor.execute("UPDATE switches SET is_provisioned = TRUE WHERE api_port = api_ssl_port;")
+        print("  -> Switches con api_port == api_ssl_port marcados como aprovisionados.")
 
 
     cursor.execute(

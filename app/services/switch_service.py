@@ -160,6 +160,55 @@ class SwitchService:
         """Create a backup file on the switch."""
         return self.adapter.create_backup(backup_name)
 
+    # --- SSL/Certificate Management Methods ---
+
+    def get_ssl_status(self) -> Dict[str, Any]:
+        """Check the SSL/TLS status of the switch."""
+        return self.adapter.get_ssl_status()
+
+    def ensure_ssl_provisioned(self) -> bool:
+        """
+        Checks if the switch has a valid/trusted SSL certificate.
+        If not, automatically provisions one using PKIService.
+        Returns True if provisioned (or already valid), False if failed.
+        """
+        from .pki_service import PKIService
+        
+        try:
+            # 1. Check current Status
+            status = self.adapter.get_ssl_status()
+            
+            # If already secure, we are good.
+            if status.get("ssl_enabled") and status.get("is_trusted") and status.get("status") == "secure":
+                logger.info(f"Switch {self.host} SSL is ALREADY SECURE (Zero Trust Compliant).")
+                return True
+            
+            logger.warning(f"Switch {self.host} SSL is INSECURE ({status.get('status')}). Auto-provisioning for Zero Trust...")
+            
+            # 2. Generate Certs
+            pki = PKIService()
+            success, key_pem, cert_pem = pki.generate_full_cert_pair(self.host)
+            
+            if not success:
+                logger.error(f"Failed to generate certificates for {self.host}")
+                return False
+            
+            # 3. Import & Apply
+            result = self.adapter.import_certificate(cert_pem, key_pem)
+            
+            if result.get("status") == "success":
+                logger.info(f"✅ Auto-provisioning successful for switch {self.host}. Connection secured.")
+                return True
+            else:
+                logger.error(f"❌ Auto-provisioning failed for switch {self.host}: {result.get('message')}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error in ensure_ssl_provisioned for switch {self.host}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
 
 # --- CRUD Helper Functions ---
 

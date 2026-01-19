@@ -1,46 +1,84 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <title>Recibo de Pago #{{ payment.id }}</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
         body {
-            font-family: 'Roboto Mono', monospace;
-            width: 80mm; /* Ancho estándar de impresoras térmicas */
+            font-family: 'Courier New', Courier, monospace;
+            width: 80mm;
+            /* Ancho estándar de impresoras térmicas */
             margin: 0 auto;
             padding: 5px;
             color: #000;
             font-size: 13px;
         }
-        .header { text-align: center; margin-bottom: 15px; }
-        .logo { max-width: 150px; margin-bottom: 10px; }
-        .separator { border-top: 1px dashed #000; margin: 8px 0; }
-        .row { display: flex; justify-content: space-between; margin-bottom: 4px; }
-        .label { font-weight: bold; }
-        .total { font-size: 16px; font-weight: bold; text-align: right; margin-top: 10px; }
-        .footer { text-align: center; margin-top: 20px; font-size: 10px; }
-        
+
+        .header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .logo {
+            max-width: 150px;
+            margin-bottom: 10px;
+        }
+
+        .separator {
+            border-top: 1px dashed #000;
+            margin: 8px 0;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .label {
+            font-weight: bold;
+        }
+
+        .total {
+            font-size: 16px;
+            font-weight: bold;
+            text-align: right;
+            margin-top: 10px;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 10px;
+        }
+
         @media print {
-            @page { margin: 0; }
-            body { padding: 10px; }
+            @page {
+                margin: 0;
+            }
+
+            body {
+                padding: 10px;
+            }
         }
     </style>
 </head>
+
 <body onload="window.print();">
 
     <div class="header">
         {% if isp_logo %}
-            <img src="{{ isp_logo }}" alt="Logo" class="logo">
+        <img src="{{ isp_logo }}" alt="Logo" class="logo">
         {% endif %}
-        
+
         <h2 style="margin:0;">{{ isp_name | default('ISP Local') }}</h2>
-        
+
         {% if isp_address %}
-            <p style="margin:2px 0;">{{ isp_address }}</p>
+        <p style="margin:2px 0;">{{ isp_address }}</p>
         {% endif %}
         {% if isp_phone %}
-            <p style="margin:2px 0;">Tel: {{ isp_phone }}</p>
+        <p style="margin:2px 0;">Tel: {{ isp_phone }}</p>
         {% endif %}
     </div>
 
@@ -80,7 +118,7 @@
         <span>TOTAL:</span>
         <span>${{ "%.2f"|format(payment.monto) }}</span>
     </div>
-    
+
     <div class="row">
         <span>Método:</span>
         <span>{{ payment.metodo_pago | default('Efectivo') }}</span>
@@ -88,12 +126,13 @@
 
     <div class="footer">
         {% if ticket_message %}
-            <p>{{ ticket_message }}</p>
+        <p>{{ ticket_message }}</p>
         {% else %}
-            <p>¡Gracias por su pago!</p>
-            <p>Conserve este comprobante para cualquier aclaración.</p>
+        <p>¡Gracias por su pago!</p>
+        <p>Conserve este comprobante para cualquier aclaración.</p>
         {% endif %}
     </div>
 
 </body>
+
 </html>

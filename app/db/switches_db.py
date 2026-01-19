@@ -96,7 +96,7 @@ def create_switch_in_db(switch_data: Dict[str, Any]) -> Dict[str, Any]:
 
 _SWITCH_ALLOWED_COLUMNS = frozenset([
     "username", "password", "zona_id", "api_port", "api_ssl_port", "is_enabled",
-    "hostname", "model", "firmware", "mac_address", "location", "notes",
+    "is_provisioned", "hostname", "model", "firmware", "mac_address", "location", "notes",
     "last_status", "last_checked"
 ])
 

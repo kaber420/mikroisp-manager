@@ -239,6 +239,28 @@ async def add_security_headers(request: Request, call_next):
     # Ajusta según las necesidades de tu app (cámara, micro, gps, etc.)
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), interest-cohort=()"
     
+    # Content Security Policy (CSP)
+    # Define desde dónde se pueden cargar recursos para prevenir XSS y otras inyecciones.
+    # - default-src 'self': Solo permitir recursos del mismo origen por defecto
+    # - script-src 'self' 'unsafe-inline' 'unsafe-eval': Scripts locales, inline y eval (necesario para Alpine/Tailwind)
+    # - style-src 'self' 'unsafe-inline': Estilos locales e inline
+    # - img-src 'self' data: blob:: Imágenes locales, data URIs y blobs (gráficos)
+    # - connect-src 'self' ws: wss:: Conexiones AJAX locales y WebSockets
+    # - font-src 'self' data:: Fuentes locales
+    # - object-src 'none': Bloquear plugins (Flash, etc.)
+    # - base-uri 'self': Prevenir secuestro de base tag
+    csp_policy = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "connect-src 'self' ws: wss:; "
+        "font-src 'self' data:; "
+        "object-src 'none'; "
+        "base-uri 'self';"
+    )
+    response.headers["Content-Security-Policy"] = csp_policy
+
     return response
 
 

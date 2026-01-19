@@ -111,11 +111,11 @@ def get_cpe_total_count(
         total = cursor.fetchone()[0]
 
         # Active count
-        cursor = conn.execute(f"SELECT COUNT(*) FROM cpes WHERE status='{CPEStatus.ACTIVE}' AND is_enabled=1")
+        cursor = conn.execute(f"SELECT COUNT(*) FROM cpes WHERE status='{CPEStatus.ACTIVE.value}' AND is_enabled=1")
         active = cursor.fetchone()[0]
 
         # Offline count
-        cursor = conn.execute(f"SELECT COUNT(*) FROM cpes WHERE status='{CPEStatus.OFFLINE}' AND is_enabled=1")
+        cursor = conn.execute(f"SELECT COUNT(*) FROM cpes WHERE status='{CPEStatus.OFFLINE.value}' AND is_enabled=1")
         offline = cursor.fetchone()[0]
 
         # Disabled count
@@ -146,11 +146,11 @@ def get_switch_total_count(
         total = cursor.fetchone()[0]
 
         # Online count
-        cursor = conn.execute(f"SELECT COUNT(*) FROM switches WHERE last_status = '{DeviceStatus.ONLINE}' AND is_enabled = 1")
+        cursor = conn.execute(f"SELECT COUNT(*) FROM switches WHERE last_status = '{DeviceStatus.ONLINE.value}' AND is_enabled = 1")
         online = cursor.fetchone()[0]
 
         # Offline count
-        cursor = conn.execute(f"SELECT COUNT(*) FROM switches WHERE last_status = '{DeviceStatus.OFFLINE}' AND is_enabled = 1")
+        cursor = conn.execute(f"SELECT COUNT(*) FROM switches WHERE last_status = '{DeviceStatus.OFFLINE.value}' AND is_enabled = 1")
         offline = cursor.fetchone()[0]
 
         return {
