@@ -188,9 +188,7 @@ inventory.sqlite-shm
 *.rsc
 
 # Sensitive data
-data/known_hosts
-data/db/
-.git_backup/config
+data/
 .git_backup/COMMIT_EDITMSG
 
 
@@ -213,3 +211,5 @@ static/qr_codes/
 data/qr_codes/bootstrap_8559860c61.png
 scripts/debug_ros6_wireless.py
 scripts/test_full_flow.py
+Caddyfile
+.git_backup/config

@@ -80,57 +80,235 @@ def is_caddy_running():
     return False
 
 
+def generate_caddyfile(hosts: list, app_port: int, ssl_cert_path: str = "", ssl_key_path: str = ""):
+    """
+    Generate Caddyfile for the reverse proxy configuration.
+    
+    Args:
+        hosts: List of hostnames/IPs to configure
+        app_port: Backend application port
+        ssl_cert_path: Path to SSL certificate (if SSL enabled)
+        ssl_key_path: Path to SSL private key (if SSL enabled)
+    """
+    use_ssl = bool(ssl_cert_path and ssl_key_path)
+    
+    # Build the Caddyfile content
+    lines = [
+        "# µMonitor Pro - Caddyfile",
+        "# Generado automáticamente por launcher.py",
+        "{",
+        "    admin off",
+        "    auto_https off" if use_ssl else "    # HTTPS automático deshabilitado",
+        "}",
+        "",
+    ]
+    
+    if use_ssl:
+        # HTTPS configuration
+        lines.append("# Redirección HTTP → HTTPS")
+        lines.append(":80 {")
+        lines.append("    redir https://{host}{uri} permanent")
+        lines.append("}")
+        lines.append("")
+        
+        # HTTPS block for each host
+        lines.append(":443 {")
+        lines.append(f"    tls {ssl_cert_path} {ssl_key_path}")
+        lines.append(f"    reverse_proxy localhost:{app_port}")
+        lines.append("")
+        lines.append("    # Headers de seguridad")
+        lines.append("    header {")
+        lines.append('        X-Content-Type-Options nosniff')
+        lines.append('        X-Frame-Options DENY')
+        lines.append('        Referrer-Policy strict-origin-when-cross-origin')
+        lines.append('        Strict-Transport-Security "max-age=31536000; includeSubDomains"')
+        lines.append("    }")
+        lines.append("}")
+    else:
+        # HTTP only configuration
+        lines.append(":80 {")
+        lines.append(f"    reverse_proxy localhost:{app_port}")
+        lines.append("")
+        lines.append("    # Headers de seguridad")
+        lines.append("    header {")
+        lines.append('        X-Content-Type-Options nosniff')
+        lines.append('        X-Frame-Options DENY')
+        lines.append('        Referrer-Policy strict-origin-when-cross-origin')
+        lines.append("    }")
+        lines.append("}")
+    
+    # Write to project root
+    caddyfile_path = os.path.join(os.path.dirname(__file__), "Caddyfile")
+    try:
+        with open(caddyfile_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+        logging.info(f"Caddyfile generated: {caddyfile_path}")
+        return True
+    except IOError as e:
+        logging.error(f"Failed to write Caddyfile: {e}")
+        return False
+
+
 def run_setup_wizard():
     """
-    Asistente simplificado: Solo pregunta lo importante (Puerto).
+    Asistente de configuración mejorado.
+    
+    Configura:
+    - Puerto de la aplicación
+    - Detección automática de IP LAN
+    - Dominio personalizado (opcional)
+    - HTTPS con certificados locales (opcional)
+    - Generación de Caddyfile
     """
     logging.info(f"Configurando '{ENV_FILE}'...")
-    print("\n--- Configuración de µMonitor Pro ---")
+    print("\n" + "=" * 60)
+    print("    💻 Configuración de µMonitor Pro")
+    print("=" * 60)
     
     # Cargar valores previos si existen
     load_dotenv(ENV_FILE, encoding="utf-8")
     default_port = os.getenv("UVICORN_PORT", "7777")
     
     # 1. PREGUNTAR PUERTO
+    print("\n📡 CONFIGURACIÓN DE RED")
+    print("-" * 40)
     while True:
         port_input = input(f"¿En qué puerto deseas ejecutar la web? (Default: {default_port}): ").strip()
         if not port_input:
-            port = default_port
+            port = int(default_port)
             break
         if port_input.isdigit() and 1024 <= int(port_input) <= 65535:
-            port = port_input
+            port = int(port_input)
             break
         print("❌ Puerto inválido. Usa un número entre 1024 y 65535.")
 
-    # 2. BASE DE DATOS (Fija en data/db/)
+    # 2. DETECCIÓN DE IP LAN
+    lan_ip = get_lan_ip()
+    print(f"ℹ️  IP Local detectada: {lan_ip}")
+    
+    # 3. DOMINIO PERSONALIZADO (opcional)
+    custom_domain = input("🌐 Dominio personalizado (opcional, Enter para omitir): ").strip()
+    
+    # 4. CONSTRUIR LISTA DE HOSTS
+    hosts = ["localhost", "127.0.0.1"]
+    if lan_ip != "127.0.0.1":
+        hosts.append(lan_ip)
+    if custom_domain:
+        hosts.append(custom_domain)
+    
+    # 5. BASE DE DATOS (Fija en data/db/)
     db_dir = os.path.join("data", "db")
     os.makedirs(db_dir, exist_ok=True)
     print(f"✓ Base de datos configurada en: data/db/inventory.sqlite")
     
-    allowed_hosts = f"localhost:{port},127.0.0.1:{port}"
-    # Generar orígenes permitidos automáticamente
-    hosts_list = [h.strip() for h in allowed_hosts.split(",")]
-    origins_list = [f"http://{h}" for h in hosts_list]
-    allowed_origins = ",".join(origins_list)
-
-    # 4. CLAVES (Generar solo si faltan)
+    # 6. CONFIGURACIÓN SSL (opcional)
+    print("\n🔒 CONFIGURACIÓN DE SEGURIDAD")
+    print("-" * 40)
+    use_ssl = False
+    ssl_cert_path = ""
+    ssl_key_path = ""
+    
+    use_ssl_input = input("¿Habilitar HTTPS con certificados locales? (s/N): ").strip().lower()
+    if use_ssl_input in ['s', 'si', 'y', 'yes']:
+        try:
+            from app.services.pki_service import PKIService
+            
+            # Verificar que mkcert esté disponible
+            if PKIService.verify_mkcert_available():
+                print("⚙️  Configurando PKI...")
+                
+                # Sincronizar CA
+                sync_result = PKIService.sync_ca_files()
+                if sync_result.get("status") == "error":
+                    print(f"⚠️  Advertencia: {sync_result.get('message')}")
+                
+                # Determinar host principal para el certificado
+                primary_host = custom_domain if custom_domain else lan_ip
+                
+                # Generar certificados
+                success, key_pem, cert_pem = PKIService.generate_full_cert_pair(primary_host)
+                
+                if success:
+                    # Guardar certificados en data/certs
+                    certs_dir = os.path.join("data", "certs")
+                    os.makedirs(certs_dir, exist_ok=True)
+                    
+                    ssl_cert_path = os.path.join(certs_dir, f"{primary_host}.pem")
+                    ssl_key_path = os.path.join(certs_dir, f"{primary_host}-key.pem")
+                    
+                    # Usar rutas absolutas para Caddy
+                    abs_cert_path = os.path.abspath(ssl_cert_path)
+                    abs_key_path = os.path.abspath(ssl_key_path)
+                    
+                    with open(ssl_cert_path, "w") as f:
+                        f.write(cert_pem)
+                    with open(ssl_key_path, "w") as f:
+                        f.write(key_pem)
+                    
+                    print(f"✅ Certificados generados para {primary_host}")
+                    use_ssl = True
+                    ssl_cert_path = abs_cert_path
+                    ssl_key_path = abs_key_path
+                else:
+                    print(f"⚠️  Error generando certificados: {cert_pem}")
+                    print("   Continuando sin HTTPS...")
+            else:
+                print("⚠️  mkcert no está instalado. Ejecuta primero:")
+                print("   sudo bash scripts/install_proxy.sh")
+                print("   Continuando sin HTTPS...")
+        except ImportError:
+            print("⚠️  PKIService no disponible. Continuando sin HTTPS...")
+        except Exception as e:
+            print(f"⚠️  Error configurando SSL: {e}")
+            print("   Continuando sin HTTPS...")
+    
+    # 7. GENERAR CADDYFILE (si SSL está habilitado)
+    if use_ssl:
+        if generate_caddyfile(hosts, port, ssl_cert_path, ssl_key_path):
+            print("✅ Caddyfile generado.")
+        else:
+            print("⚠️  No se pudo generar el Caddyfile.")
+    
+    # 8. CONSTRUIR ALLOWED_HOSTS y ALLOWED_ORIGINS
+    # ALLOWED_HOSTS: sin esquema, incluye puerto para acceso directo
+    hosts_with_port = [f"{h}:{port}" for h in hosts]
+    allowed_hosts = ",".join(hosts + hosts_with_port)
+    
+    # ALLOWED_ORIGINS: con esquema HTTP y HTTPS si aplica
+    origins = [f"http://{h}:{port}" for h in hosts]
+    if use_ssl:
+        # Agregar orígenes HTTPS (puerto 443 por defecto)
+        origins += [f"https://{h}" for h in hosts]
+    allowed_origins = ",".join(origins)
+    
+    # 9. CLAVES (Generar solo si faltan)
     secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
     encrypt_key = os.getenv("ENCRYPTION_KEY") or Fernet.generate_key().decode()
-
-    # Guardar archivo (sin INVENTORY_DB_FILE ya que está hardcodeado en el código)
+    
+    # 10. DETERMINAR ENTORNO
+    app_env = "production" if use_ssl else "development"
+    
+    # 11. GUARDAR .env
+    print("\n📝 GUARDANDO CONFIGURACIÓN")
+    print("-" * 40)
     try:
         with open(ENV_FILE, "w", encoding="utf-8") as f:
             f.write(f"# Configuración de µMonitor Pro\n")
             f.write(f"UVICORN_PORT={port}\n")
             f.write(f"SECRET_KEY=\"{secret_key}\"\n")
             f.write(f"ENCRYPTION_KEY=\"{encrypt_key}\"\n")
-            f.write(f"APP_ENV=development\n")
+            f.write(f"APP_ENV={app_env}\n")
             f.write(f"ALLOWED_ORIGINS={allowed_origins}\n")
             f.write(f"ALLOWED_HOSTS={allowed_hosts}\n")
             f.write(f"# Flutter Mobile App Development (set to true to enable)\n")
             f.write(f"FLUTTER_DEV=false\n")
         
-        print(f"✅ Configuración guardada. Puerto seleccionado: {port}\n")
+        print(f"✅ Archivo .env guardado exitosamente")
+        print(f"   Puerto: {port}")
+        print(f"   Hosts permitidos: {', '.join(hosts)}")
+        print(f"   HTTPS: {'Habilitado' if use_ssl else 'Deshabilitado'}")
+        print(f"   Entorno: {app_env}\n")
+        
     except IOError as e:
         print(f"❌ Error guardando .env: {e}")
         sys.exit(1)
