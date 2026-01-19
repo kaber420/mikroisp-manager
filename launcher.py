@@ -103,6 +103,17 @@ def generate_caddyfile(hosts: list, app_port: int, ssl_cert_path: str = "", ssl_
         "",
     ]
     
+    # Security block for uploads (force downloads, prevent script execution)
+    uploads_security_block = """
+    # Seguridad para uploads: forzar descarga y prevenir ejecución
+    @uploads path /data/uploads/*
+    header @uploads {
+        Content-Disposition "attachment"
+        X-Content-Type-Options "nosniff"
+        Content-Type "application/octet-stream"
+    }
+"""
+    
     if use_ssl:
         # HTTPS configuration
         lines.append("# Redirección HTTP → HTTPS")
@@ -116,25 +127,27 @@ def generate_caddyfile(hosts: list, app_port: int, ssl_cert_path: str = "", ssl_
         lines.append(f"    tls {ssl_cert_path} {ssl_key_path}")
         lines.append(f"    reverse_proxy localhost:{app_port}")
         lines.append("")
-        lines.append("    # Headers de seguridad")
+        lines.append("    # Headers de seguridad globales")
         lines.append("    header {")
         lines.append('        X-Content-Type-Options nosniff')
         lines.append('        X-Frame-Options DENY')
         lines.append('        Referrer-Policy strict-origin-when-cross-origin')
         lines.append('        Strict-Transport-Security "max-age=31536000; includeSubDomains"')
         lines.append("    }")
+        lines.append(uploads_security_block)
         lines.append("}")
     else:
         # HTTP only configuration
         lines.append(":80 {")
         lines.append(f"    reverse_proxy localhost:{app_port}")
         lines.append("")
-        lines.append("    # Headers de seguridad")
+        lines.append("    # Headers de seguridad globales")
         lines.append("    header {")
         lines.append('        X-Content-Type-Options nosniff')
         lines.append('        X-Frame-Options DENY')
         lines.append('        Referrer-Policy strict-origin-when-cross-origin')
         lines.append("    }")
+        lines.append(uploads_security_block)
         lines.append("}")
     
     # Write to project root

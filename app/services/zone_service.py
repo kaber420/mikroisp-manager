@@ -153,12 +153,26 @@ class ZoneService(BaseCRUDService[Zona]):
         self.session.refresh(infra)
         return infra
 
+    # Allowed file extensions whitelist
+    ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
+    ALLOWED_TEXT_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".xml", ".log", ".yaml", ".yml"}
+    ALLOWED_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS | ALLOWED_TEXT_EXTENSIONS
+
     async def upload_documento(
         self, zona_id: int, file: UploadFile, descripcion: Optional[str]
     ) -> ZonaDocumento:
-        """Upload a document for a zone."""
-        file_type = "image" if file.content_type.startswith("image/") else "document"
-        file_extension = os.path.splitext(file.filename)[1]
+        """Upload a document for a zone. Only allows image and text files."""
+        file_extension = os.path.splitext(file.filename)[1].lower()
+        
+        # Security: Validate file extension against whitelist
+        if file_extension not in self.ALLOWED_EXTENSIONS:
+            allowed_list = ", ".join(sorted(self.ALLOWED_EXTENSIONS))
+            raise HTTPException(
+                status_code=400,
+                detail=f"Tipo de archivo no permitido. Extensiones permitidas: {allowed_list}"
+            )
+        
+        file_type = "image" if file_extension in self.ALLOWED_IMAGE_EXTENSIONS else "document"
         saved_filename = f"{uuid.uuid4()}{file_extension}"
         
         save_dir = os.path.join("data", "uploads", "zonas", str(zona_id))

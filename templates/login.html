@@ -6,9 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - µMonitor Pro</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', path='/img/favicon.ico') }}">
-    <script src="/static/js/vendor/tailwindcss.js"></script>
+    <script nonce="{{ request.state.csp_nonce }}" src="/static/js/vendor/tailwindcss.js"></script>
     <link rel="stylesheet" href="/static/css/fonts.css">
-    <script>
+    <script nonce="{{ request.state.csp_nonce }}">
         tailwind.config = {
             darkMode: "class",
             theme: {
@@ -187,7 +187,7 @@
                     </div>
                 </form>
 
-                <script>
+                <script nonce="{{ request.state.csp_nonce }}">
                     document.getElementById('login-form').addEventListener('submit', async function (e) {
                         e.preventDefault();
 

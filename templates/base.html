@@ -7,14 +7,16 @@
     <title>{% block title %}µMonitor Pro{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', path='/img/favicon.ico') }}">
 
-    <script src="{{ url_for('static', path='/js/vendor/tailwindcss.js') }}"></script>
-    <script src="{{ url_for('static', path='/js/vendor/chart.js') }}"></script>
-    <script src="{{ url_for('static', path='/js/vendor/chartjs-adapter-date-fns.js') }}"></script>
+    <script nonce="{{ request.state.csp_nonce }}"
+        src="{{ url_for('static', path='/js/vendor/tailwindcss.js') }}"></script>
+    <script nonce="{{ request.state.csp_nonce }}" src="{{ url_for('static', path='/js/vendor/chart.js') }}"></script>
+    <script nonce="{{ request.state.csp_nonce }}"
+        src="{{ url_for('static', path='/js/vendor/chartjs-adapter-date-fns.js') }}"></script>
 
     <link rel="stylesheet" href="{{ url_for('static', path='/css/fonts.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='/css/theme.css') }}">
 
-    <script>
+    <script nonce="{{ request.state.csp_nonce }}">
         tailwind.config = {
             darkMode: "class",
             theme: {
@@ -36,8 +38,8 @@
         }
     </script>
 
-    <script src="/static/js/utils/api.js"></script>
-    <script src="/static/js/utils/validators.js"></script>
+    <script nonce="{{ request.state.csp_nonce }}" src="/static/js/utils/api.js"></script>
+    <script nonce="{{ request.state.csp_nonce }}" src="/static/js/utils/validators.js"></script>
     {% block scripts %}{% endblock %}
 
     {% block styles %}{% endblock %}
@@ -282,10 +284,11 @@
 
     {% include 'partials/mobile_setup_modal.html' %}
 
-    <script src="{{ url_for('static', path='/js/utils/toast.js') }}"></script>
-    <script src="{{ url_for('static', path='/js/ws-client.js') }}"></script>
-    <script src="{{ url_for('static', path='/js/session_monitor.js') }}"></script>
-    <script src="{{ url_for('static', path='/js/vendor/alpine.js') }}" defer></script>
+    <script nonce="{{ request.state.csp_nonce }}" src="{{ url_for('static', path='/js/utils/toast.js') }}"></script>
+    <script nonce="{{ request.state.csp_nonce }}" src="{{ url_for('static', path='/js/ws-client.js') }}"></script>
+    <script nonce="{{ request.state.csp_nonce }}" src="{{ url_for('static', path='/js/session_monitor.js') }}"></script>
+    <script nonce="{{ request.state.csp_nonce }}" src="{{ url_for('static', path='/js/vendor/alpine.js') }}"
+        defer></script>
 
     <!-- Session Warning Modal -->
     <div id="session-warning-modal"
@@ -317,7 +320,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="{{ request.state.csp_nonce }}">
         document.addEventListener('mousemove', (e) => {
             const glows = document.querySelectorAll('.glow-element');
             const x = e.clientX;

@@ -1,0 +1,51 @@
+# app/csp_middleware.py
+"""
+Content Security Policy (CSP) Middleware with Nonce Support.
+
+This middleware replaces 'unsafe-inline' with cryptographic nonces for
+improved XSS protection while maintaining compatibility with:
+- Alpine.js (requires 'unsafe-eval')
+- TailwindCSS Play CDN (requires 'unsafe-eval')
+"""
+import os
+import secrets
+import base64
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+
+
+class CSPMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware that generates a unique nonce for each request and
+    applies it to the Content-Security-Policy header.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        # Generate a cryptographically secure random nonce (16 bytes = 128 bits)
+        nonce_bytes = secrets.token_bytes(16)
+        nonce = base64.b64encode(nonce_bytes).decode('utf-8')
+        
+        # Store nonce in request.state for access in templates
+        request.state.csp_nonce = nonce
+        
+        # Process the request
+        response = await call_next(request)
+        
+        # Build CSP policy with nonce
+        # Note: 'unsafe-eval' is required for Alpine.js and TailwindCSS Play CDN
+        # Note: 'unsafe-inline' is required for style-src because TailwindCSS Play CDN 
+        #       dynamically injects <style> tags in the browser without nonces
+        csp_policy = (
+            f"default-src 'self'; "
+            f"script-src 'self' 'unsafe-eval' 'nonce-{nonce}'; "
+            f"style-src 'self' 'unsafe-inline'; "
+            f"img-src 'self' data: blob:; "
+            f"connect-src 'self' ws: wss:; "
+            f"font-src 'self' data:; "
+            f"object-src 'none'; "
+            f"base-uri 'self';"
+        )
+        
+        response.headers["Content-Security-Policy"] = csp_policy
+        
+        return response
