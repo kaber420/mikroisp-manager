@@ -189,7 +189,7 @@ inventory.sqlite-shm
 
 # Sensitive data
 data/
-.git_backup/COMMIT_EDITMSG
+
 
 
 # Reports settings
@@ -212,4 +212,4 @@ data/qr_codes/bootstrap_8559860c61.png
 scripts/debug_ros6_wireless.py
 scripts/test_full_flow.py
 Caddyfile
-.git_backup/config
+.git_backup/
