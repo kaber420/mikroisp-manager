@@ -426,8 +426,8 @@ if __name__ == "__main__":
             resp = "n"
 
         if resp in ["", "s", "si", "y", "yes"]:
-            print("\n🔧 Lanzando asistente de instalación (requiere sudo)...")
-            script_path = os.path.join("scripts", "install_proxy.sh")
+            print("\n🔧 Aplicando configuración de proxy (requiere sudo)...")
+            script_path = os.path.join("scripts", "apply_caddy_config.sh")
             # Verificar existencia del script
             if os.path.exists(script_path):
                 try:
@@ -448,7 +448,7 @@ if __name__ == "__main__":
                 print(f"\n❌ No se encontró el script: {script_path}")
         else:
             print("ℹ️  Omitiendo configuración HTTPS. Puedes hacerlo luego con:")
-            print("    sudo bash scripts/install_proxy.sh")
+            print("    sudo bash scripts/apply_caddy_config.sh")
 
     # D. Arrancar
     port = os.getenv("UVICORN_PORT", "7777")
