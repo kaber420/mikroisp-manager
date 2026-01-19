@@ -7,16 +7,12 @@
     <title>{% block title %}µMonitor Pro{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', path='/img/favicon.ico') }}">
 
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="{{ url_for('static', path='/js/vendor/tailwindcss.js') }}"></script>
+    <script src="{{ url_for('static', path='/js/vendor/chart.js') }}"></script>
+    <script src="{{ url_for('static', path='/js/vendor/chartjs-adapter-date-fns.js') }}"></script>
 
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/fonts.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='/css/theme.css') }}">
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
 
     <script>
         tailwind.config = {
@@ -289,7 +285,7 @@
     <script src="{{ url_for('static', path='/js/utils/toast.js') }}"></script>
     <script src="{{ url_for('static', path='/js/ws-client.js') }}"></script>
     <script src="{{ url_for('static', path='/js/session_monitor.js') }}"></script>
-    <script src="//unpkg.com/alpinejs" defer></script>
+    <script src="{{ url_for('static', path='/js/vendor/alpine.js') }}" defer></script>
 
     <!-- Session Warning Modal -->
     <div id="session-warning-modal"
