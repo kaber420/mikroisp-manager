@@ -212,3 +212,4 @@ scripts/debug_ros6_wireless.py
 scripts/test_full_flow.py
 Caddyfile
 .git_backup/
+*.bak

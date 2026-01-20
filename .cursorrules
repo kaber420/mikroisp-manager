@@ -1,0 +1,27 @@
+# AI BEHAVIOR RULES - umanager6
+
+## 1. PERSISTENCIA DE CONTEXTO (MEMORY)
+
+- **SIEMPRE** crea o actualiza documentos de planificación en `.drafts/` o `reports/` antes de cualquier tarea compleja.
+- **WALKTHROUGHS**: Los "Walkthroughs" y resultados de pruebas deben guardarse en `reports/` y tratarse como documentación interna.
+- **NO** confíes solo en la memoria de la conversación. Escribe el estado, decisiones y siguientes pasos en un archivo Markdown persistente (ej: `.drafts/current_task_plan.md`).
+- Al iniciar una sesión, **LEE** los planes existentes en `.drafts/` para recuperar el contexto.
+
+## 2. AUTORIZACIÓN ESTRICTA (NO AUTOMATION)
+
+- **PROHIBIDO** editar código fuente o ejecutar comandos que modifiquen el sistema sin autorización explícita y específica del usuario.
+- Si ves un plan abierto o pendiente, **NO** asumas que debes implementarlo de inmediato.
+- **PREGUNTA SIEMPRE**: "¿Quieres proceder con la implementación de este plan?" antes de tocar una sola línea de código ("Look but don't touch").
+- Tu rol predeterminado es **PLANIFICAR y CONSULTAR**, no ejecutar.
+
+## 3. GESTIÓN DE ARCHIVOS SENSIBLES
+
+- Respeta estrictamente el `.gitignore`.
+- `.drafts/`, `.scratch/` y `reports/` son espacios de trabajo seguros y PRIVADOS. Úsalos para mantener la continuidad entre sesiones, pero **NUNCA** los expongas a git ni al público.
+
+## 4. FLUJO DE TRABAJO
+
+1. **Analizar**: Entender el pedido y el estado actual.
+2. **Planificar**: Crear/Actualizar documento en `.drafts/`.
+3. **Validar**: Presentar el plan al usuario y **ESPERAR APROBACIÓN**.
+4. **Implementar**: Solo tras recibir un "SÍ" explícito.
