@@ -10,7 +10,7 @@
             <h2 class="text-3xl font-bold text-text-primary tracking-tight">Dashboard</h2>
         </div>
 
-        <button onclick="location.reload()"
+        <button id="refresh-dashboard-btn"
             class="flex items-center gap-2 px-4 py-2 bg-surface-1 hover:bg-surface-2 border border-border-color rounded-lg text-text-primary text-sm transition-all shadow-lg hover:shadow-primary/20">
             <span class="material-symbols-outlined text-[20px]">refresh</span>
             <span>Actualizar</span>
@@ -197,7 +197,7 @@
             </div>
 
             <div class="flex flex-wrap gap-3">
-                <button id="download-ca-btn" onclick="downloadCACertificate()" disabled
+                <button id="download-ca-btn" disabled
                     class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-primary/20 transition-all">
                     <span class="material-symbols-outlined text-lg">download</span>
                     Descargar Certificado CA
@@ -260,7 +260,7 @@
             <div class="flex items-center gap-2">
                 <label for="log-filter" class="text-xs text-text-secondary uppercase font-bold">Filtrar:</label>
                 <div class="relative">
-                    <select id="log-filter" onchange="loadEventLogs(this.value)"
+                    <select id="log-filter"
                         class="pl-3 pr-8 py-1.5 bg-surface-2 border border-white/10 rounded-lg text-sm text-text-primary focus:outline-none focus:border-primary appearance-none cursor-pointer w-48 transition-colors hover:border-white/20">
                         <option value="all">Todos los Dispositivos</option>
                     </select>
@@ -282,7 +282,7 @@
 
             <div class="flex items-center gap-2 text-xs text-text-secondary">
                 <span>Mostrar</span>
-                <select id="logs-page-size" onchange="changeLogPageSize(this.value)"
+                <select id="logs-page-size"
                     class="bg-surface-2 border border-white/10 rounded px-2 py-1 text-text-primary focus:border-primary focus:ring-0 cursor-pointer">
                     <option value="10">10</option>
                     <option value="20">20</option>
@@ -296,11 +296,11 @@
             </span>
 
             <div class="flex items-center gap-1">
-                <button id="btn-prev-page" onclick="changeLogPage(-1)" disabled
+                <button id="btn-prev-page" disabled
                     class="p-1 rounded-md hover:bg-surface-2 text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                     <span class="material-symbols-outlined">chevron_left</span>
                 </button>
-                <button id="btn-next-page" onclick="changeLogPage(1)" disabled
+                <button id="btn-next-page" disabled
                     class="p-1 rounded-md hover:bg-surface-2 text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                     <span class="material-symbols-outlined">chevron_right</span>
                 </button>
@@ -403,6 +403,7 @@
 
     {% block scripts %}
     <script nonce="{{ request.state.csp_nonce }}" src="/static/js/dashboard.js"></script>
+    <script nonce="{{ request.state.csp_nonce }}" src="/static/js/dashboard.js"></script>
     <script nonce="{{ request.state.csp_nonce }}">
         // SSL Certificate Functions
         async function checkCAStatus() {
@@ -458,7 +459,77 @@
             document.getElementById(`ssl-tab-${tab}`).classList.remove('hidden');
         }
 
-        // Check status on load
-        document.addEventListener('DOMContentLoaded', checkCAStatus);
+        // Attach Event Listeners (CSP Compliance)
+        document.addEventListener('DOMContentLoaded', () => {
+            checkCAStatus();
+
+            // Refresh Button
+            const refreshBtn = document.querySelector('button[onclick="location.reload()"]');
+            if (refreshBtn) {
+                refreshBtn.removeAttribute('onclick');
+                refreshBtn.addEventListener('click', () => location.reload());
+            }
+
+            // Download CA Button
+            const downloadBtn = document.getElementById('download-ca-btn');
+            if (downloadBtn) {
+                downloadBtn.removeAttribute('onclick'); // Clear inline if present
+                downloadBtn.addEventListener('click', downloadCACertificate);
+            }
+
+            // Mobile Setup Button (Alpine handles this via @click, which is safe if eval is allowed, or we can use JS)
+            // Note: @click="$dispatch(...)" is Alpine syntax. Alpine evaluates expressions.
+            // If we want strict CSP without unsafe-eval, we'd need to change this too. 
+            // But we have unsafe-eval. Ideally we move to JS.
+
+            // Instructions Button
+            // Find button by text content or structure since it lacks ID
+            const helpBtn = Array.from(document.querySelectorAll('button')).find(btn => btn.textContent.trim().includes('Instrucciones'));
+            if (helpBtn && helpBtn.hasAttribute('onclick')) {
+                helpBtn.removeAttribute('onclick');
+                helpBtn.addEventListener('click', openSSLInstructionsModal);
+            }
+
+            // Close Modal Button (Header)
+            const closeBtn = document.querySelector('#ssl-modal button[onclick="closeSSLInstructionsModal()"]');
+            if (closeBtn) {
+                closeBtn.removeAttribute('onclick');
+                closeBtn.addEventListener('click', closeSSLInstructionsModal);
+            }
+
+            // Modal Backdrop
+            const backdrop = document.querySelector('#ssl-modal > div[onclick="closeSSLInstructionsModal()"]');
+            if (backdrop) {
+                backdrop.removeAttribute('onclick');
+                backdrop.addEventListener('click', closeSSLInstructionsModal);
+            }
+
+            // Tabs
+            document.querySelectorAll('.ssl-tab').forEach(btn => {
+                const tabName = btn.getAttribute('onclick').match(/'([^']+)'/)[1];
+                btn.removeAttribute('onclick');
+                btn.addEventListener('click', () => switchSSLTab(tabName));
+            });
+            // Event Log Filters and Pagination
+            // Note: log-filter listener is handled in dashboard.js loadLogFilterOptions()
+
+            const pageSizeSelect = document.getElementById('logs-page-size');
+            if (pageSizeSelect) {
+                pageSizeSelect.removeAttribute('onchange');
+                pageSizeSelect.addEventListener('change', (e) => changeLogPageSize(e.target.value));
+            }
+
+            const prevPageBtn = document.getElementById('btn-prev-page');
+            if (prevPageBtn) {
+                prevPageBtn.removeAttribute('onclick');
+                prevPageBtn.addEventListener('click', () => changeLogPage(-1));
+            }
+
+            const nextPageBtn = document.getElementById('btn-next-page');
+            if (nextPageBtn) {
+                nextPageBtn.removeAttribute('onclick');
+                nextPageBtn.addEventListener('click', () => changeLogPage(1));
+            }
+        });
     </script>
     {% endblock %}

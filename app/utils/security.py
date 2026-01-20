@@ -5,8 +5,14 @@ import logging
 
 # Cargar la clave de cifrado desde las variables de entorno
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
+APP_ENV = os.getenv("APP_ENV", "development")
 
 if not ENCRYPTION_KEY:
+    if APP_ENV == "production":
+        raise RuntimeError(
+            "FATAL: ENCRYPTION_KEY no está configurada. "
+            "Esta clave es OBLIGATORIA en producción para cifrar credenciales de dispositivos."
+        )
     logging.warning(
         "ENCRYPTION_KEY no está configurada. El cifrado de contraseñas está DESHABILITADO."
     )
@@ -15,6 +21,11 @@ else:
     try:
         cipher_suite = Fernet(ENCRYPTION_KEY.encode())
     except Exception as e:
+        if APP_ENV == "production":
+            raise RuntimeError(
+                f"FATAL: ENCRYPTION_KEY inválida: {e}. "
+                "Genera una clave válida con: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+            )
         logging.error(f"Error al inicializar Fernet con ENCRYPTION_KEY: {e}")
         logging.error("Asegúrate de que ENCRYPTION_KEY sea una clave válida de Fernet.")
         cipher_suite = None

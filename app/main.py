@@ -131,7 +131,6 @@ if os.getenv("FLUTTER_DEV", "false").lower() == "true":
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=r"https?://.*",  # Allow all http/https origins (for mobile apps/webviews)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

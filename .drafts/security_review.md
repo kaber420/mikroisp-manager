@@ -46,11 +46,14 @@ Este documento resume la revisión de seguridad realizada a la aplicación y det
 - **Riesgo**: Aunque es útil para desarrollo móvil, permite que cualquier sitio web intente realizar peticiones a la API si el usuario está autenticado (mitigado en parte por CSRF, pero sigue siendo un riesgo).
 - **Recomendación**: Definir explícitamente los dominios permitidos en la variable de entorno `ALLOWED_ORIGINS`. Para apps móviles, investigar si se pueden usar esquemas específicos (ej. `app://umonitor`) en lugar de permitir todo HTTP/HTTPS.
 
-### B. Uso de `unsafe-eval` en CSP
+### B. Uso de `unsafe-eval` en CSP (No aplicable actualmente)
 
 - **Hallazgo**: La política actual permite `'unsafe-eval'` debido a la dependencia de **Alpine.js**.
 - **Riesgo**: Si un atacante logra inyectar código que Alpine procesa, podría ejecutar Javascript arbitrario.
-- **Recomendación**: Considerar migrar a la versión "CSP-friendly" de Alpine.js si las funcionalidades utilizadas lo permiten, o asegurar que ninguna entrada de usuario sea procesada directamente por directivas de Alpine (como `x-html`).
+- **Nota**: Se intentó migrar a la versión CSP-friendly de Alpine.js, pero esta versión tiene un parser muy restrictivo que no soporta:
+  - Sintaxis de métodos abreviados ES6 (`async loadConfig() {...}`)
+  - Expresiones complejas en `x-data`
+- **Conclusión**: La migración requeriría refactorizar todos los templates para usar `Alpine.data()` y mover la lógica a archivos JS externos. Esto se deja como mejora futura opcional.
 
 ### C. Gestión de la Clave de Cifrado (`ENCRYPTION_KEY`)
 

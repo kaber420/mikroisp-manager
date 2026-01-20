@@ -115,7 +115,7 @@ async function loadLogFilterOptions() {
     select.addEventListener('change', (event) => {
         currentHostFilter = event.target.value; // Actualiza el filtro global
         currentLogPage = 1; // Reset a la primera página
-        loadEventLogs(); // Llama a la función sin el parámetro hostFilter
+        loadEventLogs(currentHostFilter); // Llama a la función con el filtro correcto
     });
 
     try {
