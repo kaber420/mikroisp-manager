@@ -1,25 +1,26 @@
 # app/services/cpe_service.py
-from typing import List, Dict, Any, Optional
-from sqlmodel import Session, select, func
-import sqlite3
 import os
+import sqlite3
 import uuid
+from typing import Any
 
-from ..models.cpe import CPE
-from ..db.base import get_db_connection, get_stats_db_file
+from sqlmodel import Session, func, select
+
 from ..core.constants import CPEStatus
+from ..db.base import get_db_connection, get_stats_db_file
+from ..models.cpe import CPE
 
 
 class CPEService:
     def __init__(self, session: Session):
         self.session = session
 
-    def get_unassigned_cpes(self) -> List[CPE]:
+    def get_unassigned_cpes(self) -> list[CPE]:
         """Obtiene todos los CPEs que no están asignados a ningún cliente."""
         statement = select(CPE).where(CPE.client_id == None).order_by(CPE.hostname)
         return list(self.session.exec(statement).all())
 
-    def get_cpe_by_mac(self, mac: str) -> Optional[CPE]:
+    def get_cpe_by_mac(self, mac: str) -> CPE | None:
         """Obtiene un CPE por su dirección MAC."""
         return self.session.get(CPE, mac)
 
@@ -28,7 +29,7 @@ class CPEService:
         cpe = self.session.get(CPE, mac)
         if not cpe:
             raise FileNotFoundError("CPE not found.")
-        
+
         cpe.client_id = client_id
         self.session.add(cpe)
         self.session.commit()
@@ -40,7 +41,7 @@ class CPEService:
         cpe = self.session.get(CPE, mac)
         if not cpe:
             raise FileNotFoundError("CPE not found.")
-        
+
         cpe.client_id = None
         self.session.add(cpe)
         self.session.commit()
@@ -52,13 +53,13 @@ class CPEService:
         cpe = self.session.get(CPE, mac)
         if not cpe:
             raise FileNotFoundError("CPE not found.")
-        
+
         cpe.is_enabled = False
         self.session.add(cpe)
         self.session.commit()
         return True
 
-    def get_cpes_for_client(self, client_id: uuid.UUID) -> List[CPE]:
+    def get_cpes_for_client(self, client_id: uuid.UUID) -> list[CPE]:
         """Obtiene los CPEs asignados a un cliente específico."""
         statement = select(CPE).where(CPE.client_id == client_id).order_by(CPE.hostname)
         return list(self.session.exec(statement).all())
@@ -68,50 +69,48 @@ class CPEService:
         statement = select(func.count()).select_from(CPE).where(CPE.client_id == client_id)
         return self.session.exec(statement).one()
 
-    def update_cpe(self, mac: str, update_data: Dict[str, Any]) -> CPE:
+    def update_cpe(self, mac: str, update_data: dict[str, Any]) -> CPE:
         """
         Actualiza campos de un CPE existente (ip_address, hostname, model).
-        
+
         Args:
             mac: MAC address of the CPE to update
             update_data: Dictionary with fields to update
-            
+
         Returns:
             Updated CPE object
         """
         from datetime import datetime
-        
+
         cpe = self.session.get(CPE, mac)
         if not cpe:
             raise FileNotFoundError("CPE not found.")
-        
+
         # Only update allowed fields
-        allowed_fields = {'ip_address', 'hostname', 'model'}
+        allowed_fields = {"ip_address", "hostname", "model"}
         for key, value in update_data.items():
             if key in allowed_fields and value is not None:
                 setattr(cpe, key, value)
-        
+
         cpe.last_seen = datetime.now()
         self.session.add(cpe)
         self.session.commit()
         self.session.refresh(cpe)
         return cpe
 
-
-    def get_all_cpes_globally(self, status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_all_cpes_globally(self, status_filter: str | None = None) -> list[dict[str, Any]]:
         """
         Obtiene todos los CPEs con sus datos de estado más recientes, nombre del AP, y estado persistido.
-        
+
         Args:
             status_filter: Opcional. Filtrar por estado: 'active', 'offline', 'disabled', o None para todos.
-        
+
         Returns:
             Lista de CPEs con campo 'status': 'active', 'offline', o 'disabled'.
-        
+
         Nota: Esta función usa SQL crudo porque hace ATTACH DATABASE a stats_db.
         """
-        from ..db.base import get_db_connection, get_stats_db_file
-        
+
         conn = get_db_connection()
         stats_db_file = get_stats_db_file()
 
@@ -123,11 +122,11 @@ class CPEService:
                 rows = []
                 for row in cursor.fetchall():
                     cpe = dict(row)
-                    cpe['cpe_mac'] = cpe.pop('mac')
-                    cpe['cpe_hostname'] = cpe.pop('hostname', None)
+                    cpe["cpe_mac"] = cpe.pop("mac")
+                    cpe["cpe_hostname"] = cpe.pop("hostname", None)
                     # Use is_enabled to override status to 'disabled'
-                    if not cpe.get('is_enabled', True):
-                        cpe['status'] = CPEStatus.DISABLED
+                    if not cpe.get("is_enabled", True):
+                        cpe["status"] = CPEStatus.DISABLED
                     # status is already set from DB ('active' or 'offline')
                     rows.append(cpe)
                 return self._apply_status_filter(rows, status_filter)
@@ -153,13 +152,13 @@ class CPEService:
             for row in cursor.fetchall():
                 cpe = dict(row)
                 # Merge IP: use live IP if available, otherwise fall back to DB IP
-                if not cpe.get('ip_address') and cpe.get('db_ip_address'):
-                    cpe['ip_address'] = cpe['db_ip_address']
+                if not cpe.get("ip_address") and cpe.get("db_ip_address"):
+                    cpe["ip_address"] = cpe["db_ip_address"]
                 # Clean up the temporary db_ip_address key
-                cpe.pop('db_ip_address', None)
+                cpe.pop("db_ip_address", None)
                 # Use is_enabled to override status to 'disabled'
-                if not cpe.get('is_enabled', True):
-                    cpe['status'] = CPEStatus.DISABLED
+                if not cpe.get("is_enabled", True):
+                    cpe["status"] = CPEStatus.DISABLED
                 # status is already set from DB ('active' or 'offline')
                 rows.append(cpe)
             return self._apply_status_filter(rows, status_filter)
@@ -168,9 +167,10 @@ class CPEService:
         finally:
             conn.close()
 
-    def _apply_status_filter(self, rows: List[Dict[str, Any]], status_filter: Optional[str]) -> List[Dict[str, Any]]:
+    def _apply_status_filter(
+        self, rows: list[dict[str, Any]], status_filter: str | None
+    ) -> list[dict[str, Any]]:
         """Helper to filter rows by status."""
         if not status_filter:
             return rows
-        return [row for row in rows if row.get('status') == status_filter]
-
+        return [row for row in rows if row.get("status") == status_filter]

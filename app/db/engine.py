@@ -2,11 +2,15 @@
 """
 SQLModel database engine and session management for FastAPI Users integration.
 Uses AsyncSession for compatibility with fastapi-users-db-sqlalchemy.
+Configured with WAL mode for improved concurrency.
 """
+
 import os
+from collections.abc import AsyncGenerator
+
+from sqlalchemy import event
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from typing import AsyncGenerator
 
 # Read database path from environment or use default in data/db/
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
@@ -15,14 +19,18 @@ DATABASE_FILE = os.path.join(DATA_DIR, "db", "inventory.sqlite")
 DATABASE_URL = f"sqlite+aiosqlite:///{DATABASE_FILE}"
 
 # Create async engine
-engine = create_async_engine(
-    DATABASE_URL, echo=False, connect_args={"check_same_thread": False}
-)
+engine = create_async_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
+
+
+# Activar WAL mode para mejorar concurrencia y evitar "database is locked"
+@event.listens_for(engine.sync_engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL;")
+    cursor.close()
 
 # Create session maker
-async_session_maker = async_sessionmaker(
-    engine, class_=AsyncSession, expire_on_commit=False
-)
+async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:

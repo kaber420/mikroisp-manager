@@ -1,8 +1,7 @@
 # app/db/init_db.py
 import sqlite3
-import os
-from datetime import datetime
-from .base import get_db_connection, INVENTORY_DB_FILE, get_stats_db_file
+
+from .base import get_db_connection, get_stats_db_file
 
 
 def setup_databases():
@@ -57,9 +56,7 @@ def _setup_inventory_db():
 
     # --- MIGRACIÓN DE USUARIOS (CORRECCIÓN) ---
     # Verifica si faltan columnas en la tabla users y las agrega si es necesario
-    user_columns = [
-        col[1] for col in cursor.execute("PRAGMA table_info(users)").fetchall()
-    ]
+    user_columns = [col[1] for col in cursor.execute("PRAGMA table_info(users)").fetchall()]
 
     if "telegram_chat_id" not in user_columns:
         print("Migrando users: Agregando telegram_chat_id...")
@@ -79,9 +76,7 @@ def _setup_inventory_db():
 
     if "disabled" not in user_columns:
         print("Migrando users: Agregando disabled...")
-        cursor.execute(
-            "ALTER TABLE users ADD COLUMN disabled BOOLEAN NOT NULL DEFAULT FALSE;"
-        )
+        cursor.execute("ALTER TABLE users ADD COLUMN disabled BOOLEAN NOT NULL DEFAULT FALSE;")
 
     # --- Tablas de Zonas ---
     cursor.execute(
@@ -93,10 +88,8 @@ def _setup_inventory_db():
     )
     """
     )
-    
-    zona_columns = [
-        col[1] for col in cursor.execute("PRAGMA table_info(zonas)").fetchall()
-    ]
+
+    zona_columns = [col[1] for col in cursor.execute("PRAGMA table_info(zonas)").fetchall()]
     if "direccion" not in zona_columns:
         cursor.execute("ALTER TABLE zonas ADD COLUMN direccion TEXT;")
     if "coordenadas_gps" not in zona_columns:
@@ -143,9 +136,7 @@ def _setup_inventory_db():
     );
     """
     )
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_zona_notes_zona_id ON zona_notes (zona_id);"
-    )
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_zona_notes_zona_id ON zona_notes (zona_id);")
 
     # --- Tablas de Routers y Planes ---
     cursor.execute(
@@ -185,16 +176,13 @@ def _setup_inventory_db():
     )
 
     # --- Migration: Add is_provisioned column to switches table ---
-    switch_columns = [
-        col[1] for col in cursor.execute("PRAGMA table_info(switches)").fetchall()
-    ]
+    switch_columns = [col[1] for col in cursor.execute("PRAGMA table_info(switches)").fetchall()]
     if "is_provisioned" not in switch_columns:
         print("Migrando switches: Agregando is_provisioned...")
         cursor.execute("ALTER TABLE switches ADD COLUMN is_provisioned BOOLEAN DEFAULT FALSE;")
         # Smart default: Mark switches where api_port == api_ssl_port as already provisioned
         cursor.execute("UPDATE switches SET is_provisioned = TRUE WHERE api_port = api_ssl_port;")
         print("  -> Switches con api_port == api_ssl_port marcados como aprovisionados.")
-
 
     cursor.execute(
         """
@@ -245,9 +233,7 @@ def _setup_inventory_db():
     )
 
     # --- Migration: Add status column to cpes table ---
-    cpe_columns = [
-        col[1] for col in cursor.execute("PRAGMA table_info(cpes)").fetchall()
-    ]
+    cpe_columns = [col[1] for col in cursor.execute("PRAGMA table_info(cpes)").fetchall()]
     if "status" not in cpe_columns:
         print("Migrando cpes: Agregando status...")
         cursor.execute("ALTER TABLE cpes ADD COLUMN status TEXT DEFAULT 'offline';")
@@ -268,21 +254,15 @@ def _setup_inventory_db():
     )
 
     service_columns = [
-        col[1]
-        for col in cursor.execute("PRAGMA table_info(client_services)").fetchall()
+        col[1] for col in cursor.execute("PRAGMA table_info(client_services)").fetchall()
     ]
     if "plan_id" not in service_columns:
-        cursor.execute(
-            "ALTER TABLE client_services ADD COLUMN plan_id INTEGER;"
-        )
+        cursor.execute("ALTER TABLE client_services ADD COLUMN plan_id INTEGER;")
     if "ip_address" not in service_columns:
         cursor.execute("ALTER TABLE client_services ADD COLUMN ip_address TEXT;")
 
     # --- Migración de Plans: nuevos campos para unificar PPPoE y Simple Queue ---
-    plan_columns = [
-        col[1]
-        for col in cursor.execute("PRAGMA table_info(plans)").fetchall()
-    ]
+    plan_columns = [col[1] for col in cursor.execute("PRAGMA table_info(plans)").fetchall()]
     if "plan_type" not in plan_columns:
         print("Migrando plans: Agregando plan_type...")
         cursor.execute("ALTER TABLE plans ADD COLUMN plan_type TEXT DEFAULT 'simple_queue';")
@@ -294,15 +274,15 @@ def _setup_inventory_db():
         cursor.execute("ALTER TABLE plans ADD COLUMN suspension_method TEXT DEFAULT 'queue_limit';")
     if "address_list_strategy" not in plan_columns:
         print("Migrando plans: Agregando address_list_strategy...")
-        cursor.execute("ALTER TABLE plans ADD COLUMN address_list_strategy TEXT DEFAULT 'blacklist';")
+        cursor.execute(
+            "ALTER TABLE plans ADD COLUMN address_list_strategy TEXT DEFAULT 'blacklist';"
+        )
     if "address_list_name" not in plan_columns:
         print("Migrando plans: Agregando address_list_name...")
         cursor.execute("ALTER TABLE plans ADD COLUMN address_list_name TEXT DEFAULT 'morosos';")
 
     # --- Migration: Add wan_interface column to routers table ---
-    router_columns = [
-        col[1] for col in cursor.execute("PRAGMA table_info(routers)").fetchall()
-    ]
+    router_columns = [col[1] for col in cursor.execute("PRAGMA table_info(routers)").fetchall()]
     if "wan_interface" not in router_columns:
         print("Migrando routers: Agregando wan_interface...")
         cursor.execute("ALTER TABLE routers ADD COLUMN wan_interface TEXT;")
@@ -316,9 +296,7 @@ def _setup_inventory_db():
         print("  -> Routers con api_port == api_ssl_port marcados como aprovisionados.")
 
     # --- Migration: Add provisioning fields to aps table ---
-    ap_columns = [
-        col[1] for col in cursor.execute("PRAGMA table_info(aps)").fetchall()
-    ]
+    ap_columns = [col[1] for col in cursor.execute("PRAGMA table_info(aps)").fetchall()]
 
     if "is_provisioned" not in ap_columns:
         print("Migrando aps: Agregando is_provisioned...")
@@ -327,7 +305,7 @@ def _setup_inventory_db():
     if "api_ssl_port" not in ap_columns:
         print("Migrando aps: Agregando api_ssl_port...")
         cursor.execute("ALTER TABLE aps ADD COLUMN api_ssl_port INTEGER DEFAULT 8729;")
-        
+
     if "last_provision_attempt" not in ap_columns:
         print("Migrando aps: Agregando last_provision_attempt...")
         cursor.execute("ALTER TABLE aps ADD COLUMN last_provision_attempt DATETIME;")
@@ -359,9 +337,7 @@ def _setup_inventory_db():
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_services_client_id ON client_services (client_id);"
     )
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_pagos_client_id ON pagos (client_id);"
-    )
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_pagos_client_id ON pagos (client_id);")
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_pagos_mes ON pagos (client_id, mes_correspondiente);"
     )
@@ -428,18 +404,12 @@ def _setup_stats_db():
     """
     )
 
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_cpe_stats_mac ON cpe_stats_history (cpe_mac);"
-    )
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cpe_stats_mac ON cpe_stats_history (cpe_mac);")
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_cpe_stats_mac_ts ON cpe_stats_history (cpe_mac, timestamp DESC);"
     )
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_cpe_stats_ip ON cpe_stats_history (ip_address);"
-    )
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_event_logs_host ON event_logs (device_host);"
-    )
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cpe_stats_ip ON cpe_stats_history (ip_address);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_event_logs_host ON event_logs (device_host);")
 
     # --- HISTORIAL DE ROUTERS ---
     cursor.execute(
@@ -467,7 +437,7 @@ def _setup_stats_db():
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_router_stats_host_ts ON router_stats_history (router_host, timestamp DESC);"
     )
-    
+
     # --- MIGRATIONS ---
     # Add vendor column to ap_stats_history if not exists
     ap_stats_columns = [
@@ -476,7 +446,7 @@ def _setup_stats_db():
     if "vendor" not in ap_stats_columns:
         print("Migrando ap_stats_history: Agregando columna vendor...")
         cursor.execute("ALTER TABLE ap_stats_history ADD COLUMN vendor TEXT DEFAULT 'ubiquiti';")
-    
+
     # Add vendor column to cpe_stats_history if not exists
     cpe_stats_columns = [
         col[1] for col in cursor.execute("PRAGMA table_info(cpe_stats_history)").fetchall()
@@ -484,7 +454,7 @@ def _setup_stats_db():
     if "vendor" not in cpe_stats_columns:
         print("Migrando cpe_stats_history: Agregando columna vendor...")
         cursor.execute("ALTER TABLE cpe_stats_history ADD COLUMN vendor TEXT DEFAULT 'ubiquiti';")
-    
+
     # Add ccq and tx_rate/rx_rate columns for MikroTik clients
     if "ccq" not in cpe_stats_columns:
         print("Migrando cpe_stats_history: Agregando columna ccq...")
@@ -495,7 +465,7 @@ def _setup_stats_db():
     if "rx_rate" not in cpe_stats_columns:
         print("Migrando cpe_stats_history: Agregando columna rx_rate...")
         cursor.execute("ALTER TABLE cpe_stats_history ADD COLUMN rx_rate INTEGER;")
-    
+
     # Add ssid and band columns for ROS7 wifi registration
     if "ssid" not in cpe_stats_columns:
         print("Migrando cpe_stats_history: Agregando columna ssid...")
@@ -506,4 +476,3 @@ def _setup_stats_db():
 
     stats_conn.commit()
     stats_conn.close()
-

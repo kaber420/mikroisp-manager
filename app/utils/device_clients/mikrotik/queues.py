@@ -1,5 +1,6 @@
-from routeros_api import RouterOsApiPool
 from logging import getLogger
+
+from routeros_api import RouterOsApiPool
 
 logger = getLogger(__name__)
 
@@ -40,6 +41,7 @@ def _get_or_create_pcq_queue_type(
 
 from .base import get_id  # Import local helper
 
+
 def add_simple_queue_with_pcq(
     api: RouterOsApiPool,
     name: str,
@@ -70,7 +72,7 @@ def add_simple_queue_with_pcq(
     )
 
     simple_q_resource = api.get_resource("/queue/simple")
-    
+
     # Check if queue exists
     existing_queues = simple_q_resource.get(name=name)
     queue_params = {
@@ -106,18 +108,18 @@ def add_simple_queue(
     res = api.get_resource("/queue/simple")
     if not parent:
         parent = "none"
-        
+
     queue_params = {
-        "name": name, 
-        "target": target, 
-        "max_limit": max_limit, 
-        "parent": parent, 
-        "comment": comment
+        "name": name,
+        "target": target,
+        "max_limit": max_limit,
+        "parent": parent,
+        "comment": comment,
     }
-    
+
     # Check if queue exists
     existing = res.get(name=name)
-    
+
     if existing:
         queue_id = get_id(existing[0])
         # Update existing queue
@@ -129,7 +131,7 @@ def add_simple_queue(
         # Create new queue
         result = res.add(**queue_params)
         msg = f"Simple Queue '{name}' created successfully."
-        
+
     return _handle_response(result, msg)
 
 
@@ -187,9 +189,7 @@ def set_simple_queue_limit(api: RouterOsApiPool, target: str, max_limit: str):
         all_queues = res.get()
         logger.error(f"Total de colas en el sistema: {len(all_queues)}")
         for q in all_queues[:5]:  # Mostrar solo las primeras 5 para no saturar logs
-            logger.error(
-                f"  - Cola: {q.get('name', 'N/A')}, Target: {q.get('target', 'N/A')}"
-            )
+            logger.error(f"  - Cola: {q.get('name', 'N/A')}, Target: {q.get('target', 'N/A')}")
         return {"status": "error", "message": f"Queue for target {target} not found"}
 
     queue_id = queue.get(".id") or queue.get("id")

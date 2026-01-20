@@ -1,7 +1,8 @@
 # app/core/utils/security.py
-import os
-from cryptography.fernet import Fernet
 import logging
+import os
+
+from cryptography.fernet import Fernet
 
 # Cargar la clave de cifrado desde las variables de entorno
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
@@ -24,7 +25,7 @@ else:
         if APP_ENV == "production":
             raise RuntimeError(
                 f"FATAL: ENCRYPTION_KEY inválida: {e}. "
-                "Genera una clave válida con: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+                'Genera una clave válida con: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"'
             )
         logging.error(f"Error al inicializar Fernet con ENCRYPTION_KEY: {e}")
         logging.error("Asegúrate de que ENCRYPTION_KEY sea una clave válida de Fernet.")
@@ -53,7 +54,5 @@ def decrypt_data(token: str) -> str:
         return decrypted_bytes.decode()
     except Exception:
         # Si falla (ej. es un password en texto plano antiguo), devolver el original
-        logging.warning(
-            "No se pudo descifrar un token. Asumiendo que es texto plano antiguo."
-        )
+        logging.warning("No se pudo descifrar un token. Asumiendo que es texto plano antiguo.")
         return token

@@ -114,6 +114,30 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Manejo del Botón de Backup ---
+    const backupNowBtn = document.getElementById('backup-now-btn');
+    if (backupNowBtn) {
+        backupNowBtn.addEventListener('click', async () => {
+            if (!confirm("This will create a manual backup of the database. Proceed?")) return;
+
+            const originalText = backupNowBtn.innerHTML;
+            backupNowBtn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Backing up...';
+            backupNowBtn.disabled = true;
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/settings/backup-now`, { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Backup failed');
+                showToast('Backup completed successfully!', 'success', 5000);
+            } catch (e) {
+                showToast("Backup error: " + e.message, 'danger');
+            } finally {
+                backupNowBtn.innerHTML = originalText;
+                backupNowBtn.disabled = false;
+            }
+        });
+    }
+
     if (settingsForm) {
         settingsForm.addEventListener('submit', handleSettingsSubmit);
         loadSettings();

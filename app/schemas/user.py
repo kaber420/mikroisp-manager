@@ -3,9 +3,10 @@
 Pydantic schemas for FastAPI Users.
 These schemas control what data is sent/received via the API.
 """
-from typing import Optional
-from fastapi_users import schemas
+
 import uuid
+
+from fastapi_users import schemas
 
 
 class UserRead(schemas.BaseUser[uuid.UUID]):
@@ -13,10 +14,11 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
     Schema for reading user data (API responses).
     Includes all safe-to-expose user fields.
     """
+
     email: str
     username: str
     role: str
-    telegram_chat_id: Optional[str] = None
+    telegram_chat_id: str | None = None
     receive_alerts: bool
     receive_announcements: bool
     disabled: bool
@@ -32,7 +34,7 @@ class UserCreate(schemas.BaseUserCreate):
     email: str
     password: str
     role: str = "admin"
-    telegram_chat_id: Optional[str] = None
+    telegram_chat_id: str | None = None
     receive_alerts: bool = False
     receive_announcements: bool = False
 
@@ -43,11 +45,11 @@ class UserUpdate(schemas.BaseUserUpdate):
     All fields are optional.
     """
 
-    username: Optional[str] = None
-    email: Optional[str] = None
-    password: Optional[str] = None
-    role: Optional[str] = None
-    telegram_chat_id: Optional[str] = None
-    receive_alerts: Optional[bool] = None
-    receive_announcements: Optional[bool] = None
-    disabled: Optional[bool] = None
+    username: str | None = None
+    email: str | None = None
+    password: str | None = None
+    role: str | None = None
+    telegram_chat_id: str | None = None
+    receive_alerts: bool | None = None
+    receive_announcements: bool | None = None
+    disabled: bool | None = None

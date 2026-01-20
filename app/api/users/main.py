@@ -1,13 +1,13 @@
 # app/api/users/main.py
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session
 
 from ...core.users import require_admin
 from ...db.engine_sync import get_sync_session
-from ...services.user_service import UserService
-from ...schemas.user import UserRead, UserCreate, UserUpdate
 from ...models.user import User
+from ...schemas.user import UserCreate, UserRead, UserUpdate
+from ...services.user_service import UserService
 
 router = APIRouter()
 
@@ -18,7 +18,7 @@ def get_user_service(session: Session = Depends(get_sync_session)) -> UserServic
     return UserService(session)
 
 
-@router.get("/users", response_model=List[UserRead])
+@router.get("/users", response_model=list[UserRead])
 def api_get_all_users(
     service: UserService = Depends(get_user_service),
     current_user: User = Depends(require_admin),
@@ -59,10 +59,9 @@ def api_delete_user(
     current_user: User = Depends(require_admin),
 ):
     from ...core.audit import log_action
+
     if username == current_user.username:
-        raise HTTPException(
-            status_code=403, detail="No puedes eliminar tu propia cuenta."
-        )
+        raise HTTPException(status_code=403, detail="No puedes eliminar tu propia cuenta.")
     try:
         service.delete_user(username)
         log_action("DELETE", "user", username, user=current_user, request=request)

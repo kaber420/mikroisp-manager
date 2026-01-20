@@ -1,11 +1,10 @@
-from .user import User
-from .zona import Zona, ZonaInfra, ZonaDocumento, ZonaNote
-from .setting import Setting
-from .router import Router
 from .ap import AP
 from .client import Client
-from .service import ClientService
+from .cpe import CPE
 from .payment import Payment
 from .plan import Plan
-from .cpe import CPE
-
+from .router import Router
+from .service import ClientService
+from .setting import Setting
+from .user import User
+from .zona import Zona, ZonaDocumento, ZonaInfra, ZonaNote

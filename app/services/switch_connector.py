@@ -1,10 +1,12 @@
 import asyncio
 import logging
 from datetime import datetime
-from .mikrotik_base_connector import MikrotikBaseConnector
+
 from ..db import switches_db
+from .mikrotik_base_connector import MikrotikBaseConnector
 
 logger = logging.getLogger(__name__)
+
 
 class SwitchConnector(MikrotikBaseConnector):
     """
@@ -21,11 +23,11 @@ class SwitchConnector(MikrotikBaseConnector):
         if not switch_data:
             self.logger.error(f"Switch {host} not found in DB")
             raise ValueError(f"Switch {host} not found")
-            
+
         # Call base subscribe with the fetched data
         # switch_data is expected to contain username/password
         await super().subscribe(host, switch_data)
-        
+
     def fetch_switch_stats(self, host: str) -> dict:
         """
         Fetch monitoring statistics from a switch.
@@ -36,16 +38,16 @@ class SwitchConnector(MikrotikBaseConnector):
                 resource_list = api.get_resource("/system/resource").get()
                 if not resource_list:
                     return {"error": "No data from /system/resource"}
-                
+
                 r = resource_list[0]
-                
+
                 # Execute /system/identity
                 identity_list = []
                 try:
                     identity_list = api.get_resource("/system/identity").get()
                 except Exception:
                     pass
-                
+
                 hostname = identity_list[0].get("name") if identity_list else None
 
                 return {
@@ -59,12 +61,13 @@ class SwitchConnector(MikrotikBaseConnector):
                     "hostname": hostname,
                     "total_disk": r.get("total-hdd-space", r.get("total-disk-space")),
                     "free_disk": r.get("free-hdd-space", r.get("free-disk-space")),
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now().isoformat(),
                 }
 
         except Exception as e:
             self.logger.error(f"Error fetching stats from {host}: {e}")
             return {"error": str(e)}
+
 
 # Singleton instance
 switch_connector = SwitchConnector()

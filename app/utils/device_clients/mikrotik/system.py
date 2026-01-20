@@ -1,13 +1,15 @@
-import time
-from typing import Dict, Any, List
-from routeros_api.api import RouterOsApi
-from .base import get_id
 import logging  # <-- Asegúrate de que esta importación esté
+import time
+from typing import Any
+
+from routeros_api.api import RouterOsApi
+
+from .base import get_id
 
 
 def provision_router_api_ssl(
     admin_api: RouterOsApi, host: str, new_api_user: str, new_api_password: str
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """
     Configura el router para conexiones API-SSL seguras y crea un usuario de API dedicado.
     """
@@ -24,9 +26,7 @@ def provision_router_api_ssl(
 
         user_resource = admin_api.get_resource("/user")
         if not (user_list := user_resource.get(name=new_api_user)):
-            user_resource.add(
-                name=new_api_user, password=new_api_password, group=user_group_name
-            )
+            user_resource.add(name=new_api_user, password=new_api_password, group=user_group_name)
         else:
             user_resource.set(
                 id=get_id(user_list[0]),
@@ -44,9 +44,7 @@ def provision_router_api_ssl(
         time.sleep(2)
 
         if not (new_cert_list := cert_resource.get(name=cert_name)):
-            raise Exception(
-                "No se encontró el certificado para firmarlo después de crearlo."
-            )
+            raise Exception("No se encontró el certificado para firmarlo después de crearlo.")
 
         cert_resource.call("sign", {"id": get_id(new_cert_list[0])})
         time.sleep(3)
@@ -71,7 +69,7 @@ def provision_router_api_ssl(
         return {"status": "error", "message": f"Error interno: {e}"}
 
 
-def get_system_resources(api: RouterOsApi) -> Dict[str, Any]:
+def get_system_resources(api: RouterOsApi) -> dict[str, Any]:
     resource_info = api.get_resource("/system/resource").get()
     identity_info = api.get_resource("/system/identity").get()
     routerboard_info = api.get_resource("/system/routerboard").get()
@@ -151,7 +149,7 @@ def get_system_resources(api: RouterOsApi) -> Dict[str, Any]:
     return data
 
 
-def get_interfaces(api: RouterOsApi) -> List[Dict[str, Any]]:
+def get_interfaces(api: RouterOsApi) -> list[dict[str, Any]]:
     try:
         # Añadido 'wlan' y 'pppoe-in' para que coincida con el frontend
         types_to_get = [
@@ -173,13 +171,9 @@ def get_interfaces(api: RouterOsApi) -> List[Dict[str, Any]]:
         return []
 
 
-def get_backup_files(api: RouterOsApi) -> List[Dict[str, Any]]:
+def get_backup_files(api: RouterOsApi) -> list[dict[str, Any]]:
     try:
-        return [
-            f
-            for f in api.get_resource("/file").get()
-            if f.get("type") in ["backup", "script"]
-        ]
+        return [f for f in api.get_resource("/file").get() if f.get("type") in ["backup", "script"]]
     except Exception as e:
         print(f"Error al obtener lista de archivos: {e}")
         return []
@@ -197,7 +191,7 @@ def remove_file(api: RouterOsApi, file_id: str) -> None:
     api.get_resource("/file").remove(id=file_id)
 
 
-def get_router_users(api: RouterOsApi) -> List[Dict[str, Any]]:
+def get_router_users(api: RouterOsApi) -> list[dict[str, Any]]:
     try:
         return api.get_resource("/user").get()
     except Exception as e:
@@ -205,9 +199,7 @@ def get_router_users(api: RouterOsApi) -> List[Dict[str, Any]]:
         return []
 
 
-def add_router_user(
-    api: RouterOsApi, username: str, password: str, group: str
-) -> Dict[str, Any]:
+def add_router_user(api: RouterOsApi, username: str, password: str, group: str) -> dict[str, Any]:
     resource = api.get_resource("/user")
     if resource.get(name=username):
         raise ValueError(f"El usuario '{username}' ya existe.")
@@ -238,9 +230,7 @@ def get_interface_resource_path(interface_type: str, for_remove: bool = False) -
     return "/interface"
 
 
-def set_interface_status(
-    api: RouterOsApi, interface_id: str, disabled: bool, interface_type: str
-):
+def set_interface_status(api: RouterOsApi, interface_id: str, disabled: bool, interface_type: str):
     """Habilita o deshabilita una interfaz por su ID."""
     # Usamos el path genérico '/interface' que funciona para 'set' en todos los tipos.
     path = get_interface_resource_path(interface_type, for_remove=False)
@@ -254,9 +244,7 @@ def set_interface_status(
 def remove_interface(api: RouterOsApi, interface_id: str, interface_type: str):
     """Elimina una interfaz (ej. vlan, bridge) por su ID."""
     if interface_type not in ["vlan", "bridge", "bonding"]:
-        raise ValueError(
-            f"No se permite eliminar interfaces de tipo '{interface_type}'"
-        )
+        raise ValueError(f"No se permite eliminar interfaces de tipo '{interface_type}'")
 
     # Obtenemos el path correcto (ej. /interface/vlan)
     path = get_interface_resource_path(interface_type, for_remove=True)
@@ -276,8 +264,7 @@ def kill_zombie_sessions(api: RouterOsApi, username: str) -> int:
         sessions = [
             s
             for s in active_resource.get()
-            if s.get("name") == username
-            and s.get("via") in ["api", "api-ssl", "rest-api"]
+            if s.get("name") == username and s.get("via") in ["api", "api-ssl", "rest-api"]
         ]
 
         # Ordenamos por ID (hexadecimal en MikroTik: *1, *10, *A).

@@ -1,22 +1,22 @@
 # app/api/zonas/main.py
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, Request
-from typing import List, Optional
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from sqlmodel import Session
 
 from ...core.users import require_technician
+from ...db.engine_sync import get_sync_session
 from ...models.user import User
 from ...services.zone_service import ZoneService
-from ...db.engine_sync import get_sync_session
-from sqlmodel import Session
 from .models import (
     Zona,
     ZonaCreate,
-    ZonaUpdate,
-    ZonaInfra,
-    ZonaDocumento,
     ZonaDetail,
+    ZonaDocumento,
+    ZonaInfra,
     ZonaNote,
     ZonaNoteCreate,
     ZonaNoteUpdate,
+    ZonaUpdate,
 )
 
 router = APIRouter()
@@ -41,7 +41,7 @@ def create_zona(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/zonas", response_model=List[Zona])
+@router.get("/zonas", response_model=list[Zona])
 def get_all_zonas(
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
@@ -87,6 +87,7 @@ def delete_zona(
     current_user: User = Depends(require_technician),
 ):
     from ...core.audit import log_action
+
     try:
         service.delete_zona(zona_id)
         log_action("DELETE", "zona", str(zona_id), user=current_user, request=request)
@@ -130,7 +131,7 @@ def update_infraestructura(
 async def upload_documento(
     zona_id: int,
     file: UploadFile = File(...),
-    descripcion: Optional[str] = Form(None),
+    descripcion: str | None = Form(None),
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
 ):
@@ -170,9 +171,7 @@ def update_note(
     current_user: User = Depends(require_technician),
 ):
     try:
-        updated_note = service.update_note(
-            note_id, note.title, note.content, note.is_encrypted
-        )
+        updated_note = service.update_note(note_id, note.title, note.content, note.is_encrypted)
         return updated_note
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -188,6 +187,7 @@ def delete_note(
     current_user: User = Depends(require_technician),
 ):
     from ...core.audit import log_action
+
     try:
         service.delete_note(note_id)
         log_action("DELETE", "zona_note", str(note_id), user=current_user, request=request)
@@ -206,6 +206,7 @@ def delete_documento(
     current_user: User = Depends(require_technician),
 ):
     from ...core.audit import log_action
+
     try:
         service.delete_documento(doc_id)
         log_action("DELETE", "documento", str(doc_id), user=current_user, request=request)

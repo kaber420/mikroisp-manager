@@ -1,8 +1,10 @@
 import logging
 from datetime import datetime
+
 from .mikrotik_base_connector import MikrotikBaseConnector
 
 logger = logging.getLogger(__name__)
+
 
 class RouterConnector(MikrotikBaseConnector):
     """
@@ -21,9 +23,9 @@ class RouterConnector(MikrotikBaseConnector):
                 resource_list = api.get_resource("/system/resource").get()
                 if not resource_list:
                     return {"error": "No data from /system/resource"}
-                
+
                 r = resource_list[0]
-                
+
                 # Execute /system/identity command to get hostname
                 identity_list = []
                 try:
@@ -39,12 +41,12 @@ class RouterConnector(MikrotikBaseConnector):
                     health_list = api.get_resource("/system/health").get()
                 except Exception:
                     pass  # Some routers don't have /system/health
-                
+
                 # Parse health data (handles both MikroTik formats)
                 voltage = None
                 temperature = None
                 cpu_temperature = None
-                
+
                 for sensor in health_list:
                     # Format B (Modular with name/value pairs)
                     if "name" in sensor and "value" in sensor:
@@ -66,7 +68,7 @@ class RouterConnector(MikrotikBaseConnector):
                             cpu_temperature = sensor["cpu-temperature"]
                         if "cpu-temp" in sensor:
                             cpu_temperature = sensor["cpu-temp"]
-                
+
                 # Build response
                 return {
                     "cpu_load": r.get("cpu-load"),
@@ -83,13 +85,14 @@ class RouterConnector(MikrotikBaseConnector):
                     "voltage": voltage,
                     "temperature": temperature,
                     "cpu_temperature": cpu_temperature,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now().isoformat(),
                 }
 
         except Exception as e:
             # self.logger is available from BaseDeviceConnector
             self.logger.error(f"Error fetching stats from {host}: {e}")
             raise
+
 
 # Singleton instance
 router_connector = RouterConnector()

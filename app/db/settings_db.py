@@ -32,9 +32,6 @@ def get_setting(key: str) -> str | None:
 def upsert_setting(key: str, value: str):
     """Inserta o actualiza una configuración."""
     conn = get_db_connection()
-    conn.execute(
-        "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-        (key, value)
-    )
+    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
     conn.commit()
     conn.close()

@@ -3,27 +3,27 @@
 CRUD operations for Switches table.
 Follows the same patterns as router_db.py.
 """
-import sqlite3
-import logging
-from datetime import datetime
-from typing import Dict, Any, Optional, List
 
-from .base import get_db_connection
-from ..utils.security import encrypt_data, decrypt_data
+import logging
+import sqlite3
+from datetime import datetime
+from typing import Any
+
 from ..core.constants import DeviceStatus
+from ..utils.security import decrypt_data, encrypt_data
+from .base import get_db_connection
 
 logger = logging.getLogger(__name__)
 
 
 # --- Funciones CRUD para la API ---
 
-def get_switch_by_host(host: str) -> Optional[Dict[str, Any]]:
+
+def get_switch_by_host(host: str) -> dict[str, Any] | None:
     """Obtiene todos los datos de un switch por su host."""
     try:
         conn = get_db_connection()
-        cursor = conn.execute(
-            "SELECT rowid as id, * FROM switches WHERE host = ?", (host,)
-        )
+        cursor = conn.execute("SELECT rowid as id, * FROM switches WHERE host = ?", (host,))
         row = cursor.fetchone()
         conn.close()
 
@@ -41,7 +41,7 @@ def get_switch_by_host(host: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def get_all_switches() -> List[Dict[str, Any]]:
+def get_all_switches() -> list[dict[str, Any]]:
     """Obtiene todos los switches de la base de datos."""
     try:
         conn = get_db_connection()
@@ -58,7 +58,7 @@ def get_all_switches() -> List[Dict[str, Any]]:
         return []
 
 
-def create_switch_in_db(switch_data: Dict[str, Any]) -> Dict[str, Any]:
+def create_switch_in_db(switch_data: dict[str, Any]) -> dict[str, Any]:
     """Inserta un nuevo switch en la base de datos."""
     conn = get_db_connection()
     try:
@@ -82,9 +82,7 @@ def create_switch_in_db(switch_data: Dict[str, Any]) -> Dict[str, Any]:
         conn.commit()
     except sqlite3.IntegrityError as e:
         conn.close()
-        raise ValueError(
-            f"Switch host (IP) '{switch_data['host']}' ya existe. Error: {e}"
-        )
+        raise ValueError(f"Switch host (IP) '{switch_data['host']}' ya existe. Error: {e}")
     finally:
         conn.close()
 
@@ -94,21 +92,35 @@ def create_switch_in_db(switch_data: Dict[str, Any]) -> Dict[str, Any]:
     return new_switch
 
 
-_SWITCH_ALLOWED_COLUMNS = frozenset([
-    "username", "password", "zona_id", "api_port", "api_ssl_port", "is_enabled",
-    "is_provisioned", "hostname", "model", "firmware", "mac_address", "location", "notes",
-    "last_status", "last_checked"
-])
+_SWITCH_ALLOWED_COLUMNS = frozenset(
+    [
+        "username",
+        "password",
+        "zona_id",
+        "api_port",
+        "api_ssl_port",
+        "is_enabled",
+        "is_provisioned",
+        "hostname",
+        "model",
+        "firmware",
+        "mac_address",
+        "location",
+        "notes",
+        "last_status",
+        "last_checked",
+    ]
+)
 
 
-def update_switch_in_db(host: str, updates: Dict[str, Any]) -> int:
+def update_switch_in_db(host: str, updates: dict[str, Any]) -> int:
     """
     Función genérica para actualizar cualquier campo de un switch.
     Devuelve el número de filas afectadas.
     """
     if not updates:
         return 0
-    
+
     # Validate column names against whitelist to prevent SQL injection
     invalid_keys = set(updates.keys()) - _SWITCH_ALLOWED_COLUMNS
     if invalid_keys:
@@ -151,7 +163,8 @@ def delete_switch_from_db(host: str) -> int:
 
 # --- Funciones para el Monitor ---
 
-def get_switch_status(host: str) -> Optional[str]:
+
+def get_switch_status(host: str) -> str | None:
     """
     Obtiene el 'last_status' de un switch específico desde la base de datos.
     """
@@ -166,7 +179,7 @@ def get_switch_status(host: str) -> Optional[str]:
         conn.close()
 
 
-def update_switch_status(host: str, status: str, data: Optional[Dict[str, Any]] = None):
+def update_switch_status(host: str, status: str, data: dict[str, Any] | None = None):
     """
     Actualiza el estado de un switch en la base de datos.
     Si el estado es 'online', también actualiza el hostname, modelo y firmware.
@@ -188,7 +201,7 @@ def update_switch_status(host: str, status: str, data: Optional[Dict[str, Any]] 
         logger.error(f"Error en switches_db.update_switch_status para {host}: {e}")
 
 
-def get_enabled_switches_from_db() -> List[Dict[str, Any]]:
+def get_enabled_switches_from_db() -> list[dict[str, Any]]:
     """
     Obtiene la lista de Switches activos desde la BD.
     """
@@ -209,7 +222,5 @@ def get_enabled_switches_from_db() -> List[Dict[str, Any]]:
 
         conn.close()
     except sqlite3.Error as e:
-        logger.error(
-            f"No se pudo obtener la lista de Switches de la base de datos: {e}"
-        )
+        logger.error(f"No se pudo obtener la lista de Switches de la base de datos: {e}")
     return switches_to_monitor

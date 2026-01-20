@@ -1,14 +1,13 @@
 # app/db/aps_db.py
-import sqlite3
-import os
-from datetime import datetime
-from typing import List, Dict, Any, Optional
 import logging
+import os
+import sqlite3
+from datetime import datetime
+from typing import Any
 
-from .base import get_db_connection, get_stats_db_file
-from ..utils.security import encrypt_data, decrypt_data
 from ..core.constants import DeviceStatus
-
+from ..utils.security import decrypt_data, encrypt_data
+from .base import get_db_connection, get_stats_db_file
 
 
 def get_enabled_aps_for_monitor() -> list:
@@ -37,8 +36,7 @@ def get_enabled_aps_for_monitor() -> list:
     return aps_to_monitor
 
 
-
-def get_ap_status(host: str) -> Optional[str]:
+def get_ap_status(host: str) -> str | None:
     """Obtiene el último estado conocido de un AP."""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -48,7 +46,7 @@ def get_ap_status(host: str) -> Optional[str]:
     return result[0] if result else None
 
 
-def update_ap_status(host: str, status: str, data: Optional[Dict[str, Any]] = None):
+def update_ap_status(host: str, status: str, data: dict[str, Any] | None = None):
     """Actualiza el estado de un AP, y opcionalmente sus metadatos si está online."""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -68,7 +66,7 @@ def update_ap_status(host: str, status: str, data: Optional[Dict[str, Any]] = No
             hostname = data.get("hostname")
             model = data.get("model")
             firmware = data.get("firmware")
-        
+
         cursor.execute(
             """
         UPDATE aps 
@@ -96,8 +94,7 @@ def update_ap_status(host: str, status: str, data: Optional[Dict[str, Any]] = No
     conn.close()
 
 
-
-def get_ap_credentials(host: str) -> Optional[Dict[str, Any]]:
+def get_ap_credentials(host: str) -> dict[str, Any] | None:
     """Obtiene el usuario y la contraseña de un AP para la conexión en vivo."""
     conn = get_db_connection()
     cursor = conn.execute("SELECT username, password FROM aps WHERE host = ?", (host,))
@@ -112,7 +109,7 @@ def get_ap_credentials(host: str) -> Optional[Dict[str, Any]]:
     return creds_dict
 
 
-def create_ap_in_db(ap_data: Dict[str, Any]) -> Dict[str, Any]:
+def create_ap_in_db(ap_data: dict[str, Any]) -> dict[str, Any]:
     """Inserta un nuevo AP en la base de datos."""
     conn = get_db_connection()
     try:
@@ -142,7 +139,7 @@ def create_ap_in_db(ap_data: Dict[str, Any]) -> Dict[str, Any]:
     return new_ap
 
 
-def get_all_aps_with_stats() -> List[Dict[str, Any]]:
+def get_all_aps_with_stats() -> list[dict[str, Any]]:
     """Obtiene todos los APs, uniendo los datos de estado más recientes de la DB de estadísticas."""
     conn = get_db_connection()
     stats_db_file = get_stats_db_file()
@@ -174,7 +171,7 @@ def get_all_aps_with_stats() -> List[Dict[str, Any]]:
     return rows
 
 
-def get_ap_by_host_with_stats(host: str) -> Optional[Dict[str, Any]]:
+def get_ap_by_host_with_stats(host: str) -> dict[str, Any] | None:
     """Obtiene un AP específico, uniendo sus datos de estado más recientes."""
     conn = get_db_connection()
     stats_db_file = get_stats_db_file()
@@ -210,23 +207,36 @@ def get_ap_by_host_with_stats(host: str) -> Optional[Dict[str, Any]]:
     return dict(row) if row else None
 
 
-_APS_ALLOWED_COLUMNS = frozenset([
-    "username", "password", "zona_id", "is_enabled", "monitor_interval",
-    "mac", "hostname", "model", "firmware", "last_status", "last_seen", 
-    "last_checked", "vendor", "api_port"
-])
+_APS_ALLOWED_COLUMNS = frozenset(
+    [
+        "username",
+        "password",
+        "zona_id",
+        "is_enabled",
+        "monitor_interval",
+        "mac",
+        "hostname",
+        "model",
+        "firmware",
+        "last_status",
+        "last_seen",
+        "last_checked",
+        "vendor",
+        "api_port",
+    ]
+)
 
 
-def update_ap_in_db(host: str, updates: Dict[str, Any]) -> int:
+def update_ap_in_db(host: str, updates: dict[str, Any]) -> int:
     """Actualiza un AP en la base de datos y devuelve el número de filas afectadas."""
     if not updates:
         return 0
-    
+
     # Validate column names against whitelist to prevent SQL injection
     invalid_keys = set(updates.keys()) - _APS_ALLOWED_COLUMNS
     if invalid_keys:
         raise ValueError(f"Invalid column names: {invalid_keys}")
-    
+
     conn = get_db_connection()
 
     if "password" in updates and updates["password"]:

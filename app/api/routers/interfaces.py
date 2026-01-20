@@ -1,14 +1,13 @@
 from fastapi import APIRouter, Depends
-from ...services.router_service import get_router_service, RouterService
-from .models import VlanCreate, VlanUpdate, BridgeCreate, BridgeUpdate
+
+from ...services.router_service import RouterService, get_router_service
+from .models import BridgeCreate, BridgeUpdate, VlanCreate, VlanUpdate
 
 router = APIRouter()
 
 
 @router.post("/vlans")
-def add_vlan(
-    vlan_data: VlanCreate, service: RouterService = Depends(get_router_service)
-):
+def add_vlan(vlan_data: VlanCreate, service: RouterService = Depends(get_router_service)):
     return service.add_vlan(
         name=vlan_data.name,
         vlan_id=str(vlan_data.vlan_id),
@@ -32,9 +31,7 @@ def update_vlan(
 
 
 @router.post("/bridges")
-def add_bridge(
-    bridge_data: BridgeCreate, service: RouterService = Depends(get_router_service)
-):
+def add_bridge(bridge_data: BridgeCreate, service: RouterService = Depends(get_router_service)):
     return service.add_bridge(
         name=bridge_data.name, ports=bridge_data.ports, comment=bridge_data.comment
     )

@@ -1,10 +1,10 @@
 import asyncio
 import contextlib
-from typing import Generator
 
-from .base_connector import BaseDeviceConnector
 from ..core.constants import CredentialKeys
 from ..utils.device_clients.mikrotik.channels import readonly_channels
+from .base_connector import BaseDeviceConnector
+
 
 class MikrotikBaseConnector(BaseDeviceConnector):
     """
@@ -19,7 +19,7 @@ class MikrotikBaseConnector(BaseDeviceConnector):
             host,
             creds[CredentialKeys.USERNAME],
             creds[CredentialKeys.PASSWORD],
-            creds.get(CredentialKeys.PORT, 8729)
+            creds.get(CredentialKeys.PORT, 8729),
         )
 
     async def _disconnect(self, host: str) -> None:
@@ -44,14 +44,14 @@ class MikrotikBaseConnector(BaseDeviceConnector):
             # logic...
             # The scheduler calls it via: data = await loop.run_in_executor(None, self.connector.fetch_router_stats, host)
             # So `fetch_router_stats` IS synchronous and blocking.
-            
+
             # So my `api_session` should be synchronous context manager.
-            
+
             api = readonly_channels.acquire(
                 host,
                 creds[CredentialKeys.USERNAME],
                 creds[CredentialKeys.PASSWORD],
-                creds.get(CredentialKeys.PORT, 8729)
+                creds.get(CredentialKeys.PORT, 8729),
             )
             yield api
         finally:

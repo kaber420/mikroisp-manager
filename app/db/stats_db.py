@@ -1,19 +1,17 @@
 # app/db/stats_db.py
 import sqlite3
-import os
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 from .base import get_db_connection, get_stats_db_connection
 from .init_db import _setup_stats_db  # Usamos la función de configuración
-from ..core.constants import CPEStatus
 
 
-def save_router_monitor_stats(router_host: str, stats: Dict[str, Any]) -> bool:
+def save_router_monitor_stats(router_host: str, stats: dict[str, Any]) -> bool:
     """
     Guarda las estadísticas de un router en la tabla de historial.
     Retorna True si se guardó exitosamente, False en caso de error.
-    
+
     Expected stats format from fetch_router_stats():
     {
         "cpu_load": 5,
@@ -30,14 +28,14 @@ def save_router_monitor_stats(router_host: str, stats: Dict[str, Any]) -> bool:
     }
     """
     _setup_stats_db()
-    
+
     conn = get_stats_db_connection()
     if not conn:
         return False
-    
+
     cursor = conn.cursor()
     timestamp = datetime.utcnow()
-    
+
     try:
         # Direct mapping from flat stats dict (from fetch_router_stats)
         cursor.execute(
@@ -74,21 +72,21 @@ def save_router_monitor_stats(router_host: str, stats: Dict[str, Any]) -> bool:
 
 def get_router_monitor_stats_history(
     router_host: str, range_hours: int = 24
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Retrieves historical stats for a router from the stats database.
-    
+
     Args:
         router_host: The router IP/hostname.
         range_hours: How many hours of history to fetch (default 24).
-    
+
     Returns:
         A list of dicts with timestamp and stats.
     """
     conn = get_stats_db_connection()
     if not conn:
         return []
-    
+
     try:
         query = """
             SELECT 
@@ -114,24 +112,23 @@ def save_device_stats(ap_host: str, status: "DeviceStatus", vendor: str = "ubiqu
     """
     Saves device status from adapters to the stats database.
     This is a vendor-agnostic function that works with DeviceStatus objects.
-    
+
     Args:
         ap_host: The AP host/IP
         status: DeviceStatus object from adapter
         vendor: Vendor name ('ubiquiti', 'mikrotik', etc.)
     """
-    from ..utils.device_clients.adapters.base import DeviceStatus, ConnectedClient
-    
+
     _setup_stats_db()
-    
+
     conn = get_stats_db_connection()
     if not conn:
         print(f"Error: No se pudo conectar a la base de datos de estadísticas para {ap_host}.")
         return
-    
+
     cursor = conn.cursor()
     timestamp = datetime.utcnow()
-    
+
     try:
         # Insert AP stats
         cursor.execute(
@@ -167,7 +164,7 @@ def save_device_stats(ap_host: str, status: "DeviceStatus", vendor: str = "ubiqu
                 status.extra.get("gps_sats"),
             ),
         )
-        
+
         # Insert CPE/client stats
         for client in status.clients:
             cursor.execute(
@@ -212,19 +209,20 @@ def save_device_stats(ap_host: str, status: "DeviceStatus", vendor: str = "ubiqu
                     client.band,
                 ),
             )
-        
+
         conn.commit()
-        print(f"Datos de '{status.hostname or ap_host}' guardados en la base de datos de estadísticas.")
-        
+        print(
+            f"Datos de '{status.hostname or ap_host}' guardados en la base de datos de estadísticas."
+        )
+
     except sqlite3.Error as e:
         print(f"Error de base de datos al guardar stats para {ap_host}: {e}")
     finally:
         if conn:
             conn.close()
-    
+
     # Also update the CPE inventory table (main inventory DB)
     _update_cpe_inventory_from_status(status)
-
 
 
 def _update_cpe_inventory_from_status(status: "DeviceStatus"):
@@ -233,17 +231,16 @@ def _update_cpe_inventory_from_status(status: "DeviceStatus"):
     Works with any vendor (Ubiquiti, MikroTik, etc.)
     Sets status to 'active' for seen CPEs.
     """
-    from ..utils.device_clients.adapters.base import DeviceStatus
-    
+
     if not status.clients:
         # Still run stale check even if no clients seen
         _mark_stale_cpes_offline()
         return
-    
+
     conn = get_db_connection()
     cursor = conn.cursor()
     now = datetime.utcnow()
-    
+
     try:
         for client in status.clients:
             cursor.execute(
@@ -273,7 +270,7 @@ def _update_cpe_inventory_from_status(status: "DeviceStatus"):
         print(f"Error updating CPE inventory: {e}")
     finally:
         conn.close()
-    
+
     # Mark stale CPEs as offline
     _mark_stale_cpes_offline()
 
@@ -310,7 +307,7 @@ def _update_cpe_inventory(data: dict):
         )
     conn.commit()
     conn.close()
-    
+
     # Mark stale CPEs as offline
     _mark_stale_cpes_offline()
 
@@ -322,20 +319,20 @@ def _mark_stale_cpes_offline():
     """
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         # Get settings
         cursor.execute("SELECT value FROM settings WHERE key = 'default_monitor_interval'")
         row = cursor.fetchone()
-        monitor_interval = int(row['value']) if row else 300
-        
+        monitor_interval = int(row["value"]) if row else 300
+
         cursor.execute("SELECT value FROM settings WHERE key = 'cpe_stale_cycles'")
         row = cursor.fetchone()
-        stale_cycles = int(row['value']) if row else 3
-        
+        stale_cycles = int(row["value"]) if row else 3
+
         # Calculate threshold in seconds
         threshold_seconds = monitor_interval * stale_cycles
-        
+
         # Mark stale CPEs as offline
         cursor.execute(
             """
@@ -345,13 +342,13 @@ def _mark_stale_cpes_offline():
               AND is_enabled = 1
               AND last_seen < datetime('now', '-' || ? || ' seconds')
             """,
-            (threshold_seconds,)
+            (threshold_seconds,),
         )
-        
+
         affected = cursor.rowcount
         if affected > 0:
             print(f"Marcados {affected} CPEs como offline (no vistos en {threshold_seconds}s).")
-        
+
         conn.commit()
     except Exception as e:
         print(f"Error marking stale CPEs offline: {e}")
@@ -371,9 +368,7 @@ def save_full_snapshot(ap_host: str, data: dict):
 
     conn = get_stats_db_connection()
     if not conn:
-        print(
-            f"Error: No se pudo conectar a la base de datos de estadísticas para {ap_host}."
-        )
+        print(f"Error: No se pudo conectar a la base de datos de estadísticas para {ap_host}.")
         return
 
     cursor = conn.cursor()
@@ -483,9 +478,7 @@ def save_full_snapshot(ap_host: str, data: dict):
             )
 
         conn.commit()
-        print(
-            f"Datos de '{ap_hostname}' y sus CPEs guardados en la base de datos de estadísticas."
-        )
+        print(f"Datos de '{ap_hostname}' y sus CPEs guardados en la base de datos de estadísticas.")
 
     except sqlite3.Error as e:
         print(f"Error de base de datos al guardar snapshot para {ap_host}: {e}")
@@ -494,23 +487,23 @@ def save_full_snapshot(ap_host: str, data: dict):
             conn.close()
 
 
-def get_cpes_for_ap_from_stats(host: str, status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+def get_cpes_for_ap_from_stats(host: str, status_filter: str | None = None) -> list[dict[str, Any]]:
     """
     Obtiene la lista de CPEs más recientes para un AP específico desde la DB de estadísticas.
     Incluye el campo 'status' calculado: 'active', 'fallen', o 'disabled'.
-    
+
     Args:
         host: AP host/IP
         status_filter: Opcional. Filtrar por status: 'active', 'fallen', 'disabled'.
     """
     from datetime import datetime, timedelta
-    
+
     conn = get_stats_db_connection()
     if not conn:
         return []
-    
+
     main_conn = get_db_connection()
-    
+
     # Threshold: 10 minutes for "fallen" status
     threshold_minutes = 10
     threshold_time = datetime.utcnow() - timedelta(minutes=threshold_minutes)
@@ -533,46 +526,45 @@ def get_cpes_for_ap_from_stats(host: str, status_filter: Optional[str] = None) -
         """
         cursor = conn.execute(query, (host,))
         stats_rows = [dict(row) for row in cursor.fetchall()]
-        
+
         # Fetch is_enabled from main DB for each CPE
-        cpe_macs = [r['cpe_mac'] for r in stats_rows]
+        cpe_macs = [r["cpe_mac"] for r in stats_rows]
         is_enabled_map = {}
         if cpe_macs:
-            placeholders = ','.join('?' * len(cpe_macs))
+            placeholders = ",".join("?" * len(cpe_macs))
             cpe_query = f"SELECT mac, is_enabled FROM cpes WHERE mac IN ({placeholders})"
             cpe_cursor = main_conn.execute(cpe_query, cpe_macs)
             for row in cpe_cursor.fetchall():
-                is_enabled_map[row['mac']] = row['is_enabled']
-        
+                is_enabled_map[row["mac"]] = row["is_enabled"]
+
         results = []
         for row in stats_rows:
-            mac = row['cpe_mac']
+            mac = row["cpe_mac"]
             is_enabled = is_enabled_map.get(mac, True)  # Default to enabled if not found
-            row['is_enabled'] = is_enabled
-            
+            row["is_enabled"] = is_enabled
+
             # Calculate status
             if not is_enabled:
-                row['status'] = 'disabled'
+                row["status"] = "disabled"
             else:
-                stats_time = row.get('timestamp')
+                stats_time = row.get("timestamp")
                 if isinstance(stats_time, str):
                     try:
-                        stats_time = datetime.fromisoformat(stats_time.replace('Z', '+00:00'))
+                        stats_time = datetime.fromisoformat(stats_time.replace("Z", "+00:00"))
                     except ValueError:
                         stats_time = None
                 if stats_time and stats_time >= threshold_time:
-                    row['status'] = 'active'
+                    row["status"] = "active"
                 else:
-                    row['status'] = 'fallen'
-            
+                    row["status"] = "fallen"
+
             # Apply filter
-            if status_filter is None or row['status'] == status_filter:
+            if status_filter is None or row["status"] == status_filter:
                 results.append(row)
-        
+
         return results
     finally:
         if conn:
             conn.close()
         if main_conn:
             main_conn.close()
-

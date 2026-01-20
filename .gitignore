@@ -213,3 +213,5 @@ scripts/test_full_flow.py
 Caddyfile
 .git_backup/
 *.bak
+requirements-dev.txt
+pyproject.toml

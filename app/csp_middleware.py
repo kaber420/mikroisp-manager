@@ -7,9 +7,10 @@ improved XSS protection while maintaining compatibility with:
 - Alpine.js (requires 'unsafe-eval')
 - TailwindCSS Play CDN (requires 'unsafe-eval')
 """
-import os
-import secrets
+
 import base64
+import secrets
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
@@ -27,14 +28,14 @@ class CSPMiddleware(BaseHTTPMiddleware):
 
         # Generate a cryptographically secure random nonce (16 bytes = 128 bits)
         nonce_bytes = secrets.token_bytes(16)
-        nonce = base64.b64encode(nonce_bytes).decode('utf-8')
-        
+        nonce = base64.b64encode(nonce_bytes).decode("utf-8")
+
         # Store nonce in request.state for access in templates
         request.state.csp_nonce = nonce
-        
+
         # Process the request
         response = await call_next(request)
-        
+
         # Build CSP policy with nonce
         # Note: 'unsafe-eval' is required for Alpine.js
         # Style-src uses 'self' only since we now use compiled Tailwind CSS
@@ -48,7 +49,7 @@ class CSPMiddleware(BaseHTTPMiddleware):
             f"object-src 'none'; "
             f"base-uri 'self';"
         )
-        
+
         response.headers["Content-Security-Policy"] = csp_policy
-        
+
         return response

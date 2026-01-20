@@ -1,9 +1,11 @@
-import ssl
-from routeros_api import RouterOsApiPool
-from contextlib import contextmanager
 import logging
+import ssl
+from contextlib import contextmanager
+
+from routeros_api import RouterOsApiPool
 
 logger = logging.getLogger(__name__)
+
 
 @contextmanager
 def get_config_channel(host: str, username: str, password: str, port: int = 8729):
@@ -15,13 +17,17 @@ def get_config_channel(host: str, username: str, password: str, port: int = 8729
     ssl_context = ssl.create_default_context()
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
-    
+
     pool = RouterOsApiPool(
-        host, username=username, password=password,
-        port=port, use_ssl=True, ssl_context=ssl_context,
-        plaintext_login=True
+        host,
+        username=username,
+        password=password,
+        port=port,
+        use_ssl=True,
+        ssl_context=ssl_context,
+        plaintext_login=True,
     )
-    
+
     try:
         api = pool.get_api()
         yield api

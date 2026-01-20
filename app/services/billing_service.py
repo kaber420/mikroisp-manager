@@ -3,17 +3,19 @@
 Billing service for managing client billing, payments, and service suspensions.
 Refactored to use SQLModel ORM.
 """
+
 import logging
-from typing import Dict, Any, List
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Any
+
 from sqlmodel import Session
 
 from ..db import settings_db  # Keep until migrated
-from .router_service import RouterService
+from ..models.router import Router
 from .client_service import ClientService
 from .payment_service import PaymentService
-from ..models.router import Router
+from .router_service import RouterService
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +24,11 @@ class BillingService:
     """
     Service for billing operations using SQLModel ORM.
     """
-    
+
     def __init__(self, session: Session):
         """
         Initialize with a SQLModel session.
-        
+
         Args:
             session: SQLModel Session instance
         """
@@ -35,6 +37,7 @@ class BillingService:
         self.payment_service = PaymentService(session)
         # Import here to avoid circular dependency
         from .plan_service import PlanService
+
         self.plan_service = PlanService(session)
 
     def _get_router_by_host(self, host: str) -> Router:
@@ -45,8 +48,8 @@ class BillingService:
         return router
 
     def reactivate_client_services(
-        self, client_id: uuid.UUID, payment_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, client_id: uuid.UUID, payment_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Register a payment and reactivate service if necessary.
         """
@@ -59,9 +62,7 @@ class BillingService:
 
         # 2. Register payment (always done)
         new_payment = self.payment_service.create_payment(client_id, payment_data)
-        logger.info(
-            f"Pago registrado (ID: {new_payment['id']}) para el cliente {client_id}."
-        )
+        logger.info(f"Pago registrado (ID: {new_payment['id']}) para el cliente {client_id}.")
 
         # 3. Update status to 'active' in DB (always done)
         self.client_service.update_client(client_id, {"service_status": "active"})
@@ -79,7 +80,7 @@ class BillingService:
                     try:
                         host = service["router_host"]
                         ip = service.get("ip_address")
-                        
+
                         # Get suspension method from PLAN (not service)
                         method = None
                         plan_obj = None
@@ -87,24 +88,30 @@ class BillingService:
                             plan_obj = self.plan_service.get_by_id(service["plan_id"])
                             if plan_obj:
                                 method = getattr(plan_obj, "suspension_method", None)
-                        
+
                         # Fallback to service's method for backward compatibility
                         if not method:
                             method = service.get("suspension_method", "queue_limit")
-                        
+
                         # Get router credentials
                         router = self._get_router_by_host(host)
 
                         with RouterService(host, router) as rs:
                             if method == "address_list" and ip:
                                 # Get address list config from plan
-                                plan_strategy = getattr(plan_obj, "address_list_strategy", "blacklist") if plan_obj else "blacklist"
-                                plan_list_name = getattr(plan_obj, "address_list_name", "morosos") if plan_obj else "morosos"
+                                plan_strategy = (
+                                    getattr(plan_obj, "address_list_strategy", "blacklist")
+                                    if plan_obj
+                                    else "blacklist"
+                                )
+                                plan_list_name = (
+                                    getattr(plan_obj, "address_list_name", "morosos")
+                                    if plan_obj
+                                    else "morosos"
+                                )
 
                                 rs.activate_user_address_list(
-                                    ip,
-                                    list_name=plan_list_name,
-                                    strategy=plan_strategy
+                                    ip, list_name=plan_list_name, strategy=plan_strategy
                                 )
                                 logger.info(
                                     f"Servicio {service['id']} (IP: {ip}) reactivado via Address List."
@@ -151,7 +158,7 @@ class BillingService:
 
         return new_payment
 
-    def process_daily_suspensions(self) -> Dict[str, int]:
+    def process_daily_suspensions(self) -> dict[str, int]:
         """
         Review ALL clients and update their status (Active/ Pending/Suspended).
         """
@@ -235,7 +242,7 @@ class BillingService:
                 ip = service.get("ip_address")
                 secret_id = service.get("router_secret_id")
                 pppoe_username = service.get("pppoe_username")
-                
+
                 # Get suspension method from PLAN (not service)
                 method = None
                 plan_obj = None
@@ -243,30 +250,39 @@ class BillingService:
                     plan_obj = self.plan_service.get_by_id(service["plan_id"])
                     if plan_obj:
                         method = getattr(plan_obj, "suspension_method", None)
-                
+
                 # Fallback to service's method for backward compatibility
                 if not method:
                     method = service.get("suspension_method", "queue_limit")
-                
-                logger.info(f"🔴 Processing service {service['id']}: method={method}, host={host}, ip={ip}, secret_id={secret_id}")
+
+                logger.info(
+                    f"🔴 Processing service {service['id']}: method={method}, host={host}, ip={ip}, secret_id={secret_id}"
+                )
 
                 # Get router credentials from database
                 router = self._get_router_by_host(host)
                 logger.info(f"🔴 Router credentials fetched for {host}")
 
                 with RouterService(host, router) as rs:
-
                     # CASE 1: Address List (Total cut with warning)
                     if method == "address_list" and ip:
                         # Get address list config from plan
-                        plan_strategy = getattr(plan_obj, "address_list_strategy", "blacklist") if plan_obj else "blacklist"
-                        plan_list_name = getattr(plan_obj, "address_list_name", "morosos") if plan_obj else "morosos"
+                        plan_strategy = (
+                            getattr(plan_obj, "address_list_strategy", "blacklist")
+                            if plan_obj
+                            else "blacklist"
+                        )
+                        plan_list_name = (
+                            getattr(plan_obj, "address_list_name", "morosos")
+                            if plan_obj
+                            else "morosos"
+                        )
 
-                        logger.info(f"🔴 Suspending via address_list: {ip} (Plan: {plan_list_name}/{plan_strategy})")
+                        logger.info(
+                            f"🔴 Suspending via address_list: {ip} (Plan: {plan_list_name}/{plan_strategy})"
+                        )
                         rs.suspend_user_address_list(
-                            ip, 
-                            list_name=plan_list_name, 
-                            strategy=plan_strategy
+                            ip, list_name=plan_list_name, strategy=plan_strategy
                         )
                         logger.info(f"✅ Address list suspension completed for {ip}")
 
@@ -278,16 +294,20 @@ class BillingService:
 
                     # CASE 3: PPPoE (The classic)
                     elif method == "pppoe_secret_disable":
-                        logger.info(f"🔴 Suspending via pppoe_secret_disable: secret_id={secret_id}")
+                        logger.info(
+                            f"🔴 Suspending via pppoe_secret_disable: secret_id={secret_id}"
+                        )
                         if secret_id:
-                            rs.set_pppoe_secret_status(
-                                secret_id, disable=True
-                            )
+                            rs.set_pppoe_secret_status(secret_id, disable=True)
                             logger.info(f"✅ PPPoE secret {secret_id} disabled successfully")
                         else:
-                            logger.warning(f"⚠️ No router_secret_id found for service {service['id']}")
+                            logger.warning(
+                                f"⚠️ No router_secret_id found for service {service['id']}"
+                            )
                     else:
-                        logger.warning(f"⚠️ Suspension method '{method}' not handled or missing required data")
+                        logger.warning(
+                            f"⚠️ Suspension method '{method}' not handled or missing required data"
+                        )
 
                     # Kill active PPPoE connection to force immediate disconnect
                     if pppoe_username:
@@ -306,7 +326,7 @@ class BillingService:
                 if service["service_type"] == "pppoe" and service["router_secret_id"]:
                     # Get router credentials
                     router = self._get_router_by_host(service["router_host"])
-                    
+
                     # Only activate if not active, but RouterOS handles idempotency well
                     with RouterService(service["router_host"], router) as rs:
                         rs.set_pppoe_secret_status(

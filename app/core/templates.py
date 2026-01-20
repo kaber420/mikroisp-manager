@@ -1,5 +1,5 @@
-
 import os
+
 from fastapi.templating import Jinja2Templates
 
 # Calculate paths relative to this file: app/core/templates.py

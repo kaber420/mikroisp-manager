@@ -1,14 +1,14 @@
 # app/api/cpes/main.py
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from typing import List, Optional
-from sqlmodel import Session
 import uuid
 
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlmodel import Session
+
 from ...core.users import require_technician
-from ...models.user import User
 from ...db.engine_sync import get_sync_session
+from ...models.user import User
 from ...services.cpe_service import CPEService
-from .models import CPEGlobalInfo, AssignedCPE, CPEUpdate
+from .models import AssignedCPE, CPEGlobalInfo, CPEUpdate
 
 router = APIRouter()
 
@@ -18,9 +18,8 @@ def get_cpe_service(session: Session = Depends(get_sync_session)) -> CPEService:
     return CPEService(session)
 
 
-
 # --- Endpoints de la API ---
-@router.get("/cpes/unassigned", response_model=List[AssignedCPE])
+@router.get("/cpes/unassigned", response_model=list[AssignedCPE])
 def api_get_unassigned_cpes(
     service: CPEService = Depends(get_cpe_service),
     current_user: User = Depends(require_technician),
@@ -89,12 +88,10 @@ def api_update_cpe(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/cpes/all", response_model=List[CPEGlobalInfo])
+@router.get("/cpes/all", response_model=list[CPEGlobalInfo])
 def api_get_all_cpes_globally(
-    status_filter: Optional[str] = Query(
-        None,
-        alias="status",
-        description="Filter by status: 'active', 'offline', 'disabled'"
+    status_filter: str | None = Query(
+        None, alias="status", description="Filter by status: 'active', 'offline', 'disabled'"
     ),
     service: CPEService = Depends(get_cpe_service),
     current_user: User = Depends(require_technician),

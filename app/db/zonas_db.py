@@ -1,14 +1,15 @@
 # app/db/zonas_db.py
-import sqlite3
 import os
-from typing import List, Dict, Any, Optional
+import sqlite3
+from typing import Any
+
+from ..utils.security import decrypt_data, encrypt_data  # <-- LÍNEA CAMBIADA
 from .base import get_db_connection
-from ..utils.security import encrypt_data, decrypt_data  # <-- LÍNEA CAMBIADA
 
 # --- Funciones de Zonas (CRUD Básico) ---
 
 
-def create_zona(nombre: str) -> Dict[str, Any]:
+def create_zona(nombre: str) -> dict[str, Any]:
     conn = get_db_connection()
     try:
         cursor = conn.execute("INSERT INTO zonas (nombre) VALUES (?)", (nombre,))
@@ -22,7 +23,7 @@ def create_zona(nombre: str) -> Dict[str, Any]:
     return {"id": new_id, "nombre": nombre}
 
 
-def get_all_zonas() -> List[Dict[str, Any]]:
+def get_all_zonas() -> list[dict[str, Any]]:
     conn = get_db_connection()
     cursor = conn.execute("SELECT id, nombre FROM zonas ORDER BY nombre")
     zonas = [dict(row) for row in cursor.fetchall()]
@@ -30,22 +31,20 @@ def get_all_zonas() -> List[Dict[str, Any]]:
     return zonas
 
 
-_ZONA_ALLOWED_COLUMNS = frozenset([
-    "nombre", "descripcion", "notas_sensibles", "direccion", "contacto"
-])
+_ZONA_ALLOWED_COLUMNS = frozenset(
+    ["nombre", "descripcion", "notas_sensibles", "direccion", "contacto"]
+)
 
 
-def update_zona_details(
-    zona_id: int, updates: Dict[str, Any]
-) -> Optional[Dict[str, Any]]:
+def update_zona_details(zona_id: int, updates: dict[str, Any]) -> dict[str, Any] | None:
     if not updates:
         return get_zona_by_id(zona_id)
-    
+
     # Validate column names against whitelist to prevent SQL injection
     invalid_keys = set(updates.keys()) - _ZONA_ALLOWED_COLUMNS
     if invalid_keys:
         raise ValueError(f"Invalid column names: {invalid_keys}")
-    
+
     conn = get_db_connection()
 
     if "notas_sensibles" in updates and updates["notas_sensibles"] is not None:
@@ -57,7 +56,8 @@ def update_zona_details(
 
     try:
         cursor = conn.execute(
-            f"UPDATE zonas SET {set_clause} WHERE id = ?", tuple(values)  # nosec B608
+            f"UPDATE zonas SET {set_clause} WHERE id = ?",
+            tuple(values),  # nosec B608
         )
         conn.commit()
         if cursor.rowcount == 0:
@@ -76,9 +76,7 @@ def delete_zona(zona_id: int) -> int:
     if cursor_check_aps.fetchone():
         conn.close()
         raise ValueError("No se puede eliminar la zona porque contiene APs.")
-    cursor_check_routers = conn.execute(
-        "SELECT 1 FROM routers WHERE zona_id = ?", (zona_id,)
-    )
+    cursor_check_routers = conn.execute("SELECT 1 FROM routers WHERE zona_id = ?", (zona_id,))
     if cursor_check_routers.fetchone():
         conn.close()
         raise ValueError("No se puede eliminar la zona porque contiene Routers.")
@@ -90,7 +88,7 @@ def delete_zona(zona_id: int) -> int:
     return rowcount
 
 
-def get_zona_by_id(zona_id: int) -> Optional[Dict[str, Any]]:
+def get_zona_by_id(zona_id: int) -> dict[str, Any] | None:
     conn = get_db_connection()
     cursor = conn.execute("SELECT * FROM zonas WHERE id = ?", (zona_id,))
     row = cursor.fetchone()
@@ -106,33 +104,42 @@ def get_zona_by_id(zona_id: int) -> Optional[Dict[str, Any]]:
 # --- Funciones de Infraestructura ---
 
 
-def get_infra_by_zona_id(zona_id: int) -> Optional[Dict[str, Any]]:
+def get_infra_by_zona_id(zona_id: int) -> dict[str, Any] | None:
     conn = get_db_connection()
-    cursor = conn.execute(
-        "SELECT * FROM zona_infraestructura WHERE zona_id = ?", (zona_id,)
-    )
+    cursor = conn.execute("SELECT * FROM zona_infraestructura WHERE zona_id = ?", (zona_id,))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
 
 
-_INFRA_ALLOWED_COLUMNS = frozenset([
-    "router_principal", "router_respaldo", "switch_principal", "switch_respaldo",
-    "ups_modelo", "ups_capacidad", "panel_solar", "bateria_modelo", "bateria_capacidad",
-    "rack_tipo", "rack_unidades", "notas"
-])
+_INFRA_ALLOWED_COLUMNS = frozenset(
+    [
+        "router_principal",
+        "router_respaldo",
+        "switch_principal",
+        "switch_respaldo",
+        "ups_modelo",
+        "ups_capacidad",
+        "panel_solar",
+        "bateria_modelo",
+        "bateria_capacidad",
+        "rack_tipo",
+        "rack_unidades",
+        "notas",
+    ]
+)
 
 
-def update_or_create_infra(zona_id: int, infra_data: Dict[str, Any]) -> Dict[str, Any]:
+def update_or_create_infra(zona_id: int, infra_data: dict[str, Any]) -> dict[str, Any]:
     if not infra_data:
         existing = get_infra_by_zona_id(zona_id)
         return existing if existing else {}
-    
+
     # Validate column names against whitelist to prevent SQL injection
     invalid_keys = set(infra_data.keys()) - _INFRA_ALLOWED_COLUMNS
     if invalid_keys:
         raise ValueError(f"Invalid column names: {invalid_keys}")
-    
+
     conn = get_db_connection()
     existing_infra = get_infra_by_zona_id(zona_id)
 
@@ -161,7 +168,7 @@ def update_or_create_infra(zona_id: int, infra_data: Dict[str, Any]) -> Dict[str
 # --- Funciones de Documentos ---
 
 
-def get_docs_by_zona_id(zona_id: int) -> List[Dict[str, Any]]:
+def get_docs_by_zona_id(zona_id: int) -> list[dict[str, Any]]:
     conn = get_db_connection()
     cursor = conn.execute(
         "SELECT * FROM zona_documentos WHERE zona_id = ? ORDER BY creado_en DESC",
@@ -172,7 +179,7 @@ def get_docs_by_zona_id(zona_id: int) -> List[Dict[str, Any]]:
     return rows
 
 
-def add_document(doc_data: Dict[str, Any]) -> Dict[str, Any]:
+def add_document(doc_data: dict[str, Any]) -> dict[str, Any]:
     conn = get_db_connection()
     cursor = conn.execute(
         """INSERT INTO zona_documentos (zona_id, tipo, nombre_original, nombre_guardado, descripcion)
@@ -195,7 +202,7 @@ def add_document(doc_data: Dict[str, Any]) -> Dict[str, Any]:
     return new_doc
 
 
-def get_document_by_id(doc_id: int) -> Optional[Dict[str, Any]]:
+def get_document_by_id(doc_id: int) -> dict[str, Any] | None:
     conn = get_db_connection()
     cursor = conn.execute("SELECT * FROM zona_documentos WHERE id = ?", (doc_id,))
     row = cursor.fetchone()
@@ -223,9 +230,7 @@ def delete_document(doc_id: int) -> int:
 # --- Funciones de Notas ---
 
 
-def create_note(
-    zona_id: int, title: str, content: str, is_encrypted: bool
-) -> Dict[str, Any]:
+def create_note(zona_id: int, title: str, content: str, is_encrypted: bool) -> dict[str, Any]:
     conn = get_db_connection()
 
     final_content = encrypt_data(content) if is_encrypted else content
@@ -245,7 +250,7 @@ def create_note(
     return new_note
 
 
-def get_note_by_id(note_id: int) -> Optional[Dict[str, Any]]:
+def get_note_by_id(note_id: int) -> dict[str, Any] | None:
     conn = get_db_connection()
     cursor = conn.execute("SELECT * FROM zona_notes WHERE id = ?", (note_id,))
     row = cursor.fetchone()
@@ -259,7 +264,7 @@ def get_note_by_id(note_id: int) -> Optional[Dict[str, Any]]:
     return data
 
 
-def get_notes_by_zona_id(zona_id: int) -> List[Dict[str, Any]]:
+def get_notes_by_zona_id(zona_id: int) -> list[dict[str, Any]]:
     conn = get_db_connection()
     cursor = conn.execute(
         "SELECT * FROM zona_notes WHERE zona_id = ? ORDER BY updated_at DESC",
@@ -277,7 +282,7 @@ def get_notes_by_zona_id(zona_id: int) -> List[Dict[str, Any]]:
 
 def update_note(
     note_id: int, title: str, content: str, is_encrypted: bool
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     conn = get_db_connection()
 
     final_content = encrypt_data(content) if is_encrypted else content

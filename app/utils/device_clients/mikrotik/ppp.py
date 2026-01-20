@@ -1,15 +1,17 @@
 # app/utils/device_clients/ppp.py (o la ruta correcta en tu proyecto)
 
-from typing import List, Dict, Any, Optional  # <-- IMPORTACIÓN ACTUALIZADA
+from typing import Any  # <-- IMPORTACIÓN ACTUALIZADA
+
 from routeros_api.api import RouterOsApi
+
 from .base import find_resource_id
 
 
-def get_pppoe_servers(api: RouterOsApi) -> List[Dict[str, Any]]:
+def get_pppoe_servers(api: RouterOsApi) -> list[dict[str, Any]]:
     return api.get_resource("/interface/pppoe-server/server").get()
 
 
-def get_ppp_profiles(api: RouterOsApi) -> List[Dict[str, Any]]:
+def get_ppp_profiles(api: RouterOsApi) -> list[dict[str, Any]]:
     return api.get_resource("/ppp/profile").get()
 
 
@@ -21,8 +23,8 @@ def create_service_plan(
     rate_limit: str,
     parent_queue: str,
     comment: str,
-    pool_range: Optional[str] = None,
-    remote_address: Optional[str] = None,
+    pool_range: str | None = None,
+    remote_address: str | None = None,
 ):
     """
     Crea un plan (IP Pool y PPP Profile).
@@ -57,13 +59,9 @@ def create_service_plan(
                 pool_comment = f"Pool for Plan: {plan_name} ({comment})"
 
                 if not pool_res.get(name=pool_name):
-                    pool_res.add(
-                        name=pool_name, ranges=pool_range, comment=pool_comment
-                    )
+                    pool_res.add(name=pool_name, ranges=pool_range, comment=pool_comment)
 
-                profile_data["remote_address"] = (
-                    pool_name  # Usamos el pool recién creado
-                )
+                profile_data["remote_address"] = pool_name  # Usamos el pool recién creado
 
             elif remote_address:
                 # Opción B: Se envió un nombre de pool. Lo usamos directamente.
@@ -95,7 +93,7 @@ def create_service_plan(
 # --- FIN DE LA FUNCIÓN MODIFICADA ---
 
 
-def remove_service_plan(api: RouterOsApi, plan_name: str) -> Dict[str, bool]:
+def remove_service_plan(api: RouterOsApi, plan_name: str) -> dict[str, bool]:
     """
     Elimina un plan de servicio (perfil PPP y, opcionalmente, su pool de IP asociado).
     Maneja nombres de planes que ya vienen con el prefijo 'profile-'.
@@ -164,9 +162,7 @@ def remove_pppoe_server(api: RouterOsApi, service_name: str) -> bool:
     return False
 
 
-def get_pppoe_secrets(
-    api: RouterOsApi, username: Optional[str] = None
-) -> List[Dict[str, Any]]:
+def get_pppoe_secrets(api: RouterOsApi, username: str | None = None) -> list[dict[str, Any]]:
     try:
         resource = api.get_resource("/ppp/secret")
         return resource.get(name=username) if username else resource.get()
@@ -175,9 +171,7 @@ def get_pppoe_secrets(
         return []
 
 
-def get_pppoe_active_connections(
-    api: RouterOsApi, name: Optional[str] = None
-) -> List[Dict[str, Any]]:
+def get_pppoe_active_connections(api: RouterOsApi, name: str | None = None) -> list[dict[str, Any]]:
     try:
         resource = api.get_resource("/ppp/active")
         return resource.get(name=name) if name else resource.get()
@@ -193,7 +187,7 @@ def create_pppoe_secret(
     profile: str,
     comment: str,
     service: str = "pppoe",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     resource = api.get_resource("/ppp/secret")
     if resource.get(name=username):
         raise ValueError(f"El usuario PPPoE '{username}' ya existe.")
@@ -205,13 +199,11 @@ def create_pppoe_secret(
         comment=comment,
     )
     if not (new_secret_list := resource.get(name=username)):
-        raise Exception(
-            f"No se pudo encontrar el secret '{username}' después de su creación."
-        )
+        raise Exception(f"No se pudo encontrar el secret '{username}' después de su creación.")
     return new_secret_list[0]
 
 
-def update_pppoe_secret(api: RouterOsApi, secret_id: str, **kwargs) -> Dict[str, Any]:
+def update_pppoe_secret(api: RouterOsApi, secret_id: str, **kwargs) -> dict[str, Any]:
     resource = api.get_resource("/ppp/secret")
     kwargs["id"] = secret_id
     return resource.set(**kwargs)
@@ -219,7 +211,7 @@ def update_pppoe_secret(api: RouterOsApi, secret_id: str, **kwargs) -> Dict[str,
 
 def enable_disable_pppoe_secret(
     api: RouterOsApi, secret_id: str, disable: bool = True
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     return update_pppoe_secret(api, secret_id, disabled="yes" if disable else "no")
 
 
@@ -227,33 +219,33 @@ def remove_pppoe_secret(api: RouterOsApi, secret_id: str) -> None:
     api.get_resource("/ppp/secret").remove(id=secret_id)
 
 
-def kill_active_pppoe_connection(api: RouterOsApi, username: str) -> Dict[str, Any]:
+def kill_active_pppoe_connection(api: RouterOsApi, username: str) -> dict[str, Any]:
     """
     Terminates an active PPPoE connection for a specific user.
     This forces the user to re-authenticate, picking up any profile/queue changes.
-    
+
     Args:
         api: RouterOS API connection
         username: The PPPoE username to disconnect
-    
+
     Returns:
         dict with status and message
     """
     try:
         resource = api.get_resource("/ppp/active")
         active_sessions = resource.get(name=username)
-        
+
         if not active_sessions:
             return {"status": "warning", "message": f"No active session for {username}"}
-        
+
         killed_count = 0
         for session in active_sessions:
             resource.remove(id=session[".id"])
             killed_count += 1
-        
+
         return {
-            "status": "success", 
-            "message": f"Terminated {killed_count} session(s) for {username}"
+            "status": "success",
+            "message": f"Terminated {killed_count} session(s) for {username}",
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -261,32 +253,31 @@ def kill_active_pppoe_connection(api: RouterOsApi, username: str) -> Dict[str, A
 
 def update_pppoe_secret_profile(
     api: RouterOsApi, username: str, new_profile: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Updates the profile for a PPPoE secret by username.
     Used when changing a user's plan.
-    
+
     Args:
         api: RouterOS API connection
         username: The PPPoE username to update
         new_profile: Name of the new PPP profile to assign
-    
+
     Returns:
         dict with status and the updated secret data
     """
     try:
         resource = api.get_resource("/ppp/secret")
         secrets = resource.get(name=username)
-        
+
         if not secrets:
             return {"status": "error", "message": f"Secret '{username}' not found"}
-        
+
         secret_id = secrets[0][".id"]
         resource.set(id=secret_id, profile=new_profile)
-        
+
         # Return updated secret
         updated = resource.get(name=username)
         return {"status": "success", "data": updated[0] if updated else None}
     except Exception as e:
         return {"status": "error", "message": str(e)}
-

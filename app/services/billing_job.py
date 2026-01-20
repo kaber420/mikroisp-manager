@@ -1,11 +1,11 @@
 # app/services/billing_job.py
 import logging
+
 from sqlmodel import Session
 
 from ..db.engine_sync import sync_engine
-from ..db import settings_db
 from .billing_service import BillingService
-from .router_service import RouterService, get_enabled_routers_sync, RouterConnectionError
+from .router_service import RouterConnectionError, RouterService, get_enabled_routers_sync
 
 # Configuración del Logger
 logger = logging.getLogger("BillingJob")
@@ -41,9 +41,7 @@ def run_billing_check():
                             f"   - No se pudo conectar a {router_creds.host} para limpiar: {e}"
                         )
                     except Exception as e:
-                        logger.error(
-                            f"   - Error inesperado limpiando {router_creds.host}: {e}"
-                        )
+                        logger.error(f"   - Error inesperado limpiando {router_creds.host}: {e}")
             except Exception as e:
                 logger.error(f"Error crítico en la fase de limpieza de routers: {e}")
 
@@ -53,6 +51,4 @@ def run_billing_check():
             logger.info(f"--- FIN DEL PROCESO. Resumen: {stats} ---")
 
     except Exception as e:
-        logger.critical(
-            f"Error crítico en la auditoría de facturación: {e}", exc_info=True
-        )
+        logger.critical(f"Error crítico en la auditoría de facturación: {e}", exc_info=True)

@@ -1,9 +1,9 @@
 import abc
 import logging
-from typing import Dict, Optional
 
 # Create specific logger for this module if needed, or use a shared one
 logger = logging.getLogger(__name__)
+
 
 class BaseDeviceConnector(abc.ABC):
     """
@@ -14,7 +14,7 @@ class BaseDeviceConnector(abc.ABC):
 
     def __init__(self):
         # host -> credentials dict
-        self._credentials: Dict[str, dict] = {}
+        self._credentials: dict[str, dict] = {}
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info("Initialized")
 

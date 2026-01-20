@@ -1,24 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from typing import List
 import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session
 
 from ...core.users import require_billing
-from ...models.user import User
 from ...db.engine_sync import get_sync_session
+from ...models.user import User
 
 # Import service classes
 from ...services.billing_service import BillingService
 from ...services.client_service import ClientService as ClientManagerService
 from ...services.payment_service import PaymentService
-
 from .models import (
+    AssignedCPE,
     Client,
     ClientCreate,
-    ClientUpdate,
-    AssignedCPE,
     ClientService,
     ClientServiceCreate,
+    ClientUpdate,
     Payment,
     PaymentCreate,
 )
@@ -41,7 +40,8 @@ def get_billing_service(session: Session = Depends(get_sync_session)) -> Billing
 
 # --- Client Endpoints ---
 
-@router.get("/clients", response_model=List[Client])
+
+@router.get("/clients", response_model=list[Client])
 def api_get_all_clients(
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
@@ -99,6 +99,7 @@ def api_delete_client(
     current_user: User = Depends(require_billing),
 ):
     from ...core.audit import log_action
+
     try:
         service.delete_client(client_id)
         log_action("DELETE", "client", str(client_id), user=current_user, request=request)
@@ -107,7 +108,7 @@ def api_delete_client(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.get("/clients/{client_id}/cpes", response_model=List[AssignedCPE])
+@router.get("/clients/{client_id}/cpes", response_model=list[AssignedCPE])
 def api_get_cpes_for_client(
     client_id: uuid.UUID,
     service: ClientManagerService = Depends(get_client_service),
@@ -117,6 +118,7 @@ def api_get_cpes_for_client(
 
 
 # --- Service Endpoints ---
+
 
 @router.post(
     "/clients/{client_id}/services",
@@ -130,9 +132,7 @@ def api_create_client_service(
     current_user: User = Depends(require_billing),
 ):
     try:
-        new_service = service.create_client_service(
-            client_id, service_data.model_dump()
-        )
+        new_service = service.create_client_service(client_id, service_data.model_dump())
         return new_service
     except ValueError as e:
         if "ya existe" in str(e):
@@ -140,7 +140,7 @@ def api_create_client_service(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/clients/{client_id}/services", response_model=List[ClientService])
+@router.get("/clients/{client_id}/services", response_model=list[ClientService])
 def api_get_client_services(
     client_id: uuid.UUID,
     service: ClientManagerService = Depends(get_client_service),
@@ -158,7 +158,7 @@ def api_change_service_plan(
 ):
     """
     Change the plan for an existing client service.
-    
+
     This endpoint:
     - Updates the plan_id in the database
     - For PPPoE: Updates the profile on the router
@@ -218,7 +218,7 @@ def api_change_pppoe_profile(
 ):
     """
     Change the PPPoE profile for a service.
-    
+
     This endpoint is used for PPPoE services where the profile is selected
     from the router's available profiles rather than from the local plans database.
     """
@@ -235,6 +235,7 @@ def api_change_pppoe_profile(
 
 
 # --- Payment Endpoints ---
+
 
 @router.post(
     "/clients/{client_id}/payments",
@@ -272,11 +273,10 @@ def api_register_payment_and_reactivate(
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {e}")
 
 
-@router.get("/clients/{client_id}/payments", response_model=List[Payment])
+@router.get("/clients/{client_id}/payments", response_model=list[Payment])
 def api_get_payment_history(
     client_id: uuid.UUID,
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
 ):
     return service.get_payment_history(client_id)
-

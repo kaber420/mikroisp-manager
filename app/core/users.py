@@ -3,9 +3,10 @@
 FastAPI Users configuration and authentication setup.
 Replaces manual JWT handling from app/auth.py with library-managed auth.
 """
+
 import os
 import uuid
-from typing import Optional
+
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
 from fastapi_users.authentication import (
@@ -77,18 +78,16 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     reset_password_token_secret = SECRET
     verification_token_secret = SECRET
 
-    async def on_after_register(self, user: User, request: Optional[Request] = None):
+    async def on_after_register(self, user: User, request: Request | None = None):
         """Called after successful user registration"""
         print(f"✅ User registered: {user.username} ({user.email})")
 
-    async def on_after_login(
-        self, user: User, request: Optional[Request] = None, response=None
-    ):
+    async def on_after_login(self, user: User, request: Request | None = None, response=None):
         """Called after successful login"""
         print(f"🔐 User logged in: {user.username}")
 
     async def on_after_forgot_password(
-        self, user: User, token: str, request: Optional[Request] = None
+        self, user: User, token: str, request: Request | None = None
     ):
         """Called after password reset request"""
         print(f"🔑 Password reset requested for: {user.username}")
@@ -102,7 +101,7 @@ class SQLAlchemyUserDatabaseByUsername(SQLAlchemyUserDatabase):
     used for authentication instead of email.
     """
 
-    async def get_by_email(self, email: str) -> Optional[User]:
+    async def get_by_email(self, email: str) -> User | None:
         """
         Override: Look up user by username field instead of email.
         The 'email' parameter here is actually the value from the login form's
@@ -159,23 +158,23 @@ VALID_ROLES = ["admin", "technician", "billing"]
 class RoleChecker:
     """
     Dependency class to check if the current user has one of the allowed roles.
-    
+
     Usage:
         @router.get("/admin-only")
         def admin_endpoint(user: User = Depends(RoleChecker(["admin"]))):
             ...
     """
-    
+
     def __init__(self, allowed_roles: list[str]):
         self.allowed_roles = allowed_roles
-    
+
     def __call__(self, user: User = Depends(current_active_user)) -> User:
         from fastapi import HTTPException, status
-        
+
         if user.role not in self.allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied. Required role: {', '.join(self.allowed_roles)}. Your role: {user.role}"
+                detail=f"Access denied. Required role: {', '.join(self.allowed_roles)}. Your role: {user.role}",
             )
         return user
 
@@ -184,4 +183,3 @@ class RoleChecker:
 require_admin = RoleChecker(["admin"])
 require_technician = RoleChecker(["admin", "technician"])
 require_billing = RoleChecker(["admin", "billing"])
-

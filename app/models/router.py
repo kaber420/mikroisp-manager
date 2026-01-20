@@ -1,6 +1,7 @@
-from typing import Optional
-from sqlmodel import Field, SQLModel, Relationship
 from datetime import datetime
+
+from sqlmodel import Field, SQLModel
+
 
 class Router(SQLModel, table=True):
     __tablename__ = "routers"
@@ -10,25 +11,25 @@ class Router(SQLModel, table=True):
     api_ssl_port: int = Field(default=8729)
     username: str = Field(nullable=False)
     password: str = Field(nullable=False)
-    zona_id: Optional[int] = Field(default=None, foreign_key="zonas.id")
+    zona_id: int | None = Field(default=None, foreign_key="zonas.id")
     is_enabled: bool = Field(default=True)
-    hostname: Optional[str] = Field(default=None)
-    model: Optional[str] = Field(default=None)
-    firmware: Optional[str] = Field(default=None)
-    last_status: Optional[str] = Field(default=None)
-    last_checked: Optional[datetime] = Field(default=None)
-    
+    hostname: str | None = Field(default=None)
+    model: str | None = Field(default=None)
+    firmware: str | None = Field(default=None)
+    last_status: str | None = Field(default=None)
+    last_checked: datetime | None = Field(default=None)
+
     # Suspension Configuration
     # Options: "address_list", "queue_limit", "pppoe_disable", "none"
-    suspension_type: Optional[str] = Field(default="address_list")
+    suspension_type: str | None = Field(default="address_list")
     # Custom name (will be prefixed with BL_ or WL_ automatically)
-    address_list_name: Optional[str] = Field(default="morosos")
+    address_list_name: str | None = Field(default="morosos")
     # Options: "blacklist" (BL_), "whitelist" (WL_)
-    address_list_strategy: Optional[str] = Field(default="blacklist")
-    
+    address_list_strategy: str | None = Field(default="blacklist")
+
     # WAN Interface for traffic monitoring
-    wan_interface: Optional[str] = Field(default=None)
-    
+    wan_interface: str | None = Field(default=None)
+
     # Provisioning status (True after successful secure provisioning)
     is_provisioned: bool = Field(default=False)
 

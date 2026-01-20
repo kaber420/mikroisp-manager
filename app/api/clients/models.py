@@ -1,52 +1,52 @@
 # app/api/clients/models.py
-from pydantic import BaseModel, ConfigDict
-from typing import List, Optional
 import uuid
 from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict
 
 
 # --- Modelos Pydantic (Cliente) ---
 class Client(BaseModel):
     id: uuid.UUID
     name: str
-    address: Optional[str] = None
-    phone_number: Optional[str] = None
-    whatsapp_number: Optional[str] = None
-    email: Optional[str] = None
+    address: str | None = None
+    phone_number: str | None = None
+    whatsapp_number: str | None = None
+    email: str | None = None
     service_status: str
-    billing_day: Optional[int] = None
+    billing_day: int | None = None
     created_at: datetime
-    cpe_count: Optional[int] = 0
+    cpe_count: int | None = 0
     model_config = ConfigDict(from_attributes=True)
 
 
 class ClientCreate(BaseModel):
     name: str
-    address: Optional[str] = None
-    phone_number: Optional[str] = None
-    whatsapp_number: Optional[str] = None
-    email: Optional[str] = None
+    address: str | None = None
+    phone_number: str | None = None
+    whatsapp_number: str | None = None
+    email: str | None = None
     service_status: str = "active"
-    billing_day: Optional[int] = None
-    notes: Optional[str] = None
+    billing_day: int | None = None
+    notes: str | None = None
 
 
 class ClientUpdate(BaseModel):
-    name: Optional[str] = None
-    address: Optional[str] = None
-    phone_number: Optional[str] = None
-    whatsapp_number: Optional[str] = None
-    email: Optional[str] = None
-    service_status: Optional[str] = None
-    billing_day: Optional[int] = None
-    notes: Optional[str] = None
+    name: str | None = None
+    address: str | None = None
+    phone_number: str | None = None
+    whatsapp_number: str | None = None
+    email: str | None = None
+    service_status: str | None = None
+    billing_day: int | None = None
+    notes: str | None = None
 
 
 class AssignedCPE(BaseModel):
     mac: str
-    hostname: Optional[str] = None
-    ip_address: Optional[str] = None
-    service_id: Optional[int] = None  # CPE can be assigned to a specific service
+    hostname: str | None = None
+    ip_address: str | None = None
+    service_id: int | None = None  # CPE can be assigned to a specific service
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -54,16 +54,16 @@ class AssignedCPE(BaseModel):
 class ClientServiceBase(BaseModel):
     router_host: str
     service_type: str
-    pppoe_username: Optional[str] = None
-    router_secret_id: Optional[str] = None
-    profile_name: Optional[str] = None
-    plan_id: Optional[int] = None
-    ip_address: Optional[str] = None
+    pppoe_username: str | None = None
+    router_secret_id: str | None = None
+    profile_name: str | None = None
+    plan_id: int | None = None
+    ip_address: str | None = None
     suspension_method: str
-    address: Optional[str] = None
+    address: str | None = None
     status: str = "active"
-    billing_day: Optional[int] = None
-    notes: Optional[str] = None
+    billing_day: int | None = None
+    notes: str | None = None
 
 
 class ClientServiceCreate(ClientServiceBase):
@@ -74,7 +74,7 @@ class ClientService(ClientServiceBase):
     id: int
     client_id: uuid.UUID
     created_at: datetime
-    plan_name: Optional[str] = None
+    plan_name: str | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -82,8 +82,8 @@ class ClientService(ClientServiceBase):
 class PaymentBase(BaseModel):
     monto: float
     mes_correspondiente: str
-    metodo_pago: Optional[str] = None
-    notas: Optional[str] = None
+    metodo_pago: str | None = None
+    notas: str | None = None
 
 
 class PaymentCreate(PaymentBase):

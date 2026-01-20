@@ -6,134 +6,134 @@ Supports both legacy 'wireless' and new 'wifi/wifiwave2' packages.
 """
 
 import logging
-from typing import List, Optional, Dict, Any
 
 from routeros_api.api import RouterOsApi
 
-from .base import BaseDeviceAdapter, DeviceStatus, ConnectedClient
+from ....core.constants import DeviceRole, DeviceVendor
+from ..mikrotik import parsers as mikrotik_parsers
+
 # Reuse existing MikroTik utilities
 from ..mikrotik import system as mikrotik_system
-from ..mikrotik import connection as mikrotik_connection
-from ..mikrotik import parsers as mikrotik_parsers
+
 # NEW: Import the shared wireless module
 from ..mikrotik import wireless as mikrotik_wireless_lib
-from ....core.constants import DeviceVendor, DeviceRole
+from .base import ConnectedClient, DeviceStatus
 
 logger = logging.getLogger(__name__)
 
 
 from .mikrotik_router import MikrotikRouterAdapter
 
+
 class MikrotikWirelessAdapter(MikrotikRouterAdapter):
     """
     Adapter for MikroTik wireless devices (AP).
-    Inherits all Router capabilities (IP, Firewall, Queues, etc.) 
+    Inherits all Router capabilities (IP, Firewall, Queues, etc.)
     and adds Wireless-specific monitoring functionality.
     """
-    
+
     def __init__(
-        self, 
-        host: str, 
-        username: str, 
-        password: str, 
-        port: int = 8729,
-        api: RouterOsApi = None
+        self, host: str, username: str, password: str, port: int = 8729, api: RouterOsApi = None
     ):
         # Initialize the Router adapter (which handles connection pooling)
         super().__init__(host, username, password, port, api)
-    
+
     @property
     def vendor(self) -> str:
         return DeviceVendor.MIKROTIK
-    
+
     # _get_api is already implemented in MikrotikRouterAdapter
-    
+
     def get_status(self) -> DeviceStatus:
         """Fetch live status from the MikroTik device."""
         try:
             api = self._get_api()
-            
+
             # 1. System Resources (Shared Module)
             system_data = mikrotik_system.get_system_resources(api)
-            
+
             # 2. Wireless Info (Shared Module)
             # Get detailed list of interfaces
             wireless_interfaces = mikrotik_wireless_lib.get_wireless_interfaces_detailed(api)
-            
+
             # Detect main properties from the first found wireless interface
             wireless_info = {}
             wireless_type = None
-            
+
             if wireless_interfaces:
                 # Use the first interface as the "Main" one for AP summary
                 main_iface = wireless_interfaces[0]
                 wireless_type = main_iface.get("type")
-                
+
                 wireless_info = {
                     "ssid": (
-                        main_iface.get("original_record", {}).get("configuration.ssid") or 
-                        main_iface.get("original_record", {}).get("ssid") or 
-                        main_iface["name"]
+                        main_iface.get("original_record", {}).get("configuration.ssid")
+                        or main_iface.get("original_record", {}).get("ssid")
+                        or main_iface["name"]
                     ),
                     "frequency": mikrotik_parsers.parse_frequency(main_iface.get("frequency")),
                     "band": main_iface.get("band"),
                     "channel_width": mikrotik_parsers.parse_channel_width(main_iface.get("width")),
                     "mac": main_iface.get("original_record", {}).get("mac-address"),
-                    "tx_power": main_iface.get("tx_power")
+                    "tx_power": main_iface.get("tx_power"),
                 }
             else:
-                 # Check if we at least detected a type even without active interfaces
-                 wireless_type = mikrotik_wireless_lib.get_wireless_type(api)
+                # Check if we at least detected a type even without active interfaces
+                wireless_type = mikrotik_wireless_lib.get_wireless_type(api)
 
             # 3. Aggregate Stats (Shared Module)
             stats = mikrotik_wireless_lib.get_aggregate_interface_stats(api)
-            
+
             # 4. Connected Clients (Shared Module)
             clients_list = mikrotik_wireless_lib.get_connected_clients(api)
-            
+
             # Convert dicts to ConnectedClient objects
             connected_clients = []
             noise_samples = []
-            
+
             for c in clients_list:
                 # Extract extra data for client object
                 extra_data = c.get("extra", {})
-                
+
                 # Collect noise floor samples
                 nf = c.get("noise_floor")
-                if nf: 
+                if nf:
                     # Try to parse if it's a string, though wireless_lib might pass raw
-                    parsed_nf = mikrotik_parsers.parse_int(nf) or mikrotik_parsers.parse_signal(str(nf))
+                    parsed_nf = mikrotik_parsers.parse_int(nf) or mikrotik_parsers.parse_signal(
+                        str(nf)
+                    )
                     if parsed_nf:
                         noise_samples.append(parsed_nf)
 
-                connected_clients.append(ConnectedClient(
-                    mac=c["mac"],
-                    hostname=c["hostname"],
-                    ip_address=c["ip_address"],
-                    signal=c["signal"],
-                    signal_chain0=c.get("signal_chain0"),
-                    signal_chain1=c.get("signal_chain1"),
-                    noisefloor=c.get("noise_floor"),
-                    tx_rate=c["tx_rate"],
-                    rx_rate=c["rx_rate"],
-                    ccq=c["ccq"],
-                    tx_bytes=c["tx_bytes"],
-                    rx_bytes=c["rx_bytes"],
-                    tx_throughput_kbps=c["tx_throughput_kbps"],
-                    rx_throughput_kbps=c["rx_throughput_kbps"],
-                    uptime=c["uptime"],
-                    interface=c["interface"],
-                    ssid=c.get("ssid"),
-                    band=c.get("band"),
-                    extra={**extra_data, "snr": c.get("snr")}
-                ))
-            
+                connected_clients.append(
+                    ConnectedClient(
+                        mac=c["mac"],
+                        hostname=c["hostname"],
+                        ip_address=c["ip_address"],
+                        signal=c["signal"],
+                        signal_chain0=c.get("signal_chain0"),
+                        signal_chain1=c.get("signal_chain1"),
+                        noisefloor=c.get("noise_floor"),
+                        tx_rate=c["tx_rate"],
+                        rx_rate=c["rx_rate"],
+                        ccq=c["ccq"],
+                        tx_bytes=c["tx_bytes"],
+                        rx_bytes=c["rx_bytes"],
+                        tx_throughput_kbps=c["tx_throughput_kbps"],
+                        rx_throughput_kbps=c["rx_throughput_kbps"],
+                        uptime=c["uptime"],
+                        interface=c["interface"],
+                        ssid=c.get("ssid"),
+                        band=c.get("band"),
+                        extra={**extra_data, "snr": c.get("snr")},
+                    )
+                )
+
             # Calculate average noise floor if not available from interface
             avg_noise_floor = None
             if noise_samples:
                 avg_noise_floor = sum(noise_samples) // len(noise_samples)
-            
+
             noise_floor_val = None
             # Some interfaces provide noise floor directly, but our detailed list doesn't extract it by default
             # We can use the average from clients as a good fallback
@@ -144,16 +144,18 @@ class MikrotikWirelessAdapter(MikrotikRouterAdapter):
             if not system_mac:
                 # Fallback to finding an ethernet mac
                 try:
-                    all_ethers = mikrotik_system.get_interfaces(api) # Reusing existing system module function
+                    all_ethers = mikrotik_system.get_interfaces(
+                        api
+                    )  # Reusing existing system module function
                     for iface in all_ethers:
-                         if iface.get("mac-address"):
-                             system_mac = iface.get("mac-address")
-                             break
+                        if iface.get("mac-address"):
+                            system_mac = iface.get("mac-address")
+                            break
                 except Exception:
                     pass
 
             uptime_seconds = mikrotik_parsers.parse_uptime(system_data.get("uptime", "0s"))
-            
+
             return DeviceStatus(
                 host=self.host,
                 vendor=self.vendor,
@@ -183,23 +185,26 @@ class MikrotikWirelessAdapter(MikrotikRouterAdapter):
                     "wireless_type": wireless_type,
                     "has_wireless": wireless_type is not None,
                 },
-                interfaces=[{
-                    "name": i["name"],
-                    "ssid": (
-                        i.get("original_record", {}).get("configuration.ssid") or 
-                        i.get("original_record", {}).get("ssid") or 
-                        i["name"]
-                    ),
-                    "band": i["band"],
-                    "frequency": i["frequency"],
-                    "width": i["width"],
-                    "tx_power": i["tx_power"],
-                    "mac": i.get("original_record", {}).get("mac-address"),
-                    "disabled": i.get("original_record", {}).get("disabled") == "true",
-                    "running": i.get("original_record", {}).get("running") == "true",
-                } for i in wireless_interfaces]
+                interfaces=[
+                    {
+                        "name": i["name"],
+                        "ssid": (
+                            i.get("original_record", {}).get("configuration.ssid")
+                            or i.get("original_record", {}).get("ssid")
+                            or i["name"]
+                        ),
+                        "band": i["band"],
+                        "frequency": i["frequency"],
+                        "width": i["width"],
+                        "tx_power": i["tx_power"],
+                        "mac": i.get("original_record", {}).get("mac-address"),
+                        "disabled": i.get("original_record", {}).get("disabled") == "true",
+                        "running": i.get("original_record", {}).get("running") == "true",
+                    }
+                    for i in wireless_interfaces
+                ],
             )
-            
+
         except Exception as e:
             logger.error(f"Error getting status from {self.host}: {e}")
             # On error, invalidate the cached pool so next request creates fresh connection
@@ -209,16 +214,16 @@ class MikrotikWirelessAdapter(MikrotikRouterAdapter):
                 vendor=self.vendor,
                 role=DeviceRole.ACCESS_POINT,
                 is_online=False,
-                last_error=str(e)
+                last_error=str(e),
             )
-    
-    def get_connected_clients(self) -> List[ConnectedClient]:
+
+    def get_connected_clients(self) -> list[ConnectedClient]:
         """Get the list of connected clients from registration table."""
         api = self._get_api()
-        
+
         # Use shared module
         clients_data = mikrotik_wireless_lib.get_connected_clients(api)
-        
+
         # Convert to objects
         return [
             ConnectedClient(
@@ -240,11 +245,11 @@ class MikrotikWirelessAdapter(MikrotikRouterAdapter):
                 signal_chain0=c.get("signal_chain0"),
                 signal_chain1=c.get("signal_chain1"),
                 noisefloor=c.get("noise_floor"),
-                extra={**c.get("extra", {}), "snr": c.get("snr")}
+                extra={**c.get("extra", {}), "snr": c.get("snr")},
             )
             for c in clients_data
         ]
-    
+
     def test_connection(self) -> bool:
         """Test if the device is reachable."""
         try:
@@ -256,5 +261,3 @@ class MikrotikWirelessAdapter(MikrotikRouterAdapter):
             logger.error(f"Connection test failed for {self.host}: {e}")
             self.disconnect()
             return False
-    
-

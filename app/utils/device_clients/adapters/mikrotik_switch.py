@@ -5,13 +5,15 @@ Switches run RouterOS and support all standard router operations.
 This adapter can be extended in the future for switch-specific features like
 port management, VLANs, and spanning tree.
 """
+
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Any
+
 from routeros_api.api import RouterOsApi
 
-from .mikrotik_router import MikrotikRouterAdapter
-from .base import DeviceStatus
 from ....core.constants import DeviceRole
+from .base import DeviceStatus
+from .mikrotik_router import MikrotikRouterAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -20,21 +22,28 @@ class MikrotikSwitchAdapter(MikrotikRouterAdapter):
     """
     Adapter for MikroTik Switches.
     Inherits all RouterOS functionality from MikrotikRouterAdapter.
-    
+
     Switches (like CRS series) run full RouterOS and support:
     - System resources monitoring
     - Interface management
     - Bridge and VLAN configuration
     - User management
     - Backup and file operations
-    
+
     Future switch-specific features could include:
     - Port statistics
     - PoE management
     - Spanning Tree status
     """
-    
-    def __init__(self, host: str, username: str, password: str, port: int = 8729, api: Optional[RouterOsApi] = None):
+
+    def __init__(
+        self,
+        host: str,
+        username: str,
+        password: str,
+        port: int = 8729,
+        api: RouterOsApi | None = None,
+    ):
         super().__init__(host, username, password, port, api)
 
     @property
@@ -58,12 +67,12 @@ class MikrotikSwitchAdapter(MikrotikRouterAdapter):
             firmware=status.firmware,
             is_online=status.is_online,
             last_error=status.last_error,
-            extra=status.extra
+            extra=status.extra,
         )
 
     # --- Switch-Specific Methods (Future Extensions) ---
-    
-    def get_port_stats(self) -> List[Dict[str, Any]]:
+
+    def get_port_stats(self) -> list[dict[str, Any]]:
         """
         Get statistics for all switch ports.
         Returns interface statistics filtered for ethernet ports.
@@ -76,7 +85,7 @@ class MikrotikSwitchAdapter(MikrotikRouterAdapter):
             logger.error(f"Error getting port stats: {e}")
             return []
 
-    def get_poe_status(self) -> List[Dict[str, Any]]:
+    def get_poe_status(self) -> list[dict[str, Any]]:
         """
         Get PoE status for switch ports (if supported).
         Returns empty list if PoE is not available on this switch.
@@ -90,7 +99,7 @@ class MikrotikSwitchAdapter(MikrotikRouterAdapter):
             logger.debug(f"PoE not available or error: {e}")
             return []
 
-    def get_switch_chip_ports(self) -> List[Dict[str, Any]]:
+    def get_switch_chip_ports(self) -> list[dict[str, Any]]:
         """
         Get switch chip port configuration.
         Available on CRS series switches.

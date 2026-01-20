@@ -1,21 +1,22 @@
 # app/api/routers/config.py
-from fastapi import APIRouter, Depends, Query, HTTPException, status, Request
-from typing import List, Dict, Any
+from typing import Any
 
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+
+from ...core.users import current_active_user as get_current_active_user
+from ...models.user import User
 from ...services.router_service import (
+    RouterCommandError,
     RouterService,
     get_router_service,
-    RouterCommandError,
-)  
-from ...models.user import User
-from ...core.users import current_active_user as get_current_active_user
+)
 from .models import (
-    RouterFullDetails,
-    CreatePlanRequest,
-    AddSimpleQueueRequest,
     AddIpRequest,
     AddNatRequest,
     AddPppoeServerRequest,
+    AddSimpleQueueRequest,
+    CreatePlanRequest,
+    RouterFullDetails,
 )
 
 router = APIRouter()
@@ -29,15 +30,13 @@ def get_router_full_details(
     try:
         return service.get_full_details()
     except RouterCommandError as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error reading bulk data from router: {e}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error reading bulk data from router: {e}")
 
 
 # --- Endpoints de Escritura (ADD) ---
 
 
-@router.post("/write/create-plan", response_model=Dict[str, Any])
+@router.post("/write/create-plan", response_model=dict[str, Any])
 def write_create_service_plan(
     data: CreatePlanRequest,
     service: RouterService = Depends(get_router_service),
@@ -52,7 +51,7 @@ def write_create_service_plan(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/write/add-simple-queue", response_model=Dict[str, Any])
+@router.post("/write/add-simple-queue", response_model=dict[str, Any])
 def write_add_simple_queue(
     data: AddSimpleQueueRequest,
     service: RouterService = Depends(get_router_service),
@@ -64,7 +63,7 @@ def write_add_simple_queue(
         raise HTTPException(status_code=409, detail=str(e))
 
 
-@router.post("/write/add-ip", response_model=Dict[str, Any])
+@router.post("/write/add-ip", response_model=dict[str, Any])
 def write_add_ip_address(
     data: AddIpRequest,
     service: RouterService = Depends(get_router_service),
@@ -83,7 +82,7 @@ def write_add_ip_address(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/write/add-nat", response_model=Dict[str, Any])
+@router.post("/write/add-nat", response_model=dict[str, Any])
 def write_add_nat_rule(
     data: AddNatRequest,
     service: RouterService = Depends(get_router_service),
@@ -100,7 +99,7 @@ def write_add_nat_rule(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/write/add-pppoe-server", response_model=Dict[str, Any])
+@router.post("/write/add-pppoe-server", response_model=dict[str, Any])
 def write_add_pppoe_server(
     data: AddPppoeServerRequest,
     service: RouterService = Depends(get_router_service),
@@ -131,11 +130,10 @@ def write_delete_ip_address(
     user: User = Depends(get_current_active_user),
 ):
     from ...core.audit import log_action
+
     try:
         if not service.remove_ip_address(address):
-            raise HTTPException(
-                status_code=404, detail="IP address not found on router."
-            )
+            raise HTTPException(status_code=404, detail="IP address not found on router.")
         log_action("DELETE", "ip_address", address, user=user, request=request)
     except RouterCommandError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -150,11 +148,10 @@ def write_delete_nat_rule(
     user: User = Depends(get_current_active_user),
 ):
     from ...core.audit import log_action
+
     try:
         if not service.remove_nat_rule(comment):
-            raise HTTPException(
-                status_code=404, detail="NAT rule with that comment not found."
-            )
+            raise HTTPException(status_code=404, detail="NAT rule with that comment not found.")
         log_action("DELETE", "nat_rule", comment, user=user, request=request)
     except RouterCommandError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -169,6 +166,7 @@ def write_delete_pppoe_server(
     user: User = Depends(get_current_active_user),
 ):
     from ...core.audit import log_action
+
     try:
         if not service.remove_pppoe_server(service_name):
             raise HTTPException(
@@ -179,7 +177,7 @@ def write_delete_pppoe_server(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.delete("/write/delete-plan", response_model=Dict[str, bool])
+@router.delete("/write/delete-plan", response_model=dict[str, bool])
 def write_delete_service_plan(
     plan_name: str = Query(...),
     host: str = "",
@@ -188,21 +186,18 @@ def write_delete_service_plan(
     user: User = Depends(get_current_active_user),
 ):
     from ...core.audit import log_action
+
     try:
         results = service.remove_service_plan(plan_name)
         if not results:
-            raise HTTPException(
-                status_code=404, detail="No components found for that plan name."
-            )
+            raise HTTPException(status_code=404, detail="No components found for that plan name.")
         log_action("DELETE", "service_plan", plan_name, user=user, request=request)
         return results
     except RouterCommandError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete(
-    "/write/delete-simple-queue/{queue_id:path}", status_code=status.HTTP_204_NO_CONTENT
-)
+@router.delete("/write/delete-simple-queue/{queue_id:path}", status_code=status.HTTP_204_NO_CONTENT)
 def write_delete_simple_queue(
     queue_id: str,
     host: str = "",
@@ -211,6 +206,7 @@ def write_delete_simple_queue(
     user: User = Depends(get_current_active_user),
 ):
     from ...core.audit import log_action
+
     try:
         service.remove_simple_queue(queue_id)
         log_action("DELETE", "simple_queue", queue_id, user=user, request=request)

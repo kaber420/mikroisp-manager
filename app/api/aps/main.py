@@ -1,32 +1,39 @@
 # app/api/aps/main.py
-from fastapi import APIRouter, Depends, HTTPException, status, Request, WebSocket, WebSocketDisconnect
-from typing import List, Optional, Dict, Any
-from datetime import datetime
 import asyncio
+from datetime import datetime
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...db.engine import get_session, async_session_maker
-from ...db import settings_db
 
 # --- RBAC: Use require_technician for all AP operations ---
-from ...core.users import require_technician, require_admin
+from ...core.users import require_admin, require_technician
+from ...db import settings_db
+from ...db.engine import async_session_maker, get_session
 from ...models.user import User
 from ...services.ap_service import (
-    APService,
-    APNotFoundError,
-    APUnreachableError,
-    APDataError,
     APCreateError,
+    APDataError,
+    APNotFoundError,
+    APService,
+    APUnreachableError,
 )
 
 # --- ¡IMPORTACIÓN CORREGIDA! (Ahora desde '.models') ---
 from .models import (
     AP,
     APCreate,
+    APHistoryResponse,
+    APLiveDetail,
     APUpdate,
     CPEDetail,
-    APLiveDetail,
-    HistoryDataPoint,
-    APHistoryResponse,
 )
 
 router = APIRouter()
@@ -45,17 +52,17 @@ async def get_ap_service(session: AsyncSession = Depends(get_session)) -> APServ
 async def ap_resources_stream(websocket: WebSocket, host: str):
     """
     Canal de streaming para datos en vivo del AP.
-    
+
     ARQUITECTURA V2 (Scheduler + Cache compartido):
     - NO crea conexión directa al AP.
     - Se suscribe al APMonitorScheduler.
     - Lee del CacheManager local (compartido entre usuarios).
     """
-    from ...utils.security import decrypt_data
     from ...models.ap import AP as APModel
     from ...services.ap_monitor_scheduler import ap_monitor_scheduler
     from ...utils.cache import cache_manager
-    
+    from ...utils.security import decrypt_data
+
     await websocket.accept()
 
     try:
@@ -63,27 +70,21 @@ async def ap_resources_stream(websocket: WebSocket, host: str):
         async with async_session_maker() as session:
             ap = await session.get(APModel, host)
             if not ap:
-                await websocket.send_json({
-                    "type": "error",
-                    "data": {"message": f"AP {host} no encontrado"}
-                })
+                await websocket.send_json(
+                    {"type": "error", "data": {"message": f"AP {host} no encontrado"}}
+                )
                 await websocket.close()
                 return
-            
+
             # Copy needed data before session closes
             vendor = ap.vendor or "mikrotik"
             username = ap.username
             password = decrypt_data(ap.password)
             port = ap.api_port or (443 if vendor == "ubiquiti" else 8729)
             ap_monitor_interval = ap.monitor_interval or 2
-            
+
             # Prepare credentials for scheduler
-            creds = {
-                "username": username,
-                "password": password,
-                "vendor": vendor,
-                "port": port
-            }
+            creds = {"username": username, "password": password, "vendor": vendor, "port": port}
 
         # 2. Subscribe to scheduler (starts shared polling if first subscriber)
         await ap_monitor_scheduler.subscribe(host, creds, interval=ap_monitor_interval)
@@ -91,7 +92,7 @@ async def ap_resources_stream(websocket: WebSocket, host: str):
 
         # 3. Loop reading from cache
         stats_cache = cache_manager.get_store("ap_stats")
-        
+
         while True:
             # Determine interval
             if ap_monitor_interval and ap_monitor_interval >= 1:
@@ -107,43 +108,46 @@ async def ap_resources_stream(websocket: WebSocket, host: str):
 
             # Read from cache
             data = stats_cache.get(host)
-            
+
             if data:
                 if "error" in data:
                     # Error in polling - notify but don't close
-                    await websocket.send_json({
-                        "type": "error",
-                        "data": {"message": data["error"]}
-                    })
+                    await websocket.send_json({"type": "error", "data": {"message": data["error"]}})
                 else:
                     # Transform data for frontend compatibility
                     clients_list = []
                     for client in data.get("clients", []):
-                        clients_list.append({
-                            "cpe_mac": client.get("mac"),
-                            "cpe_hostname": client.get("hostname"),
-                            "ip_address": client.get("ip_address"),
-                            "signal": client.get("signal"),
-                            "signal_chain0": client.get("signal_chain0"),
-                            "signal_chain1": client.get("signal_chain1"),
-                            "noisefloor": client.get("noisefloor"),
-                            "dl_capacity": client.get("extra", {}).get("dl_capacity") if client.get("extra") else None,
-                            "ul_capacity": client.get("extra", {}).get("ul_capacity") if client.get("extra") else None,
-                            "throughput_rx_kbps": client.get("rx_throughput_kbps"),
-                            "throughput_tx_kbps": client.get("tx_throughput_kbps"),
-                            "total_rx_bytes": client.get("rx_bytes"),
-                            "total_tx_bytes": client.get("tx_bytes"),
-                            "ccq": client.get("ccq"),
-                            "tx_rate": client.get("tx_rate"),
-                            "rx_rate": client.get("rx_rate"),
-                        })
-                    
+                        clients_list.append(
+                            {
+                                "cpe_mac": client.get("mac"),
+                                "cpe_hostname": client.get("hostname"),
+                                "ip_address": client.get("ip_address"),
+                                "signal": client.get("signal"),
+                                "signal_chain0": client.get("signal_chain0"),
+                                "signal_chain1": client.get("signal_chain1"),
+                                "noisefloor": client.get("noisefloor"),
+                                "dl_capacity": client.get("extra", {}).get("dl_capacity")
+                                if client.get("extra")
+                                else None,
+                                "ul_capacity": client.get("extra", {}).get("ul_capacity")
+                                if client.get("extra")
+                                else None,
+                                "throughput_rx_kbps": client.get("rx_throughput_kbps"),
+                                "throughput_tx_kbps": client.get("tx_throughput_kbps"),
+                                "total_rx_bytes": client.get("rx_bytes"),
+                                "total_tx_bytes": client.get("tx_bytes"),
+                                "ccq": client.get("ccq"),
+                                "tx_rate": client.get("tx_rate"),
+                                "rx_rate": client.get("rx_rate"),
+                            }
+                        )
+
                     # Calculate memory usage
                     memory_usage = 0
                     extra = data.get("extra", {})
                     free_mem = extra.get("free_memory")
                     total_mem = extra.get("total_memory")
-                    
+
                     if free_mem and total_mem:
                         try:
                             free = int(free_mem)
@@ -184,7 +188,7 @@ async def ap_resources_stream(websocket: WebSocket, host: str):
                                 "uptime": extra.get("uptime", "--"),
                                 "platform": extra.get("platform"),
                                 "wireless_type": extra.get("wireless_type"),
-                            }
+                            },
                         },
                     }
                     await websocket.send_json(payload)
@@ -198,6 +202,7 @@ async def ap_resources_stream(websocket: WebSocket, host: str):
         print(f"✅ WS AP: Cliente desconectado del stream {host}")
     except Exception as e:
         import traceback
+
         print(f"❌ WS AP Error crítico en {host}: {e}")
         traceback.print_exc()
     finally:
@@ -228,7 +233,7 @@ async def create_ap(
         raise HTTPException(status_code=500, detail=f"Error interno: {e}")
 
 
-@router.get("/aps", response_model=List[AP])
+@router.get("/aps", response_model=list[AP])
 async def get_all_aps(
     service: APService = Depends(get_ap_service),
     current_user: User = Depends(require_technician),
@@ -287,6 +292,7 @@ async def delete_ap(
     Elimina un AP del sistema y registra la acción en auditoría.
     """
     from ...core.audit import log_action
+
     try:
         await service.delete_ap(host)
         log_action("DELETE", "ap", host, user=current_user, request=request)
@@ -295,7 +301,7 @@ async def delete_ap(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.get("/aps/{host}/cpes", response_model=List[CPEDetail])
+@router.get("/aps/{host}/cpes", response_model=list[CPEDetail])
 def get_cpes_for_ap(
     host: str,
     service: APService = Depends(get_ap_service),
@@ -354,31 +360,31 @@ async def get_ap_ssl_status(
     Obtiene el estado SSL/TLS de un AP MikroTik.
     Retorna si SSL está habilitado, si el certificado es confiable, etc.
     """
+    from ...db.engine import async_session_maker
+    from ...models.ap import AP as APModel
     from ...utils.device_clients.adapter_factory import get_device_adapter
     from ...utils.security import decrypt_data
-    from ...models.ap import AP as APModel
-    from ...db.engine import async_session_maker
-    
+
     # Get AP from database
     async with async_session_maker() as session:
         ap = await session.get(APModel, host)
         if not ap:
             raise HTTPException(status_code=404, detail=f"AP {host} not found")
-        
+
         # Only MikroTik APs support SSL status check
         if ap.vendor != "mikrotik":
             return {
                 "ssl_enabled": False,
                 "is_trusted": False,
                 "status": "not_applicable",
-                "message": f"SSL status only available for MikroTik devices. This AP is: {ap.vendor}"
+                "message": f"SSL status only available for MikroTik devices. This AP is: {ap.vendor}",
             }
-        
+
         vendor = ap.vendor
         username = ap.username
         password = decrypt_data(ap.password)
         port = ap.api_port or 8729
-    
+
     adapter = None
     try:
         # Get adapter (MikrotikWirelessAdapter inherits get_ssl_status from MikrotikRouterAdapter)
@@ -389,11 +395,11 @@ async def get_ap_ssl_status(
             vendor=vendor,
             port=port,
         )
-        
+
         # Call inherited method from MikrotikRouterAdapter
         status_data = adapter.get_ssl_status()
         return status_data
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error checking SSL status: {e}")
     finally:
@@ -477,6 +483,7 @@ def validate_ap_connection(ap_data: APCreate):
 
 # --- Provisioning Endpoints (MikroTik APs Only) ---
 
+
 @router.post("/aps/{host}/provision")
 async def provision_ap(
     host: str,
@@ -486,54 +493,55 @@ async def provision_ap(
 ):
     """
     Provisions a MikroTik AP with secure API-SSL access.
-    
+
     Creates a dedicated API user and installs SSL certificates.
     Only works for MikroTik APs (vendor='mikrotik').
     """
-    from ...utils.security import decrypt_data, encrypt_data
-    from ...models.ap import AP as APModel
+    import logging
+
     from ...core.audit import log_action
+    from ...models.ap import AP as APModel
     from ...services.provisioning import MikrotikProvisioningService
     from ...services.provisioning.models import ProvisionRequest, ProvisionResponse
-    import logging
-    
+    from ...utils.security import decrypt_data, encrypt_data
+
     logger = logging.getLogger(__name__)
-    
+
     # Parse request body
     try:
         body = await request.json()
         data = ProvisionRequest(**body)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid request: {e}")
-    
+
     # 1. Get AP from database
     ap = await session.get(APModel, host)
     if not ap:
         raise HTTPException(status_code=404, detail="AP not found")
-    
+
     # 2. Validate vendor
     if ap.vendor != "mikrotik":
         raise HTTPException(
-            status_code=400, 
-            detail=f"Provisioning only available for MikroTik devices. This AP is: {ap.vendor}"
+            status_code=400,
+            detail=f"Provisioning only available for MikroTik devices. This AP is: {ap.vendor}",
         )
-    
+
     # 3. Check if already provisioned
     if ap.is_provisioned:
         raise HTTPException(
             status_code=400,
-            detail="AP is already provisioned. Contact administrator to re-provision."
+            detail="AP is already provisioned. Contact administrator to re-provision.",
         )
-    
+
     # 4. Decrypt current password
     current_password = decrypt_data(ap.password)
     ssl_port = ap.api_ssl_port or 8729
-    
+
     # 5. Record provisioning attempt
     ap.last_provision_attempt = datetime.now()
     ap.last_provision_error = None
     await session.commit()
-    
+
     try:
         # 6. Run provisioning
         result = await MikrotikProvisioningService.provision_device(
@@ -544,47 +552,47 @@ async def provision_ap(
             new_password=data.new_api_password,
             ssl_port=ssl_port,
             method=data.method,
-            device_type="ap"
+            device_type="ap",
         )
-        
+
         if result["status"] == "error":
             # Update error tracking
             ap.last_provision_error = result["message"]
             await session.commit()
             raise HTTPException(status_code=500, detail=result["message"])
-        
+
         # 7. Update AP in database
         ap.username = data.new_api_user
         ap.password = encrypt_data(data.new_api_password)
         ap.api_port = ssl_port  # Now use SSL port for connections
         ap.is_provisioned = True
         await session.commit()
-        
+
         # 8. Audit log
         log_action("PROVISION", "ap", host, user=current_user, request=request)
-        
+
         # 9. Reconnect to monitor scheduler with new credentials
         from ...services.ap_monitor_scheduler import ap_monitor_scheduler
-        
+
         try:
             await asyncio.sleep(2)  # Wait for API-SSL restart on device
             new_creds = {
                 "username": data.new_api_user,
                 "password": data.new_api_password,
                 "vendor": "mikrotik",
-                "port": ssl_port
+                "port": ssl_port,
             }
             await ap_monitor_scheduler.subscribe(host, new_creds)
         except Exception as e:
             logger.warning(f"Could not reconnect to scheduler after provisioning {host}: {e}")
             # Don't fail - scheduler will pick it up on next poll
-        
+
         return ProvisionResponse(
             status="success",
             message="AP provisioned successfully with API-SSL",
-            method_used=data.method
+            method_used=data.method,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -606,11 +614,11 @@ async def get_provision_status(
     """
     from ...models.ap import AP as APModel
     from ...services.provisioning.models import ProvisionStatus
-    
+
     ap = await session.get(APModel, host)
     if not ap:
         raise HTTPException(status_code=404, detail="AP not found")
-    
+
     return ProvisionStatus(
         host=host,
         is_provisioned=ap.is_provisioned,
@@ -619,7 +627,7 @@ async def get_provision_status(
         api_ssl_port=ap.api_ssl_port or 8729,
         can_provision=(ap.vendor == "mikrotik" and not ap.is_provisioned),
         last_provision_attempt=ap.last_provision_attempt,
-        last_provision_error=ap.last_provision_error
+        last_provision_error=ap.last_provision_error,
     )
 
 
@@ -633,56 +641,58 @@ async def repair_ap_connection(
 ):
     """
     Repara/recupera un AP MikroTik que está en estado de error.
-    
+
     Acciones que realiza:
     1. Limpia el estado de backoff (errores consecutivos)
     2. Limpia la caché de conexiones
     3. Si reset_provision=True, marca is_provisioned=False para permitir re-aprovisionar
-    
+
     Args:
         host: IP del AP
         reset_provision: Si es True, permite volver a ejecutar el aprovisionamiento SSL
-    
+
     Returns:
         Estado de la operación y siguientes pasos recomendados
     """
-    from ...models.ap import AP as APModel
     from ...core.audit import log_action
+    from ...models.ap import AP as APModel
     from ...services.ap_monitor_scheduler import ap_monitor_scheduler
-    
+
     # 1. Verificar que el AP existe
     ap = await session.get(APModel, host)
     if not ap:
         raise HTTPException(status_code=404, detail="AP no encontrado")
-    
+
     # 2. Solo para MikroTik APs
     if ap.vendor != "mikrotik":
         raise HTTPException(
             status_code=400,
-            detail=f"La reparación de aprovisionamiento solo aplica para MikroTik. Este AP es: {ap.vendor}"
+            detail=f"La reparación de aprovisionamiento solo aplica para MikroTik. Este AP es: {ap.vendor}",
         )
-    
+
     # 3. Reset connection state in scheduler (if available)
     reset_result = {"message": "Estado de conexión limpiado."}
     try:
-        if hasattr(ap_monitor_scheduler, 'reset_connection'):
+        if hasattr(ap_monitor_scheduler, "reset_connection"):
             reset_result = ap_monitor_scheduler.reset_connection(host)
     except Exception as e:
         reset_result = {"message": f"Advertencia al limpiar caché: {e}"}
-    
+
     # 4. Opcionalmente marcar como no aprovisionado para re-aprovisionar
     if reset_provision:
         ap.is_provisioned = False
         ap.last_provision_error = None
         await session.commit()
         reset_result["provision_reset"] = True
-        reset_result["message"] = "Estado de aprovisionamiento reseteado. Listo para re-aprovisionar SSL."
-    
+        reset_result["message"] = (
+            "Estado de aprovisionamiento reseteado. Listo para re-aprovisionar SSL."
+        )
+
     # 5. Audit log
-    log_action("REPAIR", "ap", host, user=current_user, details={
-        "reset_provision": reset_provision
-    })
-    
+    log_action(
+        "REPAIR", "ap", host, user=current_user, details={"reset_provision": reset_provision}
+    )
+
     return {
         "status": "success",
         "message": reset_result.get("message", "Operación completada"),
@@ -690,10 +700,12 @@ async def repair_ap_connection(
         "next_steps": [
             "Intente conectar nuevamente desde el Dashboard",
             "Si persisten errores SSL, use reset_provision=true para re-aprovisionar",
-            "Verifique que el AP esté encendido y accesible en la red"
-        ] if not reset_provision else [
+            "Verifique que el AP esté encendido y accesible en la red",
+        ]
+        if not reset_provision
+        else [
             "El AP ahora muestra el botón 'Provision' en la lista",
             "Haga clic en 'Provision' para re-configurar SSL",
-            "Use las credenciales admin del AP"
-        ]
+            "Use las credenciales admin del AP",
+        ],
     }

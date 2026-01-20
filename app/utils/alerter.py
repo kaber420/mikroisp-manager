@@ -18,9 +18,7 @@ def send_telegram_alert(message: str):
 
     if not bot_token or not chat_id:
         print("\n--- ALERTA  ---")
-        print(
-            "ADVERTENCIA: Token o Chat ID de Telegram no configurados en la base de datos."
-        )
+        print("ADVERTENCIA: Token o Chat ID de Telegram no configurados en la base de datos.")
         print("La siguiente alerta solo se mostrará en la consola.")
         print(message)
         print("--------------------------\n")
@@ -33,7 +31,7 @@ def send_telegram_alert(message: str):
     try:
         response = requests.post(api_url, json=payload, timeout=10)
         response.raise_for_status()
-        print(f"Alerta enviada exitosamente a Telegram.")
+        print("Alerta enviada exitosamente a Telegram.")
 
     except requests.exceptions.RequestException as e:
         print(f"Error crítico: No se pudo enviar la alerta de Telegram. Causa: {e}")

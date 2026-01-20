@@ -1,1 +1,1 @@
-from .manager import cache_manager, CacheStore
+from .manager import CacheStore, cache_manager

@@ -3,19 +3,19 @@
 FastAPI Router for Switches domain.
 Provides CRUD endpoints and real-time status via WebSocket.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Request, WebSocket, WebSocketDisconnect
-from typing import List, Optional, Dict, Any
-from datetime import datetime
+
 import asyncio
 import logging
+from datetime import datetime
 
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel, Field
 
+from ...core.constants import DeviceStatus
 from ...core.users import require_technician
+from ...db import switches_db
 from ...models.user import User
 from ...services import switch_service
-from ...db import switches_db
-from ...core.constants import DeviceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -24,54 +24,60 @@ router = APIRouter()
 
 # --- Pydantic Models ---
 
+
 class SwitchBase(BaseModel):
     """Base model for switch data."""
+
     host: str = Field(..., description="IP address of the switch")
     username: str = Field(..., description="API username")
-    zona_id: Optional[int] = Field(None, description="Zone ID")
+    zona_id: int | None = Field(None, description="Zone ID")
     api_port: int = Field(8728, description="API port")
     is_enabled: bool = Field(True, description="Whether the switch is enabled for monitoring")
-    location: Optional[str] = Field(None, description="Physical location")
-    notes: Optional[str] = Field(None, description="Additional notes")
+    location: str | None = Field(None, description="Physical location")
+    notes: str | None = Field(None, description="Additional notes")
 
 
 class SwitchCreate(SwitchBase):
     """Model for creating a new switch."""
+
     password: str = Field(..., description="API password")
 
 
 class SwitchUpdate(BaseModel):
     """Model for updating a switch."""
-    username: Optional[str] = None
-    password: Optional[str] = None
-    zona_id: Optional[int] = None
-    api_port: Optional[int] = None
-    is_enabled: Optional[bool] = None
-    location: Optional[str] = None
-    notes: Optional[str] = None
+
+    username: str | None = None
+    password: str | None = None
+    zona_id: int | None = None
+    api_port: int | None = None
+    is_enabled: bool | None = None
+    location: str | None = None
+    notes: str | None = None
 
 
 class SwitchResponse(BaseModel):
     """Response model for switch data."""
+
     host: str
     username: str
-    zona_id: Optional[int] = None
-    api_port: Optional[int] = None
-    api_ssl_port: Optional[int] = None
-    is_enabled: Optional[bool] = None
-    hostname: Optional[str] = None
-    model: Optional[str] = None
-    firmware: Optional[str] = None
-    mac_address: Optional[str] = None
-    location: Optional[str] = None
-    notes: Optional[str] = None
-    last_status: Optional[str] = None
+    zona_id: int | None = None
+    api_port: int | None = None
+    api_ssl_port: int | None = None
+    is_enabled: bool | None = None
+    hostname: str | None = None
+    model: str | None = None
+    firmware: str | None = None
+    mac_address: str | None = None
+    location: str | None = None
+    notes: str | None = None
+    last_status: str | None = None
 
     class Config:
         from_attributes = True
 
 
 # --- WebSocket Stream for Live Data ---
+
 
 @router.websocket("/ws/switch/{host}")
 async def switch_resources_stream(websocket: WebSocket, host: str):
@@ -80,49 +86,43 @@ async def switch_resources_stream(websocket: WebSocket, host: str):
     Uses SwitchMonitorScheduler + Cache for efficient connection pooling.
     """
     await websocket.accept()
-    
+
     # Get switch data
     switch_data = switches_db.get_switch_by_host(host)
     if not switch_data:
         await websocket.send_json({"error": f"Switch {host} not found"})
         await websocket.close()
         return
-    
+
     from ...services.switch_monitor_scheduler import switch_monitor_scheduler
     from ...utils.cache import cache_manager
 
     # Prepare credentials
     password = switch_data.get("password", "")
     port = switch_data.get("api_ssl_port") or switch_data.get("api_port", 8728)
-    
-    creds = {
-        "username": switch_data.get("username", ""),
-        "password": password,
-        "port": port
-    }
+
+    creds = {"username": switch_data.get("username", ""), "password": password, "port": port}
 
     try:
         # Subscribe triggers immediate poll
         await switch_monitor_scheduler.subscribe(host, creds)
-        
+
         stats_cache = cache_manager.get_store("switch_stats")
-        
+
         while True:
             data = stats_cache.get(host)
-            
+
             if data:
                 if "error" in data:
-                    await websocket.send_json({
-                        "type": "error",
-                        "host": host,
-                        "message": data["error"]
-                    })
+                    await websocket.send_json(
+                        {"type": "error", "host": host, "message": data["error"]}
+                    )
                 else:
                     total_mem = data.get("total_memory", 0)
                     free_mem = data.get("free_memory", 0)
                     used_mem = 0
                     mem_percent = 0
-                    
+
                     try:
                         t = int(total_mem) if total_mem else 0
                         f = int(free_mem) if free_mem else 0
@@ -146,15 +146,15 @@ async def switch_resources_stream(websocket: WebSocket, host: str):
                             "version": data.get("version"),
                             "board_name": data.get("board_name"),
                             "identity": data.get("name"),
-                        }
+                        },
                     }
-                    
+
                     await websocket.send_json(payload)
             else:
                 await websocket.send_json({"type": "loading", "data": {}})
-            
+
             await asyncio.sleep(2)
-            
+
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected for switch {host}")
     except Exception as e:
@@ -164,6 +164,7 @@ async def switch_resources_stream(websocket: WebSocket, host: str):
 
 
 # --- CRUD Endpoints ---
+
 
 @router.post("/switches", response_model=SwitchResponse, status_code=status.HTTP_201_CREATED)
 async def create_switch(
@@ -184,7 +185,7 @@ async def create_switch(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.get("/switches", response_model=List[SwitchResponse])
+@router.get("/switches", response_model=list[SwitchResponse])
 async def get_all_switches(
     current_user: User = Depends(require_technician),
 ):
@@ -209,7 +210,9 @@ async def get_switch(
     """
     switch_data = switch_service.get_switch_by_host(host)
     if not switch_data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
+        )
     return SwitchResponse(**switch_data)
 
 
@@ -225,18 +228,22 @@ async def update_switch(
     # Check if switch exists
     existing = switch_service.get_switch_by_host(host)
     if not existing:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
+        )
+
     # Filter out None values
     update_data = {k: v for k, v in switch_update.model_dump().items() if v is not None}
-    
+
     if not update_data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No data to update")
-    
+
     rows_affected = switch_service.update_switch(host, update_data)
     if rows_affected == 0:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update switch")
-    
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update switch"
+        )
+
     # Return updated data
     updated_switch = switch_service.get_switch_by_host(host)
     return SwitchResponse(**updated_switch)
@@ -252,12 +259,16 @@ async def delete_switch(
     """
     existing = switch_service.get_switch_by_host(host)
     if not existing:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
+        )
+
     rows_deleted = switch_service.delete_switch(host)
     if rows_deleted == 0:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete switch")
-    
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete switch"
+        )
+
     return None
 
 
@@ -272,8 +283,10 @@ async def get_switch_live_status(
     """
     switch_data = switch_service.get_switch_by_host(host)
     if not switch_data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
+        )
+
     try:
         service = switch_service.get_switch_service(host)
         status_data = service.get_status()
@@ -293,16 +306,16 @@ async def validate_switch_connection(switch_data: SwitchCreate):
     """
     try:
         from ...utils.device_clients.adapters.mikrotik_switch import MikrotikSwitchAdapter
-        
+
         adapter = MikrotikSwitchAdapter(
             host=switch_data.host,
             username=switch_data.username,
             password=switch_data.password,
-            port=switch_data.api_port
+            port=switch_data.api_port,
         )
-        
+
         success = adapter.test_connection()
-        
+
         if success:
             # Try to get system info
             resources = adapter.get_system_resources()
@@ -314,21 +327,15 @@ async def validate_switch_connection(switch_data: SwitchCreate):
                     "hostname": resources.get("name"),
                     "model": resources.get("board-name"),
                     "version": resources.get("version"),
-                }
+                },
             }
         else:
             adapter.disconnect()
-            return {
-                "success": False,
-                "message": "Could not establish connection"
-            }
-            
+            return {"success": False, "message": "Could not establish connection"}
+
     except Exception as e:
         logger.error(f"Error validating switch connection: {e}")
-        return {
-            "success": False,
-            "message": str(e)
-        }
+        return {"success": False, "message": str(e)}
 
 
 @router.post("/switches/{host}/check", status_code=status.HTTP_200_OK)
@@ -342,26 +349,28 @@ async def check_switch_status(
     """
     switch_data = switch_service.get_switch_by_host(host)
     if not switch_data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
+        )
+
     if not switch_data.get("is_enabled", True):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Switch is disabled")
-    
+
     try:
         from ...utils.device_clients.adapters.mikrotik_switch import MikrotikSwitchAdapter
-        
+
         # Create adapter and connect
         adapter = MikrotikSwitchAdapter(
             host=host,
             username=switch_data.get("username", ""),
             password=switch_data.get("password", ""),
-            port=switch_data.get("api_port", 8728)
+            port=switch_data.get("api_port", 8728),
         )
-        
+
         # Get system resources
         resources = adapter.get_system_resources()
         adapter.disconnect()
-        
+
         if resources:
             # Update database with device info
             update_data = {
@@ -371,7 +380,7 @@ async def check_switch_status(
                 "last_status": DeviceStatus.ONLINE,
             }
             switches_db.update_switch_in_db(host, update_data)
-            
+
             return {
                 "status": "success",
                 "message": "Switch checked and database updated",
@@ -381,16 +390,16 @@ async def check_switch_status(
                     "firmware": resources.get("version"),
                     "uptime": resources.get("uptime"),
                     "cpu_load": resources.get("cpu-load"),
-                }
+                },
             }
         else:
             # Update status to offline
             switches_db.update_switch_in_db(host, {"last_status": DeviceStatus.OFFLINE})
             raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
-                detail="Could not retrieve system info from switch"
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Could not retrieve system info from switch",
             )
-            
+
     except HTTPException:
         raise
     except Exception as e:
@@ -398,13 +407,12 @@ async def check_switch_status(
         switches_db.update_switch_in_db(host, {"last_status": DeviceStatus.OFFLINE})
         logger.error(f"Error checking switch {host}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Connection failed: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Connection failed: {str(e)}"
         )
 
 
-
 # --- Additional Endpoints for Switch Details Page ---
+
 
 @router.get("/switches/{host}/interfaces")
 async def get_switch_interfaces(
@@ -416,8 +424,10 @@ async def get_switch_interfaces(
     """
     switch_data = switch_service.get_switch_by_host(host)
     if not switch_data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
+        )
+
     try:
         service = switch_service.get_switch_service(host)
         interfaces = service.get_interfaces()
@@ -440,8 +450,10 @@ async def get_switch_bridges(
     """
     switch_data = switch_service.get_switch_by_host(host)
     if not switch_data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
+        )
+
     try:
         service = switch_service.get_switch_service(host)
         bridges = service.get_bridges()
@@ -464,8 +476,10 @@ async def get_switch_vlans(
     """
     switch_data = switch_service.get_switch_by_host(host)
     if not switch_data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
+        )
+
     try:
         service = switch_service.get_switch_service(host)
         vlans = service.get_vlans()
@@ -488,8 +502,10 @@ async def get_switch_backups(
     """
     switch_data = switch_service.get_switch_by_host(host)
     if not switch_data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
+        )
+
     try:
         service = switch_service.get_switch_service(host)
         backups = service.get_backup_files()
@@ -512,8 +528,10 @@ async def get_switch_port_stats(
     """
     switch_data = switch_service.get_switch_by_host(host)
     if not switch_data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
+        )
+
     try:
         service = switch_service.get_switch_service(host)
         port_stats = service.get_port_stats()
@@ -534,25 +552,26 @@ async def get_switch_ssl_status(
     """
     Obtiene el estado SSL/TLS de un Switch MikroTik.
     Retorna si SSL está habilitado, si el certificado es confiable, etc.
-    
+
     MikrotikSwitchAdapter hereda de MikrotikRouterAdapter y tiene acceso a get_ssl_status().
     """
     switch_data = switch_service.get_switch_by_host(host)
     if not switch_data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
+        )
+
     try:
         service = switch_service.get_switch_service(host)
-        
+
         # MikrotikSwitchAdapter inherits get_ssl_status from MikrotikRouterAdapter
         status_data = service.get_ssl_status()
         service.disconnect()
-        
+
         return status_data
-        
+
     except switch_service.SwitchConnectionError as e:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
     except Exception as e:
         logger.error(f"Error getting SSL status for switch {host}: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-

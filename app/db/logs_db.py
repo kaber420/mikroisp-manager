@@ -1,7 +1,5 @@
 # app/db/logs_db.py
 import sqlite3
-from datetime import datetime
-import os
 
 from .base import get_stats_db_file
 
@@ -46,9 +44,7 @@ def add_event_log(host: str, device_type: str, event_type: str, message: str):
 # --- NUEVAS FUNCIONES DE PAGINACIÓN ---
 
 
-def get_event_logs_paginated(
-    host_filter: str = None, page: int = 1, page_size: int = 10
-):
+def get_event_logs_paginated(host_filter: str = None, page: int = 1, page_size: int = 10):
     """Obtiene logs con paginación (LIMIT/OFFSET)."""
     conn = None
     try:

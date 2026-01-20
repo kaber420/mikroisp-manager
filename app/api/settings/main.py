@@ -1,13 +1,11 @@
-from fastapi import APIRouter, Depends, status, HTTPException
-from typing import Dict
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
 from ...core.users import require_admin
-from ...models.user import User
-from ...services.settings_service import SettingsService
-from ...services.billing_service import BillingService
-from ...services.monitor_service import MonitorService
 from ...db.engine_sync import get_sync_session
+from ...models.user import User
+from ...services.billing_service import BillingService
+from ...services.settings_service import SettingsService
 
 router = APIRouter()
 
@@ -16,7 +14,7 @@ def get_settings_service(session: Session = Depends(get_sync_session)) -> Settin
     return SettingsService(session)
 
 
-@router.get("/settings", response_model=Dict[str, str])
+@router.get("/settings", response_model=dict[str, str])
 def api_get_settings(
     service: SettingsService = Depends(get_settings_service),
     current_user: User = Depends(require_admin),
@@ -26,7 +24,7 @@ def api_get_settings(
 
 @router.put("/settings", status_code=status.HTTP_204_NO_CONTENT)
 def api_update_settings(
-    settings: Dict[str, str],
+    settings: dict[str, str],
     service: SettingsService = Depends(get_settings_service),
     current_user: User = Depends(require_admin),
 ):
@@ -39,8 +37,7 @@ def api_update_settings(
 
 @router.post("/settings/force-billing", status_code=200)
 def force_billing_update(
-    session: Session = Depends(get_sync_session),
-    current_user: User = Depends(require_admin)
+    session: Session = Depends(get_sync_session), current_user: User = Depends(require_admin)
 ):
     """
     Endpoint administrativo para forzar la actualización de estados de facturación.
@@ -60,18 +57,16 @@ def force_monitor_scan(current_user: User = Depends(require_admin)):
     Nota: En esta arquitectura simple, esto solo devuelve confirmación ya que el monitor corre en otro proceso.
     Para una implementación real de 'forzar ahora', se requeriría una cola de tareas compartida (Redis/Celery).
     """
-    return {
-        "message": "El monitor continuará su ciclo en segundo plano (intervalo normal)."
-    }
+    return {"message": "El monitor continuará su ciclo en segundo plano (intervalo normal)."}
 
 
 # --- AUDIT LOGS ENDPOINTS (Admin Only) ---
 
 from ...db.audit_db import (
-    get_audit_logs_paginated,
     count_audit_logs,
-    get_distinct_usernames,
+    get_audit_logs_paginated,
     get_distinct_actions,
+    get_distinct_usernames,
 )
 
 
@@ -111,4 +106,91 @@ def get_audit_log_filters(
         "actions": get_distinct_actions(),
         "usernames": get_distinct_usernames(),
     }
+
+
+# --- DATABASE BACKUP ENDPOINT ---
+import os
+import subprocess
+
+from fastapi import Request
+
+from ...core.audit import log_action
+
+
+@router.post("/settings/backup-now", status_code=200)
+def trigger_manual_backup(
+    request: Request,
+    current_user: User = Depends(require_admin),
+):
+    """
+    Triggers a manual database backup using the db_backup.sh script.
+    """
+    # Construct path to the backup script relative to this file
+    script_path = os.path.join(
+        os.path.dirname(__file__), "..", "..", "..", "scripts", "db_backup.sh"
+    )
+    script_path = os.path.abspath(script_path)
+
+    if not os.path.exists(script_path):
+        log_action(
+            action="BACKUP",
+            resource_type="database",
+            resource_id="inventory.sqlite",
+            user=current_user,
+            request=request,
+            status="failure",
+            details={"error": "Backup script not found"},
+        )
+        raise HTTPException(status_code=500, detail="Backup script not found on server.")
+
+    try:
+        result = subprocess.run(
+            ["bash", script_path, "manual"],
+            capture_output=True,
+            text=True,
+            timeout=120,  # 2 minute timeout
+        )
+        if result.returncode == 0:
+            log_action(
+                action="BACKUP",
+                resource_type="database",
+                resource_id="inventory.sqlite",
+                user=current_user,
+                request=request,
+                status="success",
+            )
+            return {"message": "Backup completed successfully.", "output": result.stdout}
+        else:
+            log_action(
+                action="BACKUP",
+                resource_type="database",
+                resource_id="inventory.sqlite",
+                user=current_user,
+                request=request,
+                status="failure",
+                details={"error": result.stderr},
+            )
+            raise HTTPException(status_code=500, detail=f"Backup failed: {result.stderr}")
+    except subprocess.TimeoutExpired:
+        log_action(
+            action="BACKUP",
+            resource_type="database",
+            resource_id="inventory.sqlite",
+            user=current_user,
+            request=request,
+            status="failure",
+            details={"error": "Backup script timed out"},
+        )
+        raise HTTPException(status_code=500, detail="Backup script timed out.")
+    except Exception as e:
+        log_action(
+            action="BACKUP",
+            resource_type="database",
+            resource_id="inventory.sqlite",
+            user=current_user,
+            request=request,
+            status="failure",
+            details={"error": str(e)},
+        )
+        raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
 

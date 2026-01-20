@@ -1,10 +1,10 @@
 # app/api/security/main.py
-import os
-import io
 import json
+import os
 import subprocess
+
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse, StreamingResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 
 from ...core.users import current_active_user, require_admin
 from ...models.user import User
@@ -21,11 +21,13 @@ def _get_ca_fingerprint() -> str | None:
     cert_path = STATIC_CA_PATH if os.path.exists(STATIC_CA_PATH) else CA_CERT_PATH
     if not os.path.exists(cert_path):
         return None
-    
+
     try:
         result = subprocess.run(
             ["openssl", "x509", "-in", cert_path, "-noout", "-fingerprint", "-sha256"],
-            capture_output=True, text=True, check=True
+            capture_output=True,
+            text=True,
+            check=True,
         )
         line = result.stdout.strip()
         if "=" in line:
@@ -42,11 +44,13 @@ def get_ca_status(current_user: User = Depends(current_active_user)):
     """
     ca_exists = os.path.isfile(CA_CERT_PATH)
     is_production = os.getenv("APP_ENV") == "production"
-    
+
     return {
         "ca_available": ca_exists,
         "https_active": is_production and ca_exists,
-        "message": "Certificado CA disponible para descarga" if ca_exists else "HTTPS no configurado"
+        "message": "Certificado CA disponible para descarga"
+        if ca_exists
+        else "HTTPS no configurado",
     }
 
 
@@ -59,19 +63,18 @@ def download_ca_certificate(current_user: User = Depends(current_active_user)):
     if not os.path.isfile(CA_CERT_PATH):
         raise HTTPException(
             status_code=404,
-            detail="Certificado CA no encontrado. Ejecuta 'sudo bash scripts/install_proxy.sh' con la opción mkcert."
+            detail="Certificado CA no encontrado. Ejecuta 'sudo bash scripts/install_proxy.sh' con la opción mkcert.",
         )
-    
+
     return FileResponse(
-        path=CA_CERT_PATH,
-        filename="umonitor-ca.crt",
-        media_type="application/x-x509-ca-cert"
+        path=CA_CERT_PATH, filename="umonitor-ca.crt", media_type="application/x-x509-ca-cert"
     )
 
 
 def _get_server_url(request: Request) -> str:
     """Detect the server URL for mobile app configuration."""
     import socket
+
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.settimeout(0.1)
@@ -89,10 +92,7 @@ def _get_server_url(request: Request) -> str:
 
 
 @router.get("/security/bootstrap-config")
-def get_bootstrap_config(
-    request: Request,
-    current_user: User = Depends(require_admin)
-):
+def get_bootstrap_config(request: Request, current_user: User = Depends(require_admin)):
     """
     Returns the bootstrap configuration as JSON for the frontend modal.
     Only accessible by administrators.
@@ -100,47 +100,40 @@ def get_bootstrap_config(
     fingerprint = _get_ca_fingerprint()
     if not fingerprint:
         raise HTTPException(
-            status_code=503,
-            detail="No se pudo calcular el fingerprint del certificado CA"
+            status_code=503, detail="No se pudo calcular el fingerprint del certificado CA"
         )
-    
+
     server_url = _get_server_url(request)
-    
-    return {
-        "server_url": server_url,
-        "ca_sha256": fingerprint
-    }
+
+    return {"server_url": server_url, "ca_sha256": fingerprint}
 
 
 @router.get("/security/bootstrap-qr.png")
-def get_bootstrap_qr_image(
-    request: Request,
-    current_user: User = Depends(require_admin)
-):
+def get_bootstrap_qr_image(request: Request, current_user: User = Depends(require_admin)):
     """
     Genera y devuelve la imagen QR de configuración para la app móvil.
     Guarda el archivo en data/qr_codes para evitar regeneración constante.
     """
     import logging
+
     logger = logging.getLogger(__name__)
-    
+
     try:
         import qrcode
     except ImportError:
         raise HTTPException(
-            status_code=500,
-            detail="Librería qrcode no instalada. Ejecuta: pip install qrcode[pil]"
+            status_code=500, detail="Librería qrcode no instalada. Ejecuta: pip install qrcode[pil]"
         )
-    
+
     fingerprint = _get_ca_fingerprint()
     if not fingerprint:
         raise HTTPException(
-            status_code=503,
-            detail="No se pudo calcular el fingerprint del certificado CA"
+            status_code=503, detail="No se pudo calcular el fingerprint del certificado CA"
         )
-    
+
     # Detect real IP address to ensure mobile connectivity
     import socket
+
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.settimeout(0.1)
@@ -155,61 +148,55 @@ def get_bootstrap_qr_image(
             proto = request.headers["x-forwarded-proto"]
             host = request.headers.get("x-forwarded-host", request.headers.get("host", ""))
             server_url = f"{proto}://{host}"
-    
+
     # Define file path based on content hash (fingerprint + host) to invalidate if they change
     # We use a simple hash of the payload to ensure uniqueness
     import hashlib
     from pathlib import Path
-    
+
     payload_str = f"{server_url}|{fingerprint}"
     payload_hash = hashlib.md5(payload_str.encode()).hexdigest()[:10]
-    
+
     qr_filename = f"bootstrap_{payload_hash}.png"
     # Use Path for more robust path resolution
     # This file is at app/api/security/main.py, so go up 3 levels to project root
     base_dir = Path(__file__).resolve().parent.parent.parent.parent
     qr_dir = base_dir / "data" / "qr_codes"
-    
+
     try:
         qr_dir.mkdir(parents=True, exist_ok=True)
     except Exception as e:
         logger.error(f"Error creating QR directory {qr_dir}: {e}")
         raise HTTPException(status_code=500, detail=f"Error creating QR directory: {e}")
-    
+
     qr_path = qr_dir / qr_filename
-    
+
     # If file exists, return it directly
     if qr_path.exists():
         return FileResponse(str(qr_path), media_type="image/png")
-        
+
     # Generate QR code
-    payload = {
-        "server_url": server_url,
-        "ca_sha256": fingerprint
-    }
-    
+    payload = {"server_url": server_url, "ca_sha256": fingerprint}
+
     try:
         qr = qrcode.QRCode(version=1, box_size=10, border=4)
         qr.add_data(json.dumps(payload))
         qr.make(fit=True)
-        
+
         img = qr.make_image(fill_color="black", back_color="white")
-        
+
         # Save to disk
         img.save(str(qr_path))
         logger.info(f"QR code saved to {qr_path}")
     except Exception as e:
         logger.error(f"Error generating QR code: {e}")
         raise HTTPException(status_code=500, detail=f"Error generating QR code: {e}")
-    
+
     return FileResponse(str(qr_path), media_type="image/png")
 
 
 @router.get("/security/bootstrap-qr", response_class=HTMLResponse)
-def get_bootstrap_qr_page(
-    request: Request,
-    current_user: User = Depends(require_admin)
-):
+def get_bootstrap_qr_page(request: Request, current_user: User = Depends(require_admin)):
     """
     Página HTML que muestra el QR de configuración para la app móvil.
     Solo accesible por administradores.
@@ -217,12 +204,12 @@ def get_bootstrap_qr_page(
     fingerprint = _get_ca_fingerprint()
     if not fingerprint:
         return HTMLResponse(
-            content="<h1>Error</h1><p>Certificado CA no configurado</p>",
-            status_code=503
+            content="<h1>Error</h1><p>Certificado CA no configurado</p>", status_code=503
         )
-    
+
     # Detect real IP address
     import socket
+
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.settimeout(0.1)
@@ -236,7 +223,7 @@ def get_bootstrap_qr_page(
             proto = request.headers["x-forwarded-proto"]
             host = request.headers.get("x-forwarded-host", request.headers.get("host", ""))
             server_url = f"{proto}://{host}"
-    
+
     html = f"""
     <!DOCTYPE html>
     <html lang="es">
@@ -340,4 +327,3 @@ def get_bootstrap_qr_page(
     </html>
     """
     return HTMLResponse(content=html)
-

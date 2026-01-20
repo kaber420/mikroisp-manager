@@ -2,16 +2,17 @@
 """
 Payment model for client payment tracking.
 """
-from typing import Optional
+
 import uuid
-from sqlmodel import Field, SQLModel, Relationship
 from datetime import datetime
+
+from sqlmodel import Field, SQLModel
 
 
 class Payment(SQLModel, table=True):
     """
     Payment model representing client payments.
-    
+
     Fields:
     - id: Auto-increment primary key
     - client_id: Foreign key to clients table (required)
@@ -21,16 +22,16 @@ class Payment(SQLModel, table=True):
     - metodo_pago: Payment method (cash, transfer, etc.)
     - notas: Additional notes
     """
-    
+
     __tablename__ = "pagos"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     client_id: uuid.UUID = Field(foreign_key="clients.id", nullable=False, index=True)
     monto: float = Field(nullable=False)
-    fecha_pago: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    fecha_pago: datetime | None = Field(default_factory=datetime.utcnow)
     mes_correspondiente: str = Field(nullable=False)
-    metodo_pago: Optional[str] = Field(default=None)
-    notas: Optional[str] = Field(default=None)
-    
+    metodo_pago: str | None = Field(default=None)
+    notas: str | None = Field(default=None)
+
     # Relationships (commented to avoid circular imports)
     # client: Optional["Client"] = Relationship(back_populates="payments")

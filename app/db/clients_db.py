@@ -3,14 +3,18 @@
 Database access layer for Clients using SQLModel ORM.
 Preserves original function signatures (Dict inputs/outputs) for backward compatibility.
 """
-from typing import List, Dict, Any, Optional
-from sqlmodel import Session, select, func, col, desc
-from .engine_sync import sync_engine
+
+from typing import Any
+
+from sqlmodel import Session, desc, func, select
+
 from app.models import Client, ClientService
 from app.models.cpe import CPE
 
+from .engine_sync import sync_engine
 
-def get_all_clients_with_cpe_count() -> List[Dict[str, Any]]:
+
+def get_all_clients_with_cpe_count() -> list[dict[str, Any]]:
     """Get all clients with their CPE count."""
     with Session(sync_engine) as session:
         # Build query with left join to count CPEs
@@ -21,17 +25,17 @@ def get_all_clients_with_cpe_count() -> List[Dict[str, Any]]:
             .order_by(Client.name)
         )
         results = session.exec(statement).all()
-        
+
         rows = []
         for client, cpe_count in results:
             client_dict = client.model_dump()
             client_dict["cpe_count"] = cpe_count
             rows.append(client_dict)
-        
+
         return rows
 
 
-def get_client_by_id(client_id: int) -> Optional[Dict[str, Any]]:
+def get_client_by_id(client_id: int) -> dict[str, Any] | None:
     """Get a single client by ID."""
     with Session(sync_engine) as session:
         client = session.get(Client, client_id)
@@ -40,7 +44,7 @@ def get_client_by_id(client_id: int) -> Optional[Dict[str, Any]]:
         return None
 
 
-def create_client(client_data: Dict[str, Any]) -> Dict[str, Any]:
+def create_client(client_data: dict[str, Any]) -> dict[str, Any]:
     """Create a new client."""
     with Session(sync_engine) as session:
         try:
@@ -57,10 +61,10 @@ def create_client(client_data: Dict[str, Any]) -> Dict[str, Any]:
             session.add(client)
             session.commit()
             session.refresh(client)
-            
+
             if not client.id:
                 raise ValueError("No se pudo recuperar el cliente después de la creación.")
-            
+
             result = client.model_dump()
             result["cpe_count"] = 0  # New client has no CPEs
             return result
@@ -69,26 +73,26 @@ def create_client(client_data: Dict[str, Any]) -> Dict[str, Any]:
             raise e
 
 
-def update_client(client_id: int, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def update_client(client_id: int, updates: dict[str, Any]) -> dict[str, Any] | None:
     """Update an existing client."""
     with Session(sync_engine) as session:
         client = session.get(Client, client_id)
         if not client:
             return None
-        
+
         # Update attributes dynamically
         for key, value in updates.items():
             if hasattr(client, key):
                 setattr(client, key, value)
-        
+
         session.add(client)
         session.commit()
         session.refresh(client)
-        
+
         # Get CPE count for the response
         cpe_count_statement = select(func.count(CPE.mac)).where(CPE.client_id == client_id)
         cpe_count = session.exec(cpe_count_statement).one()
-        
+
         result = client.model_dump()
         result["cpe_count"] = cpe_count
         return result
@@ -101,14 +105,14 @@ def delete_client(client_id: int) -> int:
             client = session.get(Client, client_id)
             if not client:
                 return 0
-            
+
             # Nullify client_id for associated CPEs (matching original behavior)
             cpes_statement = select(CPE).where(CPE.client_id == client_id)
             cpes = session.exec(cpes_statement).all()
             for cpe in cpes:
                 cpe.client_id = None
                 session.add(cpe)
-            
+
             session.delete(client)
             session.commit()
             return 1
@@ -117,14 +121,12 @@ def delete_client(client_id: int) -> int:
             raise e
 
 
-def get_cpes_for_client(client_id: int) -> List[Dict[str, Any]]:
+def get_cpes_for_client(client_id: int) -> list[dict[str, Any]]:
     """Get CPEs assigned to a specific client."""
     with Session(sync_engine) as session:
-        statement = select(CPE.mac, CPE.hostname, CPE.ip_address).where(
-            CPE.client_id == client_id
-        )
+        statement = select(CPE.mac, CPE.hostname, CPE.ip_address).where(CPE.client_id == client_id)
         results = session.exec(statement).all()
-        
+
         # Convert to list of dicts matching original column structure
         return [
             {"mac": row.mac, "hostname": row.hostname, "ip_address": row.ip_address}
@@ -135,7 +137,7 @@ def get_cpes_for_client(client_id: int) -> List[Dict[str, Any]]:
 # --- Service Functions ---
 
 
-def get_client_service_by_id(service_id: int) -> Optional[Dict[str, Any]]:
+def get_client_service_by_id(service_id: int) -> dict[str, Any] | None:
     """Get a client service by ID."""
     with Session(sync_engine) as session:
         service = session.get(ClientService, service_id)
@@ -144,7 +146,7 @@ def get_client_service_by_id(service_id: int) -> Optional[Dict[str, Any]]:
         return None
 
 
-def get_services_for_client(client_id: int) -> List[Dict[str, Any]]:
+def get_services_for_client(client_id: int) -> list[dict[str, Any]]:
     """Get all services for a specific client."""
     with Session(sync_engine) as session:
         statement = (
@@ -156,7 +158,7 @@ def get_services_for_client(client_id: int) -> List[Dict[str, Any]]:
         return [service.model_dump() for service in results]
 
 
-def create_client_service(client_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+def create_client_service(client_id: int, data: dict[str, Any]) -> dict[str, Any]:
     """Create a new client service."""
     with Session(sync_engine) as session:
         try:
@@ -174,22 +176,21 @@ def create_client_service(client_id: int, data: Dict[str, Any]) -> Dict[str, Any
             session.add(service)
             session.commit()
             session.refresh(service)
-            
+
             if not service.id:
                 raise ValueError("No se pudo recuperar el servicio después de la creación.")
-            
+
             return service.model_dump()
         except Exception as e:
             session.rollback()
             raise ValueError(str(e))
 
 
-def get_active_clients_by_billing_day(day: int) -> List[Dict[str, Any]]:
+def get_active_clients_by_billing_day(day: int) -> list[dict[str, Any]]:
     """Get active clients with a specific billing day."""
     with Session(sync_engine) as session:
         statement = select(Client.id, Client.name).where(
-            Client.service_status == "active",
-            Client.billing_day == day
+            Client.service_status == "active", Client.billing_day == day
         )
         results = session.exec(statement).all()
         return [{"id": row.id, "name": row.name} for row in results]

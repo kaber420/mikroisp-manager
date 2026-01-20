@@ -1,24 +1,24 @@
 import asyncio
 import logging
-from typing import Dict, Optional
 from datetime import datetime
 
-from .base_connector import BaseDeviceConnector
 from ..core.constants import CredentialKeys, DeviceVendor
 from ..utils.device_clients.adapter_factory import get_device_adapter
 from ..utils.device_clients.adapters.base import BaseDeviceAdapter, DeviceStatus
+from .base_connector import BaseDeviceConnector
 
 logger = logging.getLogger(__name__)
+
 
 class APConnector(BaseDeviceConnector):
     """
     APConnector: Gestiona conexiones a APs multi-vendor.
     Uses adapter pattern and inherits plumbing from BaseDeviceConnector.
     """
-    
+
     def __init__(self):
         super().__init__()
-        self._adapters: Dict[str, BaseDeviceAdapter] = {}  # host -> adapter
+        self._adapters: dict[str, BaseDeviceAdapter] = {}  # host -> adapter
 
     async def _connect(self, host: str, creds: dict) -> None:
         """
@@ -31,7 +31,7 @@ class APConnector(BaseDeviceConnector):
             username=creds[CredentialKeys.USERNAME],
             password=creds[CredentialKeys.PASSWORD],
             vendor=creds.get("vendor", DeviceVendor.MIKROTIK),
-            port=creds.get(CredentialKeys.PORT, 8729)
+            port=creds.get(CredentialKeys.PORT, 8729),
         )
         self._adapters[host] = adapter
         # Logged in BaseDeviceConnector
@@ -52,7 +52,7 @@ class APConnector(BaseDeviceConnector):
             except Exception as e:
                 self.logger.error(f"Error disconnecting {host}: {e}")
             del self._adapters[host]
-        
+
         super().cleanup_credentials(host)
 
     # Alias for compatibility with APMonitorScheduler
@@ -64,36 +64,38 @@ class APConnector(BaseDeviceConnector):
         """
         if host not in self._adapters:
             raise ValueError(f"AP {host} is not subscribed")
-        
+
         adapter = self._adapters[host]
-        
+
         try:
             status: DeviceStatus = adapter.get_status()
-            
+
             if not status.is_online:
                 return {"error": status.last_error or "AP offline"}
-            
+
             # Convert clients to serializable format
             clients_list = []
             for client in status.clients:
-                clients_list.append({
-                    "mac": client.mac,
-                    "hostname": client.hostname,
-                    "ip_address": client.ip_address,
-                    "signal": client.signal,
-                    "signal_chain0": client.signal_chain0,
-                    "signal_chain1": client.signal_chain1,
-                    "noisefloor": client.noisefloor,
-                    "tx_rate": client.tx_rate,
-                    "rx_rate": client.rx_rate,
-                    "ccq": client.ccq,
-                    "tx_bytes": client.tx_bytes,
-                    "rx_bytes": client.rx_bytes,
-                    "tx_throughput_kbps": client.tx_throughput_kbps,
-                    "rx_throughput_kbps": client.rx_throughput_kbps,
-                    "extra": client.extra,
-                })
-            
+                clients_list.append(
+                    {
+                        "mac": client.mac,
+                        "hostname": client.hostname,
+                        "ip_address": client.ip_address,
+                        "signal": client.signal,
+                        "signal_chain0": client.signal_chain0,
+                        "signal_chain1": client.signal_chain1,
+                        "noisefloor": client.noisefloor,
+                        "tx_rate": client.tx_rate,
+                        "rx_rate": client.rx_rate,
+                        "ccq": client.ccq,
+                        "tx_bytes": client.tx_bytes,
+                        "rx_bytes": client.rx_bytes,
+                        "tx_throughput_kbps": client.tx_throughput_kbps,
+                        "rx_throughput_kbps": client.rx_throughput_kbps,
+                        "extra": client.extra,
+                    }
+                )
+
             # Format uptime
             uptime_str = "--"
             if status.uptime:
@@ -106,7 +108,7 @@ class APConnector(BaseDeviceConnector):
                     uptime_str = f"{hours}h {minutes}m"
                 else:
                     uptime_str = f"{minutes}m"
-            
+
             # Build response
             return {
                 "host": host,
@@ -139,10 +141,11 @@ class APConnector(BaseDeviceConnector):
                 "interfaces": status.interfaces,
                 "timestamp": datetime.now().isoformat(),
             }
-        
+
         except Exception as e:
             self.logger.error(f"Error fetching stats from {host}: {e}")
             raise
+
 
 # Singleton instance
 ap_connector = APConnector()

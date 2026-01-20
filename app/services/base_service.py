@@ -3,9 +3,11 @@
 BaseCRUDService: Generic service class for standard CRUD operations.
 Reduces code duplication across domain-specific services.
 """
-from typing import TypeVar, Generic, Type, List, Dict, Any, Optional
-from sqlmodel import Session, select
+
+from typing import Any, Generic, TypeVar
+
 from fastapi import HTTPException
+from sqlmodel import Session, select
 
 # Generic type for SQLModel models
 ModelType = TypeVar("ModelType")
@@ -14,17 +16,17 @@ ModelType = TypeVar("ModelType")
 class BaseCRUDService(Generic[ModelType]):
     """
     Base class providing generic CRUD (Create, Read, Update, Delete) operations.
-    
+
     Usage:
         class MyService(BaseCRUDService[MyModel]):
             def __init__(self, session: Session):
                 super().__init__(session, MyModel)
     """
-    
-    def __init__(self, session: Session, model: Type[ModelType]):
+
+    def __init__(self, session: Session, model: type[ModelType]):
         """
         Initialize the service with a database session and model class.
-        
+
         Args:
             session: SQLModel database session.
             model: The SQLModel class this service manages.
@@ -32,7 +34,7 @@ class BaseCRUDService(Generic[ModelType]):
         self.session = session
         self.model = model
 
-    def get_all(self) -> List[ModelType]:
+    def get_all(self) -> list[ModelType]:
         """Retrieve all records of the model."""
         statement = select(self.model)
         return self.session.exec(statement).all()
@@ -40,13 +42,13 @@ class BaseCRUDService(Generic[ModelType]):
     def get_by_id(self, id: int) -> ModelType:
         """
         Retrieve a single record by its primary key.
-        
+
         Args:
             id: The primary key of the record.
-            
+
         Returns:
             The model instance.
-            
+
         Raises:
             HTTPException: 404 if not found.
         """
@@ -55,13 +57,13 @@ class BaseCRUDService(Generic[ModelType]):
             raise HTTPException(status_code=404, detail=f"{self.model.__name__} no encontrado")
         return record
 
-    def create(self, data: Dict[str, Any]) -> ModelType:
+    def create(self, data: dict[str, Any]) -> ModelType:
         """
         Create a new record.
-        
+
         Args:
             data: Dictionary of field values.
-            
+
         Returns:
             The created model instance.
         """
@@ -75,25 +77,25 @@ class BaseCRUDService(Generic[ModelType]):
             self.session.rollback()
             raise ValueError(f"Error creando {self.model.__name__}: {str(e)}")
 
-    def update(self, id: int, data: Dict[str, Any]) -> ModelType:
+    def update(self, id: int, data: dict[str, Any]) -> ModelType:
         """
         Update an existing record.
-        
+
         Args:
             id: The primary key of the record to update.
             data: Dictionary of field values to update.
-            
+
         Returns:
             The updated model instance.
-            
+
         Raises:
             HTTPException: 404 if not found.
         """
         record = self.get_by_id(id)  # Raises HTTPException if not found
-        
+
         for key, value in data.items():
             setattr(record, key, value)
-        
+
         try:
             self.session.add(record)
             self.session.commit()
@@ -106,10 +108,10 @@ class BaseCRUDService(Generic[ModelType]):
     def delete(self, id: int) -> None:
         """
         Delete a record by its primary key.
-        
+
         Args:
             id: The primary key of the record to delete.
-            
+
         Raises:
             HTTPException: 404 if not found.
         """

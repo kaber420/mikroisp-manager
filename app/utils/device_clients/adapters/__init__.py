@@ -4,9 +4,9 @@ Device Adapters package.
 Contains vendor-specific adapters for APs and Switches.
 """
 
-from .base import BaseDeviceAdapter, DeviceStatus, ConnectedClient
-from .ubiquiti_airmax import UbiquitiAirmaxAdapter
+from .base import BaseDeviceAdapter, ConnectedClient, DeviceStatus
 from .mikrotik_wireless import MikrotikWirelessAdapter
+from .ubiquiti_airmax import UbiquitiAirmaxAdapter
 
 __all__ = [
     "BaseDeviceAdapter",
@@ -15,5 +15,3 @@ __all__ = [
     "UbiquitiAirmaxAdapter",
     "MikrotikWirelessAdapter",
 ]
-
-

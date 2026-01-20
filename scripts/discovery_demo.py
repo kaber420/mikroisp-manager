@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-import os
-import sys
-import ssl
-import zlib
 import base64
 import getpass
-from typing import Dict, List, Any, Optional
+import os
+import ssl
+import sys
+import zlib
+from typing import Any
 
 # Load .env BEFORE importing app modules (needed for ENCRYPTION_KEY)
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from routeros_api import RouterOsApiPool
@@ -18,11 +19,11 @@ from routeros_api import RouterOsApiPool
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-# Define DB accessors inside main or usage to avoid circular imports if any, 
+# Define DB accessors inside main or usage to avoid circular imports if any,
 # but for this script top-level is fine if path is set.
 try:
+    from app.db.aps_db import get_all_aps_with_stats, get_ap_by_host_with_stats, get_ap_credentials
     from app.db.router_db import get_router_by_host, get_routers_for_backup
-    from app.db.aps_db import get_ap_by_host_with_stats, get_all_aps_with_stats, get_ap_credentials
     from app.db.zonas_db import get_all_zonas
     from app.utils.device_clients.adapters.ubiquiti_airmax import UbiquitiAirmaxAdapter
 except ImportError as e:
@@ -30,12 +31,21 @@ except ImportError as e:
     print(f"  sys.path: {sys.path}")
     # Allow running without app context for testing (mocking may be needed)
     UbiquitiAirmaxAdapter = None
+
     # If these are missing, the script will crash later when calling get_devices_from_db
     # We define dummy functions to avoid NameError if import fails, or let it crash with better message
-    def get_routers_for_backup(): return []
-    def get_all_aps_with_stats(): return []
-    def get_ap_by_host_with_stats(h): return None
-    def get_ap_credentials(h): return None
+    def get_routers_for_backup():
+        return []
+
+    def get_all_aps_with_stats():
+        return []
+
+    def get_ap_by_host_with_stats(h):
+        return None
+
+    def get_ap_credentials(h):
+        return None
+
     pass
 
 
@@ -44,7 +54,7 @@ def connect_router(host: str, username: str, password: str, port: int = 8729):
     ssl_context = ssl.create_default_context()
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
-    
+
     pool = RouterOsApiPool(
         host,
         username=username,
@@ -66,7 +76,7 @@ def get_router_identity(api) -> str:
         return "Unknown"
 
 
-def get_router_info(api) -> Dict[str, Any]:
+def get_router_info(api) -> dict[str, Any]:
     """Get basic router info for display."""
     try:
         resource = api.get_resource("/system/resource").get()
@@ -84,50 +94,55 @@ def get_router_info(api) -> Dict[str, Any]:
 
 # === DISCOVERY SOURCES ===
 
-def get_neighbors(api) -> List[Dict[str, Any]]:
+
+def get_neighbors(api) -> list[dict[str, Any]]:
     """Fetch MNDP/LLDP neighbors."""
     try:
         neighbors_raw = api.get_resource("/ip/neighbor").get()
         neighbors = []
         for n in neighbors_raw:
-            neighbors.append({
-                "source": "MNDP/LLDP",
-                "interface": n.get("interface-name", n.get("interface", "")),
-                "mac_address": n.get("mac-address", ""),
-                "identity": n.get("identity", ""),
-                "ip_address": n.get("address", ""),
-                "platform": n.get("platform", ""),
-                "board": n.get("board", ""),
-            })
+            neighbors.append(
+                {
+                    "source": "MNDP/LLDP",
+                    "interface": n.get("interface-name", n.get("interface", "")),
+                    "mac_address": n.get("mac-address", ""),
+                    "identity": n.get("identity", ""),
+                    "ip_address": n.get("address", ""),
+                    "platform": n.get("platform", ""),
+                    "board": n.get("board", ""),
+                }
+            )
         return neighbors
     except Exception as e:
         print(f"  ⚠ Error MNDP/LLDP: {e}")
         return []
 
 
-def get_arp_table(api) -> List[Dict[str, Any]]:
+def get_arp_table(api) -> list[dict[str, Any]]:
     """Fetch ARP table entries."""
     try:
         arp_raw = api.get_resource("/ip/arp").get()
         entries = []
         for a in arp_raw:
             if a.get("complete") == "true" or a.get("status") == "reachable":
-                entries.append({
-                    "source": "ARP",
-                    "interface": a.get("interface", ""),
-                    "mac_address": a.get("mac-address", ""),
-                    "identity": a.get("comment", ""),  # Use comment as identity if set
-                    "ip_address": a.get("address", ""),
-                    "platform": "",
-                    "board": "",
-                })
+                entries.append(
+                    {
+                        "source": "ARP",
+                        "interface": a.get("interface", ""),
+                        "mac_address": a.get("mac-address", ""),
+                        "identity": a.get("comment", ""),  # Use comment as identity if set
+                        "ip_address": a.get("address", ""),
+                        "platform": "",
+                        "board": "",
+                    }
+                )
         return entries
     except Exception as e:
         print(f"  ⚠ Error ARP: {e}")
         return []
 
 
-def get_ospf_neighbors(api) -> List[Dict[str, Any]]:
+def get_ospf_neighbors(api) -> list[dict[str, Any]]:
     """Fetch OSPF neighbors (RouterOS v7 path)."""
     try:
         # Try v7 path first
@@ -136,18 +151,20 @@ def get_ospf_neighbors(api) -> List[Dict[str, Any]]:
         except:
             # Fallback to v6 path
             ospf_raw = api.get_resource("/routing/ospf/neighbor").get()
-        
+
         neighbors = []
         for o in ospf_raw:
-            neighbors.append({
-                "source": "OSPF",
-                "interface": o.get("interface", ""),
-                "mac_address": "",
-                "identity": o.get("router-id", o.get("address", "")),
-                "ip_address": o.get("address", ""),
-                "platform": "OSPF Router",
-                "board": "",
-            })
+            neighbors.append(
+                {
+                    "source": "OSPF",
+                    "interface": o.get("interface", ""),
+                    "mac_address": "",
+                    "identity": o.get("router-id", o.get("address", "")),
+                    "ip_address": o.get("address", ""),
+                    "platform": "OSPF Router",
+                    "board": "",
+                }
+            )
         return neighbors
     except Exception as e:
         print(f"  ⚠ Error OSPF: {e}")
@@ -156,7 +173,8 @@ def get_ospf_neighbors(api) -> List[Dict[str, Any]]:
 
 # === RECURSIVE DISCOVERY ===
 
-def get_credentials_for_ip(ip: str) -> Optional[Dict]:
+
+def get_credentials_for_ip(ip: str) -> dict | None:
     """Try to find credentials for an IP in the database. Returns dict with vendor info."""
     # Check Routers first
     try:
@@ -166,11 +184,11 @@ def get_credentials_for_ip(ip: str) -> Optional[Dict]:
                 "vendor": "mikrotik",
                 "username": router["username"],
                 "password": router["password"],
-                "port": router.get("api_ssl_port") or 8729
+                "port": router.get("api_ssl_port") or 8729,
             }
     except:
         pass
-    
+
     # Check APs
     try:
         ap = get_ap_by_host_with_stats(ip)
@@ -181,21 +199,23 @@ def get_credentials_for_ip(ip: str) -> Optional[Dict]:
                     "vendor": ap.get("vendor", "ubiquiti"),
                     "username": creds["username"],
                     "password": creds["password"],
-                    "port": ap.get("api_port") or 443
+                    "port": ap.get("api_port") or 443,
                 }
     except:
         pass
-    
+
     return None
 
 
-def discover_from_device(host: str, username: str, password: str, port: int, sources: List[str]) -> tuple:
+def discover_from_device(
+    host: str, username: str, password: str, port: int, sources: list[str]
+) -> tuple:
     """Connect to a MikroTik device and discover its neighbors. Returns (identity, info, neighbors)."""
     try:
         api = connect_router(host, username, password, port)
         identity = get_router_identity(api)
         info = get_router_info(api)
-        
+
         neighbors = []
         if "mndp" in sources:
             neighbors.extend(get_neighbors(api))
@@ -203,7 +223,7 @@ def discover_from_device(host: str, username: str, password: str, port: int, sou
             neighbors.extend(get_arp_table(api))
         if "ospf" in sources:
             neighbors.extend(get_ospf_neighbors(api))
-        
+
         return identity, info, neighbors
     except Exception as e:
         print(f"    ⚠ Could not connect to {host}: {e}")
@@ -216,37 +236,39 @@ def discover_from_ubiquiti(host: str, username: str, password: str, port: int = 
     Returns (identity, info, neighbors).
     """
     if UbiquitiAirmaxAdapter is None:
-        print(f"    ⚠ UbiquitiAirmaxAdapter not available")
+        print("    ⚠ UbiquitiAirmaxAdapter not available")
         return None, None, []
-    
+
     try:
         adapter = UbiquitiAirmaxAdapter(host, username, password, port)
         status = adapter.get_status()
-        
+
         if not status.is_online:
             print(f"    ⚠ Ubiquiti {host}: {status.last_error}")
             return None, None, []
-        
+
         identity = status.hostname or host
         info = {
             "board": status.model,
             "platform": "AirOS",
             "version": status.firmware,
         }
-        
+
         # Convert connected clients to neighbor format
         neighbors = []
         for client in status.clients:
-            neighbors.append({
-                "source": "Ubiquiti",
-                "interface": "wlan",
-                "mac_address": client.mac or "",
-                "identity": client.hostname or "",
-                "ip_address": client.ip_address or "",
-                "platform": "CPE",
-                "board": "",
-            })
-        
+            neighbors.append(
+                {
+                    "source": "Ubiquiti",
+                    "interface": "wlan",
+                    "mac_address": client.mac or "",
+                    "identity": client.hostname or "",
+                    "ip_address": client.ip_address or "",
+                    "platform": "CPE",
+                    "board": "",
+                }
+            )
+
         adapter.disconnect()
         return identity, info, neighbors
     except Exception as e:
@@ -254,32 +276,40 @@ def discover_from_ubiquiti(host: str, username: str, password: str, port: int = 
         return None, None, []
 
 
-def recursive_discover(seed_host: str, seed_user: str, seed_pass: str, seed_port: int, 
-                       sources: List[str], max_depth: int = 3, max_nodes: int = 50,
-                       seed_vendor: str = "mikrotik") -> Dict:
+def recursive_discover(
+    seed_host: str,
+    seed_user: str,
+    seed_pass: str,
+    seed_port: int,
+    sources: list[str],
+    max_depth: int = 3,
+    max_nodes: int = 50,
+    seed_vendor: str = "mikrotik",
+) -> dict:
     """
     BFS recursive discovery with loop protection and deduplication.
     Supports MikroTik and Ubiquiti devices.
     Returns topology dict: {nodes: [...], edges: [...]}
     """
     visited_ips = set()
-    visited_identities = {} # map identity -> node_id
-    leaf_ips = {}           # map ip -> leaf_node_id
-    
+    visited_identities = {}  # map identity -> node_id
+    leaf_ips = {}  # map ip -> leaf_node_id
+
     nodes = []  # {id, ip, identity, info, depth, vendor}
     edges = []  # {from_id, to_id, from_iface, to_ip}
-    
+
     # Queue: (ip, username, password, port, depth, parent_id, vendor)
     queue = [(seed_host, seed_user, seed_pass, seed_port, 0, None, seed_vendor)]
-    
+
     print(f"\n🔄 Recursive discovery (max depth: {max_depth}, max nodes: {max_nodes})")
-    
+
     while queue and len(nodes) < max_nodes:
         current_ip, username, password, port, depth, parent_id, vendor = queue.pop(0)
-        
+
         # Normalize IP
-        if not current_ip: continue
-        
+        if not current_ip:
+            continue
+
         # Skip if this specific IP was already fully processed as a NODE
         if current_ip in visited_ips:
             # If we have a parent, we might still need to add an edge if it's not already there?
@@ -287,179 +317,202 @@ def recursive_discover(seed_host: str, seed_user: str, seed_pass: str, seed_port
             # However, if we found a loop via a NEW path, we might want to record it?
             # For simplicity, skip.
             continue
-        
+
         if depth > max_depth:
             continue
-        
+
         print(f"  [Depth {depth}] Scanning {current_ip} ({vendor})...")
-        
+
         # Call vendor-specific discovery
         if vendor == "ubiquiti":
             identity, info, neighbors = discover_from_ubiquiti(current_ip, username, password, port)
         else:
-            identity, info, neighbors = discover_from_device(current_ip, username, password, port, sources)
-        
+            identity, info, neighbors = discover_from_device(
+                current_ip, username, password, port, sources
+            )
+
         if not identity:
             continue
-            
+
         # Check if we have seen this IDENTITY before (e.g. same router, different IP)
         if identity in visited_identities:
             existing_node_id = visited_identities[identity]
             print(f"    → Loop detected: {identity} is already node {existing_node_id}")
             if parent_id:
-                edges.append({
-                    "from_id": parent_id,
-                    "to_id": existing_node_id,
-                    "label": current_ip,
-                })
+                edges.append(
+                    {
+                        "from_id": parent_id,
+                        "to_id": existing_node_id,
+                        "label": current_ip,
+                    }
+                )
             # Mark this IP as visited so we don't scan it again, but don't add new node
             visited_ips.add(current_ip)
             continue
 
         visited_ips.add(current_ip)
-        
+
         # Add node
         node_id = f"node_{len(nodes)}"
         visited_identities[identity] = node_id
-        
-        nodes.append({
-            "id": node_id,
-            "ip": current_ip,
-            "identity": identity,
-            "info": info,
-            "depth": depth,
-            "vendor": vendor,
-        })
-        
+
+        nodes.append(
+            {
+                "id": node_id,
+                "ip": current_ip,
+                "identity": identity,
+                "info": info,
+                "depth": depth,
+                "vendor": vendor,
+            }
+        )
+
         # Add edge from parent
         if parent_id:
-            edges.append({
-                "from_id": parent_id,
-                "to_id": node_id,
-                "label": current_ip,
-            })
-        
+            edges.append(
+                {
+                    "from_id": parent_id,
+                    "to_id": node_id,
+                    "label": current_ip,
+                }
+            )
+
         # Deduplicate neighbors by IP locally
         unique_neighbors_map = {}
         for n in neighbors:
             nip = n.get("ip_address")
             if nip and nip not in unique_neighbors_map:
                 unique_neighbors_map[nip] = n
-            # If same IP, maybe prioritize one source over another? 
+            # If same IP, maybe prioritize one source over another?
             # MNDP usually has better info than ARP. Existing order is MNDP, ARP, OSPF.
             # So first one wins is usually fine if sources are ordered.
-            
+
         unique_neighbors = list(unique_neighbors_map.values())
-        
+
         # Queue neighbors for next depth
         for neighbor in unique_neighbors:
             neighbor_ip = neighbor.get("ip_address")
             neighbor_identity = neighbor.get("identity")
-            
+
             if not neighbor_ip:
                 continue
-                
+
             # Self-loop check (simple IP check)
             if neighbor_ip == current_ip:
                 continue
 
             # Check if neighbor is already a known NODE by IDENTITY
             if neighbor_identity and neighbor_identity in visited_identities:
-                 edges.append({
-                    "from_id": node_id,
-                    "to_id": visited_identities[neighbor_identity],
-                    "label": neighbor.get("interface", ""),
-                })
-                 continue
+                edges.append(
+                    {
+                        "from_id": node_id,
+                        "to_id": visited_identities[neighbor_identity],
+                        "label": neighbor.get("interface", ""),
+                    }
+                )
+                continue
 
             # Check if neighbor is already a known NODE by IP
             # (We only track visited_ips for successful scans, but we check here)
             if neighbor_ip in visited_ips:
-                 # Find the node that has this IP (scan nodes list?)
-                 # Optimized: we could keep a map ip->node_id but visited_ips is just a set.
-                 # Let's find it.
-                 target_id = None
-                 for n in nodes:
-                     if n["ip"] == neighbor_ip:
-                         target_id = n["id"]
-                         break
-                 if target_id:
-                     edges.append({
-                        "from_id": node_id,
-                        "to_id": target_id,
-                        "label": neighbor.get("interface", ""),
-                    })
-                 continue
-            
+                # Find the node that has this IP (scan nodes list?)
+                # Optimized: we could keep a map ip->node_id but visited_ips is just a set.
+                # Let's find it.
+                target_id = None
+                for n in nodes:
+                    if n["ip"] == neighbor_ip:
+                        target_id = n["id"]
+                        break
+                if target_id:
+                    edges.append(
+                        {
+                            "from_id": node_id,
+                            "to_id": target_id,
+                            "label": neighbor.get("interface", ""),
+                        }
+                    )
+                continue
+
             # Try to get credentials from DB
             creds = get_credentials_for_ip(neighbor_ip)
             if creds:
                 # Add to queue (BFS)
-                # Check if already in queue? BFS handles visited_ips check at pop, 
+                # Check if already in queue? BFS handles visited_ips check at pop,
                 # but we can optimize by checking if we already queued it?
                 # For now simple logic is fine.
-                queue.append((
-                    neighbor_ip, 
-                    creds["username"], 
-                    creds["password"], 
-                    creds["port"], 
-                    depth + 1, 
-                    node_id,
-                    creds.get("vendor", "mikrotik")
-                ))
+                queue.append(
+                    (
+                        neighbor_ip,
+                        creds["username"],
+                        creds["password"],
+                        creds["port"],
+                        depth + 1,
+                        node_id,
+                        creds.get("vendor", "mikrotik"),
+                    )
+                )
             else:
                 # It's a LEAF (unreachable or no creds)
                 # Check if we already have a leaf for this IP
                 if neighbor_ip in leaf_ips:
                     # Link to existing leaf
-                    edges.append({
-                        "from_id": node_id,
-                        "to_id": leaf_ips[neighbor_ip],
-                        "label": neighbor.get("interface", ""),
-                    })
+                    edges.append(
+                        {
+                            "from_id": node_id,
+                            "to_id": leaf_ips[neighbor_ip],
+                            "label": neighbor.get("interface", ""),
+                        }
+                    )
                 else:
                     # Create new leaf
                     leaf_id = f"leaf_{len(nodes)}_{len(leaf_ips)}"
                     leaf_ips[neighbor_ip] = leaf_id
-                    
-                    nodes.append({
-                        "id": leaf_id,
-                        "ip": neighbor_ip,
-                        "identity": neighbor.get("identity") or neighbor_ip,
-                        "info": {"board": neighbor.get("board"), "platform": neighbor.get("platform")},
-                        "depth": depth + 1,
-                        "is_leaf": True,
-                        "vendor": "unknown",
-                    })
-                    edges.append({
-                        "from_id": node_id,
-                        "to_id": leaf_id,
-                        "label": neighbor.get("interface", ""),
-                    })
-    
+
+                    nodes.append(
+                        {
+                            "id": leaf_id,
+                            "ip": neighbor_ip,
+                            "identity": neighbor.get("identity") or neighbor_ip,
+                            "info": {
+                                "board": neighbor.get("board"),
+                                "platform": neighbor.get("platform"),
+                            },
+                            "depth": depth + 1,
+                            "is_leaf": True,
+                            "vendor": "unknown",
+                        }
+                    )
+                    edges.append(
+                        {
+                            "from_id": node_id,
+                            "to_id": leaf_id,
+                            "label": neighbor.get("interface", ""),
+                        }
+                    )
+
     print(f"✓ Discovered {len(nodes)} nodes, {len(edges)} connections")
     return {"nodes": nodes, "edges": edges}
 
 
-def generate_d2_recursive(topology: Dict) -> str:
+def generate_d2_recursive(topology: dict) -> str:
     """Generate D2 code for recursive topology with vendor-aware styling."""
     lines = [
         "# Network Topology - Recursive Discovery",
         "direction: down",
         "",
     ]
-    
+
     # Generate nodes
     for node in topology["nodes"]:
         node_id = node["id"]
         label = node["identity"]
         if node["info"] and node["info"].get("board"):
             label += f" ({node['info']['board']})"
-        
+
         # Style by vendor and depth
         depth = node.get("depth", 0)
         vendor = node.get("vendor", "unknown")
-        
+
         if depth == 0:
             # Seed device (green)
             style = 'style: {fill: "#e8f5e9"; stroke: "#2e7d32"; stroke-width: 2}'
@@ -475,19 +528,20 @@ def generate_d2_recursive(topology: Dict) -> str:
         else:
             # Unknown vendor (gray)
             style = 'style: {fill: "#fafafa"; stroke: "#666"}'
-        
+
         lines.append(f'{node_id}: "{label}" {{')
         lines.append(f"  {style}")
         lines.append("}")
-    
+
     lines.append("")
-    
+
     # Generate edges
     for edge in topology["edges"]:
         label = edge.get("label", "")
         lines.append(f'{edge["from_id"]} -> {edge["to_id"]}: "{label}"')
-    
+
     return "\n".join(lines)
+
 
 def sanitize_id(name: str) -> str:
     """Convert a name to a valid D2 identifier."""
@@ -497,7 +551,13 @@ def sanitize_id(name: str) -> str:
     return safe.lower() or "unknown"
 
 
-def generate_d2_map(seed_identity: str, seed_info: Dict, devices: List[Dict], source_name: str, seed_device_data: Dict = None) -> str:
+def generate_d2_map(
+    seed_identity: str,
+    seed_info: dict,
+    devices: list[dict],
+    source_name: str,
+    seed_device_data: dict = None,
+) -> str:
     """
     Generate D2 diagram code from discovered topology with Zone grouping.
     """
@@ -506,7 +566,7 @@ def generate_d2_map(seed_identity: str, seed_info: Dict, devices: List[Dict], so
         "direction: right",
         "classes: {",
         "  router: {",
-        '    style: {stroke-width: 2; border-radius: 5}',
+        "    style: {stroke-width: 2; border-radius: 5}",
         "  }",
         "  zone_box: {",
         '    style: {stroke-width: 2; stroke-dash: 3; fill: "transparent"}',
@@ -514,13 +574,13 @@ def generate_d2_map(seed_identity: str, seed_info: Dict, devices: List[Dict], so
         "}",
         "",
     ]
-    
+
     # Mapping of IP/MAC to their info if found in DB
     # We need to know which discovered devices match DB devices to assign Zones.
     # In a real app, we would cross-reference 'devices' (discovered) with DB data.
     # For this demo, let's assume 'devices' passed here are the DISCOVERED ones.
     # We should probably pass the FULL db list to lookup zones.
-    
+
     db_devices_map = {}
     try:
         all_db = get_devices_from_db()
@@ -536,25 +596,25 @@ def generate_d2_map(seed_identity: str, seed_info: Dict, devices: List[Dict], so
     seed_zone = "Unknown Zone"
     if seed_device_data and seed_device_data.get("zona_nombre"):
         seed_zone = seed_device_data["zona_nombre"]
-    
+
     # Identify unique zones
     zones = set()
     zones.add(seed_zone)
-    
+
     # Augment discovered devices with Zone info
     enhanced_devices = []
     for d in devices:
         # Check if in DB
         ip = d.get("ip_address")
-        zone = "Discovered" # Default for unknown
-        
+        zone = "Discovered"  # Default for unknown
+
         matches = [val for key, val in db_devices_map.items() if key == ip]
         if matches:
             zone = matches[0].get("zona_nombre", "Default")
         else:
             # If not in DB, group with the seed device (attached to discoverer)
             zone = seed_zone
-        
+
         zones.add(zone)
         d["_zone"] = zone
         enhanced_devices.append(d)
@@ -565,7 +625,7 @@ def generate_d2_map(seed_identity: str, seed_info: Dict, devices: List[Dict], so
         lines.append(f"{z_id}: {z} {{")
         lines.append("  class: zone_box")
         lines.append("}")
-    
+
     lines.append("")
 
     # Helper to track created output IDs
@@ -574,20 +634,20 @@ def generate_d2_map(seed_identity: str, seed_info: Dict, devices: List[Dict], so
     seed_label = seed_identity
     if seed_info.get("board"):
         seed_label += f" ({seed_info['board']})"
-        
+
     seed_zone_id = sanitize_id(seed_zone)
-    lines.append(f"{seed_zone_id}.{seed_id}: \"{seed_label}\" {{")
-    lines.append('  class: router')
+    lines.append(f'{seed_zone_id}.{seed_id}: "{seed_label}" {{')
+    lines.append("  class: router")
     lines.append('  style: {fill: "#e8f5e9"; stroke: "#2e7d32"}')
     lines.append("}")
-    
+
     # 2. Place devices
     seen_ids = {seed_id}
-    
+
     for device in enhanced_devices:
         identity = device["identity"] or device["ip_address"] or device["mac_address"] or "Unknown"
         device_id = sanitize_id(identity)
-        
+
         # Handle duplicates
         base_id = device_id
         counter = 1
@@ -595,13 +655,13 @@ def generate_d2_map(seed_identity: str, seed_info: Dict, devices: List[Dict], so
             device_id = f"{base_id}_{counter}"
             counter += 1
         seen_ids.add(device_id)
-        
+
         label = identity
         if device["board"]:
             label += f" ({device['board']})"
         elif device["platform"]:
             label += f" ({device['platform']})"
-            
+
         # Color by source
         if device["source"] == "MNDP/LLDP":
             style = 'style: {fill: "#e3f2fd"; stroke: "#1565c0"}'
@@ -613,30 +673,30 @@ def generate_d2_map(seed_identity: str, seed_info: Dict, devices: List[Dict], so
             style = 'style: {fill: "#fafafa"; stroke: "#666"}'
 
         zone_id = sanitize_id(device["_zone"])
-        
+
         # Place inside zone
         lines.append(f'{zone_id}.{device_id}: "{label}" {{')
         lines.append(f"  {style}")
         lines.append("}")
-        
+
         # Connection
         iface = device["interface"]
         conn_label = iface
         if device["ip_address"] and device["ip_address"] != identity:
             conn_label += f" ({device['ip_address']})"
-        
+
         # Link from Seed (fully qualified names)
         lines.append(f'{seed_zone_id}.{seed_id} -> {zone_id}.{device_id}: "{conn_label}"')
-        
+
     return "\n".join(lines)
 
 
 def generate_html(d2_code: str, title: str) -> str:
     """Generate HTML with Kroki-rendered diagram."""
-    compressed = zlib.compress(d2_code.encode('utf-8'), 9)
+    compressed = zlib.compress(d2_code.encode("utf-8"), 9)
     encoded = base64.urlsafe_b64encode(compressed).decode()
     img_url = f"https://kroki.io/d2/svg/{encoded}"
-    
+
     return f'''<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -678,82 +738,89 @@ def generate_html(d2_code: str, title: str) -> str:
 
 # === DEVICE SELECTION ===
 
-def get_devices_from_db() -> List[Dict]:
+
+def get_devices_from_db() -> list[dict]:
     """Get routers and APs from uManager database with Zone info."""
     devices = []
     try:
         routers = get_routers_for_backup()
         for r in routers:
-            devices.append({
-                "type": "Router",
-                "host": r["host"],
-                "hostname": r.get("hostname") or r["host"],
-                "model": "RouterOS", # get_routers_for_backup doesn't assume model, maybe add query if needed
-                "username": r["username"],
-                "password": r["password"],
-                "port": 8729, # Default as backup query might not have it
-                "zona_nombre": r.get("zona_nombre", "Default")
-            })
+            devices.append(
+                {
+                    "type": "Router",
+                    "host": r["host"],
+                    "hostname": r.get("hostname") or r["host"],
+                    "model": "RouterOS",  # get_routers_for_backup doesn't assume model, maybe add query if needed
+                    "username": r["username"],
+                    "password": r["password"],
+                    "port": 8729,  # Default as backup query might not have it
+                    "zona_nombre": r.get("zona_nombre", "Default"),
+                }
+            )
     except Exception as e:
         print(f"  ⚠ Could not load routers from DB: {e}")
-    
+
     try:
         # filter for Mikrotik APs if needed, or just all
         aps = get_all_aps_with_stats()
         for a in aps:
             if a.get("vendor") == "mikrotik":
-                creds = get_ap_by_host_with_stats(a["host"]) # To get credentials
-                if not creds: continue
-                
-                # decrypt if needed (get_ap_by using context might handle it? 
+                creds = get_ap_by_host_with_stats(a["host"])  # To get credentials
+                if not creds:
+                    continue
+
+                # decrypt if needed (get_ap_by using context might handle it?
                 # actually get_ap_by_host_with_stats returns dict but passwords might be encrypted if not handled)
-                # Let's check db logic. 
-                # aps_db.get_ap_by_host_with_stats DOES NOT decrypt explicitly in the SQL, 
+                # Let's check db logic.
+                # aps_db.get_ap_by_host_with_stats DOES NOT decrypt explicitly in the SQL,
                 # but let's assume we need to handle it or use get_ap_credentials logic.
                 from app.utils.security import decrypt_data
+
                 password = creds.get("password")
                 try:
                     password = decrypt_data(password)
                 except:
                     pass
 
-                devices.append({
-                    "type": "AP",
-                    "host": a["host"],
-                    "hostname": a.get("hostname") or a["host"],
-                    "model": a.get("model", ""),
-                    "username": creds.get("username"),
-                    "password": password,
-                    "port": a.get("api_port") or 8729,
-                    "zona_nombre": a.get("zona_nombre", "Default")
-                })
+                devices.append(
+                    {
+                        "type": "AP",
+                        "host": a["host"],
+                        "hostname": a.get("hostname") or a["host"],
+                        "model": a.get("model", ""),
+                        "username": creds.get("username"),
+                        "password": password,
+                        "port": a.get("api_port") or 8729,
+                        "zona_nombre": a.get("zona_nombre", "Default"),
+                    }
+                )
     except Exception as e:
         print(f"  ⚠ Could not load APs from DB: {e}")
-    
+
     return devices
 
 
-def select_device() -> Dict:
+def select_device() -> dict:
     """Show device selection menu."""
     print("\n📋 Device Selection")
     print("-" * 40)
-    
+
     devices = get_devices_from_db()
-    
+
     if devices:
         print("\nDevices from uManager database:")
         for i, d in enumerate(devices, 1):
             print(f"  [{i}] {d['type']:6} | {d['hostname']:20} | {d['host']}")
-        print(f"  [{len(devices)+1}] Enter IP manually")
-        
-        choice = input(f"\nSelect [1-{len(devices)+1}]: ").strip()
+        print(f"  [{len(devices) + 1}] Enter IP manually")
+
+        choice = input(f"\nSelect [1-{len(devices) + 1}]: ").strip()
         try:
             idx = int(choice) - 1
             if 0 <= idx < len(devices):
                 return devices[idx]
         except ValueError:
             pass
-    
+
     # Manual entry
     print("\nManual connection:")
     return {
@@ -764,7 +831,7 @@ def select_device() -> Dict:
     }
 
 
-def select_sources() -> List[str]:
+def select_sources() -> list[str]:
     """Show discovery source selection menu."""
     print("\n📡 Discovery Sources")
     print("-" * 40)
@@ -773,9 +840,9 @@ def select_sources() -> List[str]:
     print("  [3] OSPF neighbors only")
     print("  [4] All sources combined")
     print("  [5] RECURSIVE (all sources, follow neighbors)")
-    
+
     choice = input("\nSelect [1-5]: ").strip()
-    
+
     if choice == "1":
         return ["mndp"], False
     elif choice == "2":
@@ -790,68 +857,76 @@ def select_sources() -> List[str]:
 
 # === MAIN ===
 
+
 def main():
     print("=" * 50)
     print("  Network Discovery & D2 Mapping Tool")
     print("=" * 50)
-    
+
     # Select device
     device = select_device()
-    
+
     # Select sources (returns tuple: sources, is_recursive)
     sources, is_recursive = select_sources()
-    
+
     if is_recursive:
         # === RECURSIVE MODE ===
         max_depth_str = input("\nMax depth [3]: ").strip()
         max_depth = int(max_depth_str) if max_depth_str else 3
-        
+
         max_nodes_str = input("Max nodes [50]: ").strip()
         max_nodes = int(max_nodes_str) if max_nodes_str else 50
-        
+
         topology = recursive_discover(
-            device["host"], device["username"], device["password"], device.get("port", 8729),
-            sources, max_depth, max_nodes
+            device["host"],
+            device["username"],
+            device["password"],
+            device.get("port", 8729),
+            sources,
+            max_depth,
+            max_nodes,
         )
-        
+
         d2_code = generate_d2_recursive(topology)
         title = f"Network Map (Recursive) - {topology['nodes'][0]['identity'] if topology['nodes'] else 'Unknown'}"
-        
+
     else:
         # === NORMAL MODE ===
         print(f"\n🔌 Connecting to {device['host']}...")
         try:
-            api = connect_router(device["host"], device["username"], device["password"], device.get("port", 8729))
+            api = connect_router(
+                device["host"], device["username"], device["password"], device.get("port", 8729)
+            )
             print("✓ Connected")
         except Exception as e:
             print(f"✗ Connection failed: {e}")
             return
-        
+
         identity = get_router_identity(api)
         info = get_router_info(api)
         print(f"✓ Identity: {identity} ({info.get('board', 'Unknown')})")
-        
+
         print("\n🔍 Discovering devices...")
         all_devices = []
-        
+
         if "mndp" in sources:
             print("  → MNDP/LLDP...")
             mndp = get_neighbors(api)
             print(f"    Found {len(mndp)} neighbor(s)")
             all_devices.extend(mndp)
-        
+
         if "arp" in sources:
             print("  → ARP table...")
             arp = get_arp_table(api)
             print(f"    Found {len(arp)} entries")
             all_devices.extend(arp)
-        
+
         if "ospf" in sources:
             print("  → OSPF neighbors...")
             ospf = get_ospf_neighbors(api)
             print(f"    Found {len(ospf)} peers")
             all_devices.extend(ospf)
-        
+
         # Remove duplicates by IP
         seen_ips = set()
         unique = []
@@ -860,30 +935,31 @@ def main():
             if key and key not in seen_ips:
                 seen_ips.add(key)
                 unique.append(d)
-        
+
         print(f"\n✓ Total unique devices: {len(unique)}")
-        
+
         source_name = "MNDP/LLDP + ARP + OSPF" if len(sources) > 1 else sources[0].upper()
         d2_code = generate_d2_map(identity, info, unique, source_name, device)
         title = f"Network Map - {identity}"
-    
+
     # Save files
     with open("network_map.d2", "w") as f:
         f.write(d2_code)
     print("✓ Saved: network_map.d2")
-    
+
     html = generate_html(d2_code, title)
     with open("network_discovery_map.html", "w") as f:
         f.write(html)
     print("✓ Saved: network_discovery_map.html")
-    
+
     # Open in browser
     try:
         import webbrowser
+
         webbrowser.open(f"file://{os.path.abspath('network_discovery_map.html')}")
     except:
         pass
-    
+
     print("\n" + "=" * 50)
     print("D2 Code:")
     print("=" * 50)

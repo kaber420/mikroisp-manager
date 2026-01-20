@@ -1,15 +1,13 @@
 # app/services/router_service.py
 import logging
-from typing import Dict, Any, List, Optional
-from routeros_api import RouterOsApiPool
-from fastapi import HTTPException, status
+from typing import Any
 
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
+
 from ..models.router import Router
-from ..utils.security import encrypt_data, decrypt_data
-from ..utils.device_clients.mikrotik import system, ip, firewall, queues, ppp, connection as mikrotik_connection
-from ..utils.device_clients.mikrotik.interfaces import MikrotikInterfaceManager
+from ..utils.security import decrypt_data, encrypt_data
 
 logger = logging.getLogger(__name__)
 
@@ -47,13 +45,18 @@ class RouterService:
             )
 
         # Initialize the adapter
-        password = self.decrypted_password if self.decrypted_password else decrypt_data(self.creds.password)
+        password = (
+            self.decrypted_password
+            if self.decrypted_password
+            else decrypt_data(self.creds.password)
+        )
         from ..utils.device_clients.adapters.mikrotik_router import MikrotikRouterAdapter
+
         self.adapter = MikrotikRouterAdapter(
             host=self.host,
             username=self.creds.username,
             password=password,
-            port=self.creds.api_ssl_port
+            port=self.creds.api_ssl_port,
         )
 
     def disconnect(self):
@@ -84,17 +87,17 @@ class RouterService:
 
     # --- MÉTODOS DELEGADOS A LOS NUEVOS MÓDULOS ---
     # Ahora estos métodos simplemente delegan en el adaptador
-    
+
     def add_vlan(self, name: str, vlan_id: str, interface: str, comment: str):
         return self.adapter.add_vlan(name, vlan_id, interface, comment)
 
     def update_vlan(self, vlan_id: str, name: str, new_vlan_id: str, interface: str):
         return self.adapter.update_vlan(vlan_id, name, new_vlan_id, interface)
 
-    def add_bridge(self, name: str, ports: List[str], comment: str):
+    def add_bridge(self, name: str, ports: list[str], comment: str):
         return self.adapter.add_bridge(name, ports, comment)
 
-    def update_bridge(self, bridge_id: str, name: str, ports: List[str]):
+    def update_bridge(self, bridge_id: str, name: str, ports: list[str]):
         return self.adapter.update_bridge(bridge_id, name, ports)
 
     def remove_interface(self, interface_id: str, interface_type: str):
@@ -106,25 +109,25 @@ class RouterService:
     def set_pppoe_secret_status(self, secret_id: str, disable: bool):
         return self.adapter.set_pppoe_secret_status(secret_id, disable)
 
-    def get_pppoe_secrets(self, username: str = None) -> List[Dict[str, Any]]:
+    def get_pppoe_secrets(self, username: str = None) -> list[dict[str, Any]]:
         return self.adapter.get_pppoe_secrets(username)
 
-    def get_ppp_profiles(self) -> List[Dict[str, Any]]:
+    def get_ppp_profiles(self) -> list[dict[str, Any]]:
         return self.adapter.get_ppp_profiles()
 
-    def get_pppoe_active_connections(self, name: str = None) -> List[Dict[str, Any]]:
+    def get_pppoe_active_connections(self, name: str = None) -> list[dict[str, Any]]:
         return self.adapter.get_pppoe_active_connections(name)
 
-    def create_pppoe_secret(self, **kwargs) -> Dict[str, Any]:
+    def create_pppoe_secret(self, **kwargs) -> dict[str, Any]:
         return self.adapter.create_pppoe_secret(**kwargs)
 
-    def update_pppoe_secret(self, secret_id: str, **kwargs) -> Dict[str, Any]:
+    def update_pppoe_secret(self, secret_id: str, **kwargs) -> dict[str, Any]:
         return self.adapter.update_pppoe_secret(secret_id, **kwargs)
 
     def remove_pppoe_secret(self, secret_id: str) -> None:
         return self.adapter.remove_pppoe_secret(secret_id)
 
-    def get_system_resources(self) -> Dict[str, Any]:
+    def get_system_resources(self) -> dict[str, Any]:
         return self.adapter.get_system_resources()
 
     def create_service_plan(self, **kwargs):
@@ -157,30 +160,47 @@ class RouterService:
     def remove_simple_queue(self, queue_id: str):
         return self.adapter.remove_simple_queue(queue_id)
 
-    def get_simple_queue_stats(self, target: str) -> Optional[Dict[str, Any]]:
+    def get_simple_queue_stats(self, target: str) -> dict[str, Any] | None:
         return self.adapter.get_simple_queue_stats(target)
 
     # --- NEW: Service Suspension & Connection Management Methods ---
 
-    def update_address_list(self, list_name: str, address: str, action: str, comment: str = "") -> Dict[str, Any]:
+    def update_address_list(
+        self, list_name: str, address: str, action: str, comment: str = ""
+    ) -> dict[str, Any]:
         return self.adapter.update_address_list(list_name, address, action, comment)
 
-    def get_address_list(self, list_name: str = None) -> List[Dict[str, Any]]:
+    def get_address_list(self, list_name: str = None) -> list[dict[str, Any]]:
         return self.adapter.get_address_list(list_name)
 
-    def kill_pppoe_connection(self, username: str) -> Dict[str, Any]:
+    def kill_pppoe_connection(self, username: str) -> dict[str, Any]:
         return self.adapter.kill_pppoe_connection(username)
 
-    def update_pppoe_profile(self, username: str, new_profile: str) -> Dict[str, Any]:
+    def update_pppoe_profile(self, username: str, new_profile: str) -> dict[str, Any]:
         return self.adapter.update_pppoe_profile(username, new_profile)
 
-    def suspend_service(self, address: str, list_name: str, strategy: str = "blacklist", pppoe_username: str = None, comment: str = "Suspended by UManager") -> Dict[str, Any]:
+    def suspend_service(
+        self,
+        address: str,
+        list_name: str,
+        strategy: str = "blacklist",
+        pppoe_username: str = None,
+        comment: str = "Suspended by UManager",
+    ) -> dict[str, Any]:
         return self.adapter.suspend_service(address, list_name, strategy, pppoe_username, comment)
 
-    def restore_service(self, address: str, list_name: str, strategy: str = "blacklist", comment: str = "Restored by UManager") -> Dict[str, Any]:
+    def restore_service(
+        self,
+        address: str,
+        list_name: str,
+        strategy: str = "blacklist",
+        comment: str = "Restored by UManager",
+    ) -> dict[str, Any]:
         return self.adapter.restore_service(address, list_name, strategy, comment)
 
-    def change_plan(self, pppoe_username: str, new_profile: str, kill_connection: bool = True) -> Dict[str, Any]:
+    def change_plan(
+        self, pppoe_username: str, new_profile: str, kill_connection: bool = True
+    ) -> dict[str, Any]:
         return self.adapter.change_plan(pppoe_username, new_profile, kill_connection)
 
     def get_backup_files(self):
@@ -205,52 +225,61 @@ class RouterService:
         return self.adapter.remove_router_user(user_id)
 
     # --- Legacy-compatible Suspension Methods (used by billing_service) ---
-    
+
     def _get_prefixed_list_name(self, base_name: str, strategy: str) -> str:
         """Returns the address list name with BL_/WL_ prefix based on strategy."""
         prefix = "BL_" if strategy == "blacklist" else "WL_"
         return f"{prefix}{base_name}"
 
-    def suspend_user_address_list(self, ip: str, list_name: str = None, strategy: str = None) -> Dict[str, Any]:
-        strategy = strategy or getattr(self.creds, 'address_list_strategy', 'blacklist') or 'blacklist'
-        base_name = list_name or getattr(self.creds, 'address_list_name', 'morosos') or 'morosos'
+    def suspend_user_address_list(
+        self, ip: str, list_name: str = None, strategy: str = None
+    ) -> dict[str, Any]:
+        strategy = (
+            strategy or getattr(self.creds, "address_list_strategy", "blacklist") or "blacklist"
+        )
+        base_name = list_name or getattr(self.creds, "address_list_name", "morosos") or "morosos"
         full_list_name = self._get_prefixed_list_name(base_name, strategy)
-        
-        logger.info(f"🔴 Suspending {ip} via address list '{full_list_name}' (strategy: {strategy})")
+
+        logger.info(
+            f"🔴 Suspending {ip} via address list '{full_list_name}' (strategy: {strategy})"
+        )
         return self.suspend_service(
             address=ip,
             list_name=full_list_name,
             strategy=strategy,
-            comment=f"Suspended by UManager - {ip}"
+            comment=f"Suspended by UManager - {ip}",
         )
 
-    def activate_user_address_list(self, ip: str, list_name: str = None, strategy: str = None) -> Dict[str, Any]:
-        strategy = strategy or getattr(self.creds, 'address_list_strategy', 'blacklist') or 'blacklist'
-        base_name = list_name or getattr(self.creds, 'address_list_name', 'morosos') or 'morosos'
+    def activate_user_address_list(
+        self, ip: str, list_name: str = None, strategy: str = None
+    ) -> dict[str, Any]:
+        strategy = (
+            strategy or getattr(self.creds, "address_list_strategy", "blacklist") or "blacklist"
+        )
+        base_name = list_name or getattr(self.creds, "address_list_name", "morosos") or "morosos"
         full_list_name = self._get_prefixed_list_name(base_name, strategy)
-        
+
         logger.info(f"🟢 Restoring {ip} via address list '{full_list_name}' (strategy: {strategy})")
         return self.restore_service(
             address=ip,
             list_name=full_list_name,
             strategy=strategy,
-            comment=f"Restored by UManager - {ip}"
+            comment=f"Restored by UManager - {ip}",
         )
 
-    def suspend_user_limit(self, ip: str, min_limit: str = "1k/1k") -> Dict[str, Any]:
+    def suspend_user_limit(self, ip: str, min_limit: str = "1k/1k") -> dict[str, Any]:
         logger.info(f"🔴 Suspending {ip} via queue limit (setting to {min_limit})")
         return self.adapter.update_queue_limit(target=ip, max_limit=min_limit)
 
-    def activate_user_limit(self, ip: str, max_limit: str) -> Dict[str, Any]:
+    def activate_user_limit(self, ip: str, max_limit: str) -> dict[str, Any]:
         logger.info(f"🟢 Restoring {ip} queue limit to {max_limit}")
         return self.adapter.update_queue_limit(target=ip, max_limit=max_limit)
 
-    def update_queue_limit(self, target: str, max_limit: str) -> Dict[str, Any]:
+    def update_queue_limit(self, target: str, max_limit: str) -> dict[str, Any]:
         logger.info(f"📊 Updating queue limit for {target} to {max_limit}")
         return self.adapter.update_queue_limit(target=target, max_limit=max_limit)
 
-
-    def get_full_details(self) -> Dict[str, Any]:
+    def get_full_details(self) -> dict[str, Any]:
         return self.adapter.get_full_details()
 
     def cleanup_connections(self) -> int:
@@ -264,45 +293,56 @@ class RouterService:
         """
         try:
             # 1. Check current Status
-            status = self.adapter.get_ssl_status() # Use adapter directly
-            
+            status = self.adapter.get_ssl_status()  # Use adapter directly
+
             # If already secure, we are good.
             # We check both is_trusted AND that it is enabled (ssl_enabled=True)
-            if status.get("ssl_enabled") and status.get("is_trusted") and status.get("status") == "secure":
+            if (
+                status.get("ssl_enabled")
+                and status.get("is_trusted")
+                and status.get("status") == "secure"
+            ):
                 logger.info(f"Router {self.host} SSL is ALREADY SECURE (Zero Trust Compliant).")
                 return True
-            
-            logger.warning(f"Router {self.host} SSL is INSECURE ({status.get('status')}). Auto-provisioning for Zero Trust...")
-            
+
+            logger.warning(
+                f"Router {self.host} SSL is INSECURE ({status.get('status')}). Auto-provisioning for Zero Trust..."
+            )
+
             # 2. Generate Certs
             from .pki_service import PKIService
+
             pki = PKIService()
             success, key_pem, cert_pem = pki.generate_full_cert_pair(self.host)
-            
+
             if not success:
                 logger.error(f"Failed to generate certificates for {self.host}")
                 return False
-            
+
             # 3. Import & Apply (Atomic SSH Restart logic inside adapter)
             result = self.adapter.import_certificate(cert_pem, key_pem)
-            
+
             if result.get("status") == "success":
                 logger.info(f"✅ Auto-provisioning successful for {self.host}. Connection secured.")
                 return True
             else:
-                logger.error(f"❌ Auto-provisioning failed for {self.host}: {result.get('message')}")
+                logger.error(
+                    f"❌ Auto-provisioning failed for {self.host}: {result.get('message')}"
+                )
                 return False
-                
+
         except Exception as e:
             logger.error(f"Error in ensure_ssl_provisioned for {self.host}: {e}")
             import traceback
+
             traceback.print_exc()
             return False
 
 
 # --- CRUD Functions (Sync for background tasks) ---
 
-def get_enabled_routers_sync(session) -> List[Router]:
+
+def get_enabled_routers_sync(session) -> list[Router]:
     """Synchronous version of get_enabled_routers."""
     statement = select(Router).where(Router.is_enabled == True).where(Router.is_provisioned == True)
     return session.exec(statement).all()
@@ -310,33 +350,35 @@ def get_enabled_routers_sync(session) -> List[Router]:
 
 # --- CRUD Functions (Async) ---
 
-async def get_all_routers(session: AsyncSession) -> List[Dict[str, Any]]:
+
+async def get_all_routers(session: AsyncSession) -> list[dict[str, Any]]:
     from ..models.zona import Zona
-    
+
     # Fetch routers with zona_nombre via LEFT JOIN
-    statement = (
-        select(Router, Zona.nombre.label("zona_nombre"))
-        .outerjoin(Zona, Router.zona_id == Zona.id)
+    statement = select(Router, Zona.nombre.label("zona_nombre")).outerjoin(
+        Zona, Router.zona_id == Zona.id
     )
     result = await session.execute(statement)
     rows = result.all()
-    
+
     # Convert to dict and add zona_nombre
     routers_list = []
     for router, zona_nombre in rows:
         router_dict = router.model_dump()
         router_dict["zona_nombre"] = zona_nombre
         routers_list.append(router_dict)
-    
+
     return routers_list
 
-async def get_router_by_host(session: AsyncSession, host: str) -> Optional[Router]:
+
+async def get_router_by_host(session: AsyncSession, host: str) -> Router | None:
     router = await session.get(Router, host)
     return router
 
+
 async def create_router(session: AsyncSession, router_data: dict) -> Router:
     """Create a new router in the database.
-    
+
     Raises:
         ValueError: If a router with the same host already exists.
     """
@@ -345,32 +387,34 @@ async def create_router(session: AsyncSession, router_data: dict) -> Router:
     existing_router = await session.get(Router, host)
     if existing_router:
         raise ValueError(f"Ya existe un router con la IP '{host}'. Use editar para modificarlo.")
-    
+
     # Encrypt password
     if "password" in router_data:
         router_data["password"] = encrypt_data(router_data["password"])
-    
+
     router = Router(**router_data)
     session.add(router)
     await session.commit()
     await session.refresh(router)
     return router
 
-async def update_router(session: AsyncSession, host: str, router_data: dict) -> Optional[Router]:
+
+async def update_router(session: AsyncSession, host: str, router_data: dict) -> Router | None:
     router = await session.get(Router, host)
     if not router:
         return None
-    
+
     if "password" in router_data and router_data["password"]:
         router_data["password"] = encrypt_data(router_data["password"])
-        
+
     for key, value in router_data.items():
         setattr(router, key, value)
-        
+
     session.add(router)
     await session.commit()
     await session.refresh(router)
     return router
+
 
 async def delete_router(session: AsyncSession, host: str) -> bool:
     router = await session.get(Router, host)
@@ -380,7 +424,8 @@ async def delete_router(session: AsyncSession, host: str) -> bool:
     await session.commit()
     return True
 
-async def get_enabled_routers(session: AsyncSession) -> List[Router]:
+
+async def get_enabled_routers(session: AsyncSession) -> list[Router]:
     statement = select(Router).where(Router.is_enabled == True).where(Router.is_provisioned == True)
     result = await session.exec(statement)
     return result.all()
@@ -388,7 +433,9 @@ async def get_enabled_routers(session: AsyncSession) -> List[Router]:
 
 # --- Dependency Injection ---
 from fastapi import Depends
+
 from ..db.engine import get_session
+
 
 async def get_router_service(host: str, session: AsyncSession = Depends(get_session)):
     """
@@ -401,21 +448,19 @@ async def get_router_service(host: str, session: AsyncSession = Depends(get_sess
         router = await get_router_by_host(session, host)
         if not router:
             raise RouterConnectionError(f"Router {host} no encontrado en la DB.")
-        
+
         # Crear el servicio (esto abre la conexión al router)
         service = RouterService(host, router)
-        
+
         # Entregar el servicio al endpoint que lo solicitó
         yield service
-        
+
     except (RouterConnectionError, RouterNotProvisionedError) as e:
         # Manejo de errores si no se pudo conectar al inicio
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
         logger.error(f"Error en get_router_service para {host}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     finally:
         # CRÍTICO: Cerrar la conexión SIEMPRE después de que el endpoint termine
         if service:
@@ -426,13 +471,15 @@ async def get_router_service(host: str, session: AsyncSession = Depends(get_sess
                 logger.error(f"❌ Error cerrando conexión con {host}: {e}")
 
 
-async def get_router_service_for_provisioning(host: str, session: AsyncSession = Depends(get_session)):
+async def get_router_service_for_provisioning(
+    host: str, session: AsyncSession = Depends(get_session)
+):
     """
     Obtiene un adapter de conexión para routers que NO están aprovisionados.
-    
+
     Usado por endpoints de SSL/provisioning que necesitan conectar a routers
     antes de que tengan is_provisioned=True.
-    
+
     NOTA: Este NO es un RouterService completo, es solo el adapter directo.
     """
     adapter = None
@@ -441,35 +488,34 @@ async def get_router_service_for_provisioning(host: str, session: AsyncSession =
         router = await get_router_by_host(session, host)
         if not router:
             raise RouterConnectionError(f"Router {host} no encontrado en la DB.")
-        
+
         # Decrypt password
         password = decrypt_data(router.password)
-        
+
         # Create adapter directly (bypassing is_provisioned check)
         from ..utils.device_clients.adapters.mikrotik_router import MikrotikRouterAdapter
+
         adapter = MikrotikRouterAdapter(
             host=host,
             username=router.username,
             password=password,
-            port=router.api_ssl_port  # Intentar SSL primero
+            port=router.api_ssl_port,  # Intentar SSL primero
         )
-        
+
         # Return a simple object with the adapter and host
         class ProvisioningContext:
             def __init__(self, host, adapter, creds):
                 self.host = host
                 self.adapter = adapter
                 self.creds = creds
-        
+
         yield ProvisioningContext(host, adapter, router)
-        
+
     except RouterConnectionError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
         logger.error(f"Error en get_router_service_for_provisioning para {host}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     finally:
         # Cerrar la conexión
         if adapter:
@@ -477,4 +523,3 @@ async def get_router_service_for_provisioning(host: str, session: AsyncSession =
                 adapter.disconnect()
             except Exception:
                 pass
-

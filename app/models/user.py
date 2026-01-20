@@ -3,9 +3,10 @@
 User model for FastAPI Users with SQLModel.
 Combines FastAPI Users base fields with custom ISP management fields.
 """
-from typing import Optional
-from sqlmodel import Field, SQLModel
+
 import uuid as uuid_pkg
+
+from sqlmodel import Field, SQLModel
 
 
 class User(SQLModel, table=True):
@@ -31,9 +32,7 @@ class User(SQLModel, table=True):
     __tablename__ = "users"
 
     # FastAPI Users required fields
-    id: uuid_pkg.UUID = Field(
-        default_factory=uuid_pkg.uuid4, primary_key=True, nullable=False
-    )
+    id: uuid_pkg.UUID = Field(default_factory=uuid_pkg.uuid4, primary_key=True, nullable=False)
     email: str = Field(unique=True, index=True, nullable=False, max_length=320)
     hashed_password: str = Field(nullable=False, max_length=1024)
     is_active: bool = Field(default=True, nullable=False)
@@ -43,7 +42,7 @@ class User(SQLModel, table=True):
     # Custom fields
     username: str = Field(index=True, unique=True, nullable=False, max_length=100)
     role: str = Field(default="admin", max_length=50)
-    telegram_chat_id: Optional[str] = Field(default=None, max_length=100)
+    telegram_chat_id: str | None = Field(default=None, max_length=100)
     receive_alerts: bool = Field(default=False)
     receive_announcements: bool = Field(default=False)
 

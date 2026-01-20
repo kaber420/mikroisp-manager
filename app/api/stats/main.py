@@ -1,18 +1,18 @@
 # app/api/stats/main.py
-import sqlite3
 import os
-from datetime import datetime
+import sqlite3
+
 from fastapi import APIRouter, Depends, HTTPException
-from typing import List, Dict, Optional
+
+from ...core.constants import CPEStatus, DeviceStatus
 
 # --- RBAC: Stats is read-only, allow all authenticated users ---
 from ...core.users import current_active_user
-from ...models.user import User
 from ...db.base import get_db_connection, get_stats_db_connection, get_stats_db_file
-from ...core.constants import DeviceStatus, CPEStatus
+from ...models.user import User
 
 # --- ¡IMPORTACIÓN CORREGIDA! (Ahora desde '.models') ---
-from .models import TopAP, TopCPE, CPECount, SwitchCount
+from .models import CPECount, SwitchCount, TopAP, TopCPE
 
 router = APIRouter()
 
@@ -37,7 +37,7 @@ def get_stats_db():
 
 
 # --- Endpoints de la API (Lógica sin cambios) ---
-@router.get("/stats/top-aps-by-airtime", response_model=List[TopAP])
+@router.get("/stats/top-aps-by-airtime", response_model=list[TopAP])
 def get_top_aps_by_airtime(
     limit: int = 5,
     conn: sqlite3.Connection = Depends(get_inventory_db),
@@ -72,10 +72,10 @@ def get_top_aps_by_airtime(
         conn.close()
 
 
-@router.get("/stats/top-cpes-by-signal", response_model=List[TopCPE])
+@router.get("/stats/top-cpes-by-signal", response_model=list[TopCPE])
 def get_top_cpes_by_weak_signal(
     limit: int = 5,
-    stats_conn: Optional[sqlite3.Connection] = Depends(get_stats_db),
+    stats_conn: sqlite3.Connection | None = Depends(get_stats_db),
     current_user: User = Depends(current_active_user),
 ):
     if not stats_conn:
@@ -111,11 +111,15 @@ def get_cpe_total_count(
         total = cursor.fetchone()[0]
 
         # Active count
-        cursor = conn.execute(f"SELECT COUNT(*) FROM cpes WHERE status='{CPEStatus.ACTIVE.value}' AND is_enabled=1")
+        cursor = conn.execute(
+            f"SELECT COUNT(*) FROM cpes WHERE status='{CPEStatus.ACTIVE.value}' AND is_enabled=1"
+        )
         active = cursor.fetchone()[0]
 
         # Offline count
-        cursor = conn.execute(f"SELECT COUNT(*) FROM cpes WHERE status='{CPEStatus.OFFLINE.value}' AND is_enabled=1")
+        cursor = conn.execute(
+            f"SELECT COUNT(*) FROM cpes WHERE status='{CPEStatus.OFFLINE.value}' AND is_enabled=1"
+        )
         offline = cursor.fetchone()[0]
 
         # Disabled count
@@ -146,11 +150,15 @@ def get_switch_total_count(
         total = cursor.fetchone()[0]
 
         # Online count
-        cursor = conn.execute(f"SELECT COUNT(*) FROM switches WHERE last_status = '{DeviceStatus.ONLINE.value}' AND is_enabled = 1")
+        cursor = conn.execute(
+            f"SELECT COUNT(*) FROM switches WHERE last_status = '{DeviceStatus.ONLINE.value}' AND is_enabled = 1"
+        )
         online = cursor.fetchone()[0]
 
         # Offline count
-        cursor = conn.execute(f"SELECT COUNT(*) FROM switches WHERE last_status = '{DeviceStatus.OFFLINE.value}' AND is_enabled = 1")
+        cursor = conn.execute(
+            f"SELECT COUNT(*) FROM switches WHERE last_status = '{DeviceStatus.OFFLINE.value}' AND is_enabled = 1"
+        )
         offline = cursor.fetchone()[0]
 
         return {
@@ -163,8 +171,8 @@ def get_switch_total_count(
 
 
 from ...db.logs_db import (
-    get_event_logs_paginated,
     count_event_logs,
+    get_event_logs_paginated,
 )  # Importamos las nuevas funciones
 
 # ... (otros endpoints) ...
@@ -175,7 +183,7 @@ def get_dashboard_events(
     host: str = None,
     page: int = 1,  # Nuevo parámetro
     page_size: int = 10,  # Nuevo parámetro (default 10)
-    conn: Optional[sqlite3.Connection] = Depends(get_stats_db),
+    conn: sqlite3.Connection | None = Depends(get_stats_db),
     current_user: User = Depends(current_active_user),
 ):
     """

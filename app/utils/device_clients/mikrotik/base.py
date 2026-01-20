@@ -1,7 +1,7 @@
-from typing import Dict, Any, Optional
+from typing import Any
 
 
-def get_id(resource_dict: Dict[str, Any]) -> str:
+def get_id(resource_dict: dict[str, Any]) -> str:
     """
     Obtiene de forma segura el ID de un recurso devuelto por la API de MikroTik,
     probando tanto la clave 'id' como '.id'.
@@ -15,7 +15,7 @@ def get_id(resource_dict: Dict[str, Any]) -> str:
     )
 
 
-def find_resource_id(api_resource, **kwargs) -> Optional[str]:
+def find_resource_id(api_resource, **kwargs) -> str | None:
     """
     Busca un recurso por parámetros (ej. name='algo') y devuelve su ID.
     """

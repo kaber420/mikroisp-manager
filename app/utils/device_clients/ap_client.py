@@ -14,9 +14,7 @@ class UbiquitiClient:
     Encapsula la lógica de autenticación y obtención de datos, reutilizando la sesión.
     """
 
-    def __init__(
-        self, host, username, password, port=443, http_mode=False, verify_ssl=False
-    ):
+    def __init__(self, host, username, password, port=443, http_mode=False, verify_ssl=False):
         """
         Inicializa el cliente.
 
@@ -70,9 +68,7 @@ class UbiquitiClient:
                 print(f"Autenticación exitosa en {self.base_url}")
                 return True
 
-            print(
-                f"Error de autenticación en {self.base_url}: No se recibió el token CSRF."
-            )
+            print(f"Error de autenticación en {self.base_url}: No se recibió el token CSRF.")
             return False
 
         except requests.exceptions.RequestException as e:
@@ -95,9 +91,7 @@ class UbiquitiClient:
                 # Si la sesión expiró, el AP puede devolver 200 OK con la página de login.
                 # O puede devolver 401/403.
                 if response.status_code in [401, 403]:
-                    print(
-                        f"Sesión para {self.base_url} expirada o no válida. Re-autenticando..."
-                    )
+                    print(f"Sesión para {self.base_url} expirada o no válida. Re-autenticando...")
                     return None  # Indica que se necesita re-autenticación
 
                 response.raise_for_status()
@@ -114,15 +108,11 @@ class UbiquitiClient:
                 return data
 
             except requests.exceptions.RequestException as e:
-                print(
-                    f"Error de red al obtener datos de estado de {self.base_url}: {e}"
-                )
+                print(f"Error de red al obtener datos de estado de {self.base_url}: {e}")
                 raise  # Relanzamos para que el llamador sepa que hubo un error de red
             except requests.exceptions.JSONDecodeError:
                 # Esto ocurre si la respuesta no es JSON, típicamente la página de login.
-                print(
-                    f"La respuesta de {self.base_url} no es un JSON válido. Re-autenticando..."
-                )
+                print(f"La respuesta de {self.base_url} no es un JSON válido. Re-autenticando...")
                 return None  # Indica que se necesita re-autenticación
 
         try:

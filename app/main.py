@@ -1,65 +1,58 @@
 # app/main.py
 import os
+
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde .env ANTES de cualquier otra cosa
 load_dotenv()
 
 import asyncio
-from fastapi import (
-    FastAPI,
-    Request,
-    WebSocket,
-    WebSocketDisconnect,
-    Cookie,
-    status,
-    Depends
-)
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse, RedirectResponse
+
+from fastapi import Cookie, FastAPI, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from starlette.exceptions import HTTPException as StarletteHTTPException
-
-# CSP Middleware with Nonces
-from .csp_middleware import CSPMiddleware
-from pydantic_settings import BaseSettings
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 # SlowAPI (Rate Limiting)
 from slowapi import Limiter
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
-# FastAPI Users imports
-from .core.users import (
-    fastapi_users,
-    auth_backend_jwt,
-    auth_backend_cookie,
-    ACCESS_TOKEN_COOKIE_NAME,
-)
-from .schemas.user import UserRead, UserCreate, UserUpdate
-from .db.engine import create_db_and_tables
+from .api.aps import main as aps_main_api
+from .api.aps import spectral as aps_spectral_api
+from .api.clients import main as clients_main_api
+from .api.cpes import main as cpes_main_api
+from .api.plans import main as plans_main_api
+from .api.routers import main as routers_main_api
+from .api.security import main as security_main_api
+from .api.settings import main as settings_main_api
+from .api.stats import main as stats_main_api
+from .api.switches import main as switches_main_api
+from .api.users import main as users_main_api
+from .api.zonas import infra as zonas_infra_api
+from .api.zonas import main as zonas_main_api
 
 # Shared Core Modules
 from .core.templates import templates
+
+# FastAPI Users imports
+from .core.users import (
+    ACCESS_TOKEN_COOKIE_NAME,
+    auth_backend_cookie,
+    auth_backend_jwt,
+    fastapi_users,
+)
 from .core.websockets import manager
+
+# CSP Middleware with Nonces
+from .csp_middleware import CSPMiddleware
+from .db.engine import create_db_and_tables
+from .schemas.user import UserCreate, UserRead, UserUpdate
 
 # Importaciones de API Routers
 from .views import router as views_router
-from .api.routers import main as routers_main_api
-from .api.clients import main as clients_main_api
-from .api.cpes import main as cpes_main_api
-from .api.zonas import main as zonas_main_api
-from .api.zonas import infra as zonas_infra_api
-from .api.users import main as users_main_api
-from .api.settings import main as settings_main_api
-from .api.aps import main as aps_main_api
-from .api.aps import spectral as aps_spectral_api
-from .api.stats import main as stats_main_api
-from .api.plans import main as plans_main_api
-from .api.switches import main as switches_main_api
-from .api.security import main as security_main_api
-
 
 app = FastAPI(title="µMonitor Pro", version="0.5.0")
 
@@ -70,24 +63,26 @@ async def on_startup():
     """Initialize database tables and background services on application startup"""
     await create_db_and_tables()
     print("✅ Database tables initialized")
-    
+
     # --- Cache V2: Iniciar MonitorScheduler ---
     # Este scheduler consulta routers suscritos y llena el cache
     # Los WebSockets leen del cache en lugar de conectar directamente
     from .services.monitor_scheduler import monitor_scheduler
-    import asyncio
+
     asyncio.create_task(monitor_scheduler.run())
     print("✅ MonitorScheduler iniciado (Cache V2)")
-    
+
     # --- Cache V2: Iniciar APMonitorScheduler ---
     # Mismo patrón para APs
     from .services.ap_monitor_scheduler import ap_monitor_scheduler
+
     asyncio.create_task(ap_monitor_scheduler.run())
     print("✅ APMonitorScheduler iniciado (Cache V2)")
-    
+
     # --- Cache V2: Iniciar SwitchMonitorScheduler ---
     # Mismo patrón para Switches
     from .services.switch_monitor_scheduler import switch_monitor_scheduler
+
     asyncio.create_task(switch_monitor_scheduler.run())
     print("✅ SwitchMonitorScheduler iniciado (Cache V2)")
 
@@ -108,9 +103,7 @@ async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
             },
             status_code=429,
         )
-    return JSONResponse(
-        content={"error": f"Rate limit exceeded: {exc.detail}"}, status_code=429
-    )
+    return JSONResponse(content={"error": f"Rate limit exceeded: {exc.detail}"}, status_code=429)
 
 
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
@@ -145,8 +138,9 @@ app.add_middleware(CSPMiddleware)
 
 
 # --- SEGURIDAD: ORIGIN SHIELD (Protección CSRF por verificación de origen)
-from starlette.middleware.base import BaseHTTPMiddleware
 from urllib.parse import urlparse
+
+from starlette.middleware.base import BaseHTTPMiddleware
 
 
 class TrustedOriginMiddleware(BaseHTTPMiddleware):
@@ -157,14 +151,17 @@ class TrustedOriginMiddleware(BaseHTTPMiddleware):
     """
 
     UNSAFE_METHODS = {"POST", "PUT", "DELETE", "PATCH"}
-    SAFE_PATHS = {"/api/internal/", "/auth/jwt/login"}  # Internal endpoints & Login don't need Origin check
+    SAFE_PATHS = {
+        "/api/internal/",
+        "/auth/jwt/login",
+    }  # Internal endpoints & Login don't need Origin check
 
     async def dispatch(self, request: Request, call_next):
         if request.method in self.UNSAFE_METHODS:
             # Skip origin check for internal/safe paths
             if any(request.url.path.startswith(path) for path in self.SAFE_PATHS):
                 return await call_next(request)
-            
+
             origin = request.headers.get("origin")
             referer = request.headers.get("referer")
 
@@ -184,18 +181,20 @@ class TrustedOriginMiddleware(BaseHTTPMiddleware):
                 # or internal tool vs a browser without origin headers (suspicious)
                 has_auth = request.headers.get("authorization") is not None
                 if not has_auth:
-                    print(f"🛡️ [Origin Shield] BLOCKED: Missing Origin/Referer for {request.method} {request.url.path}")
+                    print(
+                        f"🛡️ [Origin Shield] BLOCKED: Missing Origin/Referer for {request.method} {request.url.path}"
+                    )
                     return JSONResponse(
                         status_code=status.HTTP_403_FORBIDDEN,
-                        content={"detail": "Forbidden: Missing origin information"}
+                        content={"detail": "Forbidden: Missing origin information"},
                     )
                 # Allow API clients with explicit auth
                 return await call_next(request)
-            
+
             # Normalize both sides for comparison
             is_trusted = False
             request_origin_normalized = request_origin.rstrip("/")
-            
+
             for allowed in origins:
                 allowed_normalized = allowed.rstrip("/")
                 # Support both http and https for the same host in development
@@ -203,7 +202,9 @@ class TrustedOriginMiddleware(BaseHTTPMiddleware):
                     is_trusted = True
                     break
                 # Also check if only the scheme differs (http vs https)
-                if request_origin_normalized.replace("https://", "http://") == allowed_normalized.replace("https://", "http://"):
+                if request_origin_normalized.replace(
+                    "https://", "http://"
+                ) == allowed_normalized.replace("https://", "http://"):
                     is_trusted = True
                     break
 
@@ -217,7 +218,7 @@ class TrustedOriginMiddleware(BaseHTTPMiddleware):
                 print(f"🛡️ [Origin Shield] BLOCKED request from untrusted origin: {request_origin}")
                 return JSONResponse(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    content={"detail": "Forbidden: Invalid origin"}
+                    content={"detail": "Forbidden: Invalid origin"},
                 )
 
         return await call_next(request)
@@ -230,27 +231,31 @@ app.add_middleware(TrustedOriginMiddleware)
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
-    
+
     # Prevenir que el sitio sea embebido en iframes (Clickjacking)
     response.headers["X-Frame-Options"] = "DENY"
-    
+
     # Prevenir que el navegador intente adivinar el tipo de contenido (MIME Sniffing)
     response.headers["X-Content-Type-Options"] = "nosniff"
-    
+
     # Filtro XSS legacy para navegadores antiguos
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    
+
     # Controlar cuánta información se envía en el Referer
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    
+
     # HSTS: Forzar HTTPS (solo si APP_ENV es producción)
     if os.getenv("APP_ENV", "development") == "production":
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
-    
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains; preload"
+        )
+
     # Permissions Policy: Restringir acceso a hardware y APIs sensibles si no se usan
     # Ajusta según las necesidades de tu app (cámara, micro, gps, etc.)
-    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), interest-cohort=()"
-    
+    response.headers["Permissions-Policy"] = (
+        "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+    )
+
     # NOTA: Content-Security-Policy ahora es manejado por CSPMiddleware con nonces
 
     return response
@@ -263,29 +268,29 @@ from time import time
 
 _rate_limit_store = defaultdict(list)
 _RATE_LIMITS = {
-    "/auth/cookie/login": (5, 60),      # 5 attempts per 60 seconds
-    "/auth/register": (3, 60),           # 3 attempts per 60 seconds  
-    "/auth/jwt/login": (10, 60),         # 10 attempts per 60 seconds (API)
+    "/auth/cookie/login": (5, 60),  # 5 attempts per 60 seconds
+    "/auth/register": (3, 60),  # 3 attempts per 60 seconds
+    "/auth/jwt/login": (10, 60),  # 10 attempts per 60 seconds (API)
 }
+
 
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
     """Rate limiting for sensitive authentication endpoints"""
     path = request.url.path
-    
+
     # Check if this path needs rate limiting
     if path in _RATE_LIMITS and request.method == "POST":
         max_requests, window_seconds = _RATE_LIMITS[path]
         client_ip = request.client.host if request.client else "unknown"
         key = f"{client_ip}:{path}"
-        
+
         now = time()
         # Clean old entries outside the time window
         _rate_limit_store[key] = [
-            timestamp for timestamp in _rate_limit_store[key]
-            if now - timestamp < window_seconds
+            timestamp for timestamp in _rate_limit_store[key] if now - timestamp < window_seconds
         ]
-        
+
         # Check if rate limit exceeded
         if len(_rate_limit_store[key]) >= max_requests:
             if path == "/auth/cookie/login":
@@ -302,12 +307,12 @@ async def rate_limit_middleware(request: Request, call_next):
                 # Return JSON error for API endpoints
                 return JSONResponse(
                     content={"error": "Rate limit exceeded. Please try again later."},
-                    status_code=429
+                    status_code=429,
                 )
-        
+
         # Record this request
         _rate_limit_store[key].append(now)
-    
+
     return await call_next(request)
 
 
@@ -345,6 +350,7 @@ async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPE
 # Handler for FastAPI HTTP Exceptions (raised by dependencies like RoleChecker)
 from fastapi import HTTPException as FastAPIHTTPException
 
+
 @app.exception_handler(FastAPIHTTPException)
 async def fastapi_http_exception_handler(request: Request, exc: FastAPIHTTPException):
     return await _handle_http_exception(request, exc.status_code, exc.detail)
@@ -378,12 +384,10 @@ async def websocket_dashboard(
 ):
     # --- SECURITY: Validate authentication cookie ---
     if umonitorpro_access_token_v2 is None:
-        print(
-            f"⚠️ [WebSocket] Rechazado: No se encontró la cookie '{ACCESS_TOKEN_COOKIE_NAME}'."
-        )
+        print(f"⚠️ [WebSocket] Rechazado: No se encontró la cookie '{ACCESS_TOKEN_COOKIE_NAME}'.")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
-    
+
     # --- SECURITY: Validate Origin header to prevent CSWSH ---
     # (Cross-Site WebSocket Hijacking)
     origin = websocket.headers.get("origin")
@@ -396,10 +400,12 @@ async def websocket_dashboard(
                 is_trusted_origin = True
                 break
             # Also check http vs https variance
-            if origin_normalized.replace("https://", "http://") == allowed_normalized.replace("https://", "http://"):
+            if origin_normalized.replace("https://", "http://") == allowed_normalized.replace(
+                "https://", "http://"
+            ):
                 is_trusted_origin = True
                 break
-        
+
         if not is_trusted_origin:
             print(f"🛡️ [WebSocket] BLOCKED: Untrusted origin {origin}")
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -465,4 +471,3 @@ app.include_router(stats_main_api.router, prefix="/api", tags=["Stats"])
 app.include_router(plans_main_api.router, prefix="/api", tags=["Plans"])
 app.include_router(switches_main_api.router, prefix="/api", tags=["Switches"])
 app.include_router(security_main_api.router, prefix="/api", tags=["Security"])
-

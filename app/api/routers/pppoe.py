@@ -1,26 +1,27 @@
 # app/api/routers/pppoe.py
-from fastapi import APIRouter, Depends, Query, HTTPException, status
-from typing import List, Optional, Dict, Any
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+from ...core.users import current_active_user as get_current_active_user
+from ...models.user import User
 
 # --- CORRECCIÓN DE IMPORTS ---
 from ...services.router_service import (
+    RouterCommandError,
     RouterService,
     get_router_service,
-    RouterCommandError,
 )  # <-- LÍNEA CAMBIADA
-from ...models.user import User
-from ...core.users import current_active_user as get_current_active_user
 
 # --- FIN DE CORRECCIÓN ---
-
-from .models import PppoeSecretCreate, PppoeSecretUpdate, PppoeSecretDisable
+from .models import PppoeSecretCreate, PppoeSecretDisable, PppoeSecretUpdate
 
 router = APIRouter()
 
 
-@router.get("/pppoe/secrets", response_model=List[Dict[str, Any]])
+@router.get("/pppoe/secrets", response_model=list[dict[str, Any]])
 def api_get_pppoe_secrets(
-    name: Optional[str] = Query(None),
+    name: str | None = Query(None),
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
 ):
@@ -30,9 +31,9 @@ def api_get_pppoe_secrets(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/pppoe/active", response_model=List[Dict[str, Any]])
+@router.get("/pppoe/active", response_model=list[dict[str, Any]])
 def api_get_pppoe_active_connections(
-    name: Optional[str] = Query(None),
+    name: str | None = Query(None),
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
 ):
@@ -42,7 +43,7 @@ def api_get_pppoe_active_connections(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/pppoe/secrets", response_model=Dict[str, Any])
+@router.post("/pppoe/secrets", response_model=dict[str, Any])
 def api_create_pppoe_secret(
     secret: PppoeSecretCreate,
     service: RouterService = Depends(get_router_service),
@@ -54,7 +55,7 @@ def api_create_pppoe_secret(
         raise HTTPException(status_code=409, detail=str(e))
 
 
-@router.put("/pppoe/secrets/{secret_id:path}", response_model=Dict[str, Any])
+@router.put("/pppoe/secrets/{secret_id:path}", response_model=dict[str, Any])
 def api_update_pppoe_secret(
     secret_id: str,
     secret_update: PppoeSecretUpdate,
@@ -70,7 +71,7 @@ def api_update_pppoe_secret(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.patch("/pppoe/secrets/{secret_id:path}/status", response_model=Dict[str, Any])
+@router.patch("/pppoe/secrets/{secret_id:path}/status", response_model=dict[str, Any])
 def api_disable_pppoe_secret(
     secret_id: str,
     status_update: PppoeSecretDisable,
@@ -83,9 +84,7 @@ def api_disable_pppoe_secret(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete(
-    "/pppoe/secrets/{secret_id:path}", status_code=status.HTTP_204_NO_CONTENT
-)
+@router.delete("/pppoe/secrets/{secret_id:path}", status_code=status.HTTP_204_NO_CONTENT)
 def api_remove_pppoe_secret(
     secret_id: str,
     service: RouterService = Depends(get_router_service),
@@ -95,12 +94,10 @@ def api_remove_pppoe_secret(
         service.remove_pppoe_secret(secret_id)
         return
     except RouterCommandError as e:
-        raise HTTPException(
-            status_code=404, detail=f"No se pudo eliminar el 'secret': {e}"
-        )
+        raise HTTPException(status_code=404, detail=f"No se pudo eliminar el 'secret': {e}")
 
 
-@router.get("/pppoe/profiles", response_model=List[Dict[str, Any]])
+@router.get("/pppoe/profiles", response_model=list[dict[str, Any]])
 def api_get_pppoe_profiles(
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
@@ -118,15 +115,15 @@ def api_get_pppoe_profiles(
 # --- NEW: Service Suspension & Connection Management Endpoints ---
 
 from .models import (
-    SuspendServiceRequest,
-    RestoreServiceRequest,
+    AddressListActionRequest,
     ChangePlanRequest,
     KillConnectionRequest,
-    AddressListActionRequest,
+    RestoreServiceRequest,
+    SuspendServiceRequest,
 )
 
 
-@router.post("/pppoe/suspend-service", response_model=Dict[str, Any])
+@router.post("/pppoe/suspend-service", response_model=dict[str, Any])
 def api_suspend_service(
     data: SuspendServiceRequest,
     service: RouterService = Depends(get_router_service),
@@ -150,7 +147,7 @@ def api_suspend_service(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/pppoe/restore-service", response_model=Dict[str, Any])
+@router.post("/pppoe/restore-service", response_model=dict[str, Any])
 def api_restore_service(
     data: RestoreServiceRequest,
     service: RouterService = Depends(get_router_service),
@@ -172,7 +169,7 @@ def api_restore_service(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/pppoe/change-plan", response_model=Dict[str, Any])
+@router.post("/pppoe/change-plan", response_model=dict[str, Any])
 def api_change_plan(
     data: ChangePlanRequest,
     service: RouterService = Depends(get_router_service),
@@ -193,7 +190,7 @@ def api_change_plan(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/pppoe/kill-connection", response_model=Dict[str, Any])
+@router.post("/pppoe/kill-connection", response_model=dict[str, Any])
 def api_kill_connection(
     data: KillConnectionRequest,
     service: RouterService = Depends(get_router_service),
@@ -210,9 +207,9 @@ def api_kill_connection(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/firewall/address-list", response_model=List[Dict[str, Any]])
+@router.get("/firewall/address-list", response_model=list[dict[str, Any]])
 def api_get_address_list(
-    list_name: Optional[str] = Query(None),
+    list_name: str | None = Query(None),
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
 ):
@@ -225,7 +222,7 @@ def api_get_address_list(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/firewall/address-list", response_model=Dict[str, Any])
+@router.post("/firewall/address-list", response_model=dict[str, Any])
 def api_update_address_list(
     data: AddressListActionRequest,
     service: RouterService = Depends(get_router_service),

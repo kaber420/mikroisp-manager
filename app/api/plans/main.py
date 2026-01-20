@@ -1,69 +1,76 @@
 # app/api/plans/main.py
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlmodel import Session
 
 from ...core.users import require_admin, require_technician
-from ...models.user import User
 from ...db.engine_sync import get_sync_session
+from ...models.user import User
 from ...services.plan_service import PlanService
-from ...models.plan import Plan as PlanModel  # Importamos el modelo de DB
 
 router = APIRouter()
+
 
 # --- Modelos Pydantic para Request/Response ---
 class PlanBase(BaseModel):
     name: str
     max_limit: str
-    parent_queue: Optional[str] = None
-    comment: Optional[str] = None
+    parent_queue: str | None = None
+    comment: str | None = None
     router_host: str
-    price: Optional[float] = 0.0
-    plan_type: Optional[str] = "simple_queue"  # "pppoe" or "simple_queue"
-    profile_name: Optional[str] = None  # For PPPoE: router profile name
-    suspension_method: Optional[str] = "queue_limit"  # "pppoe_secret_disable", "address_list", "queue_limit"
-    address_list_strategy: Optional[str] = "blacklist"
-    address_list_name: Optional[str] = "morosos"
+    price: float | None = 0.0
+    plan_type: str | None = "simple_queue"  # "pppoe" or "simple_queue"
+    profile_name: str | None = None  # For PPPoE: router profile name
+    suspension_method: str | None = (
+        "queue_limit"  # "pppoe_secret_disable", "address_list", "queue_limit"
+    )
+    address_list_strategy: str | None = "blacklist"
+    address_list_name: str | None = "morosos"
+
 
 class PlanCreate(PlanBase):
     pass
 
+
 class PlanResponse(PlanBase):
     id: int
-    router_name: Optional[str] = None 
+    router_name: str | None = None
+
 
 # --- Inyección de Dependencia ---
 def get_plan_service(session: Session = Depends(get_sync_session)) -> PlanService:
     return PlanService(session)
 
+
 # --- Endpoints ---
 
-@router.get("/plans", response_model=List[PlanResponse])
+
+@router.get("/plans", response_model=list[PlanResponse])
 def get_all_plans(
     service: PlanService = Depends(get_plan_service),
-    current_user: User = Depends(require_technician)
+    current_user: User = Depends(require_technician),
 ):
     """Obtiene todos los planes de la base de datos."""
     return service.get_all_plans()
 
-@router.get("/plans/router/{router_host}", response_model=List[PlanResponse])
+
+@router.get("/plans/router/{router_host}", response_model=list[PlanResponse])
 def get_plans_by_router(
-    router_host: str, 
+    router_host: str,
     service: PlanService = Depends(get_plan_service),
-    current_user: User = Depends(require_technician)
+    current_user: User = Depends(require_technician),
 ):
     plans = service.get_plans_by_router(router_host)
     # Mapeamos manualmente router_name si es necesario, o dejamos que sea null
-    return [
-        {**p.model_dump(), "router_name": None} for p in plans
-    ]
+    return [{**p.model_dump(), "router_name": None} for p in plans]
+
 
 @router.post("/plans", response_model=PlanResponse, status_code=status.HTTP_201_CREATED)
 def create_plan(
-    plan: PlanCreate, 
+    plan: PlanCreate,
     service: PlanService = Depends(get_plan_service),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_admin),
 ):
     try:
         new_plan = service.create_plan(plan.model_dump())
@@ -72,14 +79,16 @@ def create_plan(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
 @router.delete("/plans/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_plan(
     plan_id: int,
     request: Request,
     service: PlanService = Depends(get_plan_service),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_admin),
 ):
     from ...core.audit import log_action
+
     service.delete(plan_id)
     log_action("DELETE", "plan", str(plan_id), user=current_user, request=request)
     return

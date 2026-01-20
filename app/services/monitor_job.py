@@ -1,11 +1,11 @@
 # app/services/monitor_job.py
 import logging
-import requests
 import os
 from concurrent.futures import ThreadPoolExecutor
 
+import requests
+
 from .monitor_service import MonitorService
-from .router_service import RouterService
 
 # Configuración
 MAX_WORKERS = 10

@@ -1,26 +1,25 @@
 # app/db/router_db.py
-import sqlite3
 import logging
+import sqlite3
 from datetime import datetime
-from typing import Dict, Any, Optional, List
+from typing import Any
+
+from ..core.constants import DeviceStatus
+
+# --- CAMBIO: Importar las funciones de cifrado ---
+from ..utils.security import decrypt_data, encrypt_data
 
 # --- CAMBIO: Importación actualizada para usar 'base.py' ---
 from .base import get_db_connection
 
-# --- CAMBIO: Importar las funciones de cifrado ---
-from ..utils.security import encrypt_data, decrypt_data
-from ..core.constants import DeviceStatus
-
 # --- Funciones CRUD para la API ---
 
 
-def get_router_by_host(host: str) -> Optional[Dict[str, Any]]:
+def get_router_by_host(host: str) -> dict[str, Any] | None:
     """Obtiene todos los datos de un router por su host."""
     try:
         conn = get_db_connection()
-        cursor = conn.execute(
-            "SELECT rowid as id, * FROM routers WHERE host = ?", (host,)
-        )
+        cursor = conn.execute("SELECT rowid as id, * FROM routers WHERE host = ?", (host,))
         row = cursor.fetchone()
         conn.close()
 
@@ -37,7 +36,7 @@ def get_router_by_host(host: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def get_all_routers() -> List[Dict[str, Any]]:
+def get_all_routers() -> list[dict[str, Any]]:
     """Obtiene todos los routers de la base de datos."""
     try:
         conn = get_db_connection()
@@ -54,7 +53,7 @@ def get_all_routers() -> List[Dict[str, Any]]:
         return []
 
 
-def create_router_in_db(router_data: Dict[str, Any]) -> Dict[str, Any]:
+def create_router_in_db(router_data: dict[str, Any]) -> dict[str, Any]:
     """Inserta un nuevo router en la base de datos."""
     conn = get_db_connection()
     try:
@@ -76,9 +75,7 @@ def create_router_in_db(router_data: Dict[str, Any]) -> Dict[str, Any]:
         conn.commit()
     except sqlite3.IntegrityError as e:
         conn.close()
-        raise ValueError(
-            f"Router host (IP) '{router_data['host']}' ya existe. Error: {e}"
-        )
+        raise ValueError(f"Router host (IP) '{router_data['host']}' ya existe. Error: {e}")
     finally:
         conn.close()
 
@@ -88,20 +85,32 @@ def create_router_in_db(router_data: Dict[str, Any]) -> Dict[str, Any]:
     return new_router
 
 
-_ROUTER_ALLOWED_COLUMNS = frozenset([
-    "username", "password", "zona_id", "api_port", "api_ssl_port", "is_enabled",
-    "is_provisioned", "hostname", "model", "firmware", "last_status", "last_checked"
-])
+_ROUTER_ALLOWED_COLUMNS = frozenset(
+    [
+        "username",
+        "password",
+        "zona_id",
+        "api_port",
+        "api_ssl_port",
+        "is_enabled",
+        "is_provisioned",
+        "hostname",
+        "model",
+        "firmware",
+        "last_status",
+        "last_checked",
+    ]
+)
 
 
-def update_router_in_db(host: str, updates: Dict[str, Any]) -> int:
+def update_router_in_db(host: str, updates: dict[str, Any]) -> int:
     """
     Función genérica para actualizar cualquier campo de un router.
     Devuelve el número de filas afectadas.
     """
     if not updates:
         return 0
-    
+
     # Validate column names against whitelist to prevent SQL injection
     invalid_keys = set(updates.keys()) - _ROUTER_ALLOWED_COLUMNS
     if invalid_keys:
@@ -145,7 +154,7 @@ def delete_router_from_db(host: str) -> int:
 # --- Funciones para el Monitor (Refactorizadas) ---
 
 
-def get_router_status(host: str) -> Optional[str]:
+def get_router_status(host: str) -> str | None:
     """
     Obtiene el 'last_status' de un router específico desde la base de datos.
     """
@@ -160,7 +169,7 @@ def get_router_status(host: str) -> Optional[str]:
         conn.close()
 
 
-def update_router_status(host: str, status: str, data: Optional[Dict[str, Any]] = None):
+def update_router_status(host: str, status: str, data: dict[str, Any] | None = None):
     """
     Actualiza el estado de un router en la base de datos.
     Si el estado es 'online', también actualiza el hostname, modelo y firmware.
@@ -181,7 +190,7 @@ def update_router_status(host: str, status: str, data: Optional[Dict[str, Any]] 
         logging.error(f"Error en router_db.update_router_status para {host}: {e}")
 
 
-def get_enabled_routers_from_db() -> List[Dict[str, Any]]:
+def get_enabled_routers_from_db() -> list[dict[str, Any]]:
     """
     Obtiene la lista de Routers activos y aprovisionados desde la BD.
     """
@@ -201,13 +210,11 @@ def get_enabled_routers_from_db() -> List[Dict[str, Any]]:
 
         conn.close()
     except sqlite3.Error as e:
-        logging.error(
-            f"No se pudo obtener la lista de Routers de la base de datos: {e}"
-        )
+        logging.error(f"No se pudo obtener la lista de Routers de la base de datos: {e}")
     return routers_to_monitor
 
 
-def get_routers_for_backup() -> List[Dict[str, Any]]:
+def get_routers_for_backup() -> list[dict[str, Any]]:
     """
     Obtiene routers activos con datos necesarios para backup (incluye nombre de zona).
     """
@@ -223,7 +230,7 @@ def get_routers_for_backup() -> List[Dict[str, Any]]:
             WHERE r.is_enabled = 1
             """
         )
-        
+
         for row in cursor.fetchall():
             data = dict(row)
             # Decrypt password
@@ -233,15 +240,15 @@ def get_routers_for_backup() -> List[Dict[str, Any]]:
                 except Exception:
                     # Si falla desencriptar, probablemente ya estaba en texto plano o corrupta
                     pass
-                    
+
             # Fallback si no tiene zona
             if not data["zona_nombre"]:
                 data["zona_nombre"] = f"Zona_{data.get('zona_id') or 'General'}"
-                
+
             routers.append(data)
 
         conn.close()
     except sqlite3.Error as e:
         logging.error(f"Error fetching routers for backup: {e}")
-        
+
     return routers

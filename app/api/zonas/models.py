@@ -1,14 +1,15 @@
 # app/api/zonas/models.py
-from pydantic import BaseModel, ConfigDict
-from typing import List, Optional, Dict, Any
 from datetime import date, datetime
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict
 
 
 # --- Modelos Pydantic (Movidos) ---
 class Zona(BaseModel):
     id: int
     nombre: str
-    rack_layout: Optional[Dict[str, Any]] = None
+    rack_layout: dict[str, Any] | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -17,26 +18,25 @@ class ZonaCreate(BaseModel):
 
 
 class ZonaUpdate(BaseModel):
-    nombre: Optional[str] = None
-    direccion: Optional[str] = None
-    coordenadas_gps: Optional[str] = None
-    rack_layout: Optional[Dict[str, Any]] = None
+    nombre: str | None = None
+    direccion: str | None = None
+    coordenadas_gps: str | None = None
+    rack_layout: dict[str, Any] | None = None
 
 
 class ZonaInfra(BaseModel):
-    id: Optional[int] = None
+    id: int | None = None
     zona_id: int
-    direccion_ip_gestion: Optional[str] = None
-    gateway_predeterminado: Optional[str] = None
-    servidores_dns: Optional[str] = None
-    vlans_utilizadas: Optional[str] = None
-    equipos_criticos: Optional[str] = None
-    proximo_mantenimiento: Optional[date] = None
+    direccion_ip_gestion: str | None = None
+    gateway_predeterminado: str | None = None
+    servidores_dns: str | None = None
+    vlans_utilizadas: str | None = None
+    equipos_criticos: str | None = None
+    proximo_mantenimiento: date | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
 class ZonaDocumento(BaseModel):
-
     id: int
 
     zona_id: int
@@ -47,7 +47,7 @@ class ZonaDocumento(BaseModel):
 
     nombre_guardado: str
 
-    descripcion: Optional[str] = None
+    descripcion: str | None = None
 
     creado_en: datetime
 
@@ -58,26 +58,22 @@ class ZonaDocumento(BaseModel):
 
 
 class ZonaNoteBase(BaseModel):
-
     title: str
 
-    content: Optional[str] = None
+    content: str | None = None
 
     is_encrypted: bool = False
 
 
 class ZonaNoteCreate(ZonaNoteBase):
-
     pass
 
 
 class ZonaNoteUpdate(ZonaNoteBase):
-
     pass
 
 
 class ZonaNote(ZonaNoteBase):
-
     id: int
 
     zona_id: int
@@ -90,9 +86,9 @@ class ZonaNote(ZonaNoteBase):
 
 
 class ZonaDetail(Zona):
-    direccion: Optional[str] = None
-    coordenadas_gps: Optional[str] = None
-    infraestructura: Optional[ZonaInfra] = None
-    documentos: List[ZonaDocumento] = []
-    notes: List[ZonaNote] = []
+    direccion: str | None = None
+    coordenadas_gps: str | None = None
+    infraestructura: ZonaInfra | None = None
+    documentos: list[ZonaDocumento] = []
+    notes: list[ZonaNote] = []
     # rack_layout is inherited from Zona

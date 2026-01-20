@@ -1,53 +1,56 @@
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Literal
 
 
 # --- Existing Router Models ---
 class RouterResponse(BaseModel):
-    id: Optional[int] = None
+    id: int | None = None
     host: str
     username: str
-    zona_id: Optional[int] = None
+    zona_id: int | None = None
     api_port: int
     api_ssl_port: int
     is_enabled: bool
     is_provisioned: bool = False
-    hostname: Optional[str] = None
-    model: Optional[str] = None
-    firmware: Optional[str] = None
-    last_status: Optional[str] = None
-    zona_nombre: Optional[str] = None
-    wan_interface: Optional[str] = None
+    hostname: str | None = None
+    model: str | None = None
+    firmware: str | None = None
+    last_status: str | None = None
+    zona_nombre: str | None = None
+    wan_interface: str | None = None
 
 
 class RouterCreate(BaseModel):
     host: str
     username: str
     password: str
-    zona_id: Optional[int] = None
+    zona_id: int | None = None
     api_port: int
     is_enabled: bool = True
 
 
 class RouterUpdate(BaseModel):
-    username: Optional[str] = None
-    password: Optional[str] = None
-    zona_id: Optional[int] = None
-    api_port: Optional[int] = None
-    is_enabled: Optional[bool] = None
-    wan_interface: Optional[str] = None
+    username: str | None = None
+    password: str | None = None
+    zona_id: int | None = None
+    api_port: int | None = None
+    is_enabled: bool | None = None
+    wan_interface: str | None = None
 
 
 class ProvisionRequest(BaseModel):
     new_api_user: str
     new_api_password: str
-    method: Literal["api", "ssh"] = "api"  # 'api' uses existing API method, 'ssh' uses pure SSH method
+    method: Literal["api", "ssh"] = (
+        "api"  # 'api' uses existing API method, 'ssh' uses pure SSH method
+    )
 
 
 class ProvisionResponse(BaseModel):
     status: str
     message: str
-    method_used: Optional[str] = None
+    method_used: str | None = None
 
 
 class GenericActionResponse(BaseModel):
@@ -71,48 +74,48 @@ class VlanUpdate(BaseModel):
 
 class BridgeCreate(BaseModel):
     name: str
-    ports: List[str]
+    ports: list[str]
     comment: str
 
 
 class BridgeUpdate(BaseModel):
     name: str
-    ports: List[str]
+    ports: list[str]
 
 
 # --- Models from config.py ---
 class RouterFullDetails(BaseModel):
-    interfaces: List[Dict[str, Any]]
-    ip_addresses: List[Dict[str, Any]]
-    nat_rules: List[Dict[str, Any]]
-    pppoe_servers: List[Dict[str, Any]]
-    ppp_profiles: List[Dict[str, Any]]
-    simple_queues: List[Dict[str, Any]]
-    ip_pools: List[Dict[str, Any]]
-    bridge_ports: List[Dict[str, Any]]
-    pppoe_secrets: List[Dict[str, Any]]
-    pppoe_active: List[Dict[str, Any]]
-    users: List[Dict[str, Any]]
-    files: List[Dict[str, Any]]
-    static_resources: Dict[str, Any]
+    interfaces: list[dict[str, Any]]
+    ip_addresses: list[dict[str, Any]]
+    nat_rules: list[dict[str, Any]]
+    pppoe_servers: list[dict[str, Any]]
+    ppp_profiles: list[dict[str, Any]]
+    simple_queues: list[dict[str, Any]]
+    ip_pools: list[dict[str, Any]]
+    bridge_ports: list[dict[str, Any]]
+    pppoe_secrets: list[dict[str, Any]]
+    pppoe_active: list[dict[str, Any]]
+    users: list[dict[str, Any]]
+    files: list[dict[str, Any]]
+    static_resources: dict[str, Any]
 
 
 class CreatePlanRequest(BaseModel):
     plan_name: str
-    rate_limit: Optional[str] = None
-    parent_queue: Optional[str] = None
-    local_address: Optional[str] = None
+    rate_limit: str | None = None
+    parent_queue: str | None = None
+    local_address: str | None = None
     comment: str
-    pool_range: Optional[str] = None
-    remote_address: Optional[str] = None
+    pool_range: str | None = None
+    remote_address: str | None = None
 
 
 class AddSimpleQueueRequest(BaseModel):
     name: str
     target: str
     max_limit: str
-    parent: Optional[str] = None
-    comment: Optional[str] = None
+    parent: str | None = None
+    comment: str | None = None
 
 
 class AddIpRequest(BaseModel):
@@ -139,14 +142,14 @@ class PppoeSecretCreate(BaseModel):
     username: str
     password: str
     profile: str
-    comment: Optional[str] = None
+    comment: str | None = None
     service: str = "pppoe"
 
 
 class PppoeSecretUpdate(BaseModel):
-    password: Optional[str] = None
-    profile: Optional[str] = None
-    comment: Optional[str] = None
+    password: str | None = None
+    profile: str | None = None
+    comment: str | None = None
 
 
 class PppoeSecretDisable(BaseModel):
@@ -156,15 +159,17 @@ class PppoeSecretDisable(BaseModel):
 # --- NEW: Service Management Models ---
 class SuspendServiceRequest(BaseModel):
     """Request to suspend a client's service via address list."""
+
     address: str
     list_name: str
     strategy: str = "blacklist"  # 'blacklist' or 'whitelist'
-    pppoe_username: Optional[str] = None  # If provided, also kills PPPoE session
+    pppoe_username: str | None = None  # If provided, also kills PPPoE session
     comment: str = "Suspended by UManager"
 
 
 class RestoreServiceRequest(BaseModel):
     """Request to restore a suspended service."""
+
     address: str
     list_name: str
     strategy: str = "blacklist"
@@ -173,6 +178,7 @@ class RestoreServiceRequest(BaseModel):
 
 class ChangePlanRequest(BaseModel):
     """Request to change a PPPoE user's plan."""
+
     pppoe_username: str
     new_profile: str
     kill_connection: bool = True  # Force re-auth after profile change
@@ -180,11 +186,13 @@ class ChangePlanRequest(BaseModel):
 
 class KillConnectionRequest(BaseModel):
     """Request to terminate an active PPPoE session."""
+
     username: str
 
 
 class AddressListActionRequest(BaseModel):
     """Request for direct address list manipulation."""
+
     list_name: str
     address: str
     action: str  # 'add', 'remove', 'disable'
@@ -193,28 +201,28 @@ class AddressListActionRequest(BaseModel):
 
 # --- Models from system.py ---
 class SystemResource(BaseModel):
-    uptime: Optional[str] = None
-    cpu_load: Optional[str] = Field(None, alias="cpu-load")
-    free_memory: Optional[str] = Field(None, alias="free-memory")
-    total_memory: Optional[str] = Field(None, alias="total-memory")
-    board_name: Optional[str] = Field(None, alias="board-name")
-    version: Optional[str] = None
-    name: Optional[str] = None  # hostname
-    serial_number: Optional[str] = Field(None, alias="serial-number")
+    uptime: str | None = None
+    cpu_load: str | None = Field(None, alias="cpu-load")
+    free_memory: str | None = Field(None, alias="free-memory")
+    total_memory: str | None = Field(None, alias="total-memory")
+    board_name: str | None = Field(None, alias="board-name")
+    version: str | None = None
+    name: str | None = None  # hostname
+    serial_number: str | None = Field(None, alias="serial-number")
 
     # --- CAMPOS AÑADIDOS PARA QUE PASEN EL FILTRO! ---
-    platform: Optional[str] = None
-    cpu: Optional[str] = None
-    cpu_count: Optional[str] = Field(None, alias="cpu-count")
-    cpu_frequency: Optional[str] = Field(None, alias="cpu-frequency")
-    model: Optional[str] = None
-    nlevel: Optional[str] = None
-    voltage: Optional[str] = None
-    temperature: Optional[str] = None
+    platform: str | None = None
+    cpu: str | None = None
+    cpu_count: str | None = Field(None, alias="cpu-count")
+    cpu_frequency: str | None = Field(None, alias="cpu-frequency")
+    model: str | None = None
+    nlevel: str | None = None
+    voltage: str | None = None
+    temperature: str | None = None
 
     # Campos de disco normalizados
-    total_disk: Optional[str] = Field(None, alias="total-disk")
-    free_disk: Optional[str] = Field(None, alias="free-disk")
+    total_disk: str | None = Field(None, alias="total-disk")
+    free_disk: str | None = Field(None, alias="free-disk")
 
 
 class BackupCreateRequest(BaseModel):

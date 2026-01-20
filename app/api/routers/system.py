@@ -1,22 +1,23 @@
 # app/api/routers/system.py
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
-from typing import List, Dict, Any
+from typing import Any
 
-from ...services.router_service import (
-    RouterService,
-    get_router_service,
-    RouterCommandError,
-)  # <-- LÍNEA CAMBIADA
-from ...models.user import User
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+
 from ...core.users import current_active_user as get_current_active_user
 from ...db import router_db
+from ...models.user import User
+from ...services.router_service import (
+    RouterCommandError,
+    RouterService,
+    get_router_service,
+)  # <-- LÍNEA CAMBIADA
 
 # --- ¡IMPORTACIÓN MODIFICADA! ---
 from .models import (
-    SystemResource,
     BackupCreateRequest,
-    RouterUserCreate,
     PppoeSecretDisable,
+    RouterUserCreate,
+    SystemResource,
 )
 
 router = APIRouter()
@@ -42,7 +43,7 @@ def get_router_resources(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/system/files", response_model=List[Dict[str, Any]])
+@router.get("/system/files", response_model=list[dict[str, Any]])
 def api_get_backup_files(
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
@@ -53,7 +54,7 @@ def api_get_backup_files(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/system/create-backup", response_model=Dict[str, str])
+@router.post("/system/create-backup", response_model=dict[str, str])
 def api_create_backup(
     request: BackupCreateRequest,
     service: RouterService = Depends(get_router_service),
@@ -63,7 +64,7 @@ def api_create_backup(
         # Verificar si el archivo ya existe
         existing_files = service.get_backup_files()
         target_name = request.backup_name
-        
+
         # Asegurar extensión correcta para la búsqueda
         if request.backup_type == "backup" and not target_name.endswith(".backup"):
             target_name += ".backup"
@@ -71,13 +72,10 @@ def api_create_backup(
             target_name += ".rsc"
 
         # Buscar coincidencia exacta
-        file_exists = any(f['name'] == target_name for f in existing_files)
+        file_exists = any(f["name"] == target_name for f in existing_files)
 
         if file_exists and not request.overwrite:
-            raise HTTPException(
-                status_code=409,
-                detail=f"El archivo '{target_name}' ya existe."
-            )
+            raise HTTPException(status_code=409, detail=f"El archivo '{target_name}' ya existe.")
 
         if request.backup_type == "backup":
             if not request.backup_name.endswith(".backup"):
@@ -109,17 +107,16 @@ def api_remove_backup_file(
     user: User = Depends(get_current_active_user),
 ):
     from ...core.audit import log_action
+
     try:
         service.remove_file(file_id)
         log_action("DELETE", "backup_file", f"{host}/{file_id}", user=user, request=request)
         return
     except RouterCommandError as e:
-        raise HTTPException(
-            status_code=404, detail=f"No se pudo eliminar el archivo: {e}"
-        )
+        raise HTTPException(status_code=404, detail=f"No se pudo eliminar el archivo: {e}")
 
 
-@router.get("/system/users", response_model=List[Dict[str, Any]])
+@router.get("/system/users", response_model=list[dict[str, Any]])
 def api_get_router_users(
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
@@ -127,12 +124,10 @@ def api_get_router_users(
     try:
         return service.get_router_users()
     except RouterCommandError as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error al leer usuarios del router: {e}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error al leer usuarios del router: {e}")
 
 
-@router.post("/system/users", response_model=Dict[str, Any])
+@router.post("/system/users", response_model=dict[str, Any])
 def api_create_router_user(
     user_data: RouterUserCreate,
     service: RouterService = Depends(get_router_service),
@@ -153,14 +148,13 @@ def api_remove_router_user(
     user: User = Depends(get_current_active_user),
 ):
     from ...core.audit import log_action
+
     try:
         service.remove_router_user(user_id)
         log_action("DELETE", "router_user", f"{host}/{user_id}", user=user, request=request)
         return
     except RouterCommandError as e:
-        raise HTTPException(
-            status_code=404, detail=f"No se pudo eliminar el usuario: {e}"
-        )
+        raise HTTPException(status_code=404, detail=f"No se pudo eliminar el usuario: {e}")
 
 
 # --- ¡ENDPOINTS MODIFICADOS AQUÍ! ---
@@ -170,9 +164,7 @@ def api_remove_router_user(
 def api_set_interface_status(
     interface_id: str,
     status_update: PppoeSecretDisable,  # Reutilizamos este modelo (espera {"disable": true/false})
-    type: str = Query(
-        ..., description="El tipo de interfaz, ej. 'ether', 'bridge'"
-    ),  # <-- AÑADIDO
+    type: str = Query(..., description="El tipo de interfaz, ej. 'ether', 'bridge'"),  # <-- AÑADIDO
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
 ):
@@ -190,24 +182,28 @@ def api_set_interface_status(
         )
 
 
-@router.delete(
-    "/interfaces/{interface_id:path}", status_code=status.HTTP_204_NO_CONTENT
-)
+@router.delete("/interfaces/{interface_id:path}", status_code=status.HTTP_204_NO_CONTENT)
 def api_remove_interface(
     interface_id: str,
     host: str,
     request: Request,
-    type: str = Query(
-        ..., description="El tipo de interfaz, ej. 'vlan', 'bridge'"
-    ),
+    type: str = Query(..., description="El tipo de interfaz, ej. 'vlan', 'bridge'"),
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
 ):
     """Elimina una interfaz (VLAN, Bridge, etc.)."""
     from ...core.audit import log_action
+
     try:
         service.remove_interface(interface_id, interface_type=type)
-        log_action("DELETE", "interface", f"{host}/{interface_id}", user=user, request=request, details={"type": type})
+        log_action(
+            "DELETE",
+            "interface",
+            f"{host}/{interface_id}",
+            user=user,
+            request=request,
+            details={"type": type},
+        )
         return
     except (RouterCommandError, ValueError) as e:
         raise HTTPException(
@@ -220,13 +216,14 @@ def api_remove_interface(
 
 import os
 from pathlib import Path
+
 from fastapi.responses import FileResponse
 
 # Base path for backups
 BACKUP_BASE_DIR = Path(os.getcwd()) / "data"
 
 
-@router.get("/system/local-backups", response_model=List[Dict[str, Any]])
+@router.get("/system/local-backups", response_model=list[dict[str, Any]])
 def api_get_local_backup_files(
     host: str,
     user: User = Depends(get_current_active_user),
@@ -238,47 +235,51 @@ def api_get_local_backup_files(
     router_info = router_db.get_router_by_host(host)
     if not router_info:
         raise HTTPException(status_code=404, detail="Router no encontrado")
-    
+
     # Determinar la carpeta del router
     zona_id = router_info.get("zona_id")
     hostname = router_info.get("hostname") or host
-    
+
     # Buscar la carpeta por zona (misma lógica que backup_service)
     zona_folder = None
     if zona_id:
         from ...db.base import get_db_connection
+
         conn = get_db_connection()
         cursor = conn.execute("SELECT nombre FROM zonas WHERE id = ?", (zona_id,))
         row = cursor.fetchone()
         conn.close()
         if row:
             zona_folder = row["nombre"].replace(" ", "_").replace("/", "-")
-    
+
     if not zona_folder:
         zona_folder = f"Zona_{zona_id}" if zona_id else "Sin_Zona"
-    
+
     router_folder = hostname.replace(" ", "_").replace("/", "-")
     backup_path = BACKUP_BASE_DIR / zona_folder / router_folder
-    
+
     # Debug logging
     import logging
+
     logging.info(f"Looking for backups in: {backup_path}")
-    
+
     files = []
     if backup_path.exists() and backup_path.is_dir():
         for f in sorted(backup_path.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
             if f.is_file() and (f.suffix in [".backup", ".rsc"]):
                 stat = f.stat()
-                files.append({
-                    "name": f.name,
-                    "size": stat.st_size,
-                    "modified": stat.st_mtime,
-                    "type": "backup" if f.suffix == ".backup" else "script",
-                    "path": str(f.relative_to(BACKUP_BASE_DIR))
-                })
+                files.append(
+                    {
+                        "name": f.name,
+                        "size": stat.st_size,
+                        "modified": stat.st_mtime,
+                        "type": "backup" if f.suffix == ".backup" else "script",
+                        "path": str(f.relative_to(BACKUP_BASE_DIR)),
+                    }
+                )
     else:
         logging.warning(f"Backup path does not exist: {backup_path}")
-    
+
     return files
 
 
@@ -295,40 +296,39 @@ def api_download_local_backup(
     router_info = router_db.get_router_by_host(host)
     if not router_info:
         raise HTTPException(status_code=404, detail="Router no encontrado")
-    
+
     zona_id = router_info.get("zona_id")
     hostname = router_info.get("hostname") or host
-    
+
     # Determinar carpeta de zona
     zona_folder = None
     if zona_id:
         from ...db.base import get_db_connection
+
         conn = get_db_connection()
         cursor = conn.execute("SELECT nombre FROM zonas WHERE id = ?", (zona_id,))
         row = cursor.fetchone()
         conn.close()
         if row:
             zona_folder = row["nombre"].replace(" ", "_").replace("/", "-")
-    
+
     if not zona_folder:
         zona_folder = f"Zona_{zona_id}" if zona_id else "Sin_Zona"
-    
+
     router_folder = hostname.replace(" ", "_").replace("/", "-")
     file_path = BACKUP_BASE_DIR / zona_folder / router_folder / filename
-    
+
     # Validación de seguridad: asegurar que el archivo está dentro de BACKUP_BASE_DIR
     try:
         file_path.resolve().relative_to(BACKUP_BASE_DIR.resolve())
     except ValueError:
         raise HTTPException(status_code=400, detail="Ruta de archivo inválida")
-    
+
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
-    
+
     return FileResponse(
-        path=str(file_path),
-        filename=filename,
-        media_type="application/octet-stream"
+        path=str(file_path), filename=filename, media_type="application/octet-stream"
     )
 
 
@@ -343,52 +343,53 @@ def api_delete_local_backup(
     Elimina un archivo de backup local del servidor.
     """
     from ...core.audit import log_action
-    
+
     # Obtener datos del router para encontrar su carpeta
     router_info = router_db.get_router_by_host(host)
     if not router_info:
         raise HTTPException(status_code=404, detail="Router no encontrado")
-    
+
     zona_id = router_info.get("zona_id")
     hostname = router_info.get("hostname") or host
-    
+
     # Determinar carpeta de zona
     zona_folder = None
     if zona_id:
         from ...db.base import get_db_connection
+
         conn = get_db_connection()
         cursor = conn.execute("SELECT nombre FROM zonas WHERE id = ?", (zona_id,))
         row = cursor.fetchone()
         conn.close()
         if row:
             zona_folder = row["nombre"].replace(" ", "_").replace("/", "-")
-    
+
     if not zona_folder:
         zona_folder = f"Zona_{zona_id}" if zona_id else "Sin_Zona"
-    
+
     router_folder = hostname.replace(" ", "_").replace("/", "-")
     file_path = BACKUP_BASE_DIR / zona_folder / router_folder / filename
-    
+
     # Validación de seguridad: asegurar que el archivo está dentro de BACKUP_BASE_DIR
     try:
         file_path.resolve().relative_to(BACKUP_BASE_DIR.resolve())
     except ValueError:
         raise HTTPException(status_code=400, detail="Ruta de archivo inválida")
-    
+
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
-    
+
     # Eliminar el archivo
     try:
         file_path.unlink()
         log_action("DELETE", "local_backup", f"{host}/{filename}", user=user, request=request)
     except OSError as e:
         raise HTTPException(status_code=500, detail=f"Error al eliminar archivo: {e}")
-    
+
     return
 
 
-@router.post("/system/save-to-server", response_model=Dict[str, Any])
+@router.post("/system/save-to-server", response_model=dict[str, Any])
 def api_save_backup_to_server(
     host: str,
     filename: str = Query(..., description="Nombre del archivo en el router"),
@@ -398,29 +399,29 @@ def api_save_backup_to_server(
     Descarga un archivo de backup del router y lo guarda en el servidor local.
     """
     from ...services.backup_service import save_file_to_server
-    from ...utils.security import decrypt_data
-    
+
     # Obtener datos del router
     router_info = router_db.get_router_by_host(host)
     if not router_info:
         raise HTTPException(status_code=404, detail="Router no encontrado")
-    
+
     zona_id = router_info.get("zona_id")
     hostname = router_info.get("hostname") or host
     username = router_info.get("username")
     password = router_info.get("password")  # Ya decryptada por get_router_by_host
-    
+
     # Obtener nombre de zona
     zona_name = "Sin_Zona"
     if zona_id:
         from ...db.base import get_db_connection
+
         conn = get_db_connection()
         cursor = conn.execute("SELECT nombre FROM zonas WHERE id = ?", (zona_id,))
         row = cursor.fetchone()
         conn.close()
         if row:
             zona_name = row["nombre"]
-    
+
     # Llamar al servicio de backup
     result = save_file_to_server(
         host=host,
@@ -428,10 +429,10 @@ def api_save_backup_to_server(
         password=password,
         remote_filename=filename,
         zona_name=zona_name,
-        hostname=hostname
+        hostname=hostname,
     )
-    
+
     if result["status"] == "error":
         raise HTTPException(status_code=500, detail=result["message"])
-    
+
     return result

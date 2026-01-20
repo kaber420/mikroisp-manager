@@ -1,19 +1,18 @@
 # app/services/user_service.py
-from typing import List, Optional
+
+from fastapi_users.password import PasswordHelper
 from sqlmodel import Session, select
-from fastapi import HTTPException
 
 # Importamos los modelos y esquemas modernos
 from ..models.user import User
 from ..schemas.user import UserCreate, UserUpdate
-from fastapi_users.password import PasswordHelper
 
 
 class UserService:
     def __init__(self, session: Session):
         self.session = session
 
-    def get_all_users(self) -> List[User]:
+    def get_all_users(self) -> list[User]:
         # SQLModel genera el SELECT * FROM users automáticamente
         statement = select(User)
         return self.session.exec(statement).all()
@@ -47,9 +46,7 @@ class UserService:
 
     def update_user(self, username: str, user_update: UserUpdate) -> User:
         # Buscar usuario
-        db_user = self.session.exec(
-            select(User).where(User.username == username)
-        ).first()
+        db_user = self.session.exec(select(User).where(User.username == username)).first()
 
         if not db_user:
             raise FileNotFoundError("Usuario no encontrado.")
@@ -74,9 +71,7 @@ class UserService:
         return db_user
 
     def delete_user(self, username: str):
-        db_user = self.session.exec(
-            select(User).where(User.username == username)
-        ).first()
+        db_user = self.session.exec(select(User).where(User.username == username)).first()
 
         if not db_user:
             raise FileNotFoundError("Usuario no encontrado.")
@@ -84,5 +79,5 @@ class UserService:
         self.session.delete(db_user)
         self.session.commit()
 
-    def get_user_by_username(self, username: str) -> Optional[User]:
+    def get_user_by_username(self, username: str) -> User | None:
         return self.session.exec(select(User).where(User.username == username)).first()

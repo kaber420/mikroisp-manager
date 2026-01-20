@@ -1,8 +1,7 @@
 # app/db/base.py
-import sqlite3
 import os
+import sqlite3
 from datetime import datetime
-from typing import Optional  # <-- CORRECCIÓN: Importación añadida
 
 # --- Constantes de la Base de Datos ---
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
@@ -27,14 +26,14 @@ def get_db_connection() -> sqlite3.Connection:
     # Ensure the db directory exists
     db_dir = os.path.dirname(INVENTORY_DB_FILE)
     os.makedirs(db_dir, exist_ok=True)
-    
+
     conn = sqlite3.connect(INVENTORY_DB_FILE, check_same_thread=False)
     conn.execute("PRAGMA journal_mode=WAL;")  # Mejora concurrencia
     conn.row_factory = sqlite3.Row
     return conn
 
 
-def get_stats_db_connection() -> Optional[sqlite3.Connection]:
+def get_stats_db_connection() -> sqlite3.Connection | None:
     """
     Establece una conexión con la base de datos de estadísticas del mes actual.
     Devuelve None si el archivo no existe.
