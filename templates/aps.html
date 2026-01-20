@@ -22,12 +22,12 @@
         <div class="glass-card rounded-2xl border-0">
             <div
                 class="px-6 py-4 border-b border-white/10 flex flex-wrap gap-4 items-center justify-between bg-white/5">
-                <h2 class="text-xl font-bold text-white">All Access Points</h2>
+                <h2 class="text-xl font-bold text-white">Access Points</h2>
 
                 <div class="flex items-center gap-4">
                     <select x-model="selectedZone"
                         class="w-full sm:w-48 bg-surface-1/50 backdrop-blur-sm border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-sm text-text-primary">
-                        <option value="" class="bg-surface-1">All Zones</option>
+                        <option value="" class="bg-surface-1">Zones</option>
                         <template x-for="zone in allZones" :key="zone.id">
                             <option :value="zone.id" x-text="zone.nombre" class="bg-surface-1"></option>
                         </template>

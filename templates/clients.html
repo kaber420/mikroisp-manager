@@ -18,37 +18,41 @@
         </button>
     </div>
 
-    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div class="flex gap-1 bg-surface-1 p-1 rounded-lg">
-            <button @click="statusFilter = 'all'"
-                :class="{'active': statusFilter === 'all', 'text-text-secondary hover:bg-surface-2': statusFilter !== 'all'}"
-                class="filter-button px-3 py-1 text-sm font-medium rounded-md">All</button>
-            <button @click="statusFilter = 'active'"
-                :class="{'active': statusFilter === 'active', 'text-text-secondary hover:bg-surface-2': statusFilter !== 'active'}"
-                class="filter-button px-3 py-1 text-sm font-medium rounded-md">Active</button>
-            <button @click="statusFilter = 'pendiente'"
-                :class="{'active': statusFilter === 'pendiente', 'text-text-secondary hover:bg-surface-2': statusFilter !== 'pendiente'}"
-                class="filter-button px-3 py-1 text-sm font-medium rounded-md">Pending</button>
-            <button @click="statusFilter = 'suspended'"
-                :class="{'active': statusFilter === 'suspended', 'text-text-secondary hover:bg-surface-2': statusFilter !== 'suspended'}"
-                class="filter-button px-3 py-1 text-sm font-medium rounded-md">Suspended</button>
-            <button @click="statusFilter = 'cancelled'"
-                :class="{'active': statusFilter === 'cancelled', 'text-text-secondary hover:bg-surface-2': statusFilter !== 'cancelled'}"
-                class="filter-button px-3 py-1 text-sm font-medium rounded-md">Cancelled</button>
-        </div>
+    <div class="glass-card rounded-2xl border-0">
+        <div class="px-6 py-4 border-b border-white/10 flex flex-wrap gap-4 items-center justify-between bg-white/5">
+            <h2 class="text-xl font-bold text-white">Clients</h2>
 
-        <div class="relative">
-            <span
-                class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-lg">search</span>
-            <input type="text" x-model.debounce.300ms="searchQuery" placeholder="Search by name, address, phone..."
-                class="w-full sm:w-72 pl-10 pr-4 py-2 bg-background border border-border-color rounded-md">
-        </div>
-    </div>
+            <div class="flex flex-wrap items-center gap-4">
+                <div
+                    class="flex flex-wrap gap-1 bg-surface-1/50 backdrop-blur-sm p-1 rounded-lg border border-white/10">
+                    <button @click="statusFilter = 'all'"
+                        :class="{'bg-primary text-white shadow-lg shadow-primary/20': statusFilter === 'all', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'all'}"
+                        class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200">All</button>
+                    <button @click="statusFilter = 'active'"
+                        :class="{'bg-success text-white shadow-lg shadow-success/20': statusFilter === 'active', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'active'}"
+                        class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200">Active</button>
+                    <button @click="statusFilter = 'pendiente'"
+                        :class="{'bg-warning text-white shadow-lg shadow-warning/20': statusFilter === 'pendiente', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'pendiente'}"
+                        class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200">Pending</button>
+                    <button @click="statusFilter = 'suspended'"
+                        :class="{'bg-danger text-white shadow-lg shadow-danger/20': statusFilter === 'suspended', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'suspended'}"
+                        class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200">Suspended</button>
+                    <button @click="statusFilter = 'cancelled'"
+                        :class="{'bg-surface-3 text-white': statusFilter === 'cancelled', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'cancelled'}"
+                        class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200">Cancelled</button>
+                </div>
 
-    <div class="bg-surface-1 rounded-lg border border-border-color">
+                <div class="relative">
+                    <span
+                        class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-lg">search</span>
+                    <input type="text" x-model.debounce.300ms="searchQuery" placeholder="Search..."
+                        class="w-full sm:w-64 pl-10 pr-4 py-2 bg-surface-1/50 backdrop-blur-sm border border-white/10 rounded-lg focus:ring-primary focus:border-primary text-text-primary placeholder-text-secondary/50">
+                </div>
+            </div>
+        </div>
         <div class="overflow-x-auto">
             <table class="min-w-full text-sm">
-                <thead class="bg-surface-2">
+                <thead class="bg-white/5">
                     <tr>
                         <th
                             class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
@@ -73,7 +77,7 @@
                             Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-border-color">
+                <tbody class="divide-y divide-white/5">
                     <template x-if="isLoading">
                         <tr>
                             <td colspan="7" class="text-center p-8 text-text-secondary">Loading clients...</td>

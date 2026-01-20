@@ -2,8 +2,7 @@
 {% block title %}Manage Zones - µMonitor Pro{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.1/github-markdown-dark.min.css">
+<link rel="stylesheet" href="{{ url_for('static', path='/css/vendor/github-markdown-dark.min.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -24,7 +23,7 @@
 
             <div
                 class="px-6 py-4 border-b border-white/10 flex flex-wrap gap-4 items-center justify-between bg-white/5">
-                <h2 class="text-xl font-bold text-white">All Zones</h2>
+                <h2 class="text-xl font-bold text-white">Zones</h2>
 
                 <div class="relative">
                     <span
@@ -66,12 +65,12 @@
                                 <td class="px-6 py-4 whitespace-nowrap font-semibold text-white" x-text="zone.nombre">
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right flex justify-end gap-2">
-                                    <a :href="`/zona/${zone.id}`"
+                                    <a :href="`/zona/${zone.id}`" @click.stop
                                         class="flex items-center justify-center h-8 px-3 text-xs font-semibold rounded-md border border-white/10 hover:bg-white/10 text-text-primary transition-colors">
                                         Manage
                                     </a>
 
-                                    <button @click="deleteZone(zone)"
+                                    <button @click.stop="deleteZone(zone)"
                                         class="text-text-secondary hover:text-danger p-1 transition-colors">
                                         <span class="material-symbols-outlined text-[20px]">delete</span>
                                     </button>
