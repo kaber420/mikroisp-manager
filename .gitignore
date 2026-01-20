@@ -201,13 +201,12 @@ static/ca.crt
 
 # Temporary Workspaces (Drafts & Scratchpads)
 
-# .scratch/
+.scratch/
+.drafts/
 tmp/
 
 # Generated Assets
 static/qr_codes/
-
-.drafts/implementation_plan.md
 data/qr_codes/bootstrap_8559860c61.png
 scripts/debug_ros6_wireless.py
 scripts/test_full_flow.py
