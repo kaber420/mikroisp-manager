@@ -187,8 +187,15 @@ inventory.sqlite-shm
 *.backup
 *.rsc
 
+# Node.js / npm
+node_modules/
+package-lock.json
+
 # Sensitive data
 data/
+*.db
+*.db-wal
+*.db-shm
 
 
 
