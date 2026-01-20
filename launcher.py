@@ -158,6 +158,26 @@ def generate_caddyfile(hosts: list, app_port: int, ssl_cert_path: str = "", ssl_
         "",
     ]
     
+    # CORS block for mobile app preflight requests
+    cors_block = """
+    # CORS: Handle preflight OPTIONS requests for mobile app
+    @cors_preflight method OPTIONS
+    handle @cors_preflight {
+        header Access-Control-Allow-Origin "*"
+        header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+        header Access-Control-Allow-Headers "Authorization, Content-Type, Accept, Origin, X-Requested-With"
+        header Access-Control-Allow-Credentials "true"
+        header Access-Control-Max-Age "86400"
+        respond "" 204
+    }
+
+    # CORS headers for all other requests (mobile app support)
+    header {
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Credentials "true"
+    }
+"""
+    
     # Security block for uploads (force downloads, prevent script execution)
     uploads_security_block = """
     # Seguridad para uploads: forzar descarga y prevenir ejecución
@@ -180,6 +200,7 @@ def generate_caddyfile(hosts: list, app_port: int, ssl_cert_path: str = "", ssl_
         # HTTPS block for each host
         lines.append(":443 {")
         lines.append(f"    tls {ssl_cert_path} {ssl_key_path}")
+        lines.append(cors_block)  # CORS support for mobile app
         lines.append(f"    reverse_proxy localhost:{app_port}")
         lines.append("")
         lines.append("    # Headers de seguridad globales")
@@ -194,6 +215,7 @@ def generate_caddyfile(hosts: list, app_port: int, ssl_cert_path: str = "", ssl_
     else:
         # HTTP only configuration
         lines.append(":80 {")
+        lines.append(cors_block)  # CORS support for mobile app
         lines.append(f"    reverse_proxy localhost:{app_port}")
         lines.append("")
         lines.append("    # Headers de seguridad globales")
