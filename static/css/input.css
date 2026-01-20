@@ -165,3 +165,24 @@
     color: #CBD5E1;
     border-bottom-color: #475569;
 }
+
+/* ============================================
+   Dashboard Card Decorative Icons
+   ============================================ */
+/* Override the default 24px font-size from material-symbols-outlined
+   for the large decorative background icons on dashboard cards */
+
+.material-symbols-outlined.text-\[120px\] {
+    font-size: 120px !important;
+    line-height: 1;
+}
+
+/* Cyan for Routers */
+.text-cyan-500\/5 {
+    color: rgba(6, 182, 212, 0.05);
+}
+
+/* Purple for Switches */
+.text-purple-500\/5 {
+    color: rgba(168, 85, 247, 0.05);
+}
