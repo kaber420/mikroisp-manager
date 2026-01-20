@@ -224,6 +224,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/utils/validators.js"></script>
-<script src="/static/js/client_details.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/utils/validators.js"></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/client_details.js" defer></script>
 {% endblock %}

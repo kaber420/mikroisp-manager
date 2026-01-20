@@ -845,5 +845,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script type="module" src="/static/js/router_details/main.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" type="module" src="/static/js/router_details/main.js" defer></script>
 {% endblock %}

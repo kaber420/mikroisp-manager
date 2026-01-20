@@ -297,5 +297,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/switch_details.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/switch_details.js" defer></script>
 {% endblock %}

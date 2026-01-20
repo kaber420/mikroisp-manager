@@ -311,5 +311,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/settings.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/settings.js" defer></script>
 {% endblock %}

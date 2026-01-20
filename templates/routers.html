@@ -211,6 +211,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/provision.js" defer></script>
-<script src="/static/js/routers.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/provision.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/routers.js" defer></script>
 {% endblock %}

@@ -65,5 +65,5 @@
 
 {% block scripts %}
 {# El siguiente paso será crear este archivo #}
-<script src="/static/js/cpes.js?v=2" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/cpes.js?v=2" defer></script>
 {% endblock %}

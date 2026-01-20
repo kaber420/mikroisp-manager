@@ -276,6 +276,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/provision.js" defer></script>
-<script src="/static/js/aps.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/provision.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/aps.js" defer></script>
 {% endblock %}

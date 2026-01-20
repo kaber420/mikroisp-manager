@@ -225,10 +225,10 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/ap_details_core.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/ap_details_core.js" defer></script>
 {% if ap.vendor == 'mikrotik' %}
-<script src="/static/js/ap_details_mikrotik.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/ap_details_mikrotik.js" defer></script>
 {% else %}
-<script src="/static/js/ap_details_ubiquiti.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/ap_details_ubiquiti.js" defer></script>
 {% endif %}
 {% endblock %}

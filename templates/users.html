@@ -179,5 +179,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/users.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/users.js" defer></script>
 {% endblock %}

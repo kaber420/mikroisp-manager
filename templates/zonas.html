@@ -259,7 +259,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', path='/js/vendor/marked.min.js') }}"></script>
-<script src="/static/js/utils/infra_viz.js"></script>
-<script src="/static/js/zonas.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="{{ url_for('static', path='/js/vendor/marked.min.js') }}"></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/utils/infra_viz.js"></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/zonas.js" defer></script>
 {% endblock %}
