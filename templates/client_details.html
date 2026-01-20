@@ -4,22 +4,7 @@
 
 {% block styles %}
 <link rel="stylesheet" href="/static/css/dashboard-transitions.css">
-<style>
-    .tab-button.active {
-        border-bottom-color: #3B82F6;
-        /* primary */
-        color: #F1F5F9;
-        /* text-primary */
-    }
-
-    .tab-panel {
-        display: none;
-    }
-
-    .tab-panel.active {
-        display: block;
-    }
-</style>
+{# Custom styles moved to input.css for CSP compliance #}
 {% endblock %}
 
 {% block content %}

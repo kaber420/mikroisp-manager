@@ -7,36 +7,15 @@
     <title>{% block title %}µMonitor Pro{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', path='/img/favicon.ico') }}">
 
-    <script nonce="{{ request.state.csp_nonce }}"
-        src="{{ url_for('static', path='/js/vendor/tailwindcss.js') }}"></script>
+    <!-- Compiled Tailwind CSS (no unsafe-inline needed) -->
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/main.css') }}">
+
     <script nonce="{{ request.state.csp_nonce }}" src="{{ url_for('static', path='/js/vendor/chart.js') }}"></script>
     <script nonce="{{ request.state.csp_nonce }}"
         src="{{ url_for('static', path='/js/vendor/chartjs-adapter-date-fns.js') }}"></script>
 
     <link rel="stylesheet" href="{{ url_for('static', path='/css/fonts.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='/css/theme.css') }}">
-
-    <script nonce="{{ request.state.csp_nonce }}">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        primary: { DEFAULT: '#3B82F6', hover: '#2563EB' },
-                        background: '#0A0A0A',
-                        'surface-1': '#1E293B',
-                        'surface-2': '#334155',
-                        'text-primary': '#F1F5F9',
-                        'text-secondary': '#94A3B8',
-                        'border-color': '#334155',
-                        success: '#22C55E', danger: '#EF4444', warning: '#EAB308',
-                        orange: '#F97316',
-                    },
-                    fontFamily: { sans: ["Inter", "sans-serif"] },
-                },
-            },
-        }
-    </script>
 
     <script nonce="{{ request.state.csp_nonce }}" src="/static/js/utils/api.js"></script>
     <script nonce="{{ request.state.csp_nonce }}" src="/static/js/utils/validators.js"></script>

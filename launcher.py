@@ -80,6 +80,61 @@ def is_caddy_running():
     return False
 
 
+def apply_caddy_config(silent: bool = False) -> bool:
+    """
+    Applies the Caddy configuration by running the apply_caddy_config.sh script.
+    Uses ACLs to grant Caddy read access to certificates in the project directory.
+    
+    This only needs to run once after generating certificates - ACLs persist.
+    
+    Args:
+        silent: If True, suppresses some output messages
+    
+    Returns:
+        True if configuration was applied successfully, False otherwise
+    """
+    script_path = os.path.join(os.path.dirname(__file__), "scripts", "apply_caddy_config.sh")
+    
+    if not os.path.exists(script_path):
+        if not silent:
+            logging.warning(f"Caddy config script not found: {script_path}")
+        return False
+    
+    if not sys.platform.startswith("linux"):
+        if not silent:
+            logging.info("Caddy auto-config only available on Linux")
+        return False
+    
+    if not silent:
+        print("\n🔧 Aplicando configuración de Caddy (ACLs)...")
+    
+    try:
+        # Run with sudo - requires user to enter password
+        result = subprocess.run(
+            ["sudo", "bash", script_path],
+            capture_output=False,
+            text=True
+        )
+        
+        if result.returncode == 0:
+            if not silent:
+                logging.info("Caddy configuration applied successfully")
+            return True
+        else:
+            if not silent:
+                logging.warning("Caddy configuration script returned non-zero exit code")
+            return False
+            
+    except FileNotFoundError:
+        if not silent:
+            logging.error("sudo not found - cannot apply Caddy configuration")
+        return False
+    except Exception as e:
+        if not silent:
+            logging.error(f"Error applying Caddy configuration: {e}")
+        return False
+
+
 def generate_caddyfile(hosts: list, app_port: int, ssl_cert_path: str = "", ssl_key_path: str = ""):
     """
     Generate Caddyfile for the reverse proxy configuration.
@@ -279,6 +334,19 @@ def run_setup_wizard():
     if use_ssl:
         if generate_caddyfile(hosts, port, ssl_cert_path, ssl_key_path):
             print("✅ Caddyfile generado.")
+            
+            # 7b. APLICAR CONFIGURACIÓN DE CADDY AUTOMÁTICAMENTE
+            print("\n🔄 Configurando Caddy automáticamente...")
+            print("   (Se aplicarán ACLs para que Caddy lea los certificados)")
+            try:
+                if apply_caddy_config(silent=False):
+                    print("✅ Caddy configurado correctamente.")
+                else:
+                    print("⚠️  No se pudo configurar Caddy automáticamente.")
+                    print("   Puedes hacerlo manualmente con: sudo ./scripts/apply_caddy_config.sh")
+            except KeyboardInterrupt:
+                print("\n⚠️  Configuración de Caddy cancelada.")
+                print("   Puedes hacerlo manualmente después con: sudo ./scripts/apply_caddy_config.sh")
         else:
             print("⚠️  No se pudo generar el Caddyfile.")
     
@@ -418,50 +486,14 @@ if __name__ == "__main__":
     # C. Inicializar BD y Usuario
     check_and_create_first_user()
 
-    # --- NUEVO: Verificación de HTTPS (Caddy) ---
+    # --- Verificación de HTTPS (Caddy) ---
     is_production = os.getenv("APP_ENV") == "production"
     caddy_active = is_caddy_running()
     
-    # Si estamos en Linux y no detectamos producción O Caddy apagado
-    # ofrecemos instalar/configurar.
-    if sys.platform.startswith("linux") and (not is_production or not caddy_active):
-        print("\n" + "!"*60)
-        print("⚠️  HTTPS / SSL no detectado o no configurado.")
-        print("   Para una experiencia segura y accesible desde la red,")
-        print("   se recomienda instalar el proxy inverso (Caddy).")
-        print("!"*60 + "\n")
-        
-        # Evitar preguntar si se pasó flag --no-setup o similar, 
-        # pero aquí preguntamos siempre si falta config.
-        try:
-            resp = input("¿Deseas instalar/configurar HTTPS ahora? (S/n): ").strip().lower()
-        except KeyboardInterrupt:
-            resp = "n"
-
-        if resp in ["", "s", "si", "y", "yes"]:
-            print("\n🔧 Aplicando configuración de proxy (requiere sudo)...")
-            script_path = os.path.join("scripts", "apply_caddy_config.sh")
-            # Verificar existencia del script
-            if os.path.exists(script_path):
-                try:
-                    # Llamamos a sudo bash scripts/install_proxy.sh
-                    # Nota: Esto pedirá password de sudo al usuario en la terminal
-                    ret = subprocess.call(["sudo", "bash", script_path])
-                    if ret == 0:
-                        print("\n✅ Instalación de proxy finalizada.")
-                        # Recargamos .env por si cambió a production
-                        load_dotenv(ENV_FILE, override=True)
-                        is_production = os.getenv("APP_ENV") == "production"
-                        caddy_active = True # Asumimos éxito
-                    else:
-                        print("\n❌ La instalación no se completó correctamente.")
-                except Exception as e:
-                    print(f"\n❌ Error ejecutando script: {e}")
-            else:
-                print(f"\n❌ No se encontró el script: {script_path}")
-        else:
-            print("ℹ️  Omitiendo configuración HTTPS. Puedes hacerlo luego con:")
-            print("    sudo bash scripts/apply_caddy_config.sh")
+    # Si SSL está habilitado pero Caddy no está corriendo, mostrar advertencia
+    if is_production and not caddy_active:
+        print("\n⚠️  HTTPS configurado pero Caddy no está activo.")
+        print("   Ejecuta: sudo systemctl start caddy")
 
     # D. Arrancar
     port = os.getenv("UVICORN_PORT", "7777")

@@ -1,0 +1,12 @@
+{
+    "name": "umonitor-pro-frontend",
+    "version": "0.5.0",
+    "description": "Frontend build tooling for µMonitor Pro",
+    "scripts": {
+        "build:css": "npx tailwindcss -i ./static/css/input.css -o ./static/css/main.css --minify",
+        "watch:css": "npx tailwindcss -i ./static/css/input.css -o ./static/css/main.css --watch"
+    },
+    "devDependencies": {
+        "tailwindcss": "^3.4.0"
+    }
+}

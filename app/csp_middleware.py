@@ -21,6 +21,10 @@ class CSPMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next):
+        # Skip CSP for API and auth endpoints (they return JSON, not HTML)
+        if request.url.path.startswith(("/api/", "/auth/")):
+            return await call_next(request)
+
         # Generate a cryptographically secure random nonce (16 bytes = 128 bits)
         nonce_bytes = secrets.token_bytes(16)
         nonce = base64.b64encode(nonce_bytes).decode('utf-8')
@@ -32,13 +36,12 @@ class CSPMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         
         # Build CSP policy with nonce
-        # Note: 'unsafe-eval' is required for Alpine.js and TailwindCSS Play CDN
-        # Note: 'unsafe-inline' is required for style-src because TailwindCSS Play CDN 
-        #       dynamically injects <style> tags in the browser without nonces
+        # Note: 'unsafe-eval' is required for Alpine.js
+        # Style-src uses 'self' only since we now use compiled Tailwind CSS
         csp_policy = (
             f"default-src 'self'; "
             f"script-src 'self' 'unsafe-eval' 'nonce-{nonce}'; "
-            f"style-src 'self' 'unsafe-inline'; "
+            f"style-src 'self'; "
             f"img-src 'self' data: blob:; "
             f"connect-src 'self' ws: wss:; "
             f"font-src 'self' data:; "

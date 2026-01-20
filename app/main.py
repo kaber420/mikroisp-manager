@@ -131,6 +131,7 @@ if os.getenv("FLUTTER_DEV", "false").lower() == "true":
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https?://.*",  # Allow all http/https origins (for mobile apps/webviews)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -208,6 +209,12 @@ class TrustedOriginMiddleware(BaseHTTPMiddleware):
                     break
 
             if not is_trusted:
+                # [NEW] Allow requests with Authorization header (Mobile Apps/API Clients)
+                # Mobile apps often have different origins (e.g. capacitor://) but send valid auth tokens.
+                # Only browser-based CSRF relies on cookies without custom headers.
+                if request.headers.get("authorization"):
+                    return await call_next(request)
+
                 print(f"🛡️ [Origin Shield] BLOCKED request from untrusted origin: {request_origin}")
                 return JSONResponse(
                     status_code=status.HTTP_403_FORBIDDEN,
