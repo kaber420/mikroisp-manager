@@ -61,11 +61,15 @@
             body {
                 padding: 10px;
             }
+
+            .no-print {
+                display: none;
+            }
         }
     </style>
 </head>
 
-<body onload="window.print();">
+<body>
 
     <div class="header">
         {% if isp_logo %}
@@ -131,6 +135,7 @@
         <p>¡Gracias por su pago!</p>
         <p>Conserve este comprobante para cualquier aclaración.</p>
         {% endif %}
+
     </div>
 
 </body>

@@ -8,7 +8,7 @@
 {% endblock %}
 
 {% block content %}
-<main class="flex-1 p-6 lg:p-8">
+<main class="flex-1 p-6 lg:p-8" x-data="clientDetails">
     <!-- Título -->
     <div class="flex items-center gap-4 mb-8">
         <a href="/clients" title="Back to Clients" class="text-primary hover:opacity-75">
@@ -56,8 +56,71 @@
             <div class="p-6 border-b border-border-color flex justify-between items-center">
                 <h2 class="text-xl font-bold">Network Services</h2>
             </div>
-            <div id="services-list-container" class="p-6">
-                <p class="text-text-secondary text-center">Loading services...</p>
+            <div class="p-6">
+                <!-- Empty State -->
+                <template x-if="allServices.length === 0">
+                    <p class="text-text-secondary text-center">No network services configured for this client.</p>
+                </template>
+
+                <!-- List -->
+                <div class="space-y-3">
+                    <template x-for="service in allServices" :key="service.id">
+                        <div class="flex flex-col p-4 bg-surface-2 rounded-lg gap-3">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
+                                            :class="service.service_type === 'pppoe' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'"
+                                            x-text="service.service_type === 'pppoe' ? 'PPPoE' : 'Simple Queue'"></span>
+                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full" :class="{
+                                                'active': 'bg-success/20 text-success',
+                                                'pendiente': 'bg-warning/20 text-warning',
+                                                'suspended': 'bg-danger/20 text-danger',
+                                                'cancelled': 'bg-surface-2 text-text-secondary'
+                                            }[service.status || 'active'] || 'bg-surface-2 text-text-secondary'"
+                                            x-text="service.status ? (service.status.charAt(0).toUpperCase() + service.status.slice(1)) : 'Active'"></span>
+                                        <span class="font-mono text-sm font-semibold"
+                                            x-text="service.pppoe_username || service.ip_address || 'N/A'"></span>
+                                    </div>
+                                    <div class="text-xs text-text-secondary space-x-4">
+                                        <span>Router: <span class="font-mono"
+                                                x-text="service.router_host || 'N/A'"></span></span>
+                                        <span>Plan: <span class="font-semibold text-primary"
+                                                x-text="service.plan_name || service.profile_name || 'No Plan'"></span></span>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button @click="openEditServiceModal(service.id)"
+                                        class="px-3 py-1.5 text-xs font-semibold rounded-md bg-secondary/20 text-secondary hover:bg-secondary/30 flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-sm">edit</span>
+                                        Edit
+                                    </button>
+                                    <button
+                                        @click="openPlanChangeModal(service.id, service.pppoe_username || service.ip_address || 'N/A')"
+                                        class="px-3 py-1.5 text-xs font-semibold rounded-md bg-primary/20 text-primary hover:bg-primary/30 flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-sm">swap_horiz</span>
+                                        Change Plan
+                                    </button>
+                                    <button
+                                        @click="deleteService(service.id, service.pppoe_username || service.ip_address || 'N/A')"
+                                        class="px-3 py-1.5 text-xs font-semibold rounded-md bg-danger/20 text-danger hover:bg-danger/30 flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-sm">delete</span>
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                            <div
+                                class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-text-secondary border-t border-border-color pt-3">
+                                <div><span class="font-medium">Address:</span> <span
+                                        x-text="service.address || 'N/A'"></span></div>
+                                <div><span class="font-medium">Billing Day:</span> <span
+                                        x-text="service.billing_day || 'N/A'"></span></div>
+                                <div><span class="font-medium">Notes:</span> <span
+                                        x-text="service.notes || 'N/A'"></span></div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
             </div>
         </div>
     </div>
@@ -143,7 +206,7 @@
     </div>
 
     <!-- Panel 2: Facturación y Pagos -->
-    <div id="tab-billing" class="tab-panel">
+    <div id="tab-billing" class="tab-panel" x-data="billingPanel">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Columna para Registrar Pago -->
             <div class="bg-surface-1 rounded-lg border border-border-color">
@@ -214,8 +277,43 @@
                 <div class="p-6 border-b border-border-color">
                     <h2 class="text-xl font-bold">Payment History</h2>
                 </div>
-                <div id="payment-history-list" class="p-6 space-y-2 max-h-96 overflow-y-auto">
-                    <p class="text-text-secondary">Loading history...</p>
+                <div class="p-6 space-y-2 max-h-96 overflow-y-auto">
+                    <!-- Loading State -->
+                    <template x-if="loading">
+                        <p class="text-text-secondary">Loading history...</p>
+                    </template>
+
+                    <!-- Empty State -->
+                    <template x-if="!loading && payments.length === 0">
+                        <p class="text-text-secondary">No payments registered for this client.</p>
+                    </template>
+
+                    <!-- List -->
+                    <template x-for="payment in payments" :key="payment.id">
+                        <div class="flex justify-between items-center bg-surface-2 p-3 rounded-md">
+                            <div class="flex-grow">
+                                <p class="font-semibold text-text-primary">
+                                    $<span x-text="payment.monto.toFixed(2)"></span> -
+                                    <span class="font-medium text-text-secondary"
+                                        x-text="'For: ' + payment.mes_correspondiente"></span>
+                                </p>
+                                <p class="text-xs text-text-secondary">
+                                    <span
+                                        x-text="new Date(payment.fecha_pago).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })"></span>
+                                    (<span x-text="payment.metodo_pago || 'N/A'"></span>)
+                                </p>
+                                <template x-if="payment.notas">
+                                    <p class="text-xs text-warning mt-1" x-text="payment.notas"></p>
+                                </template>
+                            </div>
+                            <div>
+                                <button @click="openPrintModal(payment.id)" class="p-2 rounded-md hover:bg-surface-3"
+                                    title="Print Receipt">
+                                    <span class="material-symbols-outlined">print</span>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </div>
         </div>
@@ -225,5 +323,8 @@
 
 {% block scripts %}
 <script nonce="{{ request.state.csp_nonce }}" src="/static/js/utils/validators.js"></script>
-<script nonce="{{ request.state.csp_nonce }}" src="/static/js/client_details.js" defer></script>
+<!-- Alpine.js Store and Components (defer ensures load after Alpine) -->
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/stores/ClientStore.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/ClientDetails.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/BillingPanel.js" defer></script>
 {% endblock %}

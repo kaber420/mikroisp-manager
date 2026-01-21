@@ -92,7 +92,10 @@ limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 
 
-async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
+from starlette.responses import Response
+
+
+def custom_rate_limit_handler(request: Request, exc: Exception) -> Response:
     if request.url.path == "/auth/cookie/login":
         # Note: This handler relies on templates. login.html is used here.
         return templates.TemplateResponse(
@@ -103,7 +106,8 @@ async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
             },
             status_code=429,
         )
-    return JSONResponse(content={"error": f"Rate limit exceeded: {exc.detail}"}, status_code=429)
+    detail = getattr(exc, "detail", str(exc))
+    return JSONResponse(content={"error": f"Rate limit exceeded: {detail}"}, status_code=429)
 
 
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
@@ -233,7 +237,8 @@ async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
 
     # Prevenir que el sitio sea embebido en iframes (Clickjacking)
-    response.headers["X-Frame-Options"] = "DENY"
+    # AJUSTE: Usamos SAMEORIGIN para permitir modales de impresión (iframe) dentro del mismo sitio
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
 
     # Prevenir que el navegador intente adivinar el tipo de contenido (MIME Sniffing)
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -266,7 +271,7 @@ async def add_security_headers(request: Request, call_next):
 from collections import defaultdict
 from time import time
 
-_rate_limit_store = defaultdict(list)
+_rate_limit_store: dict[str, list[float]] = defaultdict(list)
 _RATE_LIMITS = {
     "/auth/cookie/login": (5, 60),  # 5 attempts per 60 seconds
     "/auth/register": (3, 60),  # 3 attempts per 60 seconds

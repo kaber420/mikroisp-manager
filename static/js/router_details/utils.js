@@ -136,115 +136,12 @@ export class DomUtils {
      * @param {string} options.type - Tipo de modal: 'danger', 'warning', 'info' (default: 'danger')
      * @returns {Promise<boolean>} - true si confirmó, false si canceló
      */
+    /**
+     * Muestra un modal de confirmación estilizado.
+     * Delega a la utilidad global window.ModalUtils.
+     */
     static showConfirmModal(options = {}) {
-        return new Promise((resolve) => {
-            const {
-                title = 'Confirmar Acción',
-                message = '¿Estás seguro?',
-                confirmText = 'Confirmar',
-                cancelText = 'Cancelar',
-                confirmIcon = 'check',
-                type = 'danger'
-            } = options;
-
-            // Remove existing modal if present
-            const existingModal = document.getElementById('confirm-modal');
-            if (existingModal) existingModal.remove();
-
-            // Type-based styling
-            const typeStyles = {
-                danger: {
-                    icon: 'warning',
-                    iconColor: 'text-danger',
-                    btnBg: 'bg-danger/10',
-                    btnText: 'text-danger',
-                    btnHoverBg: 'hover:bg-danger',
-                    btnHoverText: 'hover:text-white'
-                },
-                warning: {
-                    icon: 'warning',
-                    iconColor: 'text-warning',
-                    btnBg: 'bg-warning/10',
-                    btnText: 'text-warning',
-                    btnHoverBg: 'hover:bg-warning',
-                    btnHoverText: 'hover:text-white'
-                },
-                info: {
-                    icon: 'info',
-                    iconColor: 'text-primary',
-                    btnBg: 'bg-primary/10',
-                    btnText: 'text-primary',
-                    btnHoverBg: 'hover:bg-primary',
-                    btnHoverText: 'hover:text-white'
-                }
-            };
-
-            const style = typeStyles[type] || typeStyles.danger;
-
-            const modalHtml = `
-            <div id="confirm-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                <div class="bg-surface-1 rounded-xl shadow-2xl max-w-md w-full border border-border overflow-hidden animate-in fade-in zoom-in duration-200">
-                    <!-- Header -->
-                    <div class="p-4 border-b border-border flex justify-between items-center bg-surface-2">
-                        <h3 class="text-lg font-semibold text-text-primary flex items-center gap-2">
-                            <span class="material-symbols-outlined ${style.iconColor}">${style.icon}</span>
-                            ${title}
-                        </h3>
-                        <button id="confirm-modal-close-x" class="text-text-secondary hover:text-text-primary transition-colors">
-                            <span class="material-symbols-outlined">close</span>
-                        </button>
-                    </div>
-                    
-                    <!-- Body -->
-                    <div class="p-6">
-                        <p class="text-text-secondary">${message}</p>
-                    </div>
-                    
-                    <!-- Footer -->
-                    <div class="p-4 border-t border-border bg-surface-2 flex justify-end gap-3">
-                        <button id="confirm-modal-cancel" class="px-4 py-2 rounded-lg text-sm font-medium text-text-secondary hover:bg-surface-3 transition-colors">
-                            ${cancelText}
-                        </button>
-                        <button id="confirm-modal-confirm" class="px-4 py-2 rounded-lg text-sm font-medium ${style.btnBg} ${style.btnText} ${style.btnHoverBg} ${style.btnHoverText} transition-colors flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">${confirmIcon}</span>
-                            ${confirmText}
-                        </button>
-                    </div>
-                </div>
-            </div>
-            `;
-
-            document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-            const modal = document.getElementById('confirm-modal');
-
-            const cleanup = (result) => {
-                modal.remove();
-                resolve(result);
-            };
-
-            // Event listeners
-            document.getElementById('confirm-modal-cancel').onclick = () => cleanup(false);
-            document.getElementById('confirm-modal-close-x').onclick = () => cleanup(false);
-            document.getElementById('confirm-modal-confirm').onclick = () => cleanup(true);
-
-            // Close on backdrop click
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) cleanup(false);
-            });
-
-            // Close on Escape key
-            const handleEscape = (e) => {
-                if (e.key === 'Escape') {
-                    document.removeEventListener('keydown', handleEscape);
-                    cleanup(false);
-                }
-            };
-            document.addEventListener('keydown', handleEscape);
-
-            // Focus confirm button for accessibility
-            document.getElementById('confirm-modal-confirm').focus();
-        });
+        return window.ModalUtils.showConfirmModal(options);
     }
 
     /**

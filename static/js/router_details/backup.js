@@ -106,7 +106,7 @@ const handleCreateBackup = async (name, type, overwrite = false) => {
     } catch (e) {
         // Handle 409 Conflict (File Exists)
         if (e.message.includes("409") || e.message.includes("ya existe")) {
-            showConflictModal(name, type, async (action) => {
+            window.ModalUtils.showConflictModal(name, type, async (action) => {
                 if (action === 'overwrite') {
                     // Retry with overwrite=true
                     handleCreateBackup(name, type, true);
@@ -132,78 +132,7 @@ const handleCreateBackup = async (name, type, overwrite = false) => {
     }
 };
 
-/**
- * Muestra un modal personalizado para resolver conflictos de nombres.
- * @param {string} filename - Nombre del archivo conflictivo
- * @param {string} type - Tipo de backup
- * @param {Function} callback - (action) => void. action puede ser 'overwrite', 'copy'
- */
-function showConflictModal(filename, type, callback) {
-    const existingModal = document.getElementById('conflict-modal');
-    if (existingModal) existingModal.remove();
 
-    const currentThemeClass = document.documentElement.className.includes('dark') ? 'dark' : '';
-
-    const modalHtml = `
-    <div id="conflict-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 ${currentThemeClass}">
-        <div class="bg-surface-1 rounded-xl shadow-2xl max-w-md w-full border border-border overflow-hidden animate-in fade-in zoom-in duration-200">
-            <!-- Header -->
-            <div class="p-4 border-b border-border flex justify-between items-center bg-surface-2">
-                <h3 class="text-lg font-semibold text-text-primary flex items-center gap-2">
-                    <span class="material-symbols-outlined text-warning">warning</span>
-                    Archivo Existente
-                </h3>
-                <button id="btn-cancel-x" class="text-text-secondary hover:text-text-primary transition-colors">
-                    <span class="material-symbols-outlined">close</span>
-                </button>
-            </div>
-            
-            <!-- Body -->
-            <div class="p-6">
-                <p class="text-text-secondary mb-4">
-                    El archivo <span class="font-bold text-text-primary">"${filename}"</span> ya existe en el router.
-                </p>
-                <p class="text-sm text-text-tertiary">
-                    ¿Deseas sobrescribirlo o crear una copia con un nuevo nombre?
-                </p>
-            </div>
-            
-            <!-- Footer -->
-            <div class="p-4 border-t border-border bg-surface-2 flex justify-end gap-3">
-                <button id="btn-cancel" class="px-4 py-2 rounded-lg text-sm font-medium text-text-secondary hover:bg-surface-3 transition-colors">
-                    Cancelar
-                </button>
-                <button id="btn-copy" class="px-4 py-2 rounded-lg text-sm font-medium bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm">filter_none</span>
-                    Crear Copia
-                </button>
-                <button id="btn-overwrite" class="px-4 py-2 rounded-lg text-sm font-medium bg-danger/10 text-danger hover:bg-danger hover:text-white transition-colors flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm">save_as</span>
-                    Sobrescribir
-                </button>
-            </div>
-        </div>
-    </div>
-    `;
-
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-    const modal = document.getElementById('conflict-modal');
-    const cleanup = () => modal.remove();
-
-    document.getElementById('btn-cancel').onclick = cleanup;
-    document.getElementById('btn-cancel-x').onclick = cleanup;
-
-    document.getElementById('btn-copy').onclick = () => {
-        callback('copy');
-        cleanup();
-    };
-
-    document.getElementById('btn-overwrite').onclick = () => {
-        callback('overwrite');
-        cleanup();
-    };
-}
 
 const handleCreateBackupForm = (e) => {
     e.preventDefault();

@@ -186,3 +186,66 @@
 .text-purple-500\/5 {
     color: rgba(168, 85, 247, 0.05);
 }
+
+/* ============================================
+   Modal Button Component Classes (OOP Style)
+   ============================================ */
+
+/* Base button - shared styles */
+.modal-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border: none;
+}
+
+/* Cancel / Neutral button */
+.modal-btn-cancel {
+    color: #94A3B8;
+    background-color: transparent;
+}
+
+.modal-btn-cancel:hover {
+    background-color: #334155;
+    color: #F1F5F9;
+}
+
+/* Primary action button (Soft to Solid) */
+.modal-btn-primary {
+    color: #3B82F6;
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+.modal-btn-primary:hover {
+    color: #FFFFFF;
+    background-color: #3B82F6;
+}
+
+/* Danger action button (Soft to Solid) */
+.modal-btn-danger {
+    color: #EF4444;
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+.modal-btn-danger:hover {
+    color: #FFFFFF;
+    background-color: #EF4444;
+}
+
+/* Secondary/Info action button (Soft to Solid) */
+.modal-btn-secondary {
+    color: #3B82F6;
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+.modal-btn-secondary:hover {
+    color: #FFFFFF;
+    background-color: #3B82F6;
+}

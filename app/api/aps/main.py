@@ -154,7 +154,7 @@ async def ap_resources_stream(websocket: WebSocket, host: str):
                             total = int(total_mem)
                             if total > 0:
                                 used = total - free
-                                memory_usage = round((used / total) * 100, 1)
+                                memory_usage = int(round((used / total) * 100, 1))
                         except (ValueError, TypeError):
                             pass
 
@@ -396,9 +396,12 @@ async def get_ap_ssl_status(
             port=port,
         )
 
-        # Call inherited method from MikrotikRouterAdapter
-        status_data = adapter.get_ssl_status()
-        return status_data
+        # Call inherited method from MikrotikRouterAdapter (if available)
+        if hasattr(adapter, "get_ssl_status"):
+            status_data = adapter.get_ssl_status()
+            return status_data
+        else:
+            return {"status": "not_supported", "message": "This adapter does not support SSL status"}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error checking SSL status: {e}")
@@ -683,7 +686,7 @@ async def repair_ap_connection(
         ap.is_provisioned = False
         ap.last_provision_error = None
         await session.commit()
-        reset_result["provision_reset"] = True
+        reset_result["provision_reset"] = "true"
         reset_result["message"] = (
             "Estado de aprovisionamiento reseteado. Listo para re-aprovisionar SSL."
         )
