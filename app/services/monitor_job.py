@@ -3,7 +3,7 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 
-import requests
+import httpx
 
 from .monitor_service import MonitorService
 
@@ -24,7 +24,7 @@ def notify_api_update():
         port = os.getenv("UVICORN_PORT", "8000")
         # Llamamos al endpoint interno que creamos en main.py
         url = f"http://127.0.0.1:{port}/api/internal/notify-monitor-update"
-        requests.post(url, timeout=2)
+        httpx.post(url, timeout=2)
     except Exception:
         # Si falla (ej. la API se está reiniciando), no detenemos el monitor
         pass

@@ -1,6 +1,6 @@
 # app/utils/alerter.py
 
-import requests
+import httpx
 
 from ..db.settings_db import get_setting
 
@@ -29,9 +29,12 @@ def send_telegram_alert(message: str):
     payload = {"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}
 
     try:
-        response = requests.post(api_url, json=payload, timeout=10)
+        response = httpx.post(api_url, json=payload, timeout=10)
         response.raise_for_status()
         print("Alerta enviada exitosamente a Telegram.")
 
-    except requests.exceptions.RequestException as e:
+    except httpx.HTTPStatusError as e:
         print(f"Error crítico: No se pudo enviar la alerta de Telegram. Causa: {e}")
+    except httpx.RequestError as e:
+        print(f"Error crítico: No se pudo enviar la alerta de Telegram. Causa: {e}")
+

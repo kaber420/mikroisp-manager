@@ -9,7 +9,7 @@ sqlalchemy>=2.0.0
 sqlmodel>=0.0.14
 fastapi-users[sqlmodel]>=12.0.0
 fastapi-users-db-sqlalchemy
-requests
+httpx
 routeros-api
 paramiko
 scp

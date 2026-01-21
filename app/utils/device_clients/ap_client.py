@@ -1,11 +1,9 @@
 # ap_client.py
 
-import requests
-import urllib3
+import httpx
 
-# Desactivar los warnings de SSL ya que los dispositivos de red a menudo
-# usan certificados autofirmados, lo cual es normal en una red interna.
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# httpx maneja certificados autofirmados con verify=False, no es necesario
+# desactivar warnings de urllib3 porque httpx no usa urllib3.
 
 
 class UbiquitiClient:
@@ -30,17 +28,15 @@ class UbiquitiClient:
         self.base_url = f"{protocol}://{host}:{port}"
         self.username = username
         self.password = password
-        self.session = requests.Session()
-        self.session.verify = verify_ssl
+        self.verify_ssl = verify_ssl
         self._is_authenticated = False
 
-        # Añadimos un User-Agent estándar y cabeceras para mantener la conexión viva
-        self.session.headers.update(
-            {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-                "Connection": "keep-alive",
-            }
-        )
+        # Inicializamos el cliente httpx con headers por defecto
+        self._default_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Connection": "keep-alive",
+        }
+        self.session = httpx.Client(verify=verify_ssl, headers=self._default_headers, timeout=15)
 
     def _authenticate(self) -> bool:
         """
@@ -58,12 +54,12 @@ class UbiquitiClient:
         payload = {"username": self.username, "password": self.password}
 
         try:
-            response = self.session.post(auth_url, data=payload, timeout=15)
+            response = self.session.post(auth_url, data=payload)
             response.raise_for_status()
 
             csrf_token = response.headers.get("X-CSRF-ID")
             if csrf_token:
-                self.session.headers.update({"X-CSRF-ID": csrf_token})
+                self.session.headers["X-CSRF-ID"] = csrf_token
                 self._is_authenticated = True
                 print(f"Autenticación exitosa en {self.base_url}")
                 return True
@@ -71,8 +67,11 @@ class UbiquitiClient:
             print(f"Error de autenticación en {self.base_url}: No se recibió el token CSRF.")
             return False
 
-        except requests.exceptions.RequestException as e:
+        except httpx.RequestError as e:
             print(f"Error de red durante la autenticación en {self.base_url}: {e}")
+            return False
+        except httpx.HTTPStatusError as e:
+            print(f"Error de autenticación en {self.base_url}: {e}")
             return False
 
     def get_status_data(self) -> dict | None:
@@ -87,7 +86,7 @@ class UbiquitiClient:
         def _get_data():
             status_url = self.base_url + "/status.cgi"
             try:
-                response = self.session.get(status_url, timeout=15)
+                response = self.session.get(status_url)
                 # Si la sesión expiró, el AP puede devolver 200 OK con la página de login.
                 # O puede devolver 401/403.
                 if response.status_code in [401, 403]:
@@ -107,10 +106,10 @@ class UbiquitiClient:
 
                 return data
 
-            except requests.exceptions.RequestException as e:
+            except httpx.RequestError as e:
                 print(f"Error de red al obtener datos de estado de {self.base_url}: {e}")
                 raise  # Relanzamos para que el llamador sepa que hubo un error de red
-            except requests.exceptions.JSONDecodeError:
+            except ValueError:
                 # Esto ocurre si la respuesta no es JSON, típicamente la página de login.
                 print(f"La respuesta de {self.base_url} no es un JSON válido. Re-autenticando...")
                 return None  # Indica que se necesita re-autenticación
@@ -143,7 +142,7 @@ class UbiquitiClient:
 
             return data
 
-        except requests.exceptions.RequestException:
+        except httpx.RequestError:
             # El error ya fue impreso en _get_data. Devolvemos None.
             return None
 
@@ -153,9 +152,9 @@ class UbiquitiClient:
         """
         logout_url = self.base_url + "/api/auth/logout"
         try:
-            self.session.post(logout_url, timeout=10)
+            self.session.post(logout_url)
             print(f"Sesión cerrada para {self.base_url}")
-        except requests.exceptions.RequestException as e:
+        except httpx.RequestError as e:
             print(f"Error al cerrar la sesión en {self.base_url}: {e}")
         finally:
             self.session.close()

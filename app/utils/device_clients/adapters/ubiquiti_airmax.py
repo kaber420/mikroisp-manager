@@ -4,14 +4,13 @@ Ubiquiti AirMAX adapter.
 Uses HTTP API to communicate with AirOS devices.
 """
 
-import requests
-import urllib3
+import httpx
 
 from ....core.constants import DeviceRole, DeviceVendor
 from .base import BaseDeviceAdapter, ConnectedClient, DeviceStatus
 
-# Disable SSL warnings for self-signed certificates
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# httpx maneja certificados autofirmados con verify=False, no es necesario
+# desactivar warnings de urllib3 porque httpx no usa urllib3.
 
 
 class UbiquitiAirmaxAdapter(BaseDeviceAdapter):
@@ -27,16 +26,14 @@ class UbiquitiAirmaxAdapter(BaseDeviceAdapter):
         self.use_https = use_https
         protocol = "https" if use_https else "http"
         self.base_url = f"{protocol}://{host}:{port}"
-        self.session = requests.Session()
-        self.session.verify = False
         self._is_authenticated = False
 
-        self.session.headers.update(
-            {
-                "User-Agent": "Mozilla/5.0 UManager/1.0",
-                "Connection": "keep-alive",
-            }
-        )
+        # Inicializamos el cliente httpx con headers por defecto
+        self._default_headers = {
+            "User-Agent": "Mozilla/5.0 UManager/1.0",
+            "Connection": "keep-alive",
+        }
+        self.session = httpx.Client(verify=False, headers=self._default_headers, timeout=15)
 
     @property
     def vendor(self) -> str:
@@ -51,23 +48,23 @@ class UbiquitiAirmaxAdapter(BaseDeviceAdapter):
         payload = {"username": self.username, "password": self.password}
 
         try:
-            response = self.session.post(auth_url, data=payload, timeout=15)
+            response = self.session.post(auth_url, data=payload)
             response.raise_for_status()
 
             csrf_token = response.headers.get("X-CSRF-ID")
             if csrf_token:
-                self.session.headers.update({"X-CSRF-ID": csrf_token})
+                self.session.headers["X-CSRF-ID"] = csrf_token
                 self._is_authenticated = True
                 return True
             return False
-        except requests.exceptions.RequestException:
+        except (httpx.RequestError, httpx.HTTPStatusError):
             return False
 
     def _get_status_data(self) -> dict | None:
         """Fetch raw status data from the device."""
         status_url = f"{self.base_url}/status.cgi"
         try:
-            response = self.session.get(status_url, timeout=15)
+            response = self.session.get(status_url)
             if response.status_code in [401, 403]:
                 return None
             response.raise_for_status()
@@ -75,7 +72,7 @@ class UbiquitiAirmaxAdapter(BaseDeviceAdapter):
             if "host" not in data:
                 return None
             return data
-        except (requests.exceptions.RequestException, ValueError):
+        except (httpx.RequestError, httpx.HTTPStatusError, ValueError):
             return None
 
     def get_status(self) -> DeviceStatus:
@@ -202,8 +199,8 @@ class UbiquitiAirmaxAdapter(BaseDeviceAdapter):
         """Logout and close session."""
         try:
             logout_url = f"{self.base_url}/api/auth/logout"
-            self.session.post(logout_url, timeout=10)
-        except requests.exceptions.RequestException:
+            self.session.post(logout_url)
+        except httpx.RequestError:
             pass
         finally:
             self.session.close()
