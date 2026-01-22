@@ -42,7 +42,7 @@ class CSPMiddleware(BaseHTTPMiddleware):
         csp_policy = (
             f"default-src 'self'; "
             f"script-src 'self' 'unsafe-eval' 'nonce-{nonce}'; "
-            f"style-src 'self'; "
+            f"style-src 'self' 'unsafe-inline'; "
             f"img-src 'self' data: blob:; "
             f"connect-src 'self' ws: wss:; "
             f"font-src 'self' data:; "

@@ -220,6 +220,33 @@ class ClientService:
                 )
             raise ValueError(f"Error al crear servicio: {e}")
 
+    def _get_queue_type_for_router(self, plan: dict[str, Any], router: Router) -> str:
+        """
+        Determines the appropriate queue type based on router firmware version.
+        
+        Args:
+            plan: Plan dict with v6_queue_type and v7_queue_type
+            router: Router model with firmware field
+            
+        Returns:
+            Queue type string (e.g., "default-small" or "cake-default")
+        """
+        firmware = router.firmware
+        
+        if firmware:
+            # RouterOS v7 firmware typically starts with "7." or contains "v7"
+            firmware_lower = firmware.lower()
+            if firmware_lower.startswith("7.") or "ros7" in firmware_lower or "/7." in firmware_lower:
+                logger.info(f"🔧 Router {router.host} detected as v7 (firmware: {firmware})")
+                return plan.get("v7_queue_type") or "cake-default"
+            else:
+                logger.info(f"🔧 Router {router.host} detected as v6 (firmware: {firmware})")
+                return plan.get("v6_queue_type") or "default-small"
+        
+        # Fallback: assume v6 if firmware is unknown
+        logger.warning(f"⚠️ Router {router.host} firmware unknown, defaulting to v6 queue type")
+        return plan.get("v6_queue_type") or "default-small"
+
     def _apply_simple_queue_on_router(
         self, service_db_obj: dict[str, Any], service_input: dict[str, Any]
     ):
@@ -242,20 +269,46 @@ class ClientService:
         if not router_obj:
             raise ValueError(f"Router {router_host} no encontrado en BD")
 
+        # Determine queue type based on router version (for Universal Plans)
+        queue_type = self._get_queue_type_for_router(plan, router_obj)
+        logger.info(f"📊 Using queue type '{queue_type}' for router {router_host}")
+
+        # Fetch Client to get the name
+        client = self.session.get(Client, service_db_obj['client_id'])
+        if not client:
+             raise ValueError(f"Client {service_db_obj['client_id']} not found")
+
+        queue_name = client.name
+        # Sanitize queue name? Mikrotik accepts spaces but let's be safe if it's empty
+        if not queue_name:
+            queue_name = f"cli_{service_db_obj['client_id']}"
+
+        queue_comment = f"ID: {client.id} | Plan: {plan['name']} | Service: {service_db_obj['id']}"
+
         # Correctly instantiate RouterService using a context manager
         with RouterService(router_host, router_obj) as router_service:
-            queue_name = f"cli_{service_db_obj['client_id']}_srv_{service_db_obj['id']}"
+            
+            # Check for existing queue with different name (duplicate cleanup)
+            existing_by_ip = router_service.get_simple_queue_stats(target_ip)
+            if existing_by_ip:
+                existing_name = existing_by_ip.get('name')
+                existing_id = existing_by_ip.get('.id') or existing_by_ip.get('id')
+                
+                if existing_name != queue_name:
+                    logger.warning(f"⚠️ Found duplicate queue for IP {target_ip} with name '{existing_name}'. Removing it to enforce unique queue per IP.")
+                    router_service.remove_simple_queue(existing_id)
 
             router_service.add_simple_queue(
                 name=queue_name,
                 target=target_ip,
                 max_limit=plan["max_limit"],
                 parent=plan.get("parent_queue", "none"),
-                comment=f"Service {service_db_obj['id']} - Plan {plan['name']}",
+                comment=queue_comment,
+                queue_type=queue_type,
             )
 
     def get_client_services(self, client_id: uuid.UUID) -> list[dict[str, Any]]:
-        """Get all services for a specific client, including plan names."""
+        """Get all services for a specific client, including plan names and prices."""
         statement = (
             select(ClientServiceModel)
             .where(ClientServiceModel.client_id == client_id)
@@ -266,15 +319,18 @@ class ClientService:
         result = []
         for service in services:
             service_dict = service.model_dump()
-            # Fetch plan name if plan_id is set
+            # Fetch plan name and price if plan_id is set
             if service.plan_id:
                 try:
                     plan = self.plan_service.get_by_id(service.plan_id)
                     service_dict["plan_name"] = plan.name
+                    service_dict["plan_price"] = plan.price
                 except Exception:
                     service_dict["plan_name"] = None
+                    service_dict["plan_price"] = None
             else:
                 service_dict["plan_name"] = None
+                service_dict["plan_price"] = None
             result.append(service_dict)
 
         return result
@@ -496,3 +552,133 @@ class ClientService:
         self.session.commit()
 
         logger.info(f"🗑️ Service {service_id} deleted successfully")
+
+    def sync_client_service_to_router(self, service_id: int) -> dict[str, Any]:
+        """
+        Synchronize a client service configuration to the router.
+        
+        This method re-applies the service configuration to the router,
+        useful when the original provisioning failed or was incomplete.
+        
+        Args:
+            service_id: ID of the service to sync
+            
+        Returns:
+            dict with sync status and details
+        """
+        service = self.session.get(ClientServiceModel, service_id)
+        if not service:
+            raise FileNotFoundError(f"Service {service_id} not found")
+        
+        router_host = service.router_host
+        if not router_host:
+            raise ValueError("Service has no router_host configured")
+        
+        router = self.session.get(Router, router_host)
+        if not router:
+            raise ValueError(f"Router {router_host} not found")
+        
+        results = {
+            "service_id": service_id,
+            "service_type": service.service_type,
+            "router_host": router_host,
+            "actions": [],
+        }
+        
+        if service.service_type == "simple_queue":
+            # Sync Simple Queue
+            if not service.plan_id:
+                raise ValueError("Service has no plan_id configured")
+            
+            plan_obj = self.plan_service.get_by_id(service.plan_id)
+            plan = plan_obj.model_dump()
+            
+            if not service.ip_address:
+                raise ValueError("Service has no IP address configured")
+            
+            queue_type = self._get_queue_type_for_router(plan, router)
+
+            # Fetch Client to get the name
+            client = self.session.get(Client, service.client_id)
+            if not client:
+                 raise ValueError(f"Client {service.client_id} not found")
+
+            queue_name = client.name
+            if not queue_name:
+                 queue_name = f"cli_{service.client_id}"
+
+            queue_comment = f"ID: {client.id} | Plan: {plan['name']} | Service: {service.id}"
+            
+            with RouterService(router_host, router) as rs:
+                # Check for existing queue by IP (duplicate cleanup)
+                existing_by_ip = rs.get_simple_queue_stats(service.ip_address)
+                if existing_by_ip:
+                    existing_name = existing_by_ip.get('name')
+                    existing_id = existing_by_ip.get('.id') or existing_by_ip.get('id')
+                    
+                    if existing_name != queue_name:
+                        logger.warning(f"⚠️ Found duplicate queue for IP {service.ip_address} with name '{existing_name}'. Removing it to enforce unique queue per IP.")
+                        rs.remove_simple_queue(existing_id)
+
+                result = rs.add_simple_queue(
+                    name=queue_name,
+                    target=service.ip_address,
+                    max_limit=plan["max_limit"],
+                    parent=plan.get("parent_queue", "none"),
+                    comment=queue_comment,
+                    queue_type=queue_type,
+                )
+                results["actions"].append({
+                    "action": "sync_simple_queue",
+                    "queue_name": queue_name,
+                    "target": service.ip_address,
+                    "max_limit": plan["max_limit"],
+                    "queue_type": queue_type,
+                    "result": result,
+                })
+            
+            logger.info(f"🔄 Synced Simple Queue service {service_id} to router {router_host}")
+            
+        elif service.service_type == "pppoe":
+            # Sync PPPoE secret
+            username = service.pppoe_username
+            if not username:
+                raise ValueError("PPPoE service has no username configured")
+            
+            with RouterService(router_host, router) as rs:
+                # Check if secret exists
+                existing = rs.get_pppoe_secrets(username=username)
+                
+                if existing:
+                    results["actions"].append({
+                        "action": "pppoe_secret_exists",
+                        "username": username,
+                        "message": "PPPoE secret already exists on router"
+                    })
+                    logger.info(f"ℹ️ PPPoE secret '{username}' already exists on router")
+                else:
+                    # Get profile name from plan if available
+                    profile_name = service.profile_name or "default"
+                    if service.plan_id:
+                        plan_obj = self.plan_service.get_by_id(service.plan_id)
+                        profile_name = plan_obj.profile_name or profile_name
+                    
+                    # Create secret
+                    secret = rs.create_pppoe_secret(
+                        username=username,
+                        password="",  # Empty password - admin must set
+                        profile=profile_name,
+                        service_name="",
+                    )
+                    
+                    results["actions"].append({
+                        "action": "create_pppoe_secret",
+                        "username": username,
+                        "profile": profile_name,
+                        "result": secret,
+                    })
+                    logger.info(f"✅ Created PPPoE secret '{username}' on router {router_host}")
+        
+        results["status"] = "success"
+        results["message"] = f"Service {service_id} synchronized to router"
+        return results

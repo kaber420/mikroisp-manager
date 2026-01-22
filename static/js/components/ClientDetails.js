@@ -88,19 +88,9 @@ document.addEventListener('alpine:init', () => {
             return this.store.allServices;
         },
 
-        // --- API Helper ---
+        // --- API Helper (uses global ApiService) ---
         async fetchJSON(url, options = {}) {
-            const API_BASE_URL = window.location.origin;
-            const getUrl = new URL(url, API_BASE_URL);
-            if (!options.method || options.method === 'GET') {
-                getUrl.searchParams.append('_', new Date().getTime());
-            }
-            const response = await fetch(getUrl.toString(), options);
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ detail: response.statusText }));
-                throw new Error(errorData.detail || 'API Request Failed');
-            }
-            return response.status === 204 ? null : response.json();
+            return ApiService.fetchJSON(url, options);
         },
 
         // --- Utility ---
@@ -285,6 +275,9 @@ document.addEventListener('alpine:init', () => {
                 this.loading = true;
                 const services = await this.fetchJSON(`/api/clients/${this.clientId}/services`);
                 this.store.setServices(services || []);
+
+                // Notify other components that services are loaded
+                document.dispatchEvent(new CustomEvent('services:loaded'));
             } catch (e) {
                 console.error("Error loading services:", e);
                 // In a real app, you might want to show an error message in the UI
@@ -323,7 +316,7 @@ document.addEventListener('alpine:init', () => {
             select.innerHTML = '<option value="">Loading...</option>';
 
             try {
-                const plans = await this.fetchJSON(`/api/plans/router/${routerHost}`);
+                const plans = await this.fetchJSON(`/api/plans/for-service/${routerHost}`);
                 const filteredPlans = plans.filter(p => p.plan_type === serviceType);
                 this.store.setPlans(filteredPlans);
 
@@ -445,19 +438,54 @@ document.addEventListener('alpine:init', () => {
         },
 
         // --- Delete Service ---
+        // --- Delete Service ---
         async deleteService(serviceId, serviceName) {
-            if (!confirm(`Are you sure you want to delete the service "${serviceName}"?\n\nThis will also remove the PPPoE secret from the router if applicable.`)) {
-                return;
-            }
+            window.ModalUtils.showConfirmModal({
+                title: 'Delete Service',
+                message: `Are you sure you want to delete the service "<strong>${serviceName}</strong>"?<br><br>This will also remove the configuration from the router if applicable.`,
+                confirmText: 'Delete Service',
+                confirmIcon: 'delete',
+                type: 'danger',
+            }).then(async (confirmed) => {
+                if (confirmed) {
+                    try {
+                        await this.fetchJSON(`/api/services/${serviceId}`, { method: 'DELETE' });
+                        showToast('Service deleted successfully!', 'success');
+                        await this.loadClientServices();
+                        await this.loadServiceStatus();
+                    } catch (error) {
+                        showToast(`Error deleting service: ${error.message}`, 'danger');
+                    }
+                }
+            });
+        },
 
-            try {
-                await this.fetchJSON(`/api/services/${serviceId}`, { method: 'DELETE' });
-                showToast('Service deleted successfully!', 'success');
-                await this.loadClientServices();
-                await this.loadServiceStatus();
-            } catch (error) {
-                showToast(`Error deleting service: ${error.message}`, 'danger');
-            }
+        // --- Sync Service to Router ---
+        async syncService(serviceId, serviceName) {
+            window.ModalUtils.showConfirmModal({
+                title: 'Sync to Router',
+                message: `This will re-apply the configuration for service "<strong>${serviceName}</strong>" to the router.<br><br>Use this if the queue or PPPoE secret was not created correctly.`,
+                confirmText: 'Sync Now',
+                confirmIcon: 'sync',
+                type: 'warning',
+            }).then(async (confirmed) => {
+                if (confirmed) {
+                    try {
+                        showToast('Syncing service to router...', 'info');
+                        const result = await this.fetchJSON(`/api/services/${serviceId}/sync`, { method: 'POST' });
+
+                        if (result.status === 'success') {
+                            showToast('Service synced to router successfully!', 'success');
+                            console.log('Sync result:', result);
+                        } else {
+                            showToast(`Sync completed with warnings: ${result.message}`, 'warning');
+                        }
+                        await this.loadServiceStatus();
+                    } catch (error) {
+                        showToast(`Error syncing service: ${error.message}`, 'danger');
+                    }
+                }
+            });
         }
     }));
 

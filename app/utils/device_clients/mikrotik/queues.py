@@ -103,8 +103,15 @@ def add_simple_queue(
     max_limit: str,
     parent: str = "none",
     comment: str = "",
+    queue_type: str | None = None,
 ):
-    """Crea una nueva Simple Queue (sin PCQ). Si ya existe, actualiza."""
+    """
+    Crea una nueva Simple Queue (sin PCQ). Si ya existe, actualiza.
+    
+    Args:
+        queue_type: Optional queue type to use (e.g., 'default-small', 'cake-default').
+                    If provided, sets as 'queue_type/queue_type' for upload/download.
+    """
     res = api.get_resource("/queue/simple")
     if not parent:
         parent = "none"
@@ -116,6 +123,11 @@ def add_simple_queue(
         "parent": parent,
         "comment": comment,
     }
+    
+    # Add queue type if specified (format: "upload_type/download_type")
+    if queue_type:
+        queue_params["queue"] = f"{queue_type}/{queue_type}"
+        logger.info(f"📊 Using queue type: {queue_type}")
 
     # Check if queue exists
     existing = res.get(name=name)
@@ -131,6 +143,7 @@ def add_simple_queue(
         # Create new queue
         result = res.add(**queue_params)
         msg = f"Simple Queue '{name}' created successfully."
+        logger.info(msg)
 
     return _handle_response(result, msg)
 

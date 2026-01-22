@@ -7,11 +7,18 @@
     <div class="max-w-6xl mx-auto">
         <div class="flex items-center justify-between mb-8">
             <h1 class="text-4xl font-bold">Manage MikroTik Routers</h1>
-            <button @click="openRouterModal()"
-                class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover">
-                <span class="material-symbols-outlined mr-2">add</span>
-                <span>Add New Router</span>
-            </button>
+            <div class="flex gap-3">
+                <button @click="openPlansModal()"
+                    class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-purple-600 hover:bg-purple-700">
+                    <span class="material-symbols-outlined mr-2">list_alt</span>
+                    <span>Manage Plans</span>
+                </button>
+                <button @click="openRouterModal()"
+                    class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover">
+                    <span class="material-symbols-outlined mr-2">add</span>
+                    <span>Add New Router</span>
+                </button>
+            </div>
         </div>
 
         <div class="bg-surface-1 rounded-lg border border-border-color">
@@ -207,6 +214,173 @@
 
     {# Shared Provisioning Modal #}
     {% include 'partials/provision_modal.html' %}
+
+    <!-- Plans Management Modal -->
+    <div x-show="isPlansModalOpen" x-cloak
+        class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 overflow-y-auto z-50">
+        <div @click.away="closePlansModal()"
+            class="bg-surface-1 rounded-lg shadow-xl w-full max-w-4xl border border-border-color my-auto">
+            <div class="p-6 border-b border-border-color flex justify-between items-center">
+                <h3 class="text-2xl font-bold">Manage Plans</h3>
+                <button type="button" @click="closePlansModal()"
+                    class="text-text-secondary hover:text-text-primary text-3xl font-bold">&times;</button>
+            </div>
+
+            <div class="p-6 max-h-[70vh] overflow-y-auto">
+                <!-- Add New Plan Button -->
+                <div class="flex justify-end mb-4">
+                    <button @click="openPlanForm()"
+                        class="flex items-center px-4 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary-hover">
+                        <span class="material-symbols-outlined mr-2">add</span>
+                        Add New Plan
+                    </button>
+                </div>
+
+                <!-- Plan Form (shown when adding/editing) -->
+                <div x-show="showPlanForm" class="bg-surface-2 p-6 rounded-lg mb-6 border border-border-color">
+                    <h4 x-text="editingPlan ? 'Edit Plan' : 'Add New Plan'" class="text-lg font-semibold mb-4"></h4>
+                    <form @submit.prevent="savePlan()">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Plan Name *</label>
+                                <input type="text" x-model="currentPlan.name" required
+                                    class="w-full bg-background border border-border-color rounded-md p-2"
+                                    placeholder="e.g., 10Mbps Family">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Max Limit *</label>
+                                <input type="text" x-model="currentPlan.max_limit" required
+                                    class="w-full bg-background border border-border-color rounded-md p-2"
+                                    placeholder="e.g., 10M/10M">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Router (leave empty for Universal)</label>
+                                <select x-model="currentPlan.router_host"
+                                    class="w-full bg-background border border-border-color rounded-md p-2">
+                                    <option value="">Universal (All Routers)</option>
+                                    <template x-for="router in routers" :key="router.host">
+                                        <option :value="router.host" x-text="router.hostname || router.host"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Price</label>
+                                <input type="number" step="0.01" x-model.number="currentPlan.price"
+                                    class="w-full bg-background border border-border-color rounded-md p-2"
+                                    placeholder="0.00">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Plan Type</label>
+                                <select x-model="currentPlan.plan_type"
+                                    class="w-full bg-background border border-border-color rounded-md p-2">
+                                    <option value="simple_queue">Simple Queue</option>
+                                    <option value="pppoe">PPPoE</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Parent Queue</label>
+                                <input type="text" x-model="currentPlan.parent_queue"
+                                    class="w-full bg-background border border-border-color rounded-md p-2"
+                                    placeholder="none">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">v6 Queue Type</label>
+                                <input type="text" x-model="currentPlan.v6_queue_type"
+                                    class="w-full bg-background border border-border-color rounded-md p-2"
+                                    placeholder="default-small">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">v7 Queue Type</label>
+                                <input type="text" x-model="currentPlan.v7_queue_type"
+                                    class="w-full bg-background border border-border-color rounded-md p-2"
+                                    placeholder="cake-default">
+                            </div>
+                            <div x-show="currentPlan.plan_type === 'pppoe'">
+                                <label class="block text-sm font-medium mb-1">PPPoE Profile Name</label>
+                                <input type="text" x-model="currentPlan.profile_name"
+                                    class="w-full bg-background border border-border-color rounded-md p-2"
+                                    placeholder="profile-basic">
+                            </div>
+                        </div>
+
+                        <div x-show="planError" x-text="planError" class="text-danger text-sm mt-4"></div>
+
+                        <div class="flex justify-end gap-3 mt-6">
+                            <button type="button" @click="closePlanForm()"
+                                class="px-4 py-2 rounded-md text-sm font-semibold hover:bg-surface-1">Cancel</button>
+                            <button type="submit"
+                                class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover"
+                                x-text="editingPlan ? 'Save Changes' : 'Create Plan'"></button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Plans Table -->
+                <div class="bg-surface-2 rounded-lg border border-border-color overflow-hidden">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-surface-1">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Name
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">
+                                    Router</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Type
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">
+                                    Speed</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">
+                                    Price</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-text-secondary uppercase">
+                                    Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border-color">
+                            <template x-if="plans.length === 0">
+                                <tr>
+                                    <td colspan="6" class="p-6 text-center text-text-secondary">
+                                        No plans found. Click "Add New Plan" to create one.
+                                    </td>
+                                </tr>
+                            </template>
+                            <template x-for="plan in plans" :key="plan.id">
+                                <tr class="hover:bg-surface-1">
+                                    <td class="px-4 py-3 font-semibold" x-text="plan.name"></td>
+                                    <td class="px-4 py-3">
+                                        <span x-show="!plan.router_host"
+                                            class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-purple-500/20 text-purple-400">
+                                            Universal
+                                        </span>
+                                        <span x-show="plan.router_host" x-text="plan.router_name || plan.router_host"
+                                            class="text-text-secondary"></span>
+                                    </td>
+                                    <td class="px-4 py-3 text-text-secondary"
+                                        x-text="plan.plan_type === 'pppoe' ? 'PPPoE' : 'Queue'"></td>
+                                    <td class="px-4 py-3 font-mono text-text-secondary" x-text="plan.max_limit"></td>
+                                    <td class="px-4 py-3 text-text-secondary"
+                                        x-text="'$' + (plan.price || 0).toFixed(2)"></td>
+                                    <td class="px-4 py-3 text-center space-x-2">
+                                        <button @click="editPlan(plan)" class="text-text-secondary hover:text-primary"
+                                            title="Edit">
+                                            <span class="material-symbols-outlined">edit</span>
+                                        </button>
+                                        <button @click="deletePlan(plan)" class="text-text-secondary hover:text-danger"
+                                            title="Delete">
+                                            <span class="material-symbols-outlined">delete</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end">
+                <button type="button" @click="closePlansModal()"
+                    class="px-4 py-2 rounded-md text-sm font-semibold hover:bg-surface-1">Close</button>
+            </div>
+        </div>
+    </div>
 </main>
 {% endblock %}
 

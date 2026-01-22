@@ -234,6 +234,31 @@ def api_change_pppoe_profile(
         raise HTTPException(status_code=500, detail=f"Error changing profile: {e}")
 
 
+@router.post("/services/{service_id}/sync")
+def api_sync_service_to_router(
+    service_id: int,
+    service: ClientManagerService = Depends(get_client_service),
+    current_user: User = Depends(require_billing),
+):
+    """
+    Synchronize a service configuration to the router.
+    
+    This endpoint re-applies the service configuration to the router,
+    useful when the original provisioning failed or was incomplete.
+    Creates/updates Simple Queue or PPPoE secret as needed.
+    """
+    try:
+        result = service.sync_client_service_to_router(service_id)
+        return result
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Error syncing service to router: {e}")
+        raise HTTPException(status_code=500, detail=f"Error syncing service: {e}")
+
+
 # --- Payment Endpoints ---
 
 

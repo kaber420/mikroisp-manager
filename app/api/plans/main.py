@@ -18,7 +18,7 @@ class PlanBase(BaseModel):
     max_limit: str
     parent_queue: str | None = None
     comment: str | None = None
-    router_host: str
+    router_host: str | None = None  # None = Universal Plan (works on all routers)
     price: float | None = 0.0
     plan_type: str | None = "simple_queue"  # "pppoe" or "simple_queue"
     profile_name: str | None = None  # For PPPoE: router profile name
@@ -27,6 +27,9 @@ class PlanBase(BaseModel):
     )
     address_list_strategy: str | None = "blacklist"
     address_list_name: str | None = "morosos"
+    # Queue type configuration for different RouterOS versions
+    v6_queue_type: str | None = "default-small"
+    v7_queue_type: str | None = "cake-default"
 
 
 class PlanCreate(PlanBase):
@@ -64,6 +67,19 @@ def get_plans_by_router(
     plans = service.get_plans_by_router(router_host)
     # Mapeamos manualmente router_name si es necesario, o dejamos que sea null
     return [{**p.model_dump(), "router_name": None} for p in plans]
+
+
+@router.get("/plans/for-service/{router_host}", response_model=list[PlanResponse])
+def get_plans_for_service(
+    router_host: str,
+    service: PlanService = Depends(get_plan_service),
+    current_user: User = Depends(require_technician),
+):
+    """
+    Obtiene planes disponibles para crear servicios en un router.
+    Incluye planes universales (router_host = NULL) + planes específicos del router.
+    """
+    return service.get_plans_for_service(router_host)
 
 
 @router.post("/plans", response_model=PlanResponse, status_code=status.HTTP_201_CREATED)

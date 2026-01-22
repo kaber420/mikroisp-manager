@@ -237,7 +237,7 @@
                                         <p class="text-sm font-mono font-semibold" x-text="cpe.hostname || cpe.mac"></p>
                                         <p class="text-xs text-text-secondary" x-text="cpe.ip_address || 'No IP'"></p>
                                     </div>
-                                    <button type="button" @click="unassignCpe(cpe.mac)"
+                                    <button type="button" @click.stop="unassignCpe(cpe.mac)"
                                         class="text-danger text-xs font-semibold">UNASSIGN</button>
                                 </div>
                             </template>

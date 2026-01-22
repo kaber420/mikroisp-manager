@@ -163,14 +163,23 @@ document.addEventListener('alpine:init', () => {
         },
 
         async deleteClient(clientId, clientName) {
-            if (!confirm(`Are you sure you want to delete client "${clientName}"?`)) return;
-            try {
-                const response = await fetch(`/api/clients/${clientId}`, { method: 'DELETE' });
-                if (!response.ok) throw new Error((await response.json()).detail);
-                this.allClients = this.allClients.filter(c => c.id !== clientId);
-            } catch (error) {
-                showToast(`Error: ${error.message}`, 'danger');
-            }
+            window.ModalUtils.showConfirmModal({
+                title: 'Delete Client',
+                message: `Are you sure you want to delete client "<strong>${clientName}</strong>"?`,
+                confirmText: 'Delete Client',
+                confirmIcon: 'delete',
+                type: 'danger',
+            }).then(async (confirmed) => {
+                if (!confirmed) return;
+
+                try {
+                    const response = await fetch(`/api/clients/${clientId}`, { method: 'DELETE' });
+                    if (!response.ok) throw new Error((await response.json()).detail);
+                    this.allClients = this.allClients.filter(c => c.id !== clientId);
+                } catch (error) {
+                    showToast(`Error: ${error.message}`, 'danger');
+                }
+            });
         },
 
         // CPE Management
@@ -195,9 +204,24 @@ document.addEventListener('alpine:init', () => {
             } catch (error) { showToast(`Error: ${error.message}`, 'danger'); }
         },
         async unassignCpe(cpeMac) {
-            if (!confirm('Unassign this CPE?')) return;
+            const confirmed = await ModalUtils.showConfirmModal({
+                title: 'Desasignar CPE',
+                message: `¿Estás seguro de que deseas desasignar este CPE (${cpeMac}) del cliente?`,
+                confirmText: 'Desasignar',
+                cancelText: 'Cancelar',
+                confirmIcon: 'link_off',
+                type: 'warning'
+            });
+
+            if (!confirmed) return;
+
             try {
-                await fetch(`/api/cpes/${cpeMac}/unassign`, { method: 'POST' });
+                const response = await fetch(`/api/cpes/${cpeMac}/unassign`, { method: 'POST' });
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({ detail: response.statusText }));
+                    throw new Error(err.detail || 'Failed to unassign CPE');
+                }
+                showToast('CPE desasignado correctamente', 'success');
                 await this.loadAssignedCpes(this.currentClient.id);
                 await this.loadUnassignedCpes();
                 await this.loadClients();

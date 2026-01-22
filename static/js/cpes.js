@@ -13,23 +13,30 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {string} mac - La dirección MAC del CPE a eliminar.
      */
     async function deleteCPE(mac) {
-        if (!confirm(`¿Estás seguro de que deseas eliminar el CPE con MAC ${mac}? Esta acción es irreversible.`)) {
-            return;
-        }
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/cpes/${encodeURIComponent(mac)}`, {
-                method: 'DELETE',
-            });
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ detail: 'Error desconocido' }));
-                throw new Error(errorData.detail || 'Failed to delete CPE');
+        window.ModalUtils.showConfirmModal({
+            title: 'Eliminar CPE',
+            message: `¿Estás seguro de que deseas eliminar el CPE con MAC <strong>${mac}</strong>?<br><br>Esta acción es irreversible.`,
+            confirmText: 'Eliminar',
+            confirmIcon: 'delete',
+            type: 'danger',
+        }).then(async (confirmed) => {
+            if (confirmed) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/cpes/${encodeURIComponent(mac)}`, {
+                        method: 'DELETE',
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ detail: 'Error desconocido' }));
+                        throw new Error(errorData.detail || 'Failed to delete CPE');
+                    }
+                    // Refresh the table after successful deletion
+                    loadAllCPEs();
+                } catch (error) {
+                    console.error("Error deleting CPE:", error);
+                    alert(`Error al eliminar CPE: ${error.message}`);
+                }
             }
-            // Refresh the table after successful deletion
-            loadAllCPEs();
-        } catch (error) {
-            console.error("Error deleting CPE:", error);
-            alert(`Error al eliminar CPE: ${error.message}`);
-        }
+        });
     }
     // Make deleteCPE globally accessible for onclick handlers
     window.deleteCPE = deleteCPE;

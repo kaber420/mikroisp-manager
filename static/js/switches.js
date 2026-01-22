@@ -164,27 +164,36 @@ document.addEventListener('alpine:init', () => {
 
 
         // Delete switch
+        // Delete switch
         async deleteSwitch(host, hostname) {
-            if (!confirm(`Are you sure you want to delete switch "${hostname || host}"?`)) return;
+            window.ModalUtils.showConfirmModal({
+                title: 'Delete Switch',
+                message: `Are you sure you want to delete switch "<strong>${hostname || host}</strong>"?`,
+                confirmText: 'Delete',
+                confirmIcon: 'delete',
+                type: 'danger',
+            }).then(async (confirmed) => {
+                if (confirmed) {
+                    try {
+                        const response = await fetch(`/api/switches/${encodeURIComponent(host)}`, { method: 'DELETE' });
+                        if (!response.ok) {
+                            const err = await response.json();
+                            throw new Error(err.detail || 'Failed to delete switch.');
+                        }
+                        this.switches = this.switches.filter(s => s.host !== host);
 
-            try {
-                const response = await fetch(`/api/switches/${encodeURIComponent(host)}`, { method: 'DELETE' });
-                if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(err.detail || 'Failed to delete switch.');
+                        if (typeof showToast === 'function') {
+                            showToast('Switch deleted successfully!', 'success');
+                        }
+                    } catch (error) {
+                        if (typeof showToast === 'function') {
+                            showToast(`Error: ${error.message}`, 'danger');
+                        } else {
+                            console.error(error);
+                        }
+                    }
                 }
-                this.switches = this.switches.filter(s => s.host !== host);
-
-                if (typeof showToast === 'function') {
-                    showToast('Switch deleted successfully!', 'success');
-                }
-            } catch (error) {
-                if (typeof showToast === 'function') {
-                    showToast(`Error: ${error.message}`, 'danger');
-                } else {
-                    console.error(error);
-                }
-            }
+            });
         },
 
         // Test connection to switch and update database

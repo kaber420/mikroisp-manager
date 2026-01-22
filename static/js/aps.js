@@ -284,25 +284,33 @@ document.addEventListener('alpine:init', () => {
         },
 
         async deleteAp(ap) {
-            if (!confirm(`Are you sure you want to delete AP "${ap.hostname || ap.host}"?`)) return;
+            window.ModalUtils.showConfirmModal({
+                title: 'Delete AP',
+                message: `Are you sure you want to delete AP "<strong>${ap.hostname || ap.host}</strong>"?`,
+                confirmText: 'Delete',
+                confirmIcon: 'delete',
+                type: 'danger',
+            }).then(async (confirmed) => {
+                if (confirmed) {
+                    try {
+                        const response = await fetch(`/api/aps/${encodeURIComponent(ap.host)}`, {
+                            method: 'DELETE'
+                        });
 
-            try {
-                const response = await fetch(`/api/aps/${encodeURIComponent(ap.host)}`, {
-                    method: 'DELETE'
-                });
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.detail || 'Failed to delete AP.');
+                        }
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.detail || 'Failed to delete AP.');
+                        // Optimista: eliminar de la lista local para respuesta instantánea
+                        this.aps = this.aps.filter(a => a.host !== ap.host);
+
+                    } catch (error) {
+                        console.error('Delete AP error:', error);
+                        showToast(error.message, 'danger');
+                    }
                 }
-
-                // Optimista: eliminar de la lista local para respuesta instantánea
-                this.aps = this.aps.filter(a => a.host !== ap.host);
-
-            } catch (error) {
-                console.error('Delete AP error:', error);
-                showToast(error.message, 'danger');
-            }
+            });
         },
 
         renderStatusBadge(status) {
@@ -326,26 +334,32 @@ document.addEventListener('alpine:init', () => {
         async repairAp(ap) {
             const hostname = ap.hostname || ap.host;
 
-            if (!confirm(`¿Desea permitir re-aprovisionar el AP "${hostname}"?\n\nEsto mostrará el botón "Provision" para configurar SSL nuevamente.`)) {
-                return;
-            }
+            window.ModalUtils.showConfirmModal({
+                title: 'Reparar AP',
+                message: `¿Desea permitir re-aprovisionar el AP "<strong>${hostname}</strong>"?<br><br>Esto mostrará el botón "Provision" para configurar SSL nuevamente.`,
+                confirmText: 'Permitir',
+                confirmIcon: 'build',
+                type: 'warning',
+            }).then(async (confirmed) => {
+                if (confirmed) {
+                    try {
+                        const url = `/api/aps/${encodeURIComponent(ap.host)}/repair?reset_provision=true`;
+                        const response = await fetch(url, { method: 'POST' });
+                        const data = await response.json();
 
-            try {
-                const url = `/api/aps/${encodeURIComponent(ap.host)}/repair?reset_provision=true`;
-                const response = await fetch(url, { method: 'POST' });
-                const data = await response.json();
+                        if (!response.ok) {
+                            throw new Error(data.detail || 'Error al reparar AP');
+                        }
 
-                if (!response.ok) {
-                    throw new Error(data.detail || 'Error al reparar AP');
+                        showToast('AP listo para re-aprovisionar', 'success');
+                        await this.loadInitialData();
+
+                    } catch (error) {
+                        console.error('Repair error:', error);
+                        showToast(`Error: ${error.message}`, 'danger');
+                    }
                 }
-
-                showToast('AP listo para re-aprovisionar', 'success');
-                await this.loadInitialData();
-
-            } catch (error) {
-                console.error('Repair error:', error);
-                showToast(`Error: ${error.message}`, 'danger');
-            }
+            });
         },
 
         isApProvisioned(ap) {

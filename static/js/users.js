@@ -164,21 +164,29 @@ document.addEventListener('alpine:init', () => {
         },
 
         async deleteUser(user) {
-            if (confirm(`Are you sure you want to delete user "${user.username}"?`)) {
-                try {
-                    const response = await fetch(`${this.API_BASE_URL}/api/users/${user.username}`, { method: 'DELETE' });
+            window.ModalUtils.showConfirmModal({
+                title: 'Delete User',
+                message: `Are you sure you want to delete user "<strong>${user.username}</strong>"?`,
+                confirmText: 'Delete',
+                confirmIcon: 'delete',
+                type: 'danger',
+            }).then(async (confirmed) => {
+                if (confirmed) {
+                    try {
+                        const response = await fetch(`${this.API_BASE_URL}/api/users/${user.username}`, { method: 'DELETE' });
 
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.detail || 'Failed to delete user');
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.detail || 'Failed to delete user');
+                        }
+
+                        this.users = this.users.filter(u => u.username !== user.username);
+
+                    } catch (err) {
+                        showToast(`Error: ${err.message}`, 'danger');
                     }
-
-                    this.users = this.users.filter(u => u.username !== user.username);
-
-                } catch (err) {
-                    showToast(`Error: ${err.message}`, 'danger');
                 }
-            }
+            });
         }
     }));
 });

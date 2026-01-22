@@ -94,23 +94,31 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Manejo del Botón de Fuerza (Fase 6) ---
     if (forceBillingBtn) {
         forceBillingBtn.addEventListener('click', async () => {
-            if (!confirm("Are you sure? This will update statuses (Active/Pending/Suspended) for ALL clients based on their payments.")) return;
+            window.ModalUtils.showConfirmModal({
+                title: 'Force Billing Check',
+                message: 'Are you sure? This will update statuses (Active/Pending/Suspended) for <strong>ALL clients</strong> based on their payments.',
+                confirmText: 'Process',
+                confirmIcon: 'sync',
+                type: 'warning',
+            }).then(async (confirmed) => {
+                if (!confirmed) return;
 
-            const originalText = forceBillingBtn.innerHTML;
-            forceBillingBtn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Processing...';
-            forceBillingBtn.disabled = true;
+                const originalText = forceBillingBtn.innerHTML;
+                forceBillingBtn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Processing...';
+                forceBillingBtn.disabled = true;
 
-            try {
-                const res = await fetch(`${API_BASE_URL}/api/settings/force-billing`, { method: 'POST' });
-                if (!res.ok) throw new Error('Request failed');
-                const data = await res.json();
-                showToast(`Done! Processed: ${data.stats.processed}, Active: ${data.stats.active || 0}, Pending: ${data.stats.pendiente || 0}, Suspended: ${data.stats.suspended || 0}`, 'success', 5000);
-            } catch (e) {
-                showToast("Error updating statuses: " + e.message, 'danger');
-            } finally {
-                forceBillingBtn.innerHTML = originalText;
-                forceBillingBtn.disabled = false;
-            }
+                try {
+                    const res = await fetch(`${API_BASE_URL}/api/settings/force-billing`, { method: 'POST' });
+                    if (!res.ok) throw new Error('Request failed');
+                    const data = await res.json();
+                    showToast(`Done! Processed: ${data.stats.processed}, Active: ${data.stats.active || 0}, Pending: ${data.stats.pendiente || 0}, Suspended: ${data.stats.suspended || 0}`, 'success', 5000);
+                } catch (e) {
+                    showToast("Error updating statuses: " + e.message, 'danger');
+                } finally {
+                    forceBillingBtn.innerHTML = originalText;
+                    forceBillingBtn.disabled = false;
+                }
+            });
         });
     }
 
@@ -118,23 +126,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const backupNowBtn = document.getElementById('backup-now-btn');
     if (backupNowBtn) {
         backupNowBtn.addEventListener('click', async () => {
-            if (!confirm("This will create a manual backup of the database. Proceed?")) return;
+            window.ModalUtils.showConfirmModal({
+                title: 'Manual Backup',
+                message: 'This will create a manual backup of the database. Proceed?',
+                confirmText: 'Create Backup',
+                confirmIcon: 'save',
+                type: 'primary',
+            }).then(async (confirmed) => {
+                if (!confirmed) return;
 
-            const originalText = backupNowBtn.innerHTML;
-            backupNowBtn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Backing up...';
-            backupNowBtn.disabled = true;
+                const originalText = backupNowBtn.innerHTML;
+                backupNowBtn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Backing up...';
+                backupNowBtn.disabled = true;
 
-            try {
-                const res = await fetch(`${API_BASE_URL}/api/settings/backup-now`, { method: 'POST' });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.detail || 'Backup failed');
-                showToast('Backup completed successfully!', 'success', 5000);
-            } catch (e) {
-                showToast("Backup error: " + e.message, 'danger');
-            } finally {
-                backupNowBtn.innerHTML = originalText;
-                backupNowBtn.disabled = false;
-            }
+                try {
+                    const res = await fetch(`${API_BASE_URL}/api/settings/backup-now`, { method: 'POST' });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.detail || 'Backup failed');
+                    showToast('Backup completed successfully!', 'success', 5000);
+                } catch (e) {
+                    showToast("Backup error: " + e.message, 'danger');
+                } finally {
+                    backupNowBtn.innerHTML = originalText;
+                    backupNowBtn.disabled = false;
+                }
+            });
         });
     }
 

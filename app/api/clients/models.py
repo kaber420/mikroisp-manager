@@ -75,6 +75,7 @@ class ClientService(ClientServiceBase):
     client_id: uuid.UUID
     created_at: datetime
     plan_name: str | None = None
+    plan_price: float | None = None
     model_config = ConfigDict(from_attributes=True)
 
 

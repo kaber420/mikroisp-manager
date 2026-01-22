@@ -137,22 +137,30 @@ document.addEventListener('alpine:init', () => {
         },
 
         async deleteZone(zone) {
-            if (confirm(`Are you sure you want to delete "${zone.nombre}"?`)) {
-                try {
-                    const response = await fetch(`${this.API_BASE_URL}/api/zonas/${zone.id}`, { method: 'DELETE' });
+            window.ModalUtils.showConfirmModal({
+                title: 'Delete Zone',
+                message: `Are you sure you want to delete zone "<strong>${zone.nombre}</strong>"?`,
+                confirmText: 'Delete',
+                confirmIcon: 'delete',
+                type: 'danger',
+            }).then(async (confirmed) => {
+                if (confirmed) {
+                    try {
+                        const response = await fetch(`${this.API_BASE_URL}/api/zonas/${zone.id}`, { method: 'DELETE' });
 
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.detail || 'Failed to delete zone');
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.detail || 'Failed to delete zone');
+                        }
+
+                        // Actualizamos la lista localmente para que sea más rápido
+                        this.zones = this.zones.filter(z => z.id !== zone.id);
+
+                    } catch (err) {
+                        showToast(`Error: ${err.message}`, 'danger');
                     }
-
-                    // Actualizamos la lista localmente para que sea más rápido
-                    this.zones = this.zones.filter(z => z.id !== zone.id);
-
-                } catch (err) {
-                    showToast(`Error: ${err.message}`, 'danger');
                 }
-            }
+            });
         },
 
         // --- Read-Only Details Modal Methods ---

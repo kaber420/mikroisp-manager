@@ -18,8 +18,13 @@ document.addEventListener('alpine:init', () => {
         // --- Lifecycle ---
         async init() {
             await this.loadPaymentHistory();
-            await this.autoFillPaymentAmount();
             this.setupFormListeners();
+
+            // Listen for services loaded event to auto-fill amount
+            document.addEventListener('services:loaded', () => this.autoFillPaymentAmount());
+
+            // Try to auto-fill now in case services are already loaded
+            await this.autoFillPaymentAmount();
             this.loading = false;
         },
 
@@ -75,19 +80,9 @@ document.addEventListener('alpine:init', () => {
             return this.store.billingDay;
         },
 
-        // --- API Helper ---
+        // --- API Helper (uses global ApiService) ---
         async fetchJSON(url, options = {}) {
-            const API_BASE_URL = window.location.origin;
-            const getUrl = new URL(url, API_BASE_URL);
-            if (!options.method || options.method === 'GET') {
-                getUrl.searchParams.append('_', new Date().getTime());
-            }
-            const response = await fetch(getUrl.toString(), options);
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ detail: response.statusText }));
-                throw new Error(errorData.detail || 'API Request Failed');
-            }
-            return response.status === 204 ? null : response.json();
+            return ApiService.fetchJSON(url, options);
         },
 
         // --- Month Selector ---
@@ -115,16 +110,24 @@ document.addEventListener('alpine:init', () => {
 
                 const btn = document.createElement('button');
                 btn.type = 'button';
+                // Fixed height for consistency
                 btn.className = `
-                    py-2 px-1 rounded-md text-sm font-semibold border transition-all relative overflow-hidden
+                    h-12 rounded-lg text-sm font-semibold border transition-all relative flex items-center justify-center
                     ${isPaid
-                        ? 'bg-success/20 border-success text-success cursor-not-allowed opacity-60'
-                        : 'bg-surface-2 border-border-color hover:border-primary hover:text-primary'
+                        ? 'bg-success/20 border-success text-success cursor-not-allowed'
+                        : 'bg-surface-2 border-border-color hover:border-primary hover:text-primary hover:bg-primary/10'
                     }
                 `;
 
                 if (isPaid) {
-                    btn.innerHTML = `${name} <span class="block text-[10px] uppercase">Pagado</span>`;
+                    // Show month name with a check badge next to it
+                    btn.classList.add('gap-2'); // Add gap for flex layout
+                    btn.innerHTML = `
+                        <span>${name}</span>
+                        <span class="w-4 h-4 bg-success rounded-full flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-white text-xs" style="font-size: 10px;">check</span>
+                        </span>
+                    `;
                     btn.disabled = true;
                 } else {
                     btn.textContent = name;
@@ -141,6 +144,9 @@ document.addEventListener('alpine:init', () => {
 
                         // Calcular y mostrar ciclo
                         this.calculateCycleDates(value);
+
+                        // Auto-fill payment amount with plan price
+                        this.fillPaymentAmount();
                     };
                 }
                 grid.appendChild(btn);
@@ -269,31 +275,41 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        // --- Auto-fill Payment Amount ---
-        async autoFillPaymentAmount() {
-            try {
-                const services = this.store.allServices;
-                if (!services || services.length === 0) return;
+        // --- Fill Payment Amount from Plan Price ---
+        fillPaymentAmount() {
+            const services = this.store.allServices;
+            if (!services || services.length === 0) return;
 
-                const primaryService = services[0];
-                if (!primaryService.plan_id || !primaryService.router_host) return;
+            const primaryService = services[0];
+            if (!primaryService.plan_price) return;
 
-                const plans = await this.fetchJSON(`/api/plans/router/${primaryService.router_host}`);
-                if (!plans || plans.length === 0) return;
-
-                const clientPlan = plans.find(p => p.id === primaryService.plan_id);
-                if (!clientPlan || !clientPlan.price) return;
-
-                const amountInput = document.getElementById('payment-amount');
-                if (amountInput) {
-                    amountInput.value = clientPlan.price.toFixed(2);
-                    amountInput.placeholder = `Plan: ${clientPlan.name} - $${clientPlan.price.toFixed(2)}`;
-                }
-
-                console.log(`✅ Auto-filled payment amount: $${clientPlan.price} from plan "${clientPlan.name}"`);
-            } catch (e) {
-                console.warn('Could not auto-fill payment amount:', e.message);
+            const amountInput = document.getElementById('payment-amount');
+            if (amountInput) {
+                amountInput.value = primaryService.plan_price.toFixed(2);
             }
+        },
+
+        // --- Auto-fill Payment Amount (on services loaded) ---
+        autoFillPaymentAmount() {
+            const services = this.store.allServices;
+            if (!services || services.length === 0) return;
+
+            const primaryService = services[0];
+            const planName = primaryService.plan_name || 'Sin plan asignado';
+            const planPrice = primaryService.plan_price || 0;
+
+            // Show plan info box
+            const planInfoBox = document.getElementById('client-plan-info');
+            const planNameEl = document.getElementById('plan-info-name');
+            const planPriceEl = document.getElementById('plan-info-price');
+
+            if (planInfoBox && planNameEl && planPriceEl) {
+                planNameEl.textContent = planName;
+                planPriceEl.textContent = `$${planPrice.toFixed(2)}`;
+                planInfoBox.classList.remove('hidden');
+            }
+
+            console.log(`✅ Plan info loaded: "${planName}" - $${planPrice}`);
         }
     }));
 

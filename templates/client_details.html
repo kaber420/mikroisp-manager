@@ -96,6 +96,13 @@
                                         Edit
                                     </button>
                                     <button
+                                        @click="syncService(service.id, service.pppoe_username || service.ip_address || 'N/A')"
+                                        class="px-3 py-1.5 text-xs font-semibold rounded-md bg-orange/20 text-orange hover:bg-orange/30 flex items-center gap-1"
+                                        title="Sync configuration to router">
+                                        <span class="material-symbols-outlined text-sm">sync</span>
+                                        Sync
+                                    </button>
+                                    <button
                                         @click="openPlanChangeModal(service.id, service.pppoe_username || service.ip_address || 'N/A')"
                                         class="px-3 py-1.5 text-xs font-semibold rounded-md bg-primary/20 text-primary hover:bg-primary/30 flex items-center gap-1">
                                         <span class="material-symbols-outlined text-sm">swap_horiz</span>
@@ -213,48 +220,75 @@
                 <div class="p-6 border-b border-border-color">
                     <h2 class="text-xl font-bold">Register New Payment</h2>
                 </div>
+                <!-- Plan Info Display -->
+                <div id="client-plan-info"
+                    class="mx-6 mt-6 p-4 bg-primary/10 border border-primary/30 rounded-lg hidden">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-primary text-2xl">wifi</span>
+                            <div>
+                                <p class="text-xs text-text-secondary uppercase tracking-wide">Plan del Cliente</p>
+                                <p id="plan-info-name" class="font-bold text-lg text-primary">--</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs text-text-secondary uppercase tracking-wide">Precio Mensual</p>
+                            <p id="plan-info-price" class="font-bold text-2xl text-success">$0.00</p>
+                        </div>
+                    </div>
+                </div>
                 <form id="register-payment-form" class="p-6 space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Month Selector First -->
+                    <div>
+                        <label class="block text-sm font-medium mb-3 text-center">Seleccionar Mes a Pagar</label>
+
+                        <!-- Calendar Container with Border -->
+                        <div class="border border-border-color rounded-xl p-4 bg-surface-2/30">
+                            <!-- Centered Year Navigator -->
+                            <div class="flex items-center justify-center gap-6 mb-4">
+                                <button type="button" id="prev-year-btn"
+                                    class="p-2 rounded-lg hover:bg-surface-2 transition-colors">
+                                    <span class="material-symbols-outlined">chevron_left</span>
+                                </button>
+                                <span id="current-year-display"
+                                    class="font-bold text-xl min-w-[60px] text-center">2025</span>
+                                <button type="button" id="next-year-btn"
+                                    class="p-2 rounded-lg hover:bg-surface-2 transition-colors">
+                                    <span class="material-symbols-outlined">chevron_right</span>
+                                </button>
+                            </div>
+
+                            <!-- Calendar Grid - Always 4 columns, 3 rows -->
+                            <div id="months-grid" class="grid grid-cols-4 gap-2">
+                            </div>
+                        </div>
+
+                        <input type="hidden" id="payment-month" required>
+
+                        <div id="cycle-info" class="mt-3 p-3 bg-primary/10 border border-primary/20 rounded-md hidden">
+                            <p class="text-sm text-primary font-semibold flex items-center gap-2">
+                                <span class="material-symbols-outlined text-sm">date_range</span>
+                                Ciclo: <span id="cycle-dates">--</span>
+                            </p>
+                            <p class="text-xs text-text-secondary mt-1">Este pago cubre el servicio entre estas
+                                fechas.</p>
+                        </div>
+                    </div>
+
+                    <!-- Amount and Method Side by Side -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label for="payment-amount" class="block text-sm font-medium mb-1">Amount</label>
+                            <label for="payment-amount" class="block text-sm font-medium mb-1">Monto</label>
                             <input type="number" step="0.01" id="payment-amount" required
-                                class="w-full bg-background border border-border-color rounded-md p-2">
+                                class="w-full bg-background border border-border-color rounded-md p-2 text-lg font-semibold">
                         </div>
-
-                        <div class="col-span-full">
-                            <label class="block text-sm font-medium mb-2">Seleccionar Mes a Pagar</label>
-
-                            <div class="flex items-center gap-4 mb-3">
-                                <button type="button" id="prev-year-btn" class="p-1 rounded hover:bg-surface-2"><span
-                                        class="material-symbols-outlined">chevron_left</span></button>
-                                <span id="current-year-display" class="font-bold text-lg">2025</span>
-                                <button type="button" id="next-year-btn" class="p-1 rounded hover:bg-surface-2"><span
-                                        class="material-symbols-outlined">chevron_right</span></button>
-                            </div>
-
-                            <div id="months-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                            </div>
-
-                            <input type="hidden" id="payment-month" required>
-
-                            <div id="cycle-info"
-                                class="mt-3 p-3 bg-primary/10 border border-primary/20 rounded-md hidden">
-                                <p class="text-sm text-primary font-semibold flex items-center gap-2">
-                                    <span class="material-symbols-outlined text-sm">date_range</span>
-                                    Ciclo: <span id="cycle-dates">--</span>
-                                </p>
-                                <p class="text-xs text-text-secondary mt-1">Este pago cubre el servicio entre estas
-                                    fechas.</p>
-                            </div>
-                        </div>
-
                         <div>
-                            <label for="payment-method" class="block text-sm font-medium mb-1">Method</label>
+                            <label for="payment-method" class="block text-sm font-medium mb-1">Método de Pago</label>
                             <select id="payment-method"
                                 class="w-full bg-background border border-border-color rounded-md p-2">
-                                <option value="Efectivo">Cash</option>
-                                <option value="Transferencia">Transfer</option>
-                                <option value="Otro">Other</option>
+                                <option value="Efectivo">Efectivo</option>
+                                <option value="Transferencia">Transferencia</option>
+                                <option value="Otro">Otro</option>
                             </select>
                         </div>
                     </div>
@@ -323,6 +357,7 @@
 
 {% block scripts %}
 <script nonce="{{ request.state.csp_nonce }}" src="/static/js/utils/validators.js"></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/services/api.js"></script>
 <!-- Alpine.js Store and Components (defer ensures load after Alpine) -->
 <script nonce="{{ request.state.csp_nonce }}" src="/static/js/stores/ClientStore.js" defer></script>
 <script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/ClientDetails.js" defer></script>
