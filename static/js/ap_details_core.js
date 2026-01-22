@@ -588,7 +588,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function handleDelete() {
         const apHostname = document.getElementById('main-hostname').textContent;
-        if (confirm(`Are you sure you want to delete the AP "${apHostname}" (${currentHost})?\nThis action cannot be undone.`)) {
+
+        window.ModalUtils.showConfirmModal({
+            title: 'Delete AP',
+            message: `Are you sure you want to delete the AP "<strong>${apHostname}</strong>" (${currentHost})?<br><br>This action cannot be undone.`,
+            confirmText: 'Delete AP',
+            confirmIcon: 'delete',
+            type: 'danger',
+        }).then(async (confirmed) => {
+            if (!confirmed) return;
+
             try {
                 const response = await fetch(`${API_BASE_URL}/api/aps/${encodeURIComponent(currentHost)}`, { method: 'DELETE' });
                 if (!response.ok) throw new Error('Failed to delete AP');
@@ -597,7 +606,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             } catch (error) {
                 showToast(`Error: ${error.message}`, 'danger');
             }
-        }
+        });
     }
 
     function openEditModal(apData) {

@@ -101,24 +101,76 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Opens a prompt to edit the CPE IP address.
+     * Opens a custom modal to edit the CPE IP address.
      * @param {string} mac - CPE MAC address
      * @param {string} currentIp - Current IP address (or empty)
      */
-    async function editCpeIp(mac, currentIp) {
-        const newIp = prompt('Introduce la dirección IP para este CPE:', currentIp || '');
-        if (newIp === null) return; // Cancelled
-        if (newIp === '') {
-            alert('La IP no puede estar vacía. Usa "No IP" para indicar sin IP.');
-            return;
-        }
-        // Basic IP validation
-        const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-        if (!ipRegex.test(newIp)) {
-            alert('IP inválida. Formato esperado: xxx.xxx.xxx.xxx');
-            return;
-        }
-        await updateCPE(mac, { ip_address: newIp });
+    function editCpeIp(mac, currentIp) {
+        const inputId = `cpe-ip-input-${mac.replace(/:/g, '')}`;
+
+        const content = `
+            <div class="flex flex-col gap-4">
+                <p class="text-text-secondary">Introduzca la nueva dirección IP para el CPE <strong>${mac}</strong>.</p>
+                <div class="flex flex-col gap-2">
+                    <label for="${inputId}" class="text-sm font-medium text-text-primary">Dirección IP</label>
+                    <input type="text" id="${inputId}" value="${currentIp || ''}" 
+                        class="w-full px-3 py-2 bg-surface-1 border border-border rounded-lg focus:outline-none focus:border-primary text-text-primary font-mono"
+                        placeholder="Ej. 192.168.1.50">
+                    <p class="text-xs text-text-tertiary">Deje en blanco para "No IP".</p>
+                </div>
+            </div>
+        `;
+
+        const { close } = window.ModalUtils.showCustomModal({
+            title: 'Editar Dirección IP',
+            content: content,
+            size: 'sm',
+            actions: [
+                {
+                    text: 'Cancelar',
+                    closeOnClick: true
+                },
+                {
+                    text: 'Guardar IP',
+                    icon: 'save',
+                    primary: true,
+                    closeOnClick: false,
+                    handler: async () => {
+                        const input = document.getElementById(inputId);
+                        const newIp = input.value.trim();
+
+                        // Validation
+                        if (newIp !== '') {
+                            const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+                            if (!ipRegex.test(newIp)) {
+                                // Try to use showToast if available, otherwise alert
+                                if (typeof showToast === 'function') {
+                                    showToast('IP inválida. Formato esperado: xxx.xxx.xxx.xxx', 'danger');
+                                } else {
+                                    alert('IP inválida. Formato esperado: xxx.xxx.xxx.xxx');
+                                }
+                                return;
+                            }
+                        }
+
+                        // Update
+                        const success = await updateCPE(mac, { ip_address: newIp });
+                        if (success) {
+                            if (typeof showToast === 'function') {
+                                showToast('IP actualizada correctamente', 'success');
+                            }
+                            close();
+                        }
+                    }
+                }
+            ]
+        });
+
+        // Focus the input
+        setTimeout(() => {
+            const input = document.getElementById(inputId);
+            if (input) input.focus();
+        }, 100);
     }
     window.editCpeIp = editCpeIp;
 

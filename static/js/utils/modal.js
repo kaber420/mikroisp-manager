@@ -223,9 +223,11 @@ window.ModalUtils = {
         // Action handlers
         actions.forEach((action, index) => {
             const button = document.getElementById(`${modalId}-action-${index}`);
-            if (button && action.handler) {
+            if (button) {
                 button.onclick = () => {
-                    action.handler();
+                    if (action.handler) {
+                        action.handler();
+                    }
                     if (action.closeOnClick !== false) {
                         cleanup();
                     }
