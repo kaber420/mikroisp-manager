@@ -48,7 +48,7 @@ class CPEService:
         self.session.refresh(cpe)
         return cpe
 
-    def delete_cpe(self, mac: str) -> bool:
+    def disable_cpe(self, mac: str) -> bool:
         """Deshabilita un CPE (soft-delete) en la base de datos."""
         cpe = self.session.get(CPE, mac)
         if not cpe:
@@ -56,6 +56,26 @@ class CPEService:
 
         cpe.is_enabled = False
         self.session.add(cpe)
+        self.session.commit()
+        return True
+
+    def hard_delete_cpe(self, mac: str) -> bool:
+        """Elimina permanentemente un CPE de la base de datos.
+        
+        El CPE debe estar deshabilitado antes de poder eliminarlo.
+        
+        Raises:
+            FileNotFoundError: Si el CPE no existe.
+            ValueError: Si se intenta eliminar un CPE habilitado.
+        """
+        cpe = self.session.get(CPE, mac)
+        if not cpe:
+            raise FileNotFoundError("CPE not found.")
+        
+        if cpe.is_enabled:
+            raise ValueError("CPE must be disabled before it can be permanently deleted.")
+        
+        self.session.delete(cpe)
         self.session.commit()
         return True
 

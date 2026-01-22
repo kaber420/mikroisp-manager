@@ -56,18 +56,39 @@ def api_unassign_cpe(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/cpes/{mac}/disable", status_code=status.HTTP_200_OK)
+def api_disable_cpe(
+    mac: str,
+    service: CPEService = Depends(get_cpe_service),
+    current_user: User = Depends(require_technician),
+):
+    """Deshabilita un CPE (soft-delete)."""
+    try:
+        service.disable_cpe(mac)
+        return {"message": "CPE disabled successfully"}
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.delete("/cpes/{mac}", status_code=status.HTTP_204_NO_CONTENT)
 def api_delete_cpe(
     mac: str,
     service: CPEService = Depends(get_cpe_service),
     current_user: User = Depends(require_technician),
 ):
-    """Elimina un CPE de la base de datos de forma permanente."""
+    """Elimina un CPE de la base de datos de forma permanente.
+    
+    El CPE debe estar deshabilitado antes de poder eliminarlo.
+    """
     try:
-        service.delete_cpe(mac)
+        service.hard_delete_cpe(mac)
         return None
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

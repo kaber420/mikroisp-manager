@@ -9,14 +9,48 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableBody = document.getElementById('cpe-table-body');
 
     /**
-     * Elimina un CPE de la base de datos.
+     * Deshabilita un CPE en la base de datos.
+     * @param {string} mac - La dirección MAC del CPE a deshabilitar.
+     */
+    async function disableCPE(mac) {
+        window.ModalUtils.showConfirmModal({
+            title: 'Deshabilitar CPE',
+            message: `¿Estás seguro de que deseas deshabilitar el CPE con MAC <strong>${mac}</strong>?<br><br>Podrás eliminarlo permanentemente después.`,
+            confirmText: 'Deshabilitar',
+            confirmIcon: 'block',
+            type: 'warning',
+        }).then(async (confirmed) => {
+            if (confirmed) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/cpes/${encodeURIComponent(mac)}/disable`, {
+                        method: 'POST',
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ detail: 'Error desconocido' }));
+                        throw new Error(errorData.detail || 'Failed to disable CPE');
+                    }
+                    // Refresh the table after successful disable
+                    loadAllCPEs();
+                } catch (error) {
+                    console.error("Error disabling CPE:", error);
+                    alert(`Error al deshabilitar CPE: ${error.message}`);
+                }
+            }
+        });
+    }
+    // Make disableCPE globally accessible for onclick handlers
+    window.disableCPE = disableCPE;
+
+    /**
+     * Elimina permanentemente un CPE de la base de datos.
+     * Solo funciona si el CPE ya está deshabilitado.
      * @param {string} mac - La dirección MAC del CPE a eliminar.
      */
     async function deleteCPE(mac) {
         window.ModalUtils.showConfirmModal({
-            title: 'Eliminar CPE',
-            message: `¿Estás seguro de que deseas eliminar el CPE con MAC <strong>${mac}</strong>?<br><br>Esta acción es irreversible.`,
-            confirmText: 'Eliminar',
+            title: 'Eliminar CPE Permanentemente',
+            message: `¿Estás seguro de que deseas eliminar permanentemente el CPE con MAC <strong>${mac}</strong>?<br><br>Esta acción es irreversible y no se puede deshacer.`,
+            confirmText: 'Eliminar Permanentemente',
             confirmIcon: 'delete',
             type: 'danger',
         }).then(async (confirmed) => {
@@ -146,6 +180,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ipDisplay = cpe.ip_address || "No IP";
                 const ipClass = cpe.ip_address ? "text-text-secondary" : "text-warning";
 
+                // Conditional buttons based on is_enabled status
+                const isEnabled = cpe.is_enabled !== false; // Default to true if undefined
+                const actionButtons = isEnabled
+                    ? `<button data-action="edit-ip" data-mac="${cpe.cpe_mac}" data-ip="${cpe.ip_address || ''}" class="text-text-secondary hover:text-primary transition-colors mr-2" title="Editar IP">
+                            <span class="material-symbols-outlined">edit</span>
+                        </button>
+                        <button data-action="disable" data-mac="${cpe.cpe_mac}" class="text-warning hover:text-yellow-400 transition-colors" title="Deshabilitar CPE">
+                            <span class="material-symbols-outlined">block</span>
+                        </button>`
+                    : `<button data-action="delete" data-mac="${cpe.cpe_mac}" class="text-danger hover:text-red-400 transition-colors" title="Eliminar CPE Permanentemente">
+                            <span class="material-symbols-outlined">delete</span>
+                        </button>`;
+
                 row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="text-xs font-semibold px-2 py-1 rounded-full ${status.badgeClass}">${status.text}</span>
@@ -156,17 +203,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="px-6 py-4 whitespace-nowrap text-text-secondary">${cpe.band || "N/A"}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-text-primary font-semibold">${signalStrength}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-text-secondary font-mono">${cpe.cpe_mac}</td>
-                    <td class="px-6 py-4 whitespace-nowrap ${ipClass} font-mono cursor-pointer hover:text-primary" 
-                        onclick="editCpeIp('${cpe.cpe_mac}', '${cpe.ip_address || ''}')" title="Click para editar IP">
+                    <td class="px-6 py-4 whitespace-nowrap ${ipClass} font-mono cursor-pointer hover:text-primary ip-cell" 
+                        data-mac="${cpe.cpe_mac}" data-ip="${cpe.ip_address || ''}" title="Click para editar IP">
                         ${ipDisplay} <span class="material-symbols-outlined text-xs align-middle opacity-50">edit</span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <button onclick="editCpeIp('${cpe.cpe_mac}', '${cpe.ip_address || ''}')" class="text-text-secondary hover:text-primary transition-colors mr-2" title="Editar IP">
-                            <span class="material-symbols-outlined">edit</span>
-                        </button>
-                        <button onclick="deleteCPE('${cpe.cpe_mac}')" class="text-danger hover:text-red-400 transition-colors" title="Eliminar CPE">
-                            <span class="material-symbols-outlined">delete</span>
-                        </button>
+                        ${actionButtons}
                     </td>
                 `;
                 tableBody.appendChild(row);
@@ -175,8 +217,40 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Carga todos los datos de los CPEs desde la API y los renderiza.
+     * Event delegation for button clicks
      */
+    if (tableBody) {
+        tableBody.addEventListener('click', (e) => {
+            const button = e.target.closest('button[data-action]');
+            const ipCell = e.target.closest('.ip-cell');
+
+            if (button) {
+                const action = button.dataset.action;
+                const mac = button.dataset.mac;
+                const ip = button.dataset.ip;
+
+                switch (action) {
+                    case 'edit-ip':
+                        editCpeIp(mac, ip);
+                        break;
+                    case 'disable':
+                        disableCPE(mac);
+                        break;
+                    case 'delete':
+                        deleteCPE(mac);
+                        break;
+                }
+            } else if (ipCell) {
+                const mac = ipCell.dataset.mac;
+                const ip = ipCell.dataset.ip;
+                editCpeIp(mac, ip);
+            }
+        });
+    }
+
+    /**
+ * Carga todos los datos de los CPEs desde la API y los renderiza.
+ */
     function loadAllCPEs() {
         if (!tableBody) return;
 

@@ -14,9 +14,7 @@ document.addEventListener('alpine:init', () => {
         loading: true,
         error: null,
         currentServiceForPlanChange: null,
-        currentServiceForEdit: null,
         showPlanChangeModal: false,
-        showEditServiceModal: false,
 
         // --- Lifecycle ---
         async init() {
@@ -61,12 +59,6 @@ document.addEventListener('alpine:init', () => {
             const planChangeForm = document.getElementById('plan-change-form');
             if (planChangeForm) {
                 planChangeForm.addEventListener('submit', (e) => this.handlePlanChangeSubmit(e));
-            }
-
-            // Edit service form
-            const editServiceForm = document.getElementById('edit-service-form');
-            if (editServiceForm) {
-                editServiceForm.addEventListener('submit', (e) => this.handleEditServiceSubmit(e));
             }
 
             // Listen for payment registered event (cross-component communication)
@@ -367,75 +359,7 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        // --- Edit Service Modal ---
-        openEditServiceModal(serviceId) {
-            this.currentServiceForEdit = this.allServices.find(s => s.id === serviceId);
-            if (!this.currentServiceForEdit) {
-                showToast('Service not found', 'danger');
-                return;
-            }
 
-            document.getElementById('edit-service-id').value = serviceId;
-            const identifier = this.currentServiceForEdit.pppoe_username || this.currentServiceForEdit.ip_address || 'N/A';
-            document.getElementById('edit-service-identifier').value = identifier;
-            document.getElementById('edit-service-notes').value = this.currentServiceForEdit.notes || '';
-            document.getElementById('edit-service-error').classList.add('hidden');
-
-            // Populate Billing Day Select
-            const billingSelect = document.getElementById('edit-service-billing-day');
-            billingSelect.innerHTML = '<option value="">Select Day...</option>';
-            for (let i = 1; i <= 28; i++) {
-                const option = document.createElement('option');
-                option.value = i;
-                option.textContent = i;
-                if (this.currentServiceForEdit.billing_day === i) {
-                    option.selected = true;
-                }
-                billingSelect.appendChild(option);
-            }
-
-            this.showEditServiceModal = true;
-            document.getElementById('edit-service-modal').classList.remove('hidden');
-        },
-
-        closeEditServiceModal() {
-            this.showEditServiceModal = false;
-            document.getElementById('edit-service-modal').classList.add('hidden');
-        },
-
-        async handleEditServiceSubmit(event) {
-            event.preventDefault();
-            const errorEl = document.getElementById('edit-service-error');
-            errorEl.classList.add('hidden');
-
-            const serviceId = document.getElementById('edit-service-id').value;
-            const billingDay = document.getElementById('edit-service-billing-day').value;
-            const notes = document.getElementById('edit-service-notes').value;
-
-            if (!billingDay) {
-                errorEl.textContent = 'Please select a billing day.';
-                errorEl.classList.remove('hidden');
-                return;
-            }
-
-            try {
-                await this.fetchJSON(`/api/services/${serviceId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        billing_day: parseInt(billingDay, 10),
-                        notes: notes
-                    })
-                });
-
-                showToast('Service updated successfully!', 'success');
-                this.closeEditServiceModal();
-                await this.loadClientServices();
-            } catch (error) {
-                errorEl.textContent = `Error updating service: ${error.message}`;
-                errorEl.classList.remove('hidden');
-            }
-        },
 
         // --- Delete Service ---
         // --- Delete Service ---

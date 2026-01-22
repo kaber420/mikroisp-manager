@@ -10,12 +10,14 @@
 
         <!-- Tab Navigation -->
         <div class="flex gap-1 border-b border-white/10 mb-6">
-            <button type="button" data-tab="config"
-                class="tab-button active py-3 px-6 text-sm font-semibold flex items-center gap-2">
+            <button type="button" @click="$store.settings.setTab('config'); $dispatch('tab-activated', 'config')"
+                :class="$store.settings.activeTab === 'config' ? 'active' : ''"
+                class="tab-button py-3 px-6 text-sm font-semibold flex items-center gap-2">
                 <span class="material-symbols-outlined text-lg">settings</span>
                 Configuración
             </button>
-            <button type="button" data-tab="audit"
+            <button type="button" @click="$store.settings.setTab('audit'); $dispatch('tab-activated', 'audit')"
+                :class="$store.settings.activeTab === 'audit' ? 'active' : ''"
                 class="tab-button py-3 px-6 text-sm font-semibold flex items-center gap-2">
                 <span class="material-symbols-outlined text-lg">security</span>
                 Auditoría
@@ -23,8 +25,8 @@
         </div>
 
         <!-- TAB 1: Configuration -->
-        <div id="tab-config" class="tab-panel active">
-            <form id="settings-form" class="glass-card rounded-2xl border-0">
+        <div x-show="$store.settings.activeTab === 'config'">
+            <form x-data="generalSettings()" @submit.prevent="save()" class="glass-card rounded-2xl border-0">
                 <div class="p-8 space-y-8">
 
                     <div>
@@ -35,22 +37,24 @@
                         <div>
                             <label for="company_name" class="block text-sm font-medium mb-2 text-text-secondary">Company
                                 Name</label>
-                            <input type="text" id="company_name" name="company_name" placeholder="My ISP Name"
+                            <input type="text" id="company_name" x-model="company_name" name="company_name"
+                                placeholder="My ISP Name"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white placeholder-gray-500">
                         </div>
                         <div>
                             <label for="notification_email"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Admin
                                 Email</label>
-                            <input type="email" id="notification_email" name="notification_email"
-                                placeholder="admin@example.com"
+                            <input type="email" id="notification_email" x-model="notification_email"
+                                name="notification_email" placeholder="admin@example.com"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white placeholder-gray-500">
                         </div>
                         <div>
                             <label for="currency_symbol"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Currency
                                 Symbol</label>
-                            <input type="text" id="currency_symbol" name="currency_symbol" placeholder="$"
+                            <input type="text" id="currency_symbol" x-model="currency_symbol" name="currency_symbol"
+                                placeholder="$"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white placeholder-gray-500">
                         </div>
                     </div>
@@ -63,7 +67,7 @@
                             <label for="company_logo_url" class="block text-sm font-medium mb-2 text-text-secondary">URL
                                 del
                                 Logo</label>
-                            <input type="text" id="company_logo_url" name="company_logo_url"
+                            <input type="text" id="company_logo_url" x-model="company_logo_url" name="company_logo_url"
                                 placeholder="/static/img/logo.png o https://imgur.com/..."
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 text-white">
                             <p class="text-xs text-text-secondary mt-1">Recomendado: Sube tu logo a la carpeta static y
@@ -74,15 +78,15 @@
                             <label for="billing_address"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Dirección Fiscal
                                 Completa</label>
-                            <textarea id="billing_address" name="billing_address" rows="2"
+                            <textarea id="billing_address" x-model="billing_address" name="billing_address" rows="2"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 text-white"></textarea>
                         </div>
                         <div>
                             <label for="ticket_footer_message"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Mensaje al Pie del
                                 Ticket</label>
-                            <textarea id="ticket_footer_message" name="ticket_footer_message" rows="3"
-                                placeholder="Gracias por su preferencia..."
+                            <textarea id="ticket_footer_message" x-model="ticket_footer_message"
+                                name="ticket_footer_message" rows="3" placeholder="Gracias por su preferencia..."
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 text-white"></textarea>
                         </div>
                     </div>
@@ -96,14 +100,15 @@
                             <label for="telegram_bot_token"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Bot
                                 Token</label>
-                            <input type="password" id="telegram_bot_token" name="telegram_bot_token"
+                            <input type="password" id="telegram_bot_token" x-model="telegram_bot_token"
+                                name="telegram_bot_token"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
                         </div>
                         <div>
                             <label for="telegram_chat_id"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Chat
                                 ID</label>
-                            <input type="text" id="telegram_chat_id" name="telegram_chat_id"
+                            <input type="text" id="telegram_chat_id" x-model="telegram_chat_id" name="telegram_chat_id"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
                         </div>
                     </div>
@@ -116,29 +121,31 @@
                             <label for="default_monitor_interval"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Monitor Interval
                                 (seg)</label>
-                            <input type="number" id="default_monitor_interval" name="default_monitor_interval"
+                            <input type="number" id="default_monitor_interval" x-model="default_monitor_interval"
+                                name="default_monitor_interval"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
                         </div>
                         <div>
                             <label for="dashboard_refresh_interval"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Live Interval (seg)</label>
-                            <input type="number" id="dashboard_refresh_interval" name="dashboard_refresh_interval"
+                            <input type="number" id="dashboard_refresh_interval" x-model="dashboard_refresh_interval"
+                                name="dashboard_refresh_interval"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
                         </div>
                         <div>
                             <label for="backup_frequency"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Frecuencia de
                                 Respaldo</label>
-                            <select id="backup_frequency" name="backup_frequency"
+                            <select id="backup_frequency" x-model="backup_frequency" name="backup_frequency"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white cursor-pointer">
                                 <option value="daily">Diario</option>
                                 <option value="weekly">Semanal</option>
                             </select>
                         </div>
-                        <div id="backup-day-container" class="hidden">
+                        <div x-show="showBackupDay" x-cloak>
                             <label for="backup_day_of_week"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Día de la Semana</label>
-                            <select id="backup_day_of_week" name="backup_day_of_week"
+                            <select id="backup_day_of_week" x-model="backup_day_of_week" name="backup_day_of_week"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white cursor-pointer">
                                 <option value="mon">Lunes</option>
                                 <option value="tue">Martes</option>
@@ -152,7 +159,7 @@
                         <div>
                             <label for="backup_run_hour" class="block text-sm font-medium mb-2 text-text-secondary">Hora
                                 de Respaldo</label>
-                            <input type="time" id="backup_run_hour" name="backup_run_hour"
+                            <input type="time" id="backup_run_hour" x-model="backup_run_hour" name="backup_run_hour"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
                             <p class="text-xs text-text-secondary mt-1">Hora a la que se respaldarán los routers
                                 automáticamente.</p>
@@ -166,31 +173,36 @@
                         <div>
                             <label for="days_before_due" class="block text-sm font-medium mb-2 text-text-secondary">Days
                                 Before Due</label>
-                            <input type="number" id="days_before_due" name="days_before_due"
+                            <input type="number" id="days_before_due" x-model="days_before_due" name="days_before_due"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
                         </div>
                         <div>
                             <label for="billing_alert_days"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Alert
                                 Days</label>
-                            <input type="number" id="billing_alert_days" name="billing_alert_days"
+                            <input type="number" id="billing_alert_days" x-model="billing_alert_days"
+                                name="billing_alert_days"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
                         </div>
                         <div>
                             <label for="suspension_run_hour"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Suspension Time</label>
-                            <input type="time" id="suspension_run_hour" name="suspension_run_hour"
+                            <input type="time" id="suspension_run_hour" x-model="suspension_run_hour"
+                                name="suspension_run_hour"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
                         </div>
                     </div>
                 </div>
 
                 <div class="p-6 bg-white/5 rounded-b-lg flex justify-end gap-4 items-center">
-                    <span id="save-status" class="text-sm text-success hidden">Settings saved successfully!</span>
-                    <button type="submit" id="save-button"
-                        class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary-hover flex items-center gap-2 shadow-lg shadow-primary/20">
-                        <span id="save-spinner"
-                            class="material-symbols-outlined text-base animate-spin hidden">sync</span>
+                    <span x-show="$store.settings.saveStatus.visible" x-transition
+                        x-text="$store.settings.saveStatus.message"
+                        :class="$store.settings.saveStatus.type === 'success' ? 'text-success' : 'text-danger'"
+                        class="text-sm"></span>
+                    <button type="submit" :disabled="$store.settings.isLoading"
+                        class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary-hover flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50">
+                        <span x-show="$store.settings.isLoading"
+                            class="material-symbols-outlined text-base animate-spin">sync</span>
                         Save Settings
                     </button>
                 </div>
@@ -200,12 +212,12 @@
             <div class="mt-8 pt-6 border-t border-white/10">
                 <h3 class="text-lg font-semibold text-danger">Danger Zone</h3>
                 <div class="mt-4 flex flex-wrap gap-4">
-                    <button type="button" id="force-billing-btn"
+                    <button type="button" @click="forceBilling()"
                         class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-orange hover:bg-orange-600 flex items-center gap-2 shadow-lg shadow-orange/20">
                         <span class="material-symbols-outlined">update</span>
                         Force Status Update Now
                     </button>
-                    <button type="button" id="backup-now-btn"
+                    <button type="button" @click="backupNow()"
                         class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary-hover flex items-center gap-2 shadow-lg shadow-primary/20">
                         <span class="material-symbols-outlined">backup</span>
                         Backup Database Now
@@ -215,7 +227,8 @@
         </div>
 
         <!-- TAB 2: Audit Logs -->
-        <div id="tab-audit" class="tab-panel">
+        <div x-show="$store.settings.activeTab === 'audit'" x-data="auditLogs()"
+            @tab-activated.window="if ($event.detail === 'audit') init()">
             <div class="glass-card rounded-2xl p-6">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <div>
@@ -233,20 +246,26 @@
                     <div class="flex items-center gap-2">
                         <label for="audit-action-filter"
                             class="text-xs text-text-secondary uppercase font-bold">Acción:</label>
-                        <select id="audit-action-filter" onchange="filterAuditLogs()"
+                        <select id="audit-action-filter" x-model="actionFilter" @change="applyFilters()"
                             class="bg-surface-2 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-text-primary focus:border-primary cursor-pointer min-w-[120px]">
                             <option value="all">Todas</option>
+                            <template x-for="action in actions" :key="action">
+                                <option :value="action" x-text="action"></option>
+                            </template>
                         </select>
                     </div>
                     <div class="flex items-center gap-2">
                         <label for="audit-user-filter"
                             class="text-xs text-text-secondary uppercase font-bold">Usuario:</label>
-                        <select id="audit-user-filter" onchange="filterAuditLogs()"
+                        <select id="audit-user-filter" x-model="userFilter" @change="applyFilters()"
                             class="bg-surface-2 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-text-primary focus:border-primary cursor-pointer min-w-[120px]">
                             <option value="all">Todos</option>
+                            <template x-for="username in usernames" :key="username">
+                                <option :value="username" x-text="username"></option>
+                            </template>
                         </select>
                     </div>
-                    <button type="button" onclick="loadAuditLogs()"
+                    <button type="button" @click="refresh()"
                         class="ml-auto px-3 py-1.5 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface-2 flex items-center gap-1 transition-colors">
                         <span class="material-symbols-outlined text-lg">refresh</span>
                         Actualizar
@@ -268,13 +287,69 @@
                                     <th class="px-4 py-3">Estado</th>
                                 </tr>
                             </thead>
-                            <tbody id="audit-logs-body">
-                                <tr>
-                                    <td colspan="6" class="px-4 py-8 text-center text-text-secondary">
-                                        <span class="material-symbols-outlined animate-spin">sync</span>
-                                        Cargando logs...
-                                    </td>
-                                </tr>
+                            <tbody>
+                                <!-- Loading State -->
+                                <template x-if="isLoading">
+                                    <tr>
+                                        <td colspan="6" class="px-4 py-8 text-center text-text-secondary">
+                                            <span class="material-symbols-outlined animate-spin">sync</span>
+                                            Cargando...
+                                        </td>
+                                    </tr>
+                                </template>
+
+                                <!-- Empty State -->
+                                <template x-if="!isLoading && logs.length === 0">
+                                    <tr>
+                                        <td colspan="6" class="px-4 py-8 text-center text-text-secondary">
+                                            <span class="material-symbols-outlined text-4xl mb-2">security</span>
+                                            <p>No hay logs de auditoría.</p>
+                                        </td>
+                                    </tr>
+                                </template>
+
+                                <!-- Log Rows -->
+                                <template x-if="!isLoading && logs.length > 0">
+                                    <template x-for="log in logs" :key="log.id">
+                                        <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                <span class="block text-text-primary font-medium"
+                                                    x-text="formatTime(log.timestamp)"></span>
+                                                <span class="text-xs text-text-secondary"
+                                                    x-text="formatDate(log.timestamp)"></span>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <span class="text-text-primary font-medium"
+                                                    x-text="log.username"></span>
+                                                <span class="text-xs text-text-secondary block"
+                                                    x-text="log.user_role || ''"></span>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <span
+                                                    class="inline-flex items-center px-2 py-1 rounded text-xs font-bold border"
+                                                    :class="getActionColor(log.action)" x-text="log.action"></span>
+                                            </td>
+                                            <td class="px-4 py-3 text-text-secondary">
+                                                <span class="font-mono text-xs"
+                                                    x-text="`${log.resource_type}/${log.resource_id}`"></span>
+                                            </td>
+                                            <td class="px-4 py-3 text-text-secondary">
+                                                <span class="font-mono text-xs" x-text="log.ip_address || 'N/A'"></span>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <span x-show="log.status === 'success'"
+                                                    class="inline-flex items-center gap-1 text-success">
+                                                    <span class="material-symbols-outlined text-sm">check_circle</span>
+                                                    OK
+                                                </span>
+                                                <span x-show="log.status !== 'success'"
+                                                    class="inline-flex items-center gap-1 text-danger">
+                                                    <span class="material-symbols-outlined text-sm">error</span> Error
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </template>
                             </tbody>
                         </table>
                     </div>
@@ -284,7 +359,7 @@
                         class="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-white/10 bg-surface-1/30">
                         <div class="flex items-center gap-2 text-xs text-text-secondary">
                             <span>Mostrar</span>
-                            <select id="audit-page-size" onchange="changeAuditPageSize(this.value)"
+                            <select id="audit-page-size" x-model="pageSize" @change="changePageSize(pageSize)"
                                 class="bg-surface-2 border border-white/10 rounded px-2 py-1 text-text-primary focus:border-primary cursor-pointer">
                                 <option value="10">10</option>
                                 <option value="20" selected>20</option>
@@ -293,16 +368,14 @@
                             <span>por pág.</span>
                         </div>
 
-                        <span id="audit-pagination-info" class="text-xs text-text-secondary">
-                            Cargando...
-                        </span>
+                        <span x-text="paginationInfo" class="text-xs text-text-secondary"></span>
 
                         <div class="flex items-center gap-1">
-                            <button id="audit-btn-prev" onclick="changeAuditPage(-1)" disabled
+                            <button @click="changePage(-1)" :disabled="prevDisabled"
                                 class="p-1 rounded-md hover:bg-surface-2 text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                                 <span class="material-symbols-outlined">chevron_left</span>
                             </button>
-                            <button id="audit-btn-next" onclick="changeAuditPage(1)" disabled
+                            <button @click="changePage(1)" :disabled="nextDisabled"
                                 class="p-1 rounded-md hover:bg-surface-2 text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                                 <span class="material-symbols-outlined">chevron_right</span>
                             </button>
@@ -316,5 +389,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script nonce="{{ request.state.csp_nonce }}" src="/static/js/settings.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/stores/SettingsStore.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/settings/GeneralSettings.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/settings/AuditLogs.js" defer></script>
 {% endblock %}

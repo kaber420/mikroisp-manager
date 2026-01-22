@@ -3,14 +3,19 @@
 {% block title %}Dashboard - µMonitor Pro{% endblock %}
 
 {% block content %}
-<div class="p-6 lg:p-8 space-y-8">
+<style>
+    [x-cloak] {
+        display: none !important;
+    }
+</style>
+<div x-data="dashboardManager" x-init="init()" class="p-6 lg:p-8 space-y-8">
 
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
             <h2 class="text-3xl font-bold text-text-primary tracking-tight">Dashboard</h2>
         </div>
 
-        <button id="refresh-dashboard-btn"
+        <button id="refresh-dashboard-btn" @click="store.loadAll()"
             class="flex items-center gap-2 px-4 py-2 bg-surface-1 hover:bg-surface-2 border border-border-color rounded-lg text-text-primary text-sm transition-all shadow-lg hover:shadow-primary/20">
             <span class="material-symbols-outlined text-[20px]">refresh</span>
             <span>Actualizar</span>
@@ -34,7 +39,7 @@
                         Access Points
                     </div>
                     <div class="flex items-baseline gap-2">
-                        <span id="total-aps" class="text-4xl font-bold text-text-primary">--</span>
+                        <span x-text="kpis.aps.total" class="text-4xl font-bold text-text-primary">--</span>
                         <span class="text-xs text-text-secondary">Total</span>
                     </div>
                 </div>
@@ -45,14 +50,14 @@
                     <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Online</p>
                     <div class="flex items-center gap-2">
                         <span class="size-2 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
-                        <p id="aps-online" class="text-lg font-bold text-success">--</p>
+                        <p x-text="kpis.aps.online" class="text-lg font-bold text-success">--</p>
                     </div>
                 </div>
                 <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
                     <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Offline</p>
                     <div class="flex items-center gap-2">
                         <span class="size-2 rounded-full bg-danger"></span>
-                        <p id="aps-offline" class="text-lg font-bold text-danger">--</p>
+                        <p x-text="kpis.aps.offline" class="text-lg font-bold text-danger">--</p>
                     </div>
                 </div>
             </div>
@@ -73,7 +78,7 @@
                         CPEs (Clientes)
                     </div>
                     <div class="flex items-baseline gap-2">
-                        <span id="total-cpes" class="text-4xl font-bold text-text-primary">--</span>
+                        <span x-text="kpis.cpes.total" class="text-4xl font-bold text-text-primary">--</span>
                         <span class="text-xs text-text-secondary">Total</span>
                     </div>
                 </div>
@@ -84,14 +89,14 @@
                     <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Online</p>
                     <div class="flex items-center gap-2">
                         <span class="size-2 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
-                        <p id="cpes-online" class="text-lg font-bold text-success">--</p>
+                        <p x-text="kpis.cpes.online" class="text-lg font-bold text-success">--</p>
                     </div>
                 </div>
                 <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
                     <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Offline</p>
                     <div class="flex items-center gap-2">
                         <span class="size-2 rounded-full bg-danger"></span>
-                        <p id="cpes-offline" class="text-lg font-bold text-danger">--</p>
+                        <p x-text="kpis.cpes.offline" class="text-lg font-bold text-danger">--</p>
                     </div>
                 </div>
             </div>
@@ -113,7 +118,7 @@
                         Routers (Gateways)
                     </div>
                     <div class="flex items-baseline gap-2">
-                        <span id="total-routers" class="text-4xl font-bold text-text-primary">--</span>
+                        <span x-text="kpis.routers.total" class="text-4xl font-bold text-text-primary">--</span>
                         <span class="text-xs text-text-secondary">Total</span>
                     </div>
                 </div>
@@ -124,14 +129,14 @@
                     <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Online</p>
                     <div class="flex items-center gap-2">
                         <span class="size-2 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
-                        <p id="routers-online" class="text-lg font-bold text-success">--</p>
+                        <p x-text="kpis.routers.online" class="text-lg font-bold text-success">--</p>
                     </div>
                 </div>
                 <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
                     <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Offline</p>
                     <div class="flex items-center gap-2">
                         <span class="size-2 rounded-full bg-danger"></span>
-                        <p id="routers-offline" class="text-lg font-bold text-danger">--</p>
+                        <p x-text="kpis.routers.offline" class="text-lg font-bold text-danger">--</p>
                     </div>
                 </div>
             </div>
@@ -153,7 +158,7 @@
                         Switches
                     </div>
                     <div class="flex items-baseline gap-2">
-                        <span id="total-switches" class="text-4xl font-bold text-text-primary">--</span>
+                        <span x-text="kpis.switches.total" class="text-4xl font-bold text-text-primary">--</span>
                         <span class="text-xs text-text-secondary">Total</span>
                     </div>
                 </div>
@@ -164,14 +169,14 @@
                     <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Online</p>
                     <div class="flex items-center gap-2">
                         <span class="size-2 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
-                        <p id="switches-online" class="text-lg font-bold text-success">--</p>
+                        <p x-text="kpis.switches.online" class="text-lg font-bold text-success">--</p>
                     </div>
                 </div>
                 <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
                     <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Offline</p>
                     <div class="flex items-center gap-2">
                         <span class="size-2 rounded-full bg-danger"></span>
-                        <p id="switches-offline" class="text-lg font-bold text-danger">--</p>
+                        <p x-text="kpis.switches.offline" class="text-lg font-bold text-danger">--</p>
                     </div>
                 </div>
             </div>
@@ -186,23 +191,24 @@
             lock
         </span>
 
-        <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div x-data="sslCertificate" x-init="init()"
+            class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
                 <div
                     class="flex items-center gap-2 text-text-secondary text-sm font-medium uppercase tracking-wider mb-2">
                     <span class="material-symbols-outlined text-success">verified_user</span>
                     Seguridad SSL
                 </div>
-                <p id="ssl-status" class="text-sm text-text-secondary">Verificando estado...</p>
+                <p id="ssl-status" x-html="status" class="text-sm text-text-secondary">Verificando estado...</p>
             </div>
 
             <div class="flex flex-wrap gap-3">
-                <button id="download-ca-btn" disabled
+                <button id="download-ca-btn" :disabled="downloadDisabled" @click="downloadCertificate()"
                     class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-primary/20 transition-all">
                     <span class="material-symbols-outlined text-lg">download</span>
                     Descargar Certificado CA
                 </button>
-                <button onclick="openSSLInstructionsModal()"
+                <button @click="$dispatch('open-ssl-modal')"
                     class="px-4 py-2 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface-2 flex items-center gap-2 transition-all border border-white/10">
                     <span class="material-symbols-outlined text-lg">help</span>
                     Instrucciones
@@ -225,10 +231,28 @@
                     Uso de Airtime (Top 5)
                 </h3>
             </div>
-            <div id="top-airtime-list" class="p-6 space-y-5">
-                <div class="animate-pulse space-y-4 opacity-50">
-                    <div class="h-4 bg-surface-2 rounded w-3/4"></div>
-                    <div class="h-2 bg-surface-2 rounded w-full"></div>
+            <div x-data="dashboardTopStats">
+                <div id="top-airtime-list" class="p-6 space-y-5">
+                    <template x-for="ap in topAirtime" :key="ap.host">
+                        <div class="group">
+                            <div class="flex justify-between text-sm mb-2">
+                                <span
+                                    class="text-text-secondary font-medium group-hover:text-text-primary transition-colors truncate pr-4 flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-[16px]">router</span>
+                                    <span x-text="ap.hostname || ap.host"></span>
+                                </span>
+                                <span class="text-primary font-bold"
+                                    x-text="(ap.airtime_total_usage / 10.0).toFixed(1) + '%'"></span>
+                            </div>
+                            <div class="w-full bg-surface-2 rounded-full h-1.5 overflow-hidden">
+                                <div :class="getAirtimeBarColor(ap.airtime_total_usage / 10.0) + ' h-full rounded-full transition-all duration-500'"
+                                    :style="`width: ${(ap.airtime_total_usage / 10.0).toFixed(1)}%`"></div>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="topAirtime.length === 0" class="text-text-secondary text-sm italic text-center py-4">
+                        Sin datos de tráfico.
+                    </div>
                 </div>
             </div>
         </div>
@@ -240,16 +264,31 @@
                     Señal Débil (Top 5)
                 </h3>
             </div>
-            <div id="top-signal-list" class="p-4">
-                <div class="animate-pulse space-y-2 opacity-50">
-                    <div class="h-12 bg-surface-2 rounded-lg w-full"></div>
-                    <div class="h-12 bg-surface-2 rounded-lg w-full"></div>
+            <div x-data="dashboardTopStats" id="top-signal-list" class="p-4">
+                <template x-for="cpe in topSignal" :key="cpe.cpe_mac">
+                    <div
+                        class="flex items-center justify-between p-3 mb-2 rounded-lg hover:bg-surface-2/50 transition-colors group border border-transparent hover:border-white/5">
+                        <div class="flex items-center gap-3 overflow-hidden">
+                            <div
+                                class="size-8 rounded-full bg-surface-2 flex items-center justify-center text-text-secondary group-hover:text-text-primary group-hover:bg-surface-1 transition-all">
+                                <span class="material-symbols-outlined text-[18px]">person</span>
+                            </div>
+                            <p class="text-sm font-medium text-text-secondary group-hover:text-text-primary truncate transition-colors"
+                                x-text="cpe.cpe_hostname || cpe.cpe_mac"></p>
+                        </div>
+                        <span class="px-2 py-1 rounded text-xs font-bold border"
+                            :class="getSignalBadgeClass(cpe.signal)" x-text="cpe.signal + ' dBm'"></span>
+                    </div>
+                </template>
+                <div x-show="topSignal.length === 0" class="text-text-secondary text-sm italic text-center py-4">
+                    Señal óptima en todos los clientes.
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="mt-8 rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-lg">
+    <div class="mt-8 rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-lg"
+        x-data="dashboardEventLogs" x-init="init()">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-white/5 pb-4">
 
             <h3 class="text-lg font-semibold text-text-primary flex items-center gap-2">
@@ -260,9 +299,11 @@
             <div class="flex items-center gap-2">
                 <label for="log-filter" class="text-xs text-text-secondary uppercase font-bold">Filtrar:</label>
                 <div class="relative">
-                    <select id="log-filter"
+                    <select id="log-filter" x-model="events.hostFilter" @change="changeFilter($event.target.value)"
                         class="pl-3 pr-8 py-1.5 bg-surface-2 border border-white/10 rounded-lg text-sm text-text-primary focus:outline-none focus:border-primary appearance-none cursor-pointer w-48 transition-colors hover:border-white/20">
-                        <option value="all">Todos los Dispositivos</option>
+                        <template x-for="opt in routerOptions" :key="opt.value">
+                            <option :value="opt.value" x-text="opt.label"></option>
+                        </template>
                     </select>
                     <span
                         class="material-symbols-outlined absolute right-2 top-1.5 text-[18px] pointer-events-none text-text-secondary">arrow_drop_down</span>
@@ -273,6 +314,30 @@
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left text-text-secondary">
                 <tbody id="events-log-body">
+                    <template x-for="evt in events.items" :key="evt.id">
+                        <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <span class="block text-text-primary font-medium"
+                                    x-text="getEventTime(evt.timestamp).timeStr"></span>
+                                <span class="text-xs" x-text="getEventTime(evt.timestamp).dateStr"></span>
+                            </td>
+                            <td class="px-4 py-3 text-text-primary font-medium" x-text="evt.device_host"></td>
+                            <td class="px-4 py-3" x-text="evt.message"></td>
+                            <td class="px-4 py-3">
+                                <span
+                                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border border-white/5"
+                                    :class="getEventIconAndClass(evt.event_type).colorClass">
+                                    <span class="material-symbols-outlined text-[14px]"
+                                        x-text="getEventIconAndClass(evt.event_type).icon"></span>
+                                    <span x-text="evt.event_type.toUpperCase()"></span>
+                                </span>
+                            </td>
+                        </tr>
+                    </template>
+                    <tr x-show="events.items.length === 0">
+                        <td colspan="4" class="px-4 py-4 text-center text-text-secondary"
+                            x-text="events.loading ? 'Cargando...' : 'No hay eventos registrados.'"></td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -282,7 +347,7 @@
 
             <div class="flex items-center gap-2 text-xs text-text-secondary">
                 <span>Mostrar</span>
-                <select id="logs-page-size"
+                <select id="logs-page-size" x-model="events.pageSize" @change="changePageSize($event.target.value)"
                     class="bg-surface-2 border border-white/10 rounded px-2 py-1 text-text-primary focus:border-primary focus:ring-0 cursor-pointer">
                     <option value="10">10</option>
                     <option value="20">20</option>
@@ -291,16 +356,15 @@
                 <span>por pág.</span>
             </div>
 
-            <span id="logs-pagination-info" class="text-xs text-text-secondary">
-                Cargando...
+            <span id="logs-pagination-info" class="text-xs text-text-secondary" x-text="paginationInfo">
             </span>
 
             <div class="flex items-center gap-1">
-                <button id="btn-prev-page" disabled
+                <button id="btn-prev-page" :disabled="events.page <= 1" @click="changePage(-1)"
                     class="p-1 rounded-md hover:bg-surface-2 text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                     <span class="material-symbols-outlined">chevron_left</span>
                 </button>
-                <button id="btn-next-page" disabled
+                <button id="btn-next-page" :disabled="events.page >= events.totalPages" @click="changePage(1)"
                     class="p-1 rounded-md hover:bg-surface-2 text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                     <span class="material-symbols-outlined">chevron_right</span>
                 </button>
@@ -309,8 +373,9 @@
     </div>
 
     <!-- SSL Instructions Modal -->
-    <div id="ssl-modal" class="fixed inset-0 z-50 hidden">
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeSSLInstructionsModal()"></div>
+    <div x-data="sslInstructionsModal" @open-ssl-modal.window="openModal()" x-show="open" x-cloak
+        class="fixed inset-0 z-50">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeModal()"></div>
         <div
             class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl bg-surface-1 rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div class="p-6 border-b border-white/10 flex items-center justify-between">
@@ -318,34 +383,26 @@
                     <span class="material-symbols-outlined text-primary">security</span>
                     Instalar Certificado CA
                 </h3>
-                <button onclick="closeSSLInstructionsModal()"
-                    class="p-2 hover:bg-surface-2 rounded-lg transition-colors">
+                <button @click="closeModal()" class="p-2 hover:bg-surface-2 rounded-lg transition-colors">
                     <span class="material-symbols-outlined text-text-secondary">close</span>
                 </button>
             </div>
 
             <!-- Tabs -->
             <div class="flex border-b border-white/10">
-                <button onclick="switchSSLTab('windows')"
-                    class="ssl-tab active flex-1 py-3 text-sm font-semibold text-center border-b-2 border-transparent"
-                    data-tab="windows">
-                    <span class="material-symbols-outlined text-lg align-middle mr-1">desktop_windows</span> Windows
-                </button>
-                <button onclick="switchSSLTab('android')"
-                    class="ssl-tab flex-1 py-3 text-sm font-semibold text-center border-b-2 border-transparent"
-                    data-tab="android">
-                    <span class="material-symbols-outlined text-lg align-middle mr-1">android</span> Android
-                </button>
-                <button onclick="switchSSLTab('ios')"
-                    class="ssl-tab flex-1 py-3 text-sm font-semibold text-center border-b-2 border-transparent"
-                    data-tab="ios">
-                    <span class="material-symbols-outlined text-lg align-middle mr-1">phone_iphone</span> iOS/macOS
-                </button>
+                <template x-for="tab in tabs" :key="tab.id">
+                    <button @click="switchTab(tab.id)"
+                        class="flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors"
+                        :class="isActiveTab(tab.id) ? 'border-primary text-white' : 'border-transparent text-text-secondary'">
+                        <span class="material-symbols-outlined text-lg align-middle mr-1" x-text="tab.icon"></span>
+                        <span x-text="tab.label"></span>
+                    </button>
+                </template>
             </div>
 
             <!-- Tab Content -->
             <div class="p-6 overflow-y-auto flex-1">
-                <div id="ssl-tab-windows" class="ssl-tab-content">
+                <div x-show="isActiveTab('windows')">
                     <ol class="space-y-3 text-sm text-text-secondary list-decimal list-inside">
                         <li>Descarga el certificado usando el botón <strong class="text-white">"Descargar Certificado
                                 CA"</strong></li>
@@ -363,7 +420,7 @@
                         efecto.</p>
                 </div>
 
-                <div id="ssl-tab-android" class="ssl-tab-content hidden">
+                <div x-show="isActiveTab('android')">
                     <ol class="space-y-3 text-sm text-text-secondary list-decimal list-inside">
                         <li>Descarga el certificado en tu dispositivo Android</li>
                         <li>Ve a <strong class="text-white">Configuración → Seguridad → Más ajustes de
@@ -380,7 +437,7 @@
                         Xiaomi, etc).</p>
                 </div>
 
-                <div id="ssl-tab-ios" class="ssl-tab-content hidden">
+                <div x-show="isActiveTab('ios')">
                     <ol class="space-y-3 text-sm text-text-secondary list-decimal list-inside">
                         <li>Descarga el certificado en tu iPhone/iPad/Mac</li>
                         <li>Toca el archivo descargado → <strong class="text-white">"Instalar perfil"</strong></li>
@@ -402,134 +459,6 @@
     {% endblock %}
 
     {% block scripts %}
-    <script nonce="{{ request.state.csp_nonce }}" src="/static/js/dashboard.js"></script>
-    <script nonce="{{ request.state.csp_nonce }}" src="/static/js/dashboard.js"></script>
-    <script nonce="{{ request.state.csp_nonce }}">
-        // SSL Certificate Functions
-        async function checkCAStatus() {
-            try {
-                const res = await fetch('/api/security/ca-status');
-                if (res.ok) {
-                    const data = await res.json();
-                    const statusEl = document.getElementById('ssl-status');
-                    const downloadBtn = document.getElementById('download-ca-btn');
-
-                    if (data.https_active) {
-                        statusEl.innerHTML = '<span class="text-success">✅ HTTPS activo</span> - Descarga el certificado para evitar advertencias en otros dispositivos.';
-                        downloadBtn.disabled = false;
-                    } else if (data.ca_available) {
-                        statusEl.innerHTML = '<span class="text-warning">⚠️ Certificado disponible</span> - HTTPS no está configurado en modo producción.';
-                        downloadBtn.disabled = false;
-                    } else {
-                        statusEl.innerHTML = '<span class="text-text-secondary">HTTPS no configurado.</span> Ejecuta <code class="bg-surface-2 px-1 rounded">sudo bash scripts/install_proxy.sh</code>';
-                        downloadBtn.disabled = true;
-                    }
-                }
-            } catch (e) {
-                console.error('Error checking CA status:', e);
-            }
-        }
-
-        function downloadCACertificate() {
-            window.location.href = '/api/security/ca-certificate';
-        }
-
-        function openSSLInstructionsModal() {
-            document.getElementById('ssl-modal').classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-        }
-
-        function closeSSLInstructionsModal() {
-            document.getElementById('ssl-modal').classList.add('hidden');
-            document.body.style.overflow = '';
-        }
-
-        function switchSSLTab(tab) {
-            // Update tab buttons
-            document.querySelectorAll('.ssl-tab').forEach(t => {
-                t.classList.remove('active', 'border-primary', 'text-white');
-                t.classList.add('text-text-secondary');
-            });
-            const activeTab = document.querySelector(`.ssl-tab[data-tab="${tab}"]`);
-            activeTab.classList.add('active', 'border-primary', 'text-white');
-            activeTab.classList.remove('text-text-secondary');
-
-            // Update tab content
-            document.querySelectorAll('.ssl-tab-content').forEach(c => c.classList.add('hidden'));
-            document.getElementById(`ssl-tab-${tab}`).classList.remove('hidden');
-        }
-
-        // Attach Event Listeners (CSP Compliance)
-        document.addEventListener('DOMContentLoaded', () => {
-            checkCAStatus();
-
-            // Refresh Button
-            const refreshBtn = document.querySelector('button[onclick="location.reload()"]');
-            if (refreshBtn) {
-                refreshBtn.removeAttribute('onclick');
-                refreshBtn.addEventListener('click', () => location.reload());
-            }
-
-            // Download CA Button
-            const downloadBtn = document.getElementById('download-ca-btn');
-            if (downloadBtn) {
-                downloadBtn.removeAttribute('onclick'); // Clear inline if present
-                downloadBtn.addEventListener('click', downloadCACertificate);
-            }
-
-            // Mobile Setup Button (Alpine handles this via @click, which is safe if eval is allowed, or we can use JS)
-            // Note: @click="$dispatch(...)" is Alpine syntax. Alpine evaluates expressions.
-            // If we want strict CSP without unsafe-eval, we'd need to change this too. 
-            // But we have unsafe-eval. Ideally we move to JS.
-
-            // Instructions Button
-            // Find button by text content or structure since it lacks ID
-            const helpBtn = Array.from(document.querySelectorAll('button')).find(btn => btn.textContent.trim().includes('Instrucciones'));
-            if (helpBtn && helpBtn.hasAttribute('onclick')) {
-                helpBtn.removeAttribute('onclick');
-                helpBtn.addEventListener('click', openSSLInstructionsModal);
-            }
-
-            // Close Modal Button (Header)
-            const closeBtn = document.querySelector('#ssl-modal button[onclick="closeSSLInstructionsModal()"]');
-            if (closeBtn) {
-                closeBtn.removeAttribute('onclick');
-                closeBtn.addEventListener('click', closeSSLInstructionsModal);
-            }
-
-            // Modal Backdrop
-            const backdrop = document.querySelector('#ssl-modal > div[onclick="closeSSLInstructionsModal()"]');
-            if (backdrop) {
-                backdrop.removeAttribute('onclick');
-                backdrop.addEventListener('click', closeSSLInstructionsModal);
-            }
-
-            // Tabs
-            document.querySelectorAll('.ssl-tab').forEach(btn => {
-                const tabName = btn.getAttribute('onclick').match(/'([^']+)'/)[1];
-                btn.removeAttribute('onclick');
-                btn.addEventListener('click', () => switchSSLTab(tabName));
-            });
-            // Event Log Filters and Pagination
-            // Note: log-filter listener is handled in dashboard.js loadLogFilterOptions()
-
-            const pageSizeSelect = document.getElementById('logs-page-size');
-            if (pageSizeSelect) {
-                pageSizeSelect.removeAttribute('onchange');
-                pageSizeSelect.addEventListener('change', (e) => changeLogPageSize(e.target.value));
-            }
-
-            const prevPageBtn = document.getElementById('btn-prev-page');
-            if (prevPageBtn) {
-                prevPageBtn.removeAttribute('onclick');
-                prevPageBtn.addEventListener('click', () => changeLogPage(-1));
-            }
-
-            const nextPageBtn = document.getElementById('btn-next-page');
-            if (nextPageBtn) {
-                nextPageBtn.removeAttribute('onclick');
-                nextPageBtn.addEventListener('click', () => changeLogPage(1));
-            }
-        });
-    </script>
+    <script nonce="{{ request.state.csp_nonce }}" src="/static/js/dashboard/store.js"></script>
+    <script nonce="{{ request.state.csp_nonce }}" src="/static/js/dashboard/components.js"></script>
     {% endblock %}
