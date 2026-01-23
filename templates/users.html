@@ -3,7 +3,7 @@
 {% block title %}Manage Users - µMonitor Pro{% endblock %}
 
 {% block content %}
-<main class="flex-1 p-6 lg:p-8" x-data="userManager()" x-init="init()">
+<main class="flex-1 p-6 lg:p-8" x-data="userList()">
     <div class="max-w-4xl mx-auto">
         <div class="flex items-center justify-between mb-8">
             <h1 class="text-4xl font-bold">Manage Users</h1>
@@ -66,32 +66,29 @@
         </div>
     </div>
 
-    <div x-show="isModalOpen" x-cloak
+    <div x-data="userModal()" x-show="isOpen" x-cloak
         class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4">
 
-        <div @click.away="closeModal()"
-            class="bg-surface-1 rounded-lg shadow-xl w-full max-w-lg border border-border-color">
-            <form @submit.prevent="saveUser()">
+        <div @click.away="close()" class="bg-surface-1 rounded-lg shadow-xl w-full max-w-lg border border-border-color">
+            <form @submit.prevent="save()">
 
                 <div class="p-6 border-b border-border-color">
-                    <h3 class="text-2xl font-bold" x-text="modalMode === 'add' ? 'Add New User' : 'Edit User'"></h3>
+                    <h3 class="text-2xl font-bold" x-text="isEditing ? 'Edit User' : 'Add New User'"></h3>
                 </div>
 
                 <div class="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label for="user-username" class="block text-sm font-medium mb-1">Username</label>
-                            <input type="text" id="user-username" x-model="currentUser.username"
-                                :readonly="modalMode === 'edit'"
-                                :class="modalMode === 'edit' ? 'cursor-not-allowed bg-surface-2' : 'bg-background'"
+                            <input type="text" id="user-username" x-model="currentUser.username" :readonly="isEditing"
+                                :class="isEditing ? 'cursor-not-allowed bg-surface-2' : 'bg-background'"
                                 class="w-full border border-border-color rounded-md p-2 focus:ring-primary focus:border-primary">
                             <span x-show="errors.username" x-text="errors.username"
                                 class="form-error mt-1 text-danger text-sm"></span>
                         </div>
                         <div>
                             <label for="user-email" class="block text-sm font-medium mb-1">Email (Required)</label>
-                            <input type="email" id="user-email" x-model="currentUser.email"
-                                :readonly="modalMode === 'edit'"
+                            <input type="email" id="user-email" x-model="currentUser.email" :readonly="isEditing"
                                 class="w-full bg-background border border-border-color rounded-md p-2 focus:ring-primary focus:border-primary">
                         </div>
                         <div>
@@ -116,10 +113,10 @@
                     <div>
                         <label for="user-password" class="block text-sm font-medium mb-1">Password</label>
                         <input type="password" id="user-password" x-model="currentUser.password"
-                            :placeholder="modalMode === 'add' ? 'Enter a strong password' : 'Leave blank to keep current password'"
-                            :required="modalMode === 'add'"
+                            :placeholder="isEditing ? 'Leave blank to keep current password' : 'Enter a strong password'"
+                            :required="!isEditing"
                             class="w-full bg-background border border-border-color rounded-md p-2 focus:ring-primary focus:border-primary">
-                        <p x-show="modalMode === 'add'" class="text-xs text-text-secondary mt-1">Required for new users
+                        <p x-show="!isEditing" class="text-xs text-text-secondary mt-1">Required for new users
                             (min 6 chars).</p>
                         <span x-show="errors.password" x-text="errors.password"
                             class="form-error mt-1 text-danger text-sm"></span>
@@ -161,12 +158,12 @@
                         </label>
                     </div>
 
-                    <div x-show="errors.general" x-text="errors.general" class="form-error-main text-danger text-sm">
+                    <div x-show="error" x-text="error" class="form-error-main text-danger text-sm">
                     </div>
                 </div>
 
                 <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end gap-4">
-                    <button type="button" @click.prevent="closeModal()"
+                    <button type="button" @click.prevent="close()"
                         class="px-4 py-2 rounded-md text-sm font-semibold hover:bg-surface-1">Cancel</button>
                     <button type="submit"
                         class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">Save
@@ -179,5 +176,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script nonce="{{ request.state.csp_nonce }}" src="/static/js/users.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/stores/UserStore.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/users/UserList.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/users/UserModal.js" defer></script>
 {% endblock %}
