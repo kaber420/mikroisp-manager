@@ -6,9 +6,17 @@ document.addEventListener('alpine:init', () => {
         init() {
             this.store.loadAll();
 
-            window.addEventListener('data-refresh-needed', () => this.store.loadAll());
+            // Debounce refresh to prevent repeated API calls
+            let refreshTimeout;
+            const debouncedRefresh = () => {
+                clearTimeout(refreshTimeout);
+                refreshTimeout = setTimeout(() => {
+                    this.store.loadAll();
+                }, 1000);
+            };
 
-            window.refreshDashboard = () => this.store.loadAll();
+            window.addEventListener('data-refresh-needed', debouncedRefresh);
+            window.refreshDashboard = debouncedRefresh;
         }
     }));
 
@@ -86,40 +94,33 @@ document.addEventListener('alpine:init', () => {
     }));
 
     Alpine.data('sslCertificate', () => ({
-        status: 'Verificando estado...',
-        httpsActive: false,
-        caAvailable: false,
-        downloadDisabled: true,
-        loading: true,
+        get store() { return this.$store.dashboard; },
 
-        init() {
-            this.checkStatus();
+        get status() {
+            const data = this.store.caStatus.data;
+            if (this.store.caStatus.loading && !data) return 'Verificando estado...';
+            if (this.store.caStatus.error) return 'Error verificando estado SSL';
+
+            if (data) {
+                if (data.https_active) {
+                    return '✅ HTTPS activo - Descarga el certificado para evitar advertencias en otros dispositivos.';
+                } else if (data.ca_available) {
+                    return '⚠️ Certificado disponible - HTTPS no está configurado en modo producción.';
+                } else {
+                    return 'HTTPS no configurado. Ejecuta <code class="bg-surface-2 px-1 rounded">sudo bash scripts/install_proxy.sh</code>';
+                }
+            }
+            return 'Verificando estado...';
         },
 
-        async checkStatus() {
-            this.loading = true;
-            try {
-                const res = await fetch('/api/security/ca-status');
-                if (res.ok) {
-                    const data = await res.json();
-                    this.httpsActive = data.https_active;
-                    this.caAvailable = data.ca_available;
-                    this.downloadDisabled = !data.https_active && !data.ca_available;
+        get downloadDisabled() {
+            const data = this.store.caStatus.data;
+            if (!data) return true;
+            return !data.https_active && !data.ca_available;
+        },
 
-                    if (this.httpsActive) {
-                        this.status = '✅ HTTPS activo - Descarga el certificado para evitar advertencias en otros dispositivos.';
-                    } else if (this.caAvailable) {
-                        this.status = '⚠️ Certificado disponible - HTTPS no está configurado en modo producción.';
-                    } else {
-                        this.status = 'HTTPS no configurado. Ejecuta <code class="bg-surface-2 px-1 rounded">sudo bash scripts/install_proxy.sh</code>';
-                    }
-                }
-            } catch (e) {
-                console.error('Error checking CA status:', e);
-                this.status = 'Error verificando estado SSL';
-            } finally {
-                this.loading = false;
-            }
+        init() {
+            this.store.loadCaStatus();
         },
 
         downloadCertificate() {
