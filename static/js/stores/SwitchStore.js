@@ -1,33 +1,48 @@
-// static/js/switches.js
-
 document.addEventListener('alpine:init', () => {
-    Alpine.data('switchManager', () => ({
-        // State
-        switches: [],
+    Alpine.store('switches', {
+        // --- State ---
+        list: [],
         allZones: [],
         isLoading: true,
-        isSwitchModalOpen: false,
-        currentSwitch: {},
-        switchError: '',
+
+        // Filter state
+        statusFilter: 'all', // 'all', 'online', 'offline'
+        searchQuery: '',
+
+        // Modal state
+        isModalOpen: false,
         isEditing: false,
+        currentSwitch: {},
+        error: '',
 
-        // Initialize
-        async init() {
-            this.isLoading = true;
-            await this.loadData();
-            this.isLoading = false;
+        // --- Computed: Filtered List ---
+        get filteredList() {
+            let result = this.list;
 
-            // Listen for data refresh events
-            window.addEventListener('data-refresh-needed', () => {
-                if (!this.isSwitchModalOpen) {
-                    console.log("⚡ Switches: Reloading data...");
-                    this.loadData();
-                }
-            });
+            // Status filter
+            if (this.statusFilter === 'online') {
+                result = result.filter(s => s.last_status === 'online');
+            } else if (this.statusFilter === 'offline') {
+                result = result.filter(s => s.last_status === 'offline');
+            }
+
+            // Search filter
+            if (this.searchQuery.trim()) {
+                const q = this.searchQuery.toLowerCase();
+                result = result.filter(s =>
+                    (s.hostname || '').toLowerCase().includes(q) ||
+                    (s.host || '').toLowerCase().includes(q) ||
+                    this.getZoneName(s.zona_id).toLowerCase().includes(q)
+                );
+            }
+
+            return result;
         },
 
-        // Load switches and zones data
+        // --- Actions ---
+
         async loadData() {
+            this.isLoading = true;
             try {
                 const [switchesRes, zonesRes] = await Promise.all([
                     fetch('/api/switches'),
@@ -35,24 +50,26 @@ document.addEventListener('alpine:init', () => {
                 ]);
                 if (!switchesRes.ok) throw new Error('Failed to load switches.');
                 if (!zonesRes.ok) throw new Error('Failed to load zones.');
-                this.switches = await switchesRes.json();
+                this.list = await switchesRes.json();
                 this.allZones = await zonesRes.json();
             } catch (error) {
-                console.error('Error loading data:', error);
-                this.switchError = error.message;
+                console.error('Error loading switches data:', error);
+                this.error = error.message;
+            } finally {
+                this.isLoading = false;
             }
         },
 
-        // Get zone name by ID
         getZoneName(zoneId) {
             if (!zoneId) return 'Unassigned';
             const zone = this.allZones.find(z => z.id === zoneId);
             return zone ? zone.nombre : 'Unassigned';
         },
 
-        // Open modal for add/edit
-        openSwitchModal(sw = null) {
-            this.switchError = '';
+        // --- Modal Actions ---
+
+        openModal(sw = null) {
+            this.error = '';
             if (sw) {
                 this.isEditing = true;
                 this.currentSwitch = {
@@ -71,26 +88,24 @@ document.addEventListener('alpine:init', () => {
                     notes: '',
                 };
             }
-            this.isSwitchModalOpen = true;
+            this.isModalOpen = true;
         },
 
-        // Close modal
-        closeSwitchModal() {
-            this.isSwitchModalOpen = false;
+        closeModal() {
+            this.isModalOpen = false;
             this.currentSwitch = {};
         },
 
-        // Save switch (create or update)
-        async saveSwitch() {
-            this.switchError = '';
+        async save() {
+            this.error = '';
 
             // Validation
             if (!this.currentSwitch.host || !this.currentSwitch.username) {
-                this.switchError = 'Please fill in all required fields (Host and Username).';
+                this.error = 'Please fill in all required fields (Host and Username).';
                 return;
             }
             if (!this.isEditing && !this.currentSwitch.password) {
-                this.switchError = 'Password is required for a new switch.';
+                this.error = 'Password is required for a new switch.';
                 return;
             }
 
@@ -123,49 +138,26 @@ document.addEventListener('alpine:init', () => {
 
                 const savedSwitch = await response.json();
 
-                // For new switches, immediately check connection to populate hostname/model/firmware
+                // For new switches, immediately check connection
                 if (!this.isEditing) {
                     if (typeof showToast === 'function') {
                         showToast('Switch added! Checking connection...', 'primary');
                     }
-
-                    try {
-                        const checkResponse = await fetch(`/api/switches/${encodeURIComponent(savedSwitch.host)}/check`, {
-                            method: 'POST'
-                        });
-
-                        if (checkResponse.ok) {
-                            if (typeof showToast === 'function') {
-                                showToast('Switch added and connected successfully!', 'success');
-                            }
-                        } else {
-                            if (typeof showToast === 'function') {
-                                showToast('Switch added but connection check failed. Check credentials.', 'warning');
-                            }
-                        }
-                    } catch (checkError) {
-                        console.warn('Check failed:', checkError);
-                        if (typeof showToast === 'function') {
-                            showToast('Switch added but connection check failed.', 'warning');
-                        }
-                    }
+                    this.testConnection(savedSwitch, true); // Auto-test after add
                 } else {
                     if (typeof showToast === 'function') {
                         showToast('Switch updated successfully!', 'success');
                     }
+                    await this.loadData();
                 }
 
-                await this.loadData();
-                this.closeSwitchModal();
+                this.closeModal();
             } catch (error) {
-                this.switchError = error.message;
+                this.error = error.message;
             }
         },
 
-
-        // Delete switch
-        // Delete switch
-        async deleteSwitch(host, hostname) {
+        async delete(host, hostname) {
             window.ModalUtils.showConfirmModal({
                 title: 'Delete Switch',
                 message: `Are you sure you want to delete switch "<strong>${hostname || host}</strong>"?`,
@@ -180,7 +172,7 @@ document.addEventListener('alpine:init', () => {
                             const err = await response.json();
                             throw new Error(err.detail || 'Failed to delete switch.');
                         }
-                        this.switches = this.switches.filter(s => s.host !== host);
+                        this.list = this.list.filter(s => s.host !== host);
 
                         if (typeof showToast === 'function') {
                             showToast('Switch deleted successfully!', 'success');
@@ -196,10 +188,9 @@ document.addEventListener('alpine:init', () => {
             });
         },
 
-        // Test connection to switch and update database
-        async testConnection(sw) {
+        async testConnection(sw, isNew = false) {
             try {
-                if (typeof showToast === 'function') {
+                if (!isNew && typeof showToast === 'function') {
                     showToast(`Checking ${sw.hostname || sw.host}...`, 'primary');
                 }
 
@@ -213,24 +204,36 @@ document.addEventListener('alpine:init', () => {
                     if (typeof showToast === 'function') {
                         const hostname = data.device_info?.hostname || sw.host;
                         const cpu = data.device_info?.cpu_load || 'N/A';
-                        showToast(`✅ ${hostname} is online! CPU: ${cpu}%`, 'success');
+                        if (isNew) {
+                            showToast('Switch added and connected successfully!', 'success');
+                        } else {
+                            showToast(`✅ ${hostname} is online! CPU: ${cpu}%`, 'success');
+                        }
                     }
                     // Reload to update status and device info in table
                     await this.loadData();
                 } else {
                     const err = await response.json();
                     if (typeof showToast === 'function') {
-                        showToast(`❌ ${sw.hostname || sw.host}: ${err.detail || 'Connection failed'}`, 'danger');
+                        if (isNew) {
+                            showToast('Switch added but connection check failed. Check credentials.', 'warning');
+                        } else {
+                            showToast(`❌ ${sw.hostname || sw.host}: ${err.detail || 'Connection failed'}`, 'danger');
+                        }
                     }
                     // Still reload to show offline status
                     await this.loadData();
                 }
             } catch (error) {
                 if (typeof showToast === 'function') {
-                    showToast(`❌ Connection failed: ${error.message}`, 'danger');
+                    if (isNew) {
+                        showToast('Switch added but connection check failed.', 'warning');
+                    } else {
+                        showToast(`❌ Connection failed: ${error.message}`, 'danger');
+                    }
                 }
+                await this.loadData();
             }
         }
-
-    }));
+    });
 });

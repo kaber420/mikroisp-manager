@@ -240,21 +240,61 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ============================================================================
     function renderCPEList(historicalCPEs, liveCPEs = null, vendor = 'ubiquiti') {
         const cpeListDiv = document.getElementById('client-list');
-        if (!historicalCPEs || historicalCPEs.length === 0) {
+        const liveMacs = new Set(liveCPEs ? liveCPEs.map(cpe => cpe.cpe_mac) : []);
+
+        // Create a map of all unique MACs from both lists
+        const allMacs = new Set([
+            ...(historicalCPEs || []).map(c => c.cpe_mac),
+            ...liveMacs
+        ]);
+
+        if (allMacs.size === 0) {
             cpeListDiv.innerHTML = '<p class="text-text-secondary col-span-full text-center py-8">No CPE data available for this AP.</p>';
             return;
         }
 
         cpeListDiv.innerHTML = '';
-        const liveMacs = new Set(liveCPEs ? liveCPEs.map(cpe => cpe.cpe_mac) : []);
         const timeFormatter = new Intl.DateTimeFormat(navigator.language, {
             day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
         });
 
-        historicalCPEs.forEach(cpe => {
+        // Convert lists to maps for easier lookup
+        const historicalMap = new Map((historicalCPEs || []).map(c => [c.cpe_mac, c]));
+        const liveMap = new Map((liveCPEs || []).map(c => [c.cpe_mac, c]));
+
+        // Sort MACs (optional, maybe by signal if available or hostname)
+        // For now, consistent order by MAC or let's try to sort by Signal (Live) -> Signal (Hist) -> MAC
+        const sortedMacs = Array.from(allMacs).sort((a, b) => {
+            const cpeA = liveMap.get(a) || historicalMap.get(a);
+            const cpeB = liveMap.get(b) || historicalMap.get(b);
+            // Sort by signal descending (null signal goes last)
+            const sigA = cpeA.signal != null ? cpeA.signal : -999;
+            const sigB = cpeB.signal != null ? cpeB.signal : -999;
+            return sigB - sigA;
+        });
+
+        sortedMacs.forEach(mac => {
+            const historicalCPE = historicalMap.get(mac);
+            const liveCPE = liveMap.get(mac);
+            const isOnline = liveMacs.has(mac);
+
+            // Construct displayCPE
+            // We want prioritized fields:
+            // Hostname: Historical (Manual/Db) > Live (Device)
+            // Signal/Status: Live > Historical
+
+            // Base it on live if available (for most stats), else historical
+            let displayCPE = liveCPE ? { ...liveCPE } : { ...historicalCPE };
+
+            if (historicalCPE) {
+                // Restore database overrides
+                if (historicalCPE.cpe_hostname) displayCPE.cpe_hostname = historicalCPE.cpe_hostname;
+                if (historicalCPE.ip_address && !displayCPE.ip_address) displayCPE.ip_address = historicalCPE.ip_address;
+                // If live is missing, we rely entirely on historical (which is already set by the else above if !liveCPE)
+                // If live exists, we just overwrote the hostname with the DB one.
+            }
+
             const card = document.createElement('div');
-            const isOnline = liveMacs.has(cpe.cpe_mac);
-            const displayCPE = isOnline ? liveCPEs.find(lc => lc.cpe_mac === cpe.cpe_mac) : cpe;
 
             let health = getCPEHealthStatus(displayCPE);
             let cardClasses = 'bg-surface-1 rounded-lg border-l-4 p-4 flex flex-col gap-3 transition-all hover:shadow-lg';
@@ -284,7 +324,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 `;
             }
 
-            const lastSeenDate = new Date(cpe.timestamp);
+            // Timestamp / Last Seen from DB or Live
+            const timestamp = historicalCPE ? historicalCPE.timestamp : new Date().toISOString();
+            const lastSeenDate = new Date(timestamp);
             const lastSeenHtml = !isOnline
                 ? `<span>Last seen:</span><span class="font-semibold text-text-secondary text-right">${timeFormatter.format(lastSeenDate)}</span>`
                 : `<span>Cable Status:</span><span class="font-semibold text-text-primary text-right">${cableStatus}</span>`;
@@ -292,7 +334,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             card.innerHTML = `
                 <div class="flex justify-between items-start">
                     <div>
-                        <p class="font-bold text-text-primary">${displayCPE.cpe_hostname || 'Unnamed Device'}</p>
+                        <div class="flex items-center gap-2">
+                            <p class="font-bold text-text-primary truncate max-w-[150px]" title="${displayCPE.cpe_hostname || ''}">${displayCPE.cpe_hostname || 'Unnamed Device'}</p>
+                            <button data-action="edit-cpe-hostname" data-mac="${displayCPE.cpe_mac}" data-hostname="${displayCPE.cpe_hostname ? displayCPE.cpe_hostname.replace(/"/g, '&quot;') : ''}" 
+                                class="text-text-secondary hover:text-primary transition-colors" title="Edit Hostname">
+                                <span class="material-symbols-outlined text-sm">edit</span>
+                            </button>
+                        </div>
                         <p class="text-xs text-text-secondary font-mono">${displayCPE.ip_address || 'No IP'}</p>
                     </div>
                     <div class="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-black bg-opacity-20">
@@ -311,7 +359,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
             cpeListDiv.appendChild(card);
         });
+
+        // Add event delegation if not already present
+        if (!cpeListDiv.dataset.hasListener) {
+            cpeListDiv.addEventListener('click', (e) => {
+                const button = e.target.closest('button[data-action="edit-cpe-hostname"]');
+                if (button) {
+                    const mac = button.dataset.mac;
+                    const hostname = button.dataset.hostname;
+                    window.openEditCPEModal(mac, hostname);
+                }
+            });
+            cpeListDiv.dataset.hasListener = 'true';
+        }
     }
+
 
     async function loadCPEDataFromHistory() {
         try {
@@ -695,4 +757,84 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
         console.error("Edit form elements not found. Edit functionality may fail.");
     }
+
+    // ============================================================================
+    // EDIT CPE MODAL
+    // ============================================================================
+    window.openEditCPEModal = function (mac, currentHostname) {
+        const modal = document.getElementById('edit-cpe-modal');
+        const form = document.getElementById('edit-cpe-form');
+
+        if (!modal || !form) {
+            console.error('Edit CPE modal not found');
+            return;
+        }
+
+        // Populate fields
+        document.getElementById('edit-cpe-mac').value = mac;
+        document.getElementById('edit-cpe-mac-display').value = mac;
+        document.getElementById('edit-cpe-hostname').value = currentHostname;
+        document.getElementById('edit-cpe-error').classList.add('hidden');
+
+        // Show modal
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    };
+
+    window.closeEditCPEModal = function () {
+        const modal = document.getElementById('edit-cpe-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    };
+
+    // Setup modal listeners
+    const editCPEForm = document.getElementById('edit-cpe-form');
+    if (editCPEForm) {
+        editCPEForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const mac = document.getElementById('edit-cpe-mac').value;
+            const hostname = document.getElementById('edit-cpe-hostname').value;
+            const errorDiv = document.getElementById('edit-cpe-error');
+            const submitBtn = editCPEForm.querySelector('button[type="submit"]');
+
+            try {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="material-symbols-outlined mr-2 animate-spin">sync</span>Saving...';
+
+                const response = await fetch(`${API_BASE_URL}/api/cpes/${mac}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hostname: hostname })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to update CPE');
+                }
+
+                // Close and refresh
+                window.closeEditCPEModal();
+                if (typeof showToast === 'function') {
+                    showToast('CPE hostname updated successfully', 'success');
+                }
+
+                // Refresh data
+                window.dispatchEvent(new CustomEvent('data-refresh-needed'));
+
+            } catch (error) {
+                console.error('Error updating CPE:', error);
+                errorDiv.textContent = error.message;
+                errorDiv.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Save Changes';
+            }
+        });
+
+        document.getElementById('edit-cpe-cancel-button')?.addEventListener('click', window.closeEditCPEModal);
+    }
+
 });

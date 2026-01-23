@@ -29,6 +29,7 @@
         init: function (apData) {
             initSpectralScan();
             loadInterfacesList();
+            initSyncNamesButton();
             // Update MikroTik-specific fields if present in initial data
             if (apData.extra) {
                 updateMikrotikFields(apData.extra);
@@ -192,6 +193,58 @@
 
             container.appendChild(card);
         });
+    }
+
+    // ============================================================================
+    // SYNC NAMES BUTTON (ARP Sync)
+    // ============================================================================
+    function initSyncNamesButton() {
+        const btn = document.getElementById('sync-names-btn');
+        if (!btn) return;
+
+        btn.addEventListener('click', handleSyncNames);
+    }
+
+    async function handleSyncNames() {
+        const API_BASE_URL = window.APDetailsCore?.API_BASE_URL || window.location.origin;
+        const currentHost = window.APDetailsCore?.currentHost || window.location.pathname.split('/').pop();
+        const btn = document.getElementById('sync-names-btn');
+        const originalContent = btn.innerHTML;
+
+        try {
+            // Show loading state
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-symbols-outlined mr-2 animate-spin">sync</span><span>Syncing...</span>';
+
+            const response = await fetch(`${API_BASE_URL}/api/aps/${encodeURIComponent(currentHost)}/sync-names`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to sync names');
+            }
+
+            const result = await response.json();
+
+            if (typeof showToast === 'function') {
+                showToast(`Synced ${result.synced_count} device names from ${result.total_clients} clients`, 'success');
+            }
+
+            // Trigger a page refresh to show updated names
+            window.dispatchEvent(new CustomEvent('data-refresh-needed'));
+
+        } catch (error) {
+            console.error('Error syncing names:', error);
+            if (typeof showToast === 'function') {
+                showToast(`Error: ${error.message}`, 'danger');
+            }
+        } finally {
+            // Restore button
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
     }
 
     // ============================================================================

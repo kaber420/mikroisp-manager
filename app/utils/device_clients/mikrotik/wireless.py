@@ -146,17 +146,23 @@ def get_wireless_interfaces_detailed(api: RouterOsApi) -> list[dict[str, Any]]:
     return detailed_interfaces
 
 
-def get_connected_clients(api: RouterOsApi) -> list[dict[str, Any]]:
+def get_connected_clients(api: RouterOsApi, fetch_arp: bool = True) -> list[dict[str, Any]]:
     """
     Returns a unified list of connected clients (CPEs) with parsed statistics.
     Handles legacy and modern wireless packages transparently.
     For legacy (v6), SSID and band are backfilled from interface details.
+
+    Args:
+        api: RouterOS API connection.
+        fetch_arp: If True, fetches ARP table to enrich hostname/IP. Default True.
+                   Set to False for lightweight polling where names come from DB.
     """
     manager = MikrotikInterfaceManager(api)
     # Detect type first
     _, wtype = manager.get_wireless_interfaces()
     if not wtype:
         return []
+
 
     reg_path = manager.get_registration_table_path(wtype)
     if not reg_path:
@@ -181,16 +187,28 @@ def get_connected_clients(api: RouterOsApi) -> list[dict[str, Any]]:
         except Exception:
             return []
 
-    # Fetch ARP table for enrichment
+    # Fetch ARP table for enrichment (only if fetch_arp=True)
     arp_map = {}
-    try:
-        arp_entries = mikrotik_ip.get_arp_entries(api)
-        for entry in arp_entries:
-            if mac := entry.get("mac-address"):
-                # Normalize MAC to uppercase for consistent matching
-                arp_map[mac.upper()] = entry
-    except Exception as e:
-        logger.warning(f"Failed to fetch ARP table for enrichment: {e}")
+    dhcp_map = {}
+    if fetch_arp:
+        try:
+            arp_entries = mikrotik_ip.get_arp_entries(api)
+            for entry in arp_entries:
+                if mac := entry.get("mac-address"):
+                    # Normalize MAC to uppercase for consistent matching
+                    arp_map[mac.upper()] = entry
+        except Exception as e:
+            logger.warning(f"Failed to fetch ARP table for enrichment: {e}")
+        
+        # Fetch DHCP leases for hostname (especially useful for v6)
+        try:
+            dhcp_leases = mikrotik_ip.get_dhcp_leases(api)
+            for lease in dhcp_leases:
+                if mac := lease.get("mac-address"):
+                    # Normalize MAC to uppercase for consistent matching
+                    dhcp_map[mac.upper()] = lease
+        except Exception as e:
+            logger.warning(f"Failed to fetch DHCP leases for enrichment: {e}")
 
     clients = []
     for reg in registrations:
@@ -212,14 +230,35 @@ def get_connected_clients(api: RouterOsApi) -> list[dict[str, Any]]:
         mac = reg.get("mac-address")
         client_ip = reg.get("last-ip")
         client_comment = reg.get("comment")
+        
+        # Extract radio-name (Mikrotik System Identity of the connected device)
+        # This is available in registration table for Mikrotik CPEs
+        radio_name = reg.get("radio-name")
 
         # ARP Enrichment: fill missing IP/hostname from ARP table
         # Normalize MAC lookup to uppercase
+        arp_comment = None
         if mac and (arp_info := arp_map.get(mac.upper())):
             if not client_ip:
                 client_ip = arp_info.get("address")
-            if not client_comment:
-                client_comment = arp_info.get("comment")
+            arp_comment = arp_info.get("comment")
+
+        # DHCP Enrichment: get hostname from DHCP lease
+        dhcp_hostname = None
+        if mac and (dhcp_info := dhcp_map.get(mac.upper())):
+            # DHCP lease has 'host-name' field with hostname the device reported
+            dhcp_hostname = dhcp_info.get("host-name")
+            # Also fill IP from DHCP if missing
+            if not client_ip:
+                client_ip = dhcp_info.get("address")
+
+        # Hostname resolution priority:
+        # 1. Registration table comment (manually set on AP)
+        # 2. ARP comment (manually set or dynamic)
+        # 3. Radio name (device's own Mikrotik identity - ROS7)
+        # 4. DHCP hostname (device reported name - works on all versions)
+        # 5. None (UI will show "Unnamed Device")
+        resolved_hostname = client_comment or arp_comment or radio_name or dhcp_hostname
 
         # Get SSID and band from registration (available in ROS7)
         client_ssid = reg.get("ssid")
@@ -242,7 +281,7 @@ def get_connected_clients(api: RouterOsApi) -> list[dict[str, Any]]:
 
         client = {
             "mac": mac,
-            "hostname": client_comment,
+            "hostname": resolved_hostname,
             "ip_address": client_ip,
             "signal": signal,
             "signal_chain0": signal_ch0,

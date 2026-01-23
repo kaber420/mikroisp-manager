@@ -169,8 +169,15 @@
 
     <!-- ID AÑADIDO PARA LA ANIMACIÓN -->
     <div id="client-list-section">
-        <div class="mb-8">
+        <div class="flex flex-wrap justify-between items-center gap-4 mb-8">
             <h2 class="text-2xl font-bold">Connected Clients</h2>
+            {% if ap.vendor == 'mikrotik' %}
+            <button id="sync-names-btn"
+                class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover transition-colors">
+                <span class="material-symbols-outlined mr-2">sync</span>
+                <span>Sync Names</span>
+            </button>
+            {% endif %}
         </div>
         <div id="client-list" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6"></div>
     </div>
@@ -221,7 +228,7 @@
     </div>
 </div>
 
-
+{% include 'partials/edit_cpe_modal.html' %}
 {% endblock %}
 
 {% block scripts %}

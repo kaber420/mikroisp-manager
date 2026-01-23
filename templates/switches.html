@@ -3,119 +3,147 @@
 {% block title %}Manage Switches - µMonitor Pro{% endblock %}
 
 {% block content %}
-<main x-data="switchManager()" x-cloak class="flex-1 p-6 lg:p-8">
-    <div class="max-w-6xl mx-auto">
-        <div class="flex items-center justify-between mb-8">
-            <h1 class="text-4xl font-bold">Manage MikroTik Switches</h1>
+<main class="flex-1 p-6 lg:p-8">
+    <!-- Header & Actions -->
+    <div class="flex items-center justify-between mb-8" x-data="switchList()">
+        <h1 class="text-4xl font-bold">Manage MikroTik Switches</h1>
+        <div class="flex gap-3">
             <button @click="openSwitchModal()"
-                class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover">
+                class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all duration-200">
                 <span class="material-symbols-outlined mr-2">add</span>
                 <span>Add New Switch</span>
             </button>
         </div>
+    </div>
 
-        <div class="bg-surface-1 rounded-lg border border-border-color">
-            <div class="overflow-x-auto">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-surface-2">
+    <!-- Switch List Card -->
+    <div class="glass-card rounded-2xl border-0" x-data="switchList()">
+        <div class="px-6 py-4 border-b border-white/10 flex flex-wrap gap-4 items-center justify-between bg-white/5">
+            <h2 class="text-xl font-bold text-white">Switches</h2>
+
+            <div class="flex flex-wrap items-center gap-4">
+                <!-- Status Filter Buttons -->
+                <div
+                    class="flex flex-wrap gap-1 bg-surface-1/50 backdrop-blur-sm p-1 rounded-lg border border-white/10">
+                    <button @click="statusFilter = 'all'"
+                        :class="{'bg-primary text-white shadow-lg shadow-primary/20': statusFilter === 'all', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'all'}"
+                        class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200">All</button>
+                    <button @click="statusFilter = 'online'"
+                        :class="{'bg-success text-white shadow-lg shadow-success/20': statusFilter === 'online', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'online'}"
+                        class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200">Online</button>
+                    <button @click="statusFilter = 'offline'"
+                        :class="{'bg-danger text-white shadow-lg shadow-danger/20': statusFilter === 'offline', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'offline'}"
+                        class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200">Offline</button>
+                </div>
+
+                <!-- Search -->
+                <div class="relative">
+                    <span
+                        class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-lg">search</span>
+                    <input type="text" x-model.debounce.300ms="searchQuery" placeholder="Search..."
+                        class="w-full sm:w-64 pl-10 pr-4 py-2 bg-surface-1/50 backdrop-blur-sm border border-white/10 rounded-lg focus:ring-primary focus:border-primary text-text-primary placeholder-text-secondary/50 transition-all duration-200">
+                </div>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="bg-white/5">
+                    <tr>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                            Status</th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                            Hostname</th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                            Host (IP)</th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                            Zone</th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                            Model / Firmware</th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                            Location</th>
+                        <th
+                            class="px-6 py-3 text-center text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                            Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    <template x-if="isLoading">
                         <tr>
-                            <th
-                                class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                                Status</th>
-                            <th
-                                class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                                Hostname</th>
-                            <th
-                                class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                                Host (IP)</th>
-                            <th
-                                class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                                Zone</th>
-                            <th
-                                class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                                Model / Firmware</th>
-                            <th
-                                class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                                Location</th>
-                            <th
-                                class="px-6 py-3 text-center text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                                Actions</th>
+                            <td colspan="7" class="p-8 text-center text-text-secondary">Loading switches...</td>
                         </tr>
-                    </thead>
-                    <tbody class="divide-y divide-border-color">
-                        <template x-if="isLoading">
-                            <tr>
-                                <td colspan="7" class="p-8 text-center text-text-secondary">Loading switches...</td>
-                            </tr>
-                        </template>
-                        <template x-if="!isLoading && switches.length === 0">
-                            <tr>
-                                <td colspan="7" class="p-8 text-center text-text-secondary">No switches found. Click
-                                    "Add
-                                    New Switch" to get started.</td>
-                            </tr>
-                        </template>
-                        <template x-for="sw in switches" :key="sw.host">
-                            <tr @click="window.location.href = '/switch/' + encodeURIComponent(sw.host)"
-                                class="hover:bg-surface-2 transition-colors duration-200 cursor-pointer">
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div :class="{
+                    </template>
+                    <template x-if="!isLoading && switches.length === 0">
+                        <tr>
+                            <td colspan="7" class="p-8 text-center text-text-secondary">No switches found matching
+                                your criteria.</td>
+                        </tr>
+                    </template>
+                    <template x-for="sw in switches" :key="sw.host">
+                        <tr @click="goToDetails(sw.host)"
+                            class="hover:bg-surface-2 transition-colors duration-200 cursor-pointer">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div :class="{
                                         'text-success': sw.last_status === 'online',
                                         'text-danger': sw.last_status === 'offline',
                                         'text-text-secondary': sw.last_status !== 'online' && sw.last_status !== 'offline'
                                     }" class="flex items-center gap-2">
-                                        <div class="size-2 rounded-full" :class="{
+                                    <div class="size-2 rounded-full" :class="{
                                             'bg-success': sw.last_status === 'online',
                                             'bg-danger': sw.last_status === 'offline',
                                             'bg-text-secondary': sw.last_status !== 'online' && sw.last_status !== 'offline'
                                         }"></div>
-                                        <span x-text="sw.last_status || 'Unknown'"></span>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap font-semibold text-text-primary">
-                                    <a :href="`/switch/${encodeURIComponent(sw.host)}`"
-                                        class="hover:text-primary hover:underline" x-text="sw.hostname || 'N/A'"></a>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-text-secondary font-mono" x-text="sw.host">
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-text-secondary"
-                                    x-text="getZoneName(sw.zona_id)"></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-text-secondary"
-                                    x-text="`${sw.model || 'N/A'} / ${sw.firmware || 'N/A'}`"></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-text-secondary" x-text="sw.location || '-'">
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-center space-x-2">
-                                    <button @click.stop="testConnection(sw)"
-                                        class="text-text-secondary hover:text-success" title="Test Connection">
-                                        <span class="material-symbols-outlined">network_check</span>
-                                    </button>
-                                    <button @click.stop="openSwitchModal(sw)"
-                                        class="text-text-secondary hover:text-primary" title="Edit Switch">
-                                        <span class="material-symbols-outlined">edit</span>
-                                    </button>
-                                    <button @click.stop="deleteSwitch(sw.host, sw.hostname)"
-                                        class="text-text-secondary hover:text-danger" title="Delete Switch">
-                                        <span class="material-symbols-outlined">delete</span>
-                                    </button>
-                                </td>
-
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
-            </div>
+                                    <span x-text="sw.last_status || 'Unknown'"></span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap font-semibold text-text-primary">
+                                <a :href="`/switch/${encodeURIComponent(sw.host)}`"
+                                    class="hover:text-primary hover:underline" x-text="sw.hostname || 'N/A'"></a>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-text-secondary font-mono" x-text="sw.host">
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-text-secondary"
+                                x-text="getZoneName(sw.zona_id)"></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-text-secondary"
+                                x-text="`${sw.model || 'N/A'} / ${sw.firmware || 'N/A'}`"></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-text-secondary" x-text="sw.location || '-'">
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-center space-x-2">
+                                <button @click.stop="testConnection(sw)" class="text-text-secondary hover:text-success"
+                                    title="Test Connection">
+                                    <span class="material-symbols-outlined">network_check</span>
+                                </button>
+                                <button @click.stop="openSwitchModal(sw)" class="text-text-secondary hover:text-primary"
+                                    title="Edit Switch">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button @click.stop="deleteSwitch(sw.host, sw.hostname)"
+                                    class="text-text-secondary hover:text-danger" title="Delete Switch">
+                                    <span class="material-symbols-outlined">delete</span>
+                                </button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
         </div>
     </div>
 
     <!-- Switch Modal (Add/Edit) -->
-    <div x-show="isSwitchModalOpen" x-cloak
+    <div x-data="switchModal()" x-show="isOpen" x-cloak
         class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 overflow-y-auto z-50">
-        <div @click.away="closeSwitchModal()"
+        <div @click.away="close()"
             class="bg-surface-1 rounded-lg shadow-xl w-full max-w-2xl border border-border-color my-auto">
-            <form @submit.prevent="saveSwitch()">
+            <form @submit.prevent="save()">
                 <div class="p-6 border-b border-border-color flex justify-between items-center">
                     <h3 x-text="isEditing ? 'Edit Switch' : 'Add New Switch'" class="text-2xl font-bold"></h3>
-                    <button type="button" @click="closeSwitchModal()"
+                    <button type="button" @click="close()"
                         class="text-text-secondary hover:text-text-primary text-3xl font-bold">&times;</button>
                 </div>
 
@@ -175,11 +203,11 @@
                             class="w-full bg-background border border-border-color rounded-md p-2"></textarea>
                     </div>
 
-                    <div x-show="switchError" x-text="switchError" class="text-danger text-sm"></div>
+                    <div x-show="error" x-text="error" class="text-danger text-sm"></div>
                 </div>
 
                 <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end gap-4">
-                    <button type="button" @click="closeSwitchModal()"
+                    <button type="button" @click="close()"
                         class="px-4 py-2 rounded-md text-sm font-semibold hover:bg-surface-1">Cancel</button>
                     <button type="submit"
                         class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover"
@@ -192,5 +220,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script nonce="{{ request.state.csp_nonce }}" src="/static/js/switches.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/stores/SwitchStore.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/switches/SwitchList.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/switches/SwitchModal.js" defer></script>
 {% endblock %}

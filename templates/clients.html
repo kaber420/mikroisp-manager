@@ -8,10 +8,11 @@
 {% endblock %}
 
 {% block content %}
-<main x-data="clientManager()" x-cloak class="flex-1 p-6 lg:p-8">
+{# Client List Component #}
+<main x-data="clientList" x-cloak class="flex-1 p-6 lg:p-8">
     <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
         <h1 class="text-4xl font-bold">Manage Clients</h1>
-        <button @click="openClientModal()"
+        <button @click="$dispatch('open-client-modal')"
             class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover">
             <span class="material-symbols-outlined mr-2">add</span>
             <span>Add New Client</span>
@@ -83,12 +84,12 @@
                             <td colspan="7" class="text-center p-8 text-text-secondary">Loading clients...</td>
                         </tr>
                     </template>
-                    <template x-if="!isLoading && filteredClients.length === 0">
+                    <template x-if="!isLoading && clients.length === 0">
                         <tr>
                             <td colspan="7" class="text-center p-8 text-text-secondary">No clients found.</td>
                         </tr>
                     </template>
-                    <template x-for="client in filteredClients" :key="client.id">
+                    <template x-for="client in clients" :key="client.id">
                         <tr @click="window.location.href = `/client/${client.id}`"
                             class="hover:bg-surface-2 transition-colors duration-200 cursor-pointer">
                             <td class="px-6 py-4">
@@ -104,7 +105,7 @@
                             </td>
                             <td class="px-6 py-4 text-center font-semibold" x-text="client.cpe_count"></td>
                             <td class="px-6 py-4 text-right">
-                                <button @click.stop="openClientModal(client)"
+                                <button @click.stop="$dispatch('open-client-modal', { client: client })"
                                     class="text-text-secondary hover:text-primary" title="Edit Client"><span
                                         class="material-symbols-outlined">edit</span></button>
                                 <button @click.stop="deleteClient(client.id, client.name)"
@@ -118,14 +119,17 @@
             </table>
         </div>
     </div>
+</main>
 
+{# Client Modal Component - Separate Alpine Scope #}
+<div x-data="clientModal">
     <div x-show="isModalOpen" x-cloak
         class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 overflow-y-auto z-50">
-        <div @click.away="closeClientModal()"
+        <div @click.away="closeModal()"
             class="bg-surface-1 rounded-lg shadow-xl w-full max-w-4xl border border-border-color my-auto">
             <div class="p-6 border-b border-border-color flex justify-between items-center">
                 <h3 x-text="isEditing ? 'Edit Client' : 'Add New Client'" class="text-2xl font-bold"></h3>
-                <button type="button" @click="closeClientModal()"
+                <button type="button" @click="closeModal()"
                     class="text-text-secondary hover:text-text-primary text-3xl font-bold">&times;</button>
             </div>
 
@@ -139,47 +143,48 @@
                     Service</button>
             </div>
 
+            {# Tab 1: Client Info #}
             <div x-show="currentTab === 'info'">
                 <form @submit.prevent="saveClient()">
                     <div class="p-8 max-h-[60vh] overflow-y-auto space-y-6">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label class="block text-sm font-medium mb-1">Full Name</label>
-                                <input type="text" x-model="currentClient.name" required
+                                <input type="text" x-model="client.name" required
                                     class="w-full bg-background border border-border-color rounded-md p-2">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1">Email Address</label>
-                                <input type="email" x-model="currentClient.email"
+                                <input type="email" x-model="client.email"
                                     class="w-full bg-background border border-border-color rounded-md p-2">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1">Primary Phone</label>
-                                <input type="tel" x-model="currentClient.phone_number"
+                                <input type="tel" x-model="client.phone_number"
                                     class="w-full bg-background border border-border-color rounded-md p-2">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1">WhatsApp Number</label>
-                                <input type="tel" x-model="currentClient.whatsapp_number"
+                                <input type="tel" x-model="client.whatsapp_number"
                                     class="w-full bg-background border border-border-color rounded-md p-2">
                             </div>
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-medium mb-1">Telegram Contact</label>
-                                <input type="text" x-model="currentClient.telegram_contact"
+                                <input type="text" x-model="client.telegram_contact"
                                     class="w-full bg-background border border-border-color rounded-md p-2">
                             </div>
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-medium mb-1">GPS Coordinates</label>
-                                <input type="text" x-model="currentClient.coordinates"
+                                <input type="text" x-model="client.coordinates"
                                     placeholder="e.g., 19.4326,-99.1332"
                                     class="w-full bg-background border border-border-color rounded-md p-2">
                             </div>
                         </div>
-                        <div x-show="clientError" x-text="clientError" class="form-error-main text-danger text-sm">
+                        <div x-show="errors.client" x-text="errors.client" class="form-error-main text-danger text-sm">
                         </div>
                     </div>
                     <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end gap-4">
-                        <button type="button" @click="closeClientModal()"
+                        <button type="button" @click="closeModal()"
                             class="px-4 py-2 rounded-md text-sm font-semibold">Cancel</button>
                         <button type="submit"
                             class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary">Save
@@ -188,6 +193,7 @@
                 </form>
             </div>
 
+            {# Tab 2: Service Config #}
             <div x-show="currentTab === 'service'">
                 <div class="p-8 max-h-[60vh] overflow-y-auto space-y-6">
                     <!-- Service Location & Status Section -->
@@ -196,13 +202,13 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-medium mb-1">Service Address</label>
-                                <input type="text" x-model="currentService.address"
+                                <input type="text" x-model="service.address"
                                     placeholder="Installation/service address"
                                     class="w-full bg-background border border-border-color rounded-md p-2">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1">Service Status</label>
-                                <select x-model="currentService.status"
+                                <select x-model="service.status"
                                     class="w-full bg-background border border-border-color rounded-md p-2">
                                     <option value="active">Active</option>
                                     <option value="pendiente">Pending</option>
@@ -212,12 +218,12 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1">Billing Day</label>
-                                <input type="number" x-model.number="currentService.billing_day" min="1" max="31"
+                                <input type="number" x-model.number="service.billing_day" min="1" max="31"
                                     class="w-full bg-background border border-border-color rounded-md p-2">
                             </div>
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-medium mb-1">Service Notes</label>
-                                <textarea x-model="currentService.notes" rows="2"
+                                <textarea x-model="service.notes" rows="2"
                                     placeholder="Notes about this service..."
                                     class="w-full bg-background border border-border-color rounded-md p-2"></textarea>
                             </div>
@@ -259,7 +265,7 @@
                     <!-- Service Type Selection -->
                     <div>
                         <label class="block text-sm font-medium mb-1">Service Type</label>
-                        <select x-model="currentService.service_type"
+                        <select x-model="service.service_type"
                             class="w-full bg-background border border-border-color rounded-md p-2">
                             <option value="">Select a service type...</option>
                             <option value="pppoe">PPPoE</option>
@@ -267,24 +273,25 @@
                         </select>
                     </div>
 
-                    <form x-show="currentService.service_type === 'pppoe'" @submit.prevent="saveService()"
+                    {# PPPoE Form #}
+                    <form x-show="service.service_type === 'pppoe'" @submit.prevent="saveService()"
                         class="space-y-4 pt-4 border-t border-border-color">
                         <h4 class="text-lg font-semibold text-text-primary">PPPoE Service Details</h4>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium mb-1">Router</label>
-                                <select x-model="currentService.router_host" @change="handleRouterChange()"
+                                <select x-model="service.router_host" @change="handleRouterChange()"
                                     class="w-full bg-background border border-border-color rounded-md p-2">
                                     <option value="">Select a router...</option>
-                                    <template x-for="router in routersForSelect" :key="router.host">
+                                    <template x-for="router in routers" :key="router.host">
                                         <option :value="router.host" x-text="router.hostname || router.host"></option>
                                     </template>
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1">Plan PPPoE</label>
-                                <select x-model="currentService.plan_id" @change="handlePlanChange()"
-                                    :disabled="!currentService.router_host"
+                                <select x-model="service.plan_id" @change="handlePlanChange()"
+                                    :disabled="!service.router_host"
                                     class="w-full bg-background border border-border-color rounded-md p-2 disabled:bg-surface-2">
                                     <option value="">Select a plan...</option>
                                     <template x-for="plan in pppoeePlansFiltered" :key="plan.id">
@@ -294,7 +301,7 @@
                                     </template>
                                 </select>
                                 <p class="text-xs text-text-secondary mt-1"
-                                    x-show="pppoeePlansFiltered.length === 0 && currentService.router_host">
+                                    x-show="pppoeePlansFiltered.length === 0 && service.router_host">
                                     No hay planes PPPoE para este router. Créalos en Router Details → Queues.
                                 </p>
                             </div>
@@ -302,14 +309,14 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium mb-1">PPPoE Username</label>
-                                <input type="text" x-model="currentService.pppoe_username" autocomplete="username"
+                                <input type="text" x-model="service.pppoe_username" autocomplete="username"
                                     class="w-full bg-background border border-border-color rounded-md p-2">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1">PPPoE Password</label>
                                 <div class="relative">
                                     <input :type="pppoePasswordVisible ? 'text' : 'password'"
-                                        x-model="currentService.password" autocomplete="new-password"
+                                        x-model="service.password" autocomplete="new-password"
                                         class="w-full bg-background border border-border-color rounded-md p-2 pr-10">
                                     <button type="button" @click="pppoePasswordVisible = !pppoePasswordVisible"
                                         class="absolute inset-y-0 right-0 px-3 flex items-center text-text-secondary hover:text-text-primary">
@@ -326,21 +333,22 @@
                                 El método de suspensión se configura en el Plan, no en el servicio.
                             </p>
                         </div>
-                        <div x-text="serviceError" class="form-error-main text-danger text-sm" x-show="serviceError">
+                        <div x-text="errors.service" class="form-error-main text-danger text-sm" x-show="errors.service">
                         </div>
                     </form>
 
-                    <form x-show="currentService.service_type === 'simple_queue'" @submit.prevent="saveService()"
+                    {# Simple Queue Form #}
+                    <form x-show="service.service_type === 'simple_queue'" @submit.prevent="saveService()"
                         class="space-y-4 pt-4 border-t border-border-color">
                         <h4 class="text-lg font-semibold text-text-primary">Simple Queue Configuration</h4>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium mb-1">Router</label>
-                                <select x-model="currentService.router_host"
+                                <select x-model="service.router_host"
                                     class="w-full bg-background border border-border-color rounded-md p-2">
                                     <option value="">Select a router...</option>
-                                    <template x-for="router in routersForSelect" :key="router.host">
+                                    <template x-for="router in routers" :key="router.host">
                                         <option :value="router.host" x-text="router.hostname || router.host"></option>
                                     </template>
                                 </select>
@@ -348,7 +356,7 @@
 
                             <div>
                                 <label class="block text-sm font-medium mb-1">Service Plan</label>
-                                <select x-model="currentService.plan_id" @change="handlePlanChange()"
+                                <select x-model="service.plan_id" @change="handlePlanChange()"
                                     class="w-full bg-background border border-border-color rounded-md p-2">
                                     <option value="">Select a plan...</option>
                                     <template x-for="plan in simpleQueuePlansFiltered" :key="plan.id">
@@ -374,7 +382,7 @@
                                 <!-- No IP detected: show input field -->
                                 <template x-if="!detectClientIp()">
                                     <div>
-                                        <input type="text" x-model="currentService.manual_ip"
+                                        <input type="text" x-model="service.manual_ip"
                                             placeholder="Ej: 10.0.0.50"
                                             class="w-full bg-background border border-warning rounded-md p-1.5 text-sm font-mono">
                                         <p class="text-xs text-warning mt-1">⚠️ Escribe la IP del CPE manualmente</p>
@@ -400,7 +408,7 @@
                             </p>
                         </div>
 
-                        <div x-show="serviceError" x-text="serviceError" class="form-error-main text-danger text-sm">
+                        <div x-show="errors.service" x-text="errors.service" class="form-error-main text-danger text-sm">
                         </div>
 
                         <div class="pt-2">
@@ -412,7 +420,7 @@
                     </form>
                 </div>
                 <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end gap-4">
-                    <button type="button" @click="closeClientModal()"
+                    <button type="button" @click="closeModal()"
                         class="px-4 py-2 rounded-md text-sm font-semibold">Cancel</button>
                     <button type="button" @click="saveService()"
                         class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary">Save Service</button>
@@ -420,9 +428,12 @@
             </div>
         </div>
     </div>
-</main>
+</div>
 {% endblock %}
 
 {% block scripts %}
-<script nonce="{{ request.state.csp_nonce }}" src="/static/js/clients.js?v=3" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/stores/ClientListStore.js?v=1" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/ClientListComponent.js?v=1" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/ClientModalComponent.js?v=1" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/clients.js?v=4" defer></script>
 {% endblock %}

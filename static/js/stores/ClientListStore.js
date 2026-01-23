@@ -1,5 +1,7 @@
-import { ApiClient } from '../utils/api.js';
-
+/**
+ * Client List Store - Alpine.js Global Store
+ * Manages the client list state and filtering.
+ */
 document.addEventListener('alpine:init', () => {
     Alpine.store('clientList', {
         // --- State ---

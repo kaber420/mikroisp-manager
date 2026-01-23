@@ -301,6 +301,28 @@ async def delete_ap(
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@router.post("/aps/{host}/sync-names")
+async def sync_cpe_names(
+    host: str,
+    service: APService = Depends(get_ap_service),
+    current_user: User = Depends(require_technician),
+):
+    """
+    Synchronizes CPE hostnames by fetching ARP table from the AP.
+    Updates the CPE inventory database with resolved hostnames.
+    
+    This is a 'heavy' operation intended to be triggered manually via a button,
+    not during every live poll.
+    """
+    try:
+        result = await service.sync_cpe_names(host)
+        return result
+    except APNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except APUnreachableError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
 @router.get("/aps/{host}/cpes", response_model=list[CPEDetail])
 def get_cpes_for_ap(
     host: str,

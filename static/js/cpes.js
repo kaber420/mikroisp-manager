@@ -174,6 +174,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     window.editCpeIp = editCpeIp;
 
+    // --- Manual CPE Name Editing (Modal) ---
+    const editCPEModal = document.getElementById('edit-cpe-modal');
+    const editCPEForm = document.getElementById('edit-cpe-form');
+    const editCPECancelBtn = document.getElementById('edit-cpe-cancel-button');
+
+    function openEditCPEModal(mac, currentHostname) {
+        if (!editCPEModal) return;
+        document.getElementById('edit-cpe-mac').value = mac;
+        document.getElementById('edit-cpe-mac-display').value = mac;
+        document.getElementById('edit-cpe-hostname').value = currentHostname;
+        editCPEModal.classList.remove('hidden');
+        editCPEModal.classList.add('flex');
+    }
+
+    function closeEditCPEModal() {
+        if (!editCPEModal) return;
+        editCPEModal.classList.add('hidden');
+        editCPEModal.classList.remove('flex');
+        // Optional: editCPEForm.reset();
+    }
+
+    if (editCPECancelBtn) {
+        editCPECancelBtn.addEventListener('click', closeEditCPEModal);
+    }
+
+    if (editCPEModal) {
+        editCPEModal.addEventListener('click', (e) => {
+            if (e.target === editCPEModal) closeEditCPEModal();
+        });
+    }
+
+    if (editCPEForm) {
+        editCPEForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const mac = document.getElementById('edit-cpe-mac').value;
+            const hostname = document.getElementById('edit-cpe-hostname').value.trim();
+
+            const success = await updateCPE(mac, { hostname: hostname });
+            if (success) {
+                if (typeof showToast === 'function') showToast('Hostname updated', 'success');
+                closeEditCPEModal();
+            }
+        });
+    }
+
     /**
      * Devuelve la clase y el texto para un badge de estado basado en la señal.
      * @param {number|null} signal - El nivel de señal del CPE en dBm.
@@ -249,7 +294,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="text-xs font-semibold px-2 py-1 rounded-full ${status.badgeClass}">${status.text}</span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap font-semibold text-text-primary">${cpe.cpe_hostname || "Unnamed Device"}</td>
+                    <td class="px-6 py-4 whitespace-nowrap font-semibold text-text-primary">
+                        <div class="flex items-center gap-2">
+                            <span>${cpe.cpe_hostname || "Unnamed Device"}</span>
+                            <button data-action="edit-hostname" data-mac="${cpe.cpe_mac}" data-hostname="${cpe.cpe_hostname ? cpe.cpe_hostname.replace(/"/g, '&quot;') : ''}" 
+                                class="text-text-secondary hover:text-primary transition-colors opacity-50 hover:opacity-100" title="Edit Hostname">
+                                <span class="material-symbols-outlined text-sm">edit</span>
+                            </button>
+                        </div>
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap text-text-secondary">${apLink}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-text-secondary">${cpe.ssid || "N/A"}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-text-secondary">${cpe.band || "N/A"}</td>
@@ -282,6 +335,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ip = button.dataset.ip;
 
                 switch (action) {
+                    case 'edit-hostname':
+                        openEditCPEModal(mac, button.dataset.hostname);
+                        break;
                     case 'edit-ip':
                         editCpeIp(mac, ip);
                         break;

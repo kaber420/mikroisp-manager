@@ -88,7 +88,8 @@ class APService:
 
             query = """
                 SELECT 
-                    ap_host, client_count, airtime_total_usage
+                    ap_host, client_count, airtime_total_usage, frequency, chanbw,
+                    total_tx_bytes, total_rx_bytes, total_throughput_tx, total_throughput_rx
                 FROM ap_stats_history
                 WHERE (ap_host, timestamp) IN (
                     SELECT ap_host, MAX(timestamp)
@@ -198,6 +199,93 @@ class APService:
 
         await self.session.delete(ap)
         await self.session.commit()
+
+    async def sync_cpe_names(self, host: str) -> dict[str, Any]:
+        """
+        Synchronizes CPE hostnames by fetching ARP table from the AP.
+        Updates the CPE inventory database with resolved hostnames.
+        
+        This is a 'heavy' operation intended to be triggered manually via a button,
+        not during every live poll.
+        
+        Returns:
+            dict with 'synced_count' and 'clients' list.
+        """
+        from ..db.base import get_db_connection
+        
+        ap = await self.session.get(AP, host)
+        if not ap:
+            raise APNotFoundError(f"AP no encontrado: {host}")
+
+        if ap.vendor != DeviceVendor.MIKROTIK:
+            return {"synced_count": 0, "message": "Sync only available for MikroTik APs"}
+
+        password = decrypt_data(ap.password)
+        port = ap.api_port or 8729
+
+        adapter = get_device_adapter(
+            host=host,
+            username=ap.username,
+            password=password,
+            vendor=ap.vendor,
+            port=port,
+        )
+
+        try:
+            api = adapter._get_api()
+            # Fetch with ARP enabled (full sync)
+            clients_data = mikrotik_wireless.get_connected_clients(api, fetch_arp=True)
+            
+            # Log the raw data for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"[SyncNames] Found {len(clients_data)} clients for {host}")
+            for c in clients_data:
+                logger.info(f"[SyncNames] Client: MAC={c.get('mac')}, hostname={c.get('hostname')}, IP={c.get('ip_address')}")
+            
+            # Update CPE inventory in database
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            now = datetime.utcnow()
+            synced_count = 0
+            
+            for client in clients_data:
+                mac = client.get("mac")
+                hostname = client.get("hostname")
+                ip_address = client.get("ip_address")
+                
+                if mac:
+                    # Update or insert CPE - always update even without hostname
+                    # This ensures we at least capture IP and last_seen
+                    cursor.execute(
+                        """
+                        INSERT INTO cpes (mac, hostname, ip_address, last_seen, status)
+                        VALUES (?, ?, ?, ?, 'active')
+                        ON CONFLICT(mac) DO UPDATE SET
+                            hostname = COALESCE(?, hostname),
+                            ip_address = COALESCE(?, ip_address),
+                            last_seen = ?
+                        """,
+                        (mac, hostname, ip_address, now, hostname, ip_address, now)
+                    )
+                    if hostname:
+                        synced_count += 1
+            
+            conn.commit()
+            conn.close()
+            
+            return {
+                "synced_count": synced_count,
+                "total_clients": len(clients_data),
+                "clients": [
+                    {"mac": c.get("mac"), "hostname": c.get("hostname"), "ip": c.get("ip_address")}
+                    for c in clients_data
+                ]
+            }
+        except Exception as e:
+            raise APUnreachableError(f"Error syncing CPE names for {host}: {e}")
+        finally:
+            adapter.disconnect()
 
     def get_cpes_for_ap(self, host: str) -> list[dict[str, Any]]:
         """Obtiene los CPEs conectados a un AP desde el último snapshot."""
