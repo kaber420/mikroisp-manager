@@ -37,6 +37,7 @@ def _setup_inventory_db():
         ("default_monitor_interval", "300"),
         ("dashboard_refresh_interval", "5"),
         ("suspension_run_hour", "02:00"),
+        ("db_backup_run_hour", "04:00"),
         ("cpe_stale_cycles", "3"),  # Number of cycles to wait before marking CPE offline
     ]
     cursor.executemany(

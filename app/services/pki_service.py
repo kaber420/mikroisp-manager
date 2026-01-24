@@ -11,12 +11,20 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+import os
 
 logger = logging.getLogger("PKIService")
 
+import sys
+
 # Paths
 MKCERT_CA_ROOT = Path.home() / ".local" / "share" / "mkcert"
-SYSTEM_CA_PATH = Path("/etc/ssl/umonitor")
+if sys.platform == "win32":
+    MKCERT_CA_ROOT = Path(os.environ["LOCALAPPDATA"]) / "mkcert"
+    SYSTEM_CA_PATH = Path(os.environ.get("PROGRAMDATA", "C:\\ProgramData")) / "umonitor"
+else:
+    SYSTEM_CA_PATH = Path("/etc/ssl/umonitor")
+
 PUBLIC_CA_FILE = SYSTEM_CA_PATH / "rootCA.pem"
 
 

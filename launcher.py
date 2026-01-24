@@ -57,7 +57,7 @@ def get_lan_ip():
 def is_caddy_running():
     """Checks if Caddy service is active or process is running."""
     # Method 1: Check systemd service (Linux only)
-    if shutil.which("systemctl"):
+    if sys.platform.startswith("linux") and shutil.which("systemctl"):
         try:
             res = subprocess.run(
                 ["systemctl", "is-active", "--quiet", "caddy"], capture_output=True
@@ -67,16 +67,19 @@ def is_caddy_running():
         except Exception:
             pass
 
-    # Method 2: Check process list (Cross-platform fallback)
-    # Simple check if "caddy" is in process list
+    # Method 2: Process list (Cross-platform)
     try:
-        # This is a rough check. For nicer matching import psutil if available,
-        # but standard lib approach:
-        # pgrep is distinct to linux/unix
-        if shutil.which("pgrep"):
-            res = subprocess.run(["pgrep", "-x", "caddy"], capture_output=True)
-            if res.returncode == 0:
+        if sys.platform == "win32":
+            # Windows: use tasklist
+            res = subprocess.run(["tasklist", "/FI", "IMAGENAME eq caddy.exe"], capture_output=True, text=True)
+            if "caddy.exe" in res.stdout:
                 return True
+        else:
+            # POSIX: use pgrep
+            if shutil.which("pgrep"):
+                res = subprocess.run(["pgrep", "-x", "caddy"], capture_output=True)
+                if res.returncode == 0:
+                    return True
     except Exception:
         pass
 
@@ -85,27 +88,53 @@ def is_caddy_running():
 
 def apply_caddy_config(silent: bool = False) -> bool:
     """
-    Applies the Caddy configuration by running the apply_caddy_config.sh script.
-    Uses ACLs to grant Caddy read access to certificates in the project directory.
-
-    This only needs to run once after generating certificates - ACLs persist.
-
-    Args:
-        silent: If True, suppresses some output messages
-
-    Returns:
-        True if configuration was applied successfully, False otherwise
+    Applies the Caddy configuration.
+    
+    Linux: Runs the apply_caddy_config.sh script (requires sudo).
+    Windows: Validates the Caddyfile and instructs user (or reloads if running).
     """
+    caddyfile_path = os.path.join(os.path.dirname(__file__), "Caddyfile")
+    
+    # --- Windows Implementation ---
+    if sys.platform == "win32":
+        if not shutil.which("caddy"):
+            if not silent:
+                logging.warning("Caddy executable not found in PATH.")
+            return False
+
+        # Validate
+        try:
+            val_res = subprocess.run(["caddy", "validate", "--config", caddyfile_path], capture_output=True, text=True)
+            if val_res.returncode != 0:
+                if not silent:
+                    logging.error(f"Caddyfile validation failed: {val_res.stderr}")
+                return False
+        except Exception as e:
+            if not silent:
+                logging.error(f"Could not validate Caddyfile: {e}")
+            return False
+
+        if not silent:
+            logging.info("Caddyfile validated successfully.")
+            
+        # If running, try to reload
+        if is_caddy_running():
+            try:
+                subprocess.run(["caddy", "reload", "--config", caddyfile_path], capture_output=True)
+                if not silent:
+                    logging.info("Caddy configuration reloaded.")
+                return True
+            except Exception:
+                pass
+        
+        return True
+
+    # --- Linux Implementation ---
     script_path = os.path.join(os.path.dirname(__file__), "scripts", "apply_caddy_config.sh")
 
     if not os.path.exists(script_path):
         if not silent:
             logging.warning(f"Caddy config script not found: {script_path}")
-        return False
-
-    if not sys.platform.startswith("linux"):
-        if not silent:
-            logging.info("Caddy auto-config only available on Linux")
         return False
 
     if not silent:
@@ -304,7 +333,6 @@ def run_setup_wizard():
         try:
             from app.services.pki_service import PKIService
 
-            # Verificar que mkcert esté disponible
             if PKIService.verify_mkcert_available():
                 print("⚙️  Configurando PKI...")
 
@@ -344,8 +372,12 @@ def run_setup_wizard():
                     print(f"⚠️  Error generando certificados: {cert_pem}")
                     print("   Continuando sin HTTPS...")
             else:
-                print("⚠️  mkcert no está instalado. Ejecuta primero:")
-                print("   sudo bash scripts/install_proxy.sh")
+                print("⚠️  mkcert no está instalado o no se encuentra en el PATH.")
+                if sys.platform == "win32":
+                    print("   En Windows, instálalo con: choco install mkcert")
+                    print("   O descárgalo desde: https://github.com/FiloSottile/mkcert/releases")
+                else:
+                    print("   Asegúrate de tener 'mkcert' instalado.")
                 print("   Continuando sin HTTPS...")
         except ImportError:
             print("⚠️  PKIService no disponible. Continuando sin HTTPS...")
@@ -366,12 +398,16 @@ def run_setup_wizard():
                     print("✅ Caddy configurado correctamente.")
                 else:
                     print("⚠️  No se pudo configurar Caddy automáticamente.")
+                if sys.platform == "win32":
+                    print("   En Windows, ejecuta manualmente: caddy run (o caddy reload)")
+                else:
                     print("   Puedes hacerlo manualmente con: sudo ./scripts/apply_caddy_config.sh")
             except KeyboardInterrupt:
                 print("\n⚠️  Configuración de Caddy cancelada.")
-                print(
-                    "   Puedes hacerlo manualmente después con: sudo ./scripts/apply_caddy_config.sh"
-                )
+                if sys.platform == "win32":
+                    print("   Recuerda ejecutar Caddy manualmente.")
+                else:
+                    print("   Puedes hacerlo manualmente después con: sudo ./scripts/apply_caddy_config.sh")
         else:
             print("⚠️  No se pudo generar el Caddyfile.")
 
@@ -526,12 +562,55 @@ if __name__ == "__main__":
     # Si SSL está habilitado pero Caddy no está corriendo, mostrar advertencia
     if is_production and not caddy_active:
         print("\n⚠️  HTTPS configurado pero Caddy no está activo.")
-        print("   Ejecuta: sudo systemctl start caddy")
+        if sys.platform == "win32":
+            print("   Abre una terminal como Administrador y ejecuta: caddy run")
+        else:
+            print("   Ejecuta: sudo systemctl start caddy")
 
-    # D. Arrancar
+    # D. Arrancar logic
     port = os.getenv("UVICORN_PORT", "7777")
     lan_ip = get_lan_ip()
     hostname = socket.gethostname()
+    
+    # Process management
+    caddy_process = None
+
+    def cleanup():
+        print("\n🛑 Apagando...")
+        if caddy_process:
+            print("   Terminando Caddy...")
+            caddy_process.terminate()
+        for p in [p_api, p_scheduler]:
+            if p.is_alive():
+                p.terminate()
+
+    # Auto-start Caddy if needed and possible
+    if is_production and not caddy_active:
+        import ctypes
+        is_admin = False
+        try:
+            is_admin = os.getuid() == 0 if sys.platform != "win32" else ctypes.windll.shell32.IsUserAnAdmin() != 0
+        except AttributeError:
+            is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0 if sys.platform == "win32" else False
+
+        if is_admin:
+            print("🚀 Iniciando Caddy (Administrator)...")
+            try:
+                # Assuming Caddyfile is in the same dir
+                caddy_cmd = ["caddy", "run", "--config", "Caddyfile"]
+                # Use subprocess.Popen to run in background
+                caddy_process = subprocess.Popen(caddy_cmd)
+                caddy_active = True
+                print("✅ Caddy iniciado correctamente.")
+            except FileNotFoundError:
+                print("❌ No se encontró el ejecutable 'caddy' en el PATH.")
+            except Exception as e:
+                print(f"❌ Error al iniciar Caddy: {e}")
+        else:
+            print("\n⚠️  ADVERTENCIA: Caddy no está corriendo y no tienes permisos de Administrador.")
+            print("   Para que el launcher inicie Caddy automáticamente (puertos 80/443),")
+            print("   debes ejecutar este script como Administrador/Root.")
+            print("   O ejecuta 'caddy run' manualmente en otra terminal con permisos.")
 
     print("-" * 60)
     if is_production and caddy_active:
@@ -543,7 +622,10 @@ if __name__ == "__main__":
         print("🚀 µMonitor Pro (Modo Desarrollo/Local)")
         print(f"   🔌 Local:     http://localhost:{port}")
         print(f"   📡 Network:   http://{lan_ip}:{port}")
-        print("   ⚠️  HTTPS no activo. Algunas funciones pueden limitarse.")
+        if is_production:
+             print("   ⚠️  HTTPS habilitado pero Caddy no responde. La web no cargará segura.")
+        else:
+             print("   ⚠️  HTTPS no activo. Algunas funciones pueden limitarse.")
 
     print("-" * 60)
     print("ℹ️  Para reconfigurar puerto base: python launcher.py --config")
@@ -559,11 +641,19 @@ if __name__ == "__main__":
         time.sleep(2)
         p_scheduler.start()
 
-        p_api.join()
-        p_scheduler.join()
+        # Monitor Caddy if we started it
+        while True:
+            if not p_api.is_alive() or not p_scheduler.is_alive():
+                break
+            if caddy_process and caddy_process.poll() is not None:
+                print("⚠️  Caddy se detuvo inesperadamente.")
+                # Optional: break or restart? For now just warn.
+                caddy_process = None
+            time.sleep(1)
+
     except KeyboardInterrupt:
-        print("\n🛑 Apagando...")
-        for p in [p_api, p_scheduler]:
-            if p.is_alive():
-                p.terminate()
+        cleanup()
+        sys.exit(0)
+    finally:
+        cleanup()
         sys.exit(0)

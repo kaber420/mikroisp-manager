@@ -126,6 +126,26 @@ def run_scheduler():
         replace_existing=True,
     )
 
+    # --- Job 4: Respaldo de Base de Datos (Diario) ---
+    from .services.db_backup_service import run_db_backup
+    
+    db_backup_hour = get_setting("db_backup_run_hour") or "04:00"
+    try:
+        db_h, db_m = db_backup_hour.split(":")
+        db_h = int(db_h)
+        db_m = int(db_m)
+    except Exception:
+        db_h, db_m = 4, 0
+        
+    logger.info(f"Programando Respaldo de BD Diario a las {db_h:02d}:{db_m:02d}")
+    scheduler.add_job(
+        run_db_backup,
+        trigger=CronTrigger(hour=db_h, minute=db_m),
+        id="db_backup_job",
+        name="Database Backup",
+        replace_existing=True,
+    )
+
     # Iniciar el scheduler
     scheduler.start()
     logger.info("✅ Scheduler iniciado exitosamente")

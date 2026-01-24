@@ -1,36 +1,100 @@
-// static/js/switch_details.js
-// JavaScript logic for the Switch Details page
-
-function switchDetails(host) {
-    return {
-        // State
-        host: host,
+document.addEventListener('alpine:init', () => {
+    Alpine.store('switchDetails', {
+        // --- State ---
+        host: null,
         switchData: {},
-        liveData: {},
         interfaces: [],
         vlans: [],
-        bridges: [],
+        liveData: {},
         activeTab: 'overview',
         isOnline: false,
+        isLoading: true,
+        error: '',
+
+        // WebSocket
+        ws: null,
+
+        // Edit Modal
         isEditModalOpen: false,
         editForm: {},
         editError: '',
-        ws: null,
 
-        // Initialize
-        async init() {
-            await this.loadSwitchData();
-            await this.loadInterfaces();
-            await this.loadVlans();
-            this.connectWebSocket();
-            this.initSslBadge();
+        // --- API Base URL ---
+        get apiBaseUrl() {
+            return window.location.origin;
         },
 
-        // Initialize SSL Badge
+        get currentHost() {
+            // Assuming URL is like /switches/<host>
+            return window.location.pathname.split('/').pop();
+        },
+
+
+        // --- Actions ---
+
+        async init() {
+            this.host = this.currentHost;
+            await this.loadData();
+            this.connectWebSocket();
+        },
+
+        async loadData() {
+            this.isLoading = true;
+            try {
+                await Promise.all([
+                    this.loadSwitchData(),
+                    this.loadInterfaces(),
+                    this.loadVlans()
+                ]);
+            } catch (error) {
+                console.error('Error loading switch data:', error);
+                this.error = error.message;
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        async loadSwitchData() {
+            try {
+                const response = await fetch(`/api/switches/${encodeURIComponent(this.host)}`);
+                if (!response.ok) throw new Error('Failed to load switch data');
+                this.switchData = await response.json();
+                this.isOnline = this.switchData.last_status === 'online';
+                // Trigger SslBadge if needed, though typically components handle their own init
+                this.initSslBadge();
+            } catch (error) {
+                console.error('Error loading switch details:', error);
+                throw error;
+            }
+        },
+
+        async loadInterfaces() {
+            try {
+                const response = await fetch(`/api/switches/${encodeURIComponent(this.host)}/interfaces`);
+                if (!response.ok) throw new Error('Failed to load interfaces');
+                this.interfaces = await response.json();
+            } catch (error) {
+                console.warn('Error loading interfaces:', error);
+            }
+        },
+
+        async loadVlans() {
+            try {
+                const response = await fetch(`/api/switches/${encodeURIComponent(this.host)}/vlans`);
+                if (!response.ok) throw new Error('Failed to load VLANs');
+                this.vlans = await response.json();
+            } catch (error) {
+                console.warn('Error loading VLANs:', error);
+            }
+        },
+
         initSslBadge() {
+            // Check if SslBadge component is loaded and initialize it
+            // This logic was in the original file, adapting it here.
+            // Ideally SslBadge should be an Alpine component itself or initialized in the HTML
+            // For now, we mimic the original imperative call if it exists globally or dispatch an event
             const sslBadgeElement = document.getElementById('ssl-security-badge');
             if (sslBadgeElement) {
-                // Load SSL Badge component dynamically
                 import('/static/js/components/ssl_badge.js').then(({ SslBadge }) => {
                     const sslBadge = new SslBadge({
                         deviceType: 'switches',
@@ -43,44 +107,7 @@ function switchDetails(host) {
             }
         },
 
-        // Load switch data from API
-        async loadSwitchData() {
-            try {
-                const response = await fetch(`/api/switches/${encodeURIComponent(this.host)}`);
-                if (!response.ok) throw new Error('Failed to load switch data');
-                this.switchData = await response.json();
-                this.isOnline = this.switchData.last_status === 'online';
-            } catch (error) {
-                console.error('Error loading switch data:', error);
-                if (typeof showToast === 'function') {
-                    showToast(`Error: ${error.message}`, 'danger');
-                }
-            }
-        },
-
-        // Load interfaces from API
-        async loadInterfaces() {
-            try {
-                const response = await fetch(`/api/switches/${encodeURIComponent(this.host)}/interfaces`);
-                if (!response.ok) throw new Error('Failed to load interfaces');
-                this.interfaces = await response.json();
-            } catch (error) {
-                console.error('Error loading interfaces:', error);
-            }
-        },
-
-        // Load VLANs from API
-        async loadVlans() {
-            try {
-                const response = await fetch(`/api/switches/${encodeURIComponent(this.host)}/vlans`);
-                if (!response.ok) throw new Error('Failed to load VLANs');
-                this.vlans = await response.json();
-            } catch (error) {
-                console.error('Error loading VLANs:', error);
-            }
-        },
-
-        // Connect to WebSocket for live data
+        // --- WebSocket ---
         connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${window.location.host}/api/ws/switch/${encodeURIComponent(this.host)}`;
@@ -111,7 +138,7 @@ function switchDetails(host) {
                 this.ws.onclose = () => {
                     console.log('❌ Switch WebSocket disconnected');
                     this.isOnline = false;
-                    // Reconnect after 5 seconds
+                    // Reconnect logic usually handled by simple retry
                     setTimeout(() => this.connectWebSocket(), 5000);
                 };
 
@@ -124,7 +151,8 @@ function switchDetails(host) {
             }
         },
 
-        // Format bytes to human readable
+
+        // --- Helpers ---
         formatBytes(bytes) {
             if (!bytes || bytes === 0) return '0 B';
             const k = 1024;
@@ -133,7 +161,7 @@ function switchDetails(host) {
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         },
 
-        // Open edit modal
+        // --- Edit Modal ---
         openEditModal() {
             this.editForm = {
                 host: this.switchData.host,
@@ -146,13 +174,11 @@ function switchDetails(host) {
             this.isEditModalOpen = true;
         },
 
-        // Close edit modal
         closeEditModal() {
             this.isEditModalOpen = false;
             this.editForm = {};
         },
 
-        // Save switch changes
         async saveSwitch() {
             this.editError = '';
 
@@ -182,18 +208,16 @@ function switchDetails(host) {
                     showToast('Switch updated successfully!', 'success');
                 }
 
-                await this.loadSwitchData();
+                await this.loadSwitchData(); // Reload details
                 this.closeEditModal();
             } catch (error) {
                 this.editError = error.message;
             }
         },
 
-        // Cleanup on destroy
         destroy() {
-            if (this.ws) {
-                this.ws.close();
-            }
+            if (this.ws) this.ws.close();
         }
-    };
-}
+
+    });
+});

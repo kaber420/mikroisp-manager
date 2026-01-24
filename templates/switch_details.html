@@ -8,7 +8,7 @@
 {% endblock %}
 
 {% block content %}
-<main class="flex-1 p-6 lg:p-8" x-data="switchDetails('{{ host }}')">
+<main class="flex-1 p-6 lg:p-8" x-data x-init="$store.switchDetails.init()">
     <div class="max-w-7xl mx-auto">
 
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -21,23 +21,24 @@
                 </a>
                 <div>
                     <h1 id="main-hostname" class="text-2xl font-bold flex items-center gap-3"
-                        x-text="switchData.hostname || 'Loading...'">
+                        x-text="$store.switchDetails.switchData.hostname || 'Loading...'">
                         Loading...
                     </h1>
                     <div class="flex items-center mt-2 text-sm text-text-secondary">
                         <span id="res-status-indicator" class="status-indicator"
-                            :class="isOnline ? 'status-online' : 'status-offline'"></span>
-                        <span x-text="isOnline ? 'Online' : 'Offline'">Offline</span>
+                            :class="$store.switchDetails.isOnline ? 'status-online' : 'status-offline'"></span>
+                        <span x-text="$store.switchDetails.isOnline ? 'Online' : 'Offline'">Offline</span>
                         <span class="mx-3">•</span>
-                        <span x-text="switchData.host || '...'">...</span>
+                        <span x-text="$store.switchDetails.switchData.host || '...'">...</span>
                         <span class="mx-3">•</span>
-                        <span x-text="'RouterOS ' + (liveData.version || switchData.firmware || '...')">RouterOS
+                        <span
+                            x-text="'RouterOS ' + ($store.switchDetails.liveData.version || $store.switchDetails.switchData.firmware || '...')">RouterOS
                             ...</span>
                     </div>
                 </div>
             </div>
             <div class="flex items-center gap-2">
-                <button @click="openEditModal()"
+                <button @click="$store.switchDetails.openEditModal()"
                     class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover">
                     <span class="material-symbols-outlined mr-2">edit</span>
                     <span>Edit</span>
@@ -48,25 +49,27 @@
         <div class="mb-6">
             <div class="flex flex-wrap gap-4">
                 <div class="stat-card flex-1 min-w-[140px]">
-                    <div id="res-uptime" class="stat-value text-base" x-text="liveData.uptime || '--'">--</div>
+                    <div id="res-uptime" class="stat-value text-base"
+                        x-text="$store.switchDetails.liveData.uptime || '--'">--</div>
                     <div class="stat-label">Uptime</div>
                 </div>
                 <div class="stat-card flex-1 min-w-[140px]">
-                    <div id="res-cpu-load" class="stat-value stat-value-live" x-text="(liveData.cpu_load || 0) + '%'">0%
+                    <div id="res-cpu-load" class="stat-value stat-value-live"
+                        x-text="($store.switchDetails.liveData.cpu_load || 0) + '%'">0%
                     </div>
                     <div class="stat-label">CPU Load</div>
                 </div>
                 <div class="stat-card flex-1 min-w-[140px]">
                     <div id="res-memory-perc" class="stat-value stat-value-live"
-                        x-text="(liveData.memory_percent || 0) + '%'">0%</div>
+                        x-text="($store.switchDetails.liveData.memory_percent || 0) + '%'">0%</div>
                     <div class="stat-label">Memory</div>
                 </div>
                 <div class="stat-card flex-1 min-w-[140px]">
-                    <div class="stat-value" x-text="interfaces.length">0</div>
+                    <div class="stat-value" x-text="$store.switchDetails.interfaces.length">0</div>
                     <div class="stat-label">Interfaces</div>
                 </div>
                 <div class="stat-card flex-1 min-w-[140px]">
-                    <div class="stat-value" x-text="vlans.length">0</div>
+                    <div class="stat-value" x-text="$store.switchDetails.vlans.length">0</div>
                     <div class="stat-label">VLANs</div>
                 </div>
             </div>
@@ -74,17 +77,20 @@
 
         <div class="border-b border-border-color mb-6">
             <div class="flex overflow-x-auto">
-                <button @click="activeTab = 'overview'" :class="activeTab === 'overview' ? 'active' : ''"
+                <button @click="$store.switchDetails.activeTab = 'overview'"
+                    :class="$store.switchDetails.activeTab === 'overview' ? 'active' : ''"
                     class="tab-button">Overview</button>
-                <button @click="activeTab = 'interfaces'" :class="activeTab === 'interfaces' ? 'active' : ''"
+                <button @click="$store.switchDetails.activeTab = 'interfaces'"
+                    :class="$store.switchDetails.activeTab === 'interfaces' ? 'active' : ''"
                     class="tab-button">Interfaces</button>
-                <button @click="activeTab = 'vlans'" :class="activeTab === 'vlans' ? 'active' : ''"
+                <button @click="$store.switchDetails.activeTab = 'vlans'"
+                    :class="$store.switchDetails.activeTab === 'vlans' ? 'active' : ''"
                     class="tab-button">VLANs</button>
             </div>
         </div>
 
         <!-- Overview Tab -->
-        <div x-show="activeTab === 'overview'" class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div x-show="$store.switchDetails.activeTab === 'overview'" class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             <div class="lg:col-span-2">
                 <div class="card !mb-0">
                     <h2 class="text-lg font-semibold mb-4">Switch Information</h2>
@@ -92,32 +98,40 @@
                         <div class="space-y-3">
                             <div>
                                 <h3 class="text-sm font-medium text-text-secondary">Model</h3>
-                                <p class="text-text-primary" x-text="liveData.board_name || switchData.model || '--'">--
+                                <p class="text-text-primary"
+                                    x-text="$store.switchDetails.liveData.board_name || $store.switchDetails.switchData.model || '--'">
+                                    --
                                 </p>
                             </div>
                             <div>
                                 <h3 class="text-sm font-medium text-text-secondary">Firmware</h3>
-                                <p class="text-text-primary" x-text="liveData.version || switchData.firmware || '--'">--
+                                <p class="text-text-primary"
+                                    x-text="$store.switchDetails.liveData.version || $store.switchDetails.switchData.firmware || '--'">
+                                    --
                                 </p>
                             </div>
                             <div>
                                 <h3 class="text-sm font-medium text-text-secondary">Location</h3>
-                                <p class="text-text-primary" x-text="switchData.location || '--'">--</p>
+                                <p class="text-text-primary" x-text="$store.switchDetails.switchData.location || '--'">
+                                    --</p>
                             </div>
                         </div>
                         <div class="space-y-3">
                             <div>
                                 <h3 class="text-sm font-medium text-text-secondary">Identity</h3>
-                                <p class="text-text-primary" x-text="liveData.identity || switchData.hostname || '--'">
+                                <p class="text-text-primary"
+                                    x-text="$store.switchDetails.liveData.identity || $store.switchDetails.switchData.hostname || '--'">
                                     --</p>
                             </div>
                             <div>
                                 <h3 class="text-sm font-medium text-text-secondary">MAC Address</h3>
-                                <p class="text-text-primary font-mono" x-text="switchData.mac_address || '--'">--</p>
+                                <p class="text-text-primary font-mono"
+                                    x-text="$store.switchDetails.switchData.mac_address || '--'">--</p>
                             </div>
                             <div>
                                 <h3 class="text-sm font-medium text-text-secondary">Notes</h3>
-                                <p class="text-text-primary" x-text="switchData.notes || '--'">--</p>
+                                <p class="text-text-primary" x-text="$store.switchDetails.switchData.notes || '--'">--
+                                </p>
                             </div>
                             <div>
                                 <h3 class="text-sm font-medium text-text-secondary">Seguridad SSL</h3>
@@ -136,21 +150,24 @@
                         <div>
                             <div class="flex justify-between mb-1">
                                 <span class="text-sm font-medium">CPU</span>
-                                <span class="text-sm" x-text="(liveData.cpu_load || 0) + '%'">0%</span>
+                                <span class="text-sm"
+                                    x-text="($store.switchDetails.liveData.cpu_load || 0) + '%'">0%</span>
                             </div>
                             <div class="progress-bar">
-                                <div class="progress-value" :style="'width: ' + (liveData.cpu_load || 0) + '%'"></div>
+                                <div class="progress-value"
+                                    :style="'width: ' + ($store.switchDetails.liveData.cpu_load || 0) + '%'"></div>
                             </div>
                         </div>
                         <div>
                             <div class="flex justify-between mb-1">
                                 <span class="text-sm font-medium">Memory Usage</span>
                                 <span class="text-sm"
-                                    x-text="formatBytes(liveData.memory_used || 0) + ' / ' + formatBytes(liveData.memory_total || 0)">--
+                                    x-text="$store.switchDetails.formatBytes($store.switchDetails.liveData.memory_used || 0) + ' / ' + $store.switchDetails.formatBytes($store.switchDetails.liveData.memory_total || 0)">--
                                     / --</span>
                             </div>
                             <div class="progress-bar">
-                                <div class="progress-value" :style="'width: ' + (liveData.memory_percent || 0) + '%'">
+                                <div class="progress-value"
+                                    :style="'width: ' + ($store.switchDetails.liveData.memory_percent || 0) + '%'">
                                 </div>
                             </div>
                         </div>
@@ -160,7 +177,7 @@
         </div>
 
         <!-- Interfaces Tab -->
-        <div x-show="activeTab === 'interfaces'" class="space-y-6">
+        <div x-show="$store.switchDetails.activeTab === 'interfaces'" class="space-y-6" x-data="switchInterfaceList()">
             <div class="card">
                 <h2 class="text-lg font-semibold mb-4">Network Interfaces</h2>
                 <div class="overflow-x-auto">
@@ -178,7 +195,9 @@
                         <tbody>
                             <template x-if="interfaces.length === 0">
                                 <tr>
-                                    <td colspan="6" class="text-center text-text-secondary py-4">Loading interfaces...
+                                    <td colspan="6" class="text-center text-text-secondary py-4">
+                                        <span x-show="isLoading">Loading interfaces...</span>
+                                        <span x-show="!isLoading">No interfaces found.</span>
                                     </td>
                                 </tr>
                             </template>
@@ -203,7 +222,7 @@
         </div>
 
         <!-- VLANs Tab -->
-        <div x-show="activeTab === 'vlans'" class="space-y-6">
+        <div x-show="$store.switchDetails.activeTab === 'vlans'" class="space-y-6" x-data="switchVlanList()">
             <div class="card">
                 <h2 class="text-lg font-semibold mb-4">VLAN Configuration</h2>
                 <div class="overflow-x-auto">
@@ -219,7 +238,9 @@
                         <tbody>
                             <template x-if="vlans.length === 0">
                                 <tr>
-                                    <td colspan="4" class="text-center text-text-secondary py-4">No VLANs configured
+                                    <td colspan="4" class="text-center text-text-secondary py-4">
+                                        <span x-show="isLoading">Loading VLANs...</span>
+                                        <span x-show="!isLoading">No VLANs configured.</span>
                                     </td>
                                 </tr>
                             </template>
@@ -239,14 +260,14 @@
     </div>
 
     <!-- Edit Modal -->
-    <div x-show="isEditModalOpen" x-cloak
+    <div x-show="$store.switchDetails.isEditModalOpen" x-cloak
         class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 overflow-y-auto z-50">
-        <div @click.away="closeEditModal()"
+        <div @click.away="$store.switchDetails.closeEditModal()"
             class="bg-surface-1 rounded-lg shadow-xl w-full max-w-2xl border border-border-color my-auto">
-            <form @submit.prevent="saveSwitch()">
+            <form @submit.prevent="$store.switchDetails.saveSwitch()">
                 <div class="p-6 border-b border-border-color flex justify-between items-center">
                     <h3 class="text-2xl font-bold">Edit Switch</h3>
-                    <button type="button" @click="closeEditModal()"
+                    <button type="button" @click="$store.switchDetails.closeEditModal()"
                         class="text-text-secondary hover:text-text-primary text-3xl font-bold">&times;</button>
                 </div>
 
@@ -254,37 +275,39 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label class="block text-sm font-medium mb-1">Host (IP Address)</label>
-                            <input type="text" x-model="editForm.host" disabled
+                            <input type="text" x-model="$store.switchDetails.editForm.host" disabled
                                 class="w-full bg-surface-2 border border-border-color rounded-md p-2 cursor-not-allowed">
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1">Location</label>
-                            <input type="text" x-model="editForm.location"
+                            <input type="text" x-model="$store.switchDetails.editForm.location"
                                 class="w-full bg-background border border-border-color rounded-md p-2">
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label class="block text-sm font-medium mb-1">Username</label>
-                            <input type="text" x-model="editForm.username" required
+                            <input type="text" x-model="$store.switchDetails.editForm.username" required
                                 class="w-full bg-background border border-border-color rounded-md p-2">
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1">Password</label>
-                            <input type="password" x-model="editForm.password" placeholder="Leave blank to keep current"
+                            <input type="password" x-model="$store.switchDetails.editForm.password"
+                                placeholder="Leave blank to keep current"
                                 class="w-full bg-background border border-border-color rounded-md p-2">
                         </div>
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Notes</label>
-                        <textarea x-model="editForm.notes" rows="2"
+                        <textarea x-model="$store.switchDetails.editForm.notes" rows="2"
                             class="w-full bg-background border border-border-color rounded-md p-2"></textarea>
                     </div>
-                    <div x-show="editError" x-text="editError" class="text-danger text-sm"></div>
+                    <div x-show="$store.switchDetails.editError" x-text="$store.switchDetails.editError"
+                        class="text-danger text-sm"></div>
                 </div>
 
                 <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end gap-4">
-                    <button type="button" @click="closeEditModal()"
+                    <button type="button" @click="$store.switchDetails.closeEditModal()"
                         class="px-4 py-2 rounded-md text-sm font-semibold hover:bg-surface-1">Cancel</button>
                     <button type="submit"
                         class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">Save
@@ -297,5 +320,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script nonce="{{ request.state.csp_nonce }}" src="/static/js/switch_details.js" defer></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/stores/SwitchDetailsStore.js"></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/switches/SwitchInterfaceList.js"></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/switches/SwitchVlanList.js"></script>
 {% endblock %}

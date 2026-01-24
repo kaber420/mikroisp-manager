@@ -5,10 +5,10 @@ from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 
-from .monitor_service import MonitorService
+from app.db.engine_sync import get_sync_session
+from app.services.settings_service import SettingsService
 
-# Configuración
-MAX_WORKERS = 10
+from .monitor_service import MonitorService
 
 # Configuración del logging
 logger = logging.getLogger("MonitorJob")
@@ -36,7 +36,25 @@ def run_monitor_cycle():
     Esta función es llamada periódicamente por APScheduler.
     """
     monitor_service = MonitorService()
-    logger.info("--- Iniciando ciclo de escaneo ---")
+    
+    # Obtener número de workers desde configuración usando SettingsService
+    session = next(get_sync_session())
+    try:
+        settings_service = SettingsService(session)
+        all_settings = settings_service.get_all_settings()
+        max_workers_str = all_settings.get("monitor_max_workers")
+        
+        try:
+            max_workers = int(max_workers_str) if max_workers_str else 10
+        except (ValueError, TypeError):
+            max_workers = 10
+            logger.warning(
+                f"Valor inválido para monitor_max_workers: {max_workers_str}. Usando default: 10"
+            )
+    finally:
+        session.close()
+    
+    logger.info(f"--- Iniciando ciclo de escaneo (workers: {max_workers}) ---")
 
     try:
         devices = monitor_service.get_active_devices()
@@ -54,7 +72,7 @@ def run_monitor_cycle():
             logger.info("No hay dispositivos para monitorear.")
         else:
             # 1. Procesar dispositivos en paralelo (Bloqueante hasta que terminen)
-            with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 if aps:
                     executor.map(monitor_service.check_ap, aps)
                 if routers:

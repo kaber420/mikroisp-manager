@@ -116,7 +116,7 @@
                     <div class="pt-6 border-t border-white/10">
                         <h3 class="text-lg font-semibold text-white">Monitoring & Backups</h3>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-white/10 pt-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/10 pt-6">
                         <div>
                             <label for="default_monitor_interval"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Monitor Interval
@@ -132,37 +132,70 @@
                                 name="dashboard_refresh_interval"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
                         </div>
-                        <div>
-                            <label for="backup_frequency"
-                                class="block text-sm font-medium mb-2 text-text-secondary">Frecuencia de
-                                Respaldo</label>
-                            <select id="backup_frequency" x-model="backup_frequency" name="backup_frequency"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white cursor-pointer">
-                                <option value="daily">Diario</option>
-                                <option value="weekly">Semanal</option>
-                            </select>
+                    </div>
+
+                    <!-- Router Backups Section -->
+                    <div class="pt-4 mt-2">
+                        <h4 class="text-md font-bold text-white mb-3 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary text-sm">router</span>
+                            Respaldo de Routers (MikroTik)
+                        </h4>
+                        <div
+                            class="grid grid-cols-1 md:grid-cols-3 gap-6 bg-surface-1/30 p-4 rounded-lg border border-white/5">
+                            <div>
+                                <label for="backup_frequency"
+                                    class="block text-sm font-medium mb-2 text-text-secondary">Frecuencia</label>
+                                <select id="backup_frequency" x-model="backup_frequency" name="backup_frequency"
+                                    class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white cursor-pointer">
+                                    <option value="daily">Diario</option>
+                                    <option value="weekly">Semanal</option>
+                                </select>
+                            </div>
+                            <div x-show="showBackupDay" x-cloak>
+                                <label for="backup_day_of_week"
+                                    class="block text-sm font-medium mb-2 text-text-secondary">Día de la Semana</label>
+                                <select id="backup_day_of_week" x-model="backup_day_of_week" name="backup_day_of_week"
+                                    class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white cursor-pointer">
+                                    <option value="mon">Lunes</option>
+                                    <option value="tue">Martes</option>
+                                    <option value="wed">Miércoles</option>
+                                    <option value="thu">Jueves</option>
+                                    <option value="fri">Viernes</option>
+                                    <option value="sat">Sábado</option>
+                                    <option value="sun">Domingo</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="backup_run_hour"
+                                    class="block text-sm font-medium mb-2 text-text-secondary">Hora
+                                    de Ejecución</label>
+                                <input type="time" id="backup_run_hour" x-model="backup_run_hour" name="backup_run_hour"
+                                    class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                            </div>
                         </div>
-                        <div x-show="showBackupDay" x-cloak>
-                            <label for="backup_day_of_week"
-                                class="block text-sm font-medium mb-2 text-text-secondary">Día de la Semana</label>
-                            <select id="backup_day_of_week" x-model="backup_day_of_week" name="backup_day_of_week"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white cursor-pointer">
-                                <option value="mon">Lunes</option>
-                                <option value="tue">Martes</option>
-                                <option value="wed">Miércoles</option>
-                                <option value="thu">Jueves</option>
-                                <option value="fri">Viernes</option>
-                                <option value="sat">Sábado</option>
-                                <option value="sun">Domingo</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="backup_run_hour" class="block text-sm font-medium mb-2 text-text-secondary">Hora
-                                de Respaldo</label>
-                            <input type="time" id="backup_run_hour" x-model="backup_run_hour" name="backup_run_hour"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
-                            <p class="text-xs text-text-secondary mt-1">Hora a la que se respaldarán los routers
-                                automáticamente.</p>
+                    </div>
+
+                    <!-- Database Backups Section -->
+                    <div class="pt-2">
+                        <h4 class="text-md font-bold text-white mb-3 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary text-sm">database</span>
+                            Respaldo de Base de Datos
+                        </h4>
+                        <div
+                            class="grid grid-cols-1 md:grid-cols-3 gap-6 bg-surface-1/30 p-4 rounded-lg border border-white/5">
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-text-secondary">Frecuencia</label>
+                                <input type="text" value="Diario (Automático)" readonly
+                                    class="w-full bg-surface-1/20 border border-white/5 rounded-lg p-2 text-text-secondary cursor-not-allowed">
+                            </div>
+                            <div>
+                                <label for="db_backup_run_hour"
+                                    class="block text-sm font-medium mb-2 text-text-secondary">Hora
+                                    de Ejecución</label>
+                                <input type="time" id="db_backup_run_hour" x-model="db_backup_run_hour"
+                                    name="db_backup_run_hour"
+                                    class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                            </div>
                         </div>
                     </div>
 
