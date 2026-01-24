@@ -256,263 +256,11 @@ class MikrotikProvisioningService:
             logger.info(f"[SSH Provisioning] Usuario '{new_user}' verificado correctamente.")
 
             # 3. Setup SSL certificates via PKI Service
-            pki = PKIService()
-            if not pki.verify_mkcert_available():
-                return {
-                    "status": "error",
-                    "message": "mkcert no está disponible. Instálalo para habilitar SSL.",
-                }
-
-            # 3a. Upload and import CA certificate
-            ca_pem = pki.get_ca_pem()
-            if not ca_pem:
-                return {"status": "error", "message": "Certificado CA no encontrado"}
-
-            sftp = ssh_client.open_sftp()
-
-            ca_filename = "umanager_ca.pem"
-
-            # CRITICAL: Ensure we upload to root directory where /certificate import looks
-            try:
-                sftp.chdir("/")
-            except Exception:
-                pass  # Some SFTP servers don't support chdir but default to /
-
-            # Log current directory
-            try:
-                cwd = sftp.getcwd()
-                logger.info(f"[SSH Provisioning] SFTP working directory: {cwd}")
-            except Exception:
-                pass
-
-            with sftp.file(ca_filename, "w") as f:
-                f.write(ca_pem.encode("utf-8"))
-
-            time.sleep(0.5)
-
-            # Verify file exists on router
-            _, stdout, _ = ssh_client.exec_command(f'/file print where name="{ca_filename}"')
-            file_check = stdout.read().decode()
-            logger.info(f"[SSH Provisioning] Archivo CA en router: {file_check}")
-
-            # Import CA
-            import_ca_cmd = f'/certificate import file-name={ca_filename} passphrase=""'
-            ssh_client.exec_command(import_ca_cmd)
-            time.sleep(1)
-            logger.info("[SSH Provisioning] CA importado")
-
-            # 3b. Generate certificate on SERVER and upload (Restored)
-            success, key_pem, cert_pem = pki.generate_full_cert_pair(host)
-            if not success:
-                sftp.close()
-                return {"status": "error", "message": f"Error generando certificado: {cert_pem}"}
-
-            timestamp = int(time.time())
-            cert_filename = f"umanager_ssl_{timestamp}.crt"
-            key_filename = f"umanager_ssl_{timestamp}.key"
-
-            with sftp.file(cert_filename, "w") as f:
-                f.write(cert_pem.encode("utf-8"))
-
-            with sftp.file(key_filename, "w") as f:
-                f.write(key_pem.encode("utf-8"))
-
-            time.sleep(2)  # Allow checking filesystem sync
-            sftp.close()
-
-            # Verify files were uploaded (Diagnostic only)
-            # using terse for reliable parsing
-            verify_files_cmd = '/file print terse where name~"umanager"'
-            _, stdout, _ = ssh_client.exec_command(verify_files_cmd)
-            files_output = stdout.read().decode()
-            logger.info(f"[SSH Provisioning] Verificación de archivos (RAW): {files_output}")
-
-            if cert_filename not in files_output:
-                logger.warning(
-                    f"[SSH Provisioning] ADVERTENCIA: {cert_filename} no aparece en '/file print' todavía. Intentando importar de todas formas..."
-                )
-            else:
-                logger.info("[SSH Provisioning] Archivos verificados en disco.")
-
-            logger.info("[SSH Provisioning] Iniciando importación...")
-
-            # Import cert and key with robust error checking
-            # Try standard 'file-name' first, fallback to 'file' if needed
-            for file_type, fname in [("CERT", cert_filename), ("KEY", key_filename)]:
-                logger.info(f"[SSH Provisioning] Importando {file_type}: {fname}")
-
-                # Command 1: Standard
-                cmd = f'/certificate import file-name={fname} passphrase=""'
-                _, stdout, stderr = ssh_client.exec_command(cmd)
-                out = stdout.read().decode()
-                err = stderr.read().decode()
-
-                # Check for common successes
-                if (
-                    "imported" in out.lower() or "passphrase" in out.lower()
-                ):  # sometimes it asks for passphrase even if provided
-                    logger.info(f"[SSH Provisioning] {file_type} importado (Std Output): {out}")
-                elif err and "no such item" in err.lower():  # v6 sometimes prefers 'file'
-                    logger.warning(
-                        f"[SSH Provisioning] Standard import failed, trying legacy syntax for {fname}"
-                    )
-                    legacy_cmd = f'/certificate import file={fname} passphrase=""'
-                    ssh_client.exec_command(legacy_cmd)
-                else:
-                    logger.info(f"[SSH Provisioning] {file_type} Output: {out} | Err: {err}")
-
-                time.sleep(2)  # Increased wait for slow devices
-
-            logger.info("[SSH Provisioning] Proceso de importación finalizado")
-
-            # 4. Find the cert name by common-name (host IP)
-            # Use 'terse' for easier parsing across versions
-            find_cert_cmd = f'/certificate print terse where common-name="{host}"'
-            _, stdout, _ = ssh_client.exec_command(find_cert_cmd)
-            cert_output = stdout.read().decode()
-            logger.info(f"[SSH Provisioning] Certificados encontrados (RAW): {cert_output}")
-
-            # Smart parsing for v6/v7 compatibility
-            cert_name = None
-            has_private_key = False
-
-            for line in cert_output.splitlines():
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-
-                # Parse flags (always at the start in terse mode, e.g., "0 K T name=...")
-                # v7: 0 K T name=...
-                # v6: 0 K name=...
-
-                # Check for Private Key flag 'K'
-                # In terse output, flags are usually space-separated before properties
-                # But to be safe, we check if 'K' appears in the flags section (before first key=value)
-
-                parts = line.split()
-                flags_part = ""
-                properties_start_idx = 0
-
-                # Find where properties start (k=v)
-                for i, part in enumerate(parts):
-                    if "=" in part:
-                        properties_start_idx = i
-                        break
-                    if not part.isdigit():  # skip index number
-                        flags_part += part
-
-                current_k = "K" in flags_part
-
-                # Extract name
-                current_name = None
-                for part in parts[properties_start_idx:]:
-                    if part.startswith("name="):
-                        current_name = part.split("=", 1)[1].strip('"')
-                        break
-
-                if current_name:
-                    cert_name = current_name
-                    if current_k:
-                        has_private_key = True
-                        break  # Found a perfect match
-
-            if not cert_name:
-                # Fallback: use the base name of imported file
-                cert_name = cert_filename.replace(".crt", "").replace(".pem", "")
-                logger.warning(
-                    f"[SSH Provisioning] No se encontró certificado en print output, "
-                    f"usando fallback: {cert_name}"
-                )
-
-            logger.info(
-                f"[SSH Provisioning] Usando certificado: {cert_name} (Tiene llave privada: {has_private_key})"
+            result = MikrotikProvisioningService._install_ssl_certificates(
+                ssh_client, host, ssl_port
             )
-
-            if not has_private_key and cert_name:
-                logger.warning(
-                    f"[SSH Provisioning] ALERTA: El certificado {cert_name} no parece tener llave privada (K). Intentando re-importar llave..."
-                )
-                # Last ditch effort: Try to import key again specifically
-                import_key_retry = f'/certificate import file-name={key_filename} passphrase=""'
-                ssh_client.exec_command(import_key_retry)
-                time.sleep(2)
-
-            # 5. Configure and enable api-ssl service
-            # Split commands for better stability on v6
-            logger.info(
-                f"[SSH Provisioning] Configurando servicio api-ssl con certificado '{cert_name}'..."
-            )
-
-            # Step 1: Set certificate (keep disabled for a moment)
-            # using 'numbers' selector combined with 'find' is the most robust method across versions
-            set_cert_cmd = f'/ip service set [find name=api-ssl] certificate="{cert_name}"'
-            ssh_client.exec_command(set_cert_cmd)
-            time.sleep(1)
-
-            # Verify if certificate took
-            check_cert_cmd = "/ip service print detail where name=api-ssl"
-            _, stdout, _ = ssh_client.exec_command(check_cert_cmd)
-            check_output = stdout.read().decode()
-
-            if cert_name not in check_output and f'certificate="{cert_name}"' not in check_output:
-                logger.warning(
-                    "[SSH Provisioning] La asignación directa falló. Intentando método alternativo (legacy numeric)..."
-                )
-                # Fallback: legacy method trying to enable port + cert in one go, but using numeric ID 0-10 scan
-                # Just try to set on the item found by print
-                scan_cmd = (
-                    f'/ip service set [find name=api-ssl] certificate="{cert_name}" port={ssl_port}'
-                )
-                ssh_client.exec_command(scan_cmd)
-                time.sleep(1)
-
-            # Step 2: Enable service and set port
-            enable_cmd = f"/ip service set [find name=api-ssl] disabled=no port={ssl_port}"
-            ssh_client.exec_command(enable_cmd)
-            time.sleep(2)  # Give RouterOS time to restart service
-
-            logger.info("[SSH Provisioning] Comandos de servicio ejecutados")
-
-            # Verify service configuration with detail output
-            check_service_cmd = "/ip service print detail where name=api-ssl"
-            _, stdout, _ = ssh_client.exec_command(check_service_cmd)
-            service_output = stdout.read().decode()
-            logger.info(f"[SSH Provisioning] Estado final api-ssl: {service_output}")
-
-            # Check if certificate is actually assigned
-            # Look for certificate= followed by our cert name (not "none" or empty)
-            cert_assigned = False
-            if cert_name in service_output:
-                cert_assigned = True
-            elif "certificate=" in service_output:
-                # Extract certificate value and check it's not empty/none
-                for line in service_output.split("\n"):
-                    if "certificate=" in line:
-                        cert_value = line.split("certificate=")[1].split()[0].strip().strip('"')
-                        if cert_value and cert_value.lower() not in ["none", '""', "''", ""]:
-                            cert_assigned = True
-                            logger.info(
-                                f"[SSH Provisioning] Certificado asignado detectado: {cert_value}"
-                            )
-                        break
-
-            if not cert_assigned:
-                logger.error(
-                    f"[SSH Provisioning] api-ssl no tiene certificado asignado. Output: {service_output}"
-                )
-                return {
-                    "status": "error",
-                    "message": f"No se pudo asignar certificado '{cert_name}' a api-ssl. Verifica que el certificado tenga private key (flag K).",
-                }
-
-            logger.info(f"[SSH Provisioning] api-ssl habilitado en puerto {ssl_port}")
-
-            # Cleanup temp files (best effort)
-            try:
-                cleanup_cmd = '/file remove [find name~"umanager"]'
-                ssh_client.exec_command(cleanup_cmd)
-            except Exception:
-                pass
+            if result["status"] == "error":
+                return result
 
             return {
                 "status": "success",
@@ -523,6 +271,194 @@ class MikrotikProvisioningService:
             logger.error(f"[SSH Provisioning] Error: {e}")
             import traceback
 
+            traceback.print_exc()
+            return {"status": "error", "message": str(e)}
+        finally:
+            try:
+                ssh_client.disconnect()
+            except Exception:
+                pass
+
+    @staticmethod
+    def _install_ssl_certificates(
+        ssh_client,
+        host: str,
+        ssl_port: int = 8729,
+    ) -> dict[str, Any]:
+        """
+        Install SSL certificates on a MikroTik device via an established SSH connection.
+
+        This method is called by both full provisioning and the lightweight renew_ssl flow.
+        It does NOT create users or configure groups.
+
+        Steps:
+        1. Upload and import CA certificate.
+        2. Generate, upload, and import device certificate.
+        3. Configure and enable api-ssl service.
+        """
+        from ..pki_service import PKIService
+
+        pki = PKIService()
+        if not pki.verify_mkcert_available():
+            return {
+                "status": "error",
+                "message": "mkcert no está disponible. Instálalo para habilitar SSL.",
+            }
+
+        # 1. Upload and import CA certificate
+        ca_pem = pki.get_ca_pem()
+        if not ca_pem:
+            return {"status": "error", "message": "Certificado CA no encontrado"}
+
+        sftp = ssh_client.open_sftp()
+        ca_filename = "umanager_ca.pem"
+
+        try:
+            sftp.chdir("/")
+        except Exception:
+            pass
+
+        with sftp.file(ca_filename, "w") as f:
+            f.write(ca_pem.encode("utf-8"))
+
+        time.sleep(0.5)
+
+        import_ca_cmd = f'/certificate import file-name={ca_filename} passphrase=""'
+        ssh_client.exec_command(import_ca_cmd)
+        time.sleep(1)
+        logger.info("[SSL Install] CA importado")
+
+        # 2. Generate certificate on SERVER and upload
+        success, key_pem, cert_pem = pki.generate_full_cert_pair(host)
+        if not success:
+            sftp.close()
+            return {"status": "error", "message": f"Error generando certificado: {cert_pem}"}
+
+        timestamp = int(time.time())
+        cert_filename = f"umanager_ssl_{timestamp}.crt"
+        key_filename = f"umanager_ssl_{timestamp}.key"
+
+        with sftp.file(cert_filename, "w") as f:
+            f.write(cert_pem.encode("utf-8"))
+
+        with sftp.file(key_filename, "w") as f:
+            f.write(key_pem.encode("utf-8"))
+
+        time.sleep(2)
+        sftp.close()
+
+        # Import cert and key
+        for file_type, fname in [("CERT", cert_filename), ("KEY", key_filename)]:
+            cmd = f'/certificate import file-name={fname} passphrase=""'
+            _, stdout, stderr = ssh_client.exec_command(cmd)
+            out = stdout.read().decode()
+            err = stderr.read().decode()
+
+            if err and "no such item" in err.lower():
+                legacy_cmd = f'/certificate import file={fname} passphrase=""'
+                ssh_client.exec_command(legacy_cmd)
+
+            time.sleep(2)
+
+        logger.info("[SSL Install] Certificados importados")
+
+        # 3. Find the cert name by common-name (host IP)
+        find_cert_cmd = f'/certificate print terse where common-name="{host}"'
+        _, stdout, _ = ssh_client.exec_command(find_cert_cmd)
+        cert_output = stdout.read().decode()
+
+        cert_name = None
+        for line in cert_output.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+
+            parts = line.split()
+            for part in parts:
+                if part.startswith("name="):
+                    cert_name = part.split("=", 1)[1].strip('"')
+                    break
+            if cert_name:
+                break
+
+        if not cert_name:
+            cert_name = cert_filename.replace(".crt", "").replace(".pem", "")
+            logger.warning(f"[SSL Install] Using fallback cert name: {cert_name}")
+
+        logger.info(f"[SSL Install] Usando certificado: {cert_name}")
+
+        # 4. Configure and enable api-ssl service
+        set_cert_cmd = f'/ip service set [find name=api-ssl] certificate="{cert_name}"'
+        ssh_client.exec_command(set_cert_cmd)
+        time.sleep(1)
+
+        enable_cmd = f"/ip service set [find name=api-ssl] disabled=no port={ssl_port}"
+        ssh_client.exec_command(enable_cmd)
+        time.sleep(2)
+
+        logger.info(f"[SSL Install] api-ssl habilitado en puerto {ssl_port}")
+
+        # Cleanup temp files (best effort)
+        try:
+            cleanup_cmd = '/file remove [find name~"umanager"]'
+            ssh_client.exec_command(cleanup_cmd)
+        except Exception:
+            pass
+
+        return {"status": "success", "message": "Certificados SSL instalados correctamente."}
+
+    @staticmethod
+    async def renew_ssl(
+        host: str,
+        username: str,
+        password: str,
+        ssl_port: int = 8729,
+    ) -> dict[str, Any]:
+        """
+        Renew SSL certificates on a MikroTik device without full re-provisioning.
+
+        This method connects via SSH, installs new certificates, and enables api-ssl.
+        It does NOT create or modify users/groups.
+
+        Args:
+            host: Device IP/hostname
+            username: SSH username (existing user with admin/write access)
+            password: SSH password (decrypted)
+            ssl_port: Target API-SSL port (default 8729)
+
+        Returns:
+            Dict with status and message
+        """
+        from ...utils.device_clients.mikrotik.ssh_client import MikrotikSSHClient
+
+        logger.info(f"[SSL Renew] Starting SSL renewal for {host}")
+
+        ssh_client = MikrotikSSHClient(host=host, username=username, password=password)
+
+        try:
+            if not await asyncio.to_thread(ssh_client.connect):
+                return {"status": "error", "message": f"No se pudo conectar via SSH a {host}"}
+
+            logger.info(f"[SSL Renew] Conectado a {host}")
+
+            # Run SSL installation only
+            result = await asyncio.to_thread(
+                MikrotikProvisioningService._install_ssl_certificates,
+                ssh_client,
+                host,
+                ssl_port,
+            )
+
+            if result["status"] == "success":
+                logger.info(f"[SSL Renew] Renovación exitosa para {host}")
+            else:
+                logger.error(f"[SSL Renew] Fallo para {host}: {result.get('message')}")
+
+            return result
+
+        except Exception as e:
+            logger.error(f"[SSL Renew] Error: {e}")
+            import traceback
             traceback.print_exc()
             return {"status": "error", "message": str(e)}
         finally:

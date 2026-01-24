@@ -27,6 +27,7 @@ def get_config_channel(host: str, username: str, password: str, port: int = 8729
         ssl_context=ssl_context,
         plaintext_login=True,
     )
+    pool.set_timeout(30)
 
     try:
         api = pool.get_api()

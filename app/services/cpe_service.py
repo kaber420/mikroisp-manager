@@ -1,7 +1,7 @@
-# app/services/cpe_service.py
 import os
 import sqlite3
 import uuid
+from datetime import datetime
 from typing import Any
 
 from sqlmodel import Session, func, select
@@ -131,28 +131,27 @@ class CPEService:
         Nota: Esta función usa SQL crudo porque hace ATTACH DATABASE a stats_db.
         """
 
-        conn = get_db_connection()
         stats_db_file = get_stats_db_file()
 
         if not os.path.exists(stats_db_file):
-            # Return only CPEs from inventory (no stats available)
-            try:
-                query = "SELECT mac, hostname, model, firmware, ip_address, is_enabled, status, last_seen FROM cpes ORDER BY hostname, mac"
-                cursor = conn.execute(query)
-                rows = []
-                for row in cursor.fetchall():
-                    cpe = dict(row)
-                    cpe["cpe_mac"] = cpe.pop("mac")
-                    cpe["cpe_hostname"] = cpe.pop("hostname", None)
-                    # Use is_enabled to override status to 'disabled'
-                    if not cpe.get("is_enabled", True):
-                        cpe["status"] = CPEStatus.DISABLED
-                    # status is already set from DB ('active' or 'offline')
-                    rows.append(cpe)
-                return self._apply_status_filter(rows, status_filter)
-            finally:
-                conn.close()
+            # Return only CPEs from inventory (no stats available) using SQLModel
+            statement = select(CPE).order_by(CPE.hostname, CPE.mac)
+            results = self.session.exec(statement).all()
+            
+            rows = []
+            for cpe_obj in results:
+                cpe = cpe_obj.model_dump()
+                cpe["cpe_mac"] = cpe.pop("mac")
+                cpe["cpe_hostname"] = cpe.pop("hostname", None)
+                
+                # Use is_enabled to override status to 'disabled'
+                if not cpe.get("is_enabled", True):
+                    cpe["status"] = CPEStatus.DISABLED
+                # status is already set from DB ('active' or 'offline')
+                rows.append(cpe)
+            return self._apply_status_filter(rows, status_filter)
 
+        conn = get_db_connection()
         try:
             conn.execute(f"ATTACH DATABASE '{stats_db_file}' AS stats_db")
             query = """
@@ -194,3 +193,110 @@ class CPEService:
         if not status_filter:
             return rows
         return [row for row in rows if row.get("status") == status_filter]
+
+    def update_inventory_from_monitor(self, data: dict):
+        """
+        Updates CPE inventory based on raw monitor data (dict).
+        """
+        now = datetime.utcnow()
+        for cpe_data in data.get("wireless", {}).get("sta", []):
+            mac = cpe_data.get("mac")
+            remote = cpe_data.get("remote", {})
+            
+            if not mac:
+                continue
+                
+            cpe = self.session.get(CPE, mac)
+            if not cpe:
+                cpe = CPE(mac=mac, first_seen=now)
+                self.session.add(cpe)
+            
+            cpe.hostname = remote.get("hostname")
+            cpe.model = remote.get("platform") or remote.get("model")
+            cpe.firmware = cpe_data.get("version")
+            cpe.ip_address = cpe_data.get("lastip")
+            cpe.last_seen = now
+            cpe.status = "active"
+            
+        self.session.commit()
+        self.mark_stale_cpes_offline()
+
+    def update_inventory_from_status(self, status):
+        """
+        Updates CPE inventory from a DeviceStatus object.
+        """
+        if not status.clients:
+            self.mark_stale_cpes_offline()
+            return
+
+        now = datetime.utcnow()
+        from sqlmodel import select
+        
+        # Determine model/platform key
+        # Depending on how DeviceStatus is structured, usually client.extra['model'] or 'platform'
+        
+        for client in status.clients:
+            if not client.mac:
+                continue
+                
+            cpe = self.session.get(CPE, client.mac)
+            if not cpe:
+                cpe = CPE(mac=client.mac, first_seen=now)
+                self.session.add(cpe)
+                
+            if client.hostname:
+                cpe.hostname = client.hostname
+            
+            model = client.extra.get("model") or client.extra.get("platform")
+            if model:
+                cpe.model = model
+                
+            fw = client.extra.get("firmware") or client.extra.get("version")
+            if fw:
+                cpe.firmware = fw
+                
+            if client.ip_address:
+                cpe.ip_address = client.ip_address
+                
+            cpe.last_seen = now
+            cpe.status = "active"
+            
+        self.session.commit()
+        self.mark_stale_cpes_offline()
+
+    def mark_stale_cpes_offline(self):
+        """
+        Marks CPEs as 'offline' if they haven't been seen for configured threshold.
+        """
+        from datetime import datetime, timedelta
+        from ..models.setting import Setting
+        
+        # Get settings via session
+        monitor_interval_setting = self.session.get(Setting, "default_monitor_interval")
+        stale_cycles_setting = self.session.get(Setting, "cpe_stale_cycles")
+        
+        monitor_interval = int(monitor_interval_setting.value) if monitor_interval_setting else 300
+        stale_cycles = int(stale_cycles_setting.value) if stale_cycles_setting else 3
+        
+        threshold_seconds = monitor_interval * stale_cycles
+        threshold_time = datetime.utcnow() - timedelta(seconds=threshold_seconds)
+        
+        # Update statement
+        # select(CPE).where(CPE.status == 'active', CPE.is_enabled == True, CPE.last_seen < threshold_time)
+        # Iterate and update or use update statement (if supported by SQLModel/dialect)
+        # SQLModel doesn't have direct update() yet, iterate is safer
+        
+        statement = select(CPE).where(
+            CPE.status == "active",
+            CPE.is_enabled == True,
+            CPE.last_seen < threshold_time
+        )
+        stale_cpes = self.session.exec(statement).all()
+        
+        for cpe in stale_cpes:
+            cpe.status = "offline"
+            self.session.add(cpe)
+            
+        if stale_cpes:
+            self.session.commit()
+            # print(f"Marcados {len(stale_cpes)} CPEs como offline.")

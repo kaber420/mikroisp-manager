@@ -4,7 +4,9 @@ from datetime import datetime
 from typing import Any
 
 from .base import get_db_connection, get_stats_db_connection
+from .engine_sync import get_sync_session
 from .init_db import _setup_stats_db  # Usamos la función de configuración
+from ..services.cpe_service import CPEService
 
 
 def save_router_monitor_stats(router_host: str, stats: dict[str, Any]) -> bool:
@@ -221,139 +223,13 @@ def save_device_stats(ap_host: str, status: "DeviceStatus", vendor: str = "ubiqu
         if conn:
             conn.close()
 
-    # Also update the CPE inventory table (main inventory DB)
-    _update_cpe_inventory_from_status(status)
-
-
-def _update_cpe_inventory_from_status(status: "DeviceStatus"):
-    """
-    Updates the CPE inventory table from a DeviceStatus object.
-    Works with any vendor (Ubiquiti, MikroTik, etc.)
-    Sets status to 'active' for seen CPEs.
-    """
-
-    if not status.clients:
-        # Still run stale check even if no clients seen
-        _mark_stale_cpes_offline()
-        return
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    now = datetime.utcnow()
-
+    # Also update the CPE inventory table (main inventory DB) using Service
     try:
-        for client in status.clients:
-            cursor.execute(
-                """
-                INSERT INTO cpes (mac, hostname, model, firmware, ip_address, first_seen, last_seen, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
-                ON CONFLICT(mac) DO UPDATE SET
-                    hostname = COALESCE(excluded.hostname, hostname),
-                    model = COALESCE(excluded.model, model),
-                    firmware = COALESCE(excluded.firmware, firmware),
-                    ip_address = COALESCE(excluded.ip_address, ip_address),
-                    last_seen = excluded.last_seen,
-                    status = 'active'
-                """,
-                (
-                    client.mac,
-                    client.hostname,
-                    client.extra.get("model") or client.extra.get("platform"),
-                    client.extra.get("firmware") or client.extra.get("version"),
-                    client.ip_address,
-                    now,
-                    now,
-                ),
-            )
-        conn.commit()
+        with next(get_sync_session()) as session:
+            service = CPEService(session)
+            service.update_inventory_from_status(status)
     except Exception as e:
-        print(f"Error updating CPE inventory: {e}")
-    finally:
-        conn.close()
-
-    # Mark stale CPEs as offline
-    _mark_stale_cpes_offline()
-
-
-def _update_cpe_inventory(data: dict):
-    """Actualiza la tabla de inventario de CPEs (dispositivos) en la DB de inventario.
-    Sets status to 'active' for seen CPEs.
-    """
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    now = datetime.utcnow()
-
-    for cpe in data.get("wireless", {}).get("sta", []):
-        remote = cpe.get("remote", {})
-        cursor.execute(
-            """
-        INSERT INTO cpes (mac, hostname, model, firmware, ip_address, first_seen, last_seen, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
-        ON CONFLICT(mac) DO UPDATE SET
-            hostname = excluded.hostname, model = excluded.model,
-            firmware = excluded.firmware, ip_address = excluded.ip_address,
-            last_seen = excluded.last_seen,
-            status = 'active'
-        """,
-            (
-                cpe.get("mac"),
-                remote.get("hostname"),
-                remote.get("platform"),
-                cpe.get("version"),
-                cpe.get("lastip"),
-                now,
-                now,
-            ),
-        )
-    conn.commit()
-    conn.close()
-
-    # Mark stale CPEs as offline
-    _mark_stale_cpes_offline()
-
-
-def _mark_stale_cpes_offline():
-    """
-    Marks CPEs as 'offline' if they haven't been seen for (monitor_interval * cpe_stale_cycles) seconds.
-    Only affects CPEs with status='active' and is_enabled=True.
-    """
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    try:
-        # Get settings
-        cursor.execute("SELECT value FROM settings WHERE key = 'default_monitor_interval'")
-        row = cursor.fetchone()
-        monitor_interval = int(row["value"]) if row else 300
-
-        cursor.execute("SELECT value FROM settings WHERE key = 'cpe_stale_cycles'")
-        row = cursor.fetchone()
-        stale_cycles = int(row["value"]) if row else 3
-
-        # Calculate threshold in seconds
-        threshold_seconds = monitor_interval * stale_cycles
-
-        # Mark stale CPEs as offline
-        cursor.execute(
-            """
-            UPDATE cpes 
-            SET status = 'offline'
-            WHERE status = 'active' 
-              AND is_enabled = 1
-              AND last_seen < datetime('now', '-' || ? || ' seconds')
-            """,
-            (threshold_seconds,),
-        )
-
-        affected = cursor.rowcount
-        if affected > 0:
-            print(f"Marcados {affected} CPEs como offline (no vistos en {threshold_seconds}s).")
-
-        conn.commit()
-    except Exception as e:
-        print(f"Error marking stale CPEs offline: {e}")
-    finally:
-        conn.close()
+        print(f"Error updating inventory from status: {e}")
 
 
 def save_full_snapshot(ap_host: str, data: dict):
@@ -363,7 +239,14 @@ def save_full_snapshot(ap_host: str, data: dict):
     if not data:
         return
 
-    _update_cpe_inventory(data)
+    # Update inventory via Service
+    try:
+        with next(get_sync_session()) as session:
+            service = CPEService(session)
+            service.update_inventory_from_monitor(data)
+    except Exception as e:
+        print(f"Error updating inventory from monitor: {e}")
+
     _setup_stats_db()
 
     conn = get_stats_db_connection()

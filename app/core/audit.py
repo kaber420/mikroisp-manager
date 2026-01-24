@@ -89,11 +89,37 @@ def log_action(
     # Write as JSON line (forensic backup)
     audit_logger.info(json.dumps(log_entry, ensure_ascii=False))
 
-    # Also persist to SQLite for web UI access
+    # Also persist to SQLite for web UI access using SQLModel (Sync)
     try:
-        from app.db.audit_db import save_audit_log
+        from app.db.engine_sync import get_sync_session
+        from app.models.audit_log import AuditLog
 
-        save_audit_log(log_entry)
+        # Convert simple dict to SQLModel
+        # Note: log_entry["timestamp"] is ISO string, AuditLog expects datetime or string (SQLAlchemy handles it)
+        # But for correctness with the model, let's parse it back.
+        ts = datetime.fromisoformat(log_entry["timestamp"])
+        
+        details_json = None
+        if details:
+            details_json = json.dumps(details, ensure_ascii=False)
+
+        audit_obj = AuditLog(
+            timestamp=ts,
+            action=action.upper(),
+            resource_type=resource_type,
+            resource_id=str(resource_id),
+            username=log_entry["user"],
+            user_role=log_entry["user_role"],
+            ip_address=client_ip,
+            status=status,
+            details=details_json
+        )
+
+        # Use the sync session generator
+        with next(get_sync_session()) as session:
+            session.add(audit_obj)
+            session.commit()
+            
     except Exception as e:
         print(f"⚠️ Could not save audit log to DB: {e}")
 

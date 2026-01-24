@@ -11,7 +11,7 @@ from typing import Any
 
 from sqlmodel import Session
 
-from ..db import settings_db  # Keep until migrated
+
 from ..models.router import Router
 from .client_service import ClientService
 from .payment_service import PaymentService
@@ -165,8 +165,12 @@ class BillingService:
         logger.info("Iniciando auditoría de estados de facturación...")
 
         try:
-            days_before = int(settings_db.get_setting("days_before_due") or 5)
-        except ValueError:
+            from ..models.setting import Setting
+            
+            # Use self.session (sync)
+            setting_obj = self.session.get(Setting, "days_before_due")
+            days_before = int(setting_obj.value if setting_obj else 5)
+        except (ValueError, AttributeError):
             days_before = 5
 
         today = datetime.now().date()

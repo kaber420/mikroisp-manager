@@ -19,7 +19,7 @@ from ..db.router_db import (
     get_router_status,
     update_router_status,
 )
-from ..db.stats_db import save_device_stats
+from ..db.stats_db import save_device_stats, save_router_monitor_stats
 from ..models.ap import AP
 from ..models.router import Router
 from ..services.router_service import (
@@ -31,17 +31,18 @@ from ..services.router_service import (
 from ..utils.alerter import send_telegram_alert
 from ..utils.device_clients.adapter_factory import get_device_adapter
 
+from ..services.router_connector import router_connector
+
 logger = logging.getLogger(__name__)
 
 
 class MonitorService:
     async def get_active_devices(self, session: AsyncSession):
         """Recupera todos los dispositivos habilitados para monitorear."""
-        # Run in parallel
-        aps, routers = await asyncio.gather(
-            get_enabled_aps_for_monitor(session),
-            get_enabled_routers_from_db(session)
-        )
+        # Execute sequentially to avoid "concurrent operations" error on single AsyncSession
+        aps = await get_enabled_aps_for_monitor(session)
+        routers = await get_enabled_routers_from_db(session)
+        
         return {
             "aps": aps,
             "routers": routers,
@@ -120,29 +121,42 @@ class MonitorService:
             await asyncio.to_thread(send_telegram_alert, message)
 
     async def check_router(self, session: AsyncSession, router: Router):
-        """Verifica el estado de un Router, actualiza recursos y envía alertas."""
+        """
+        Verifica el estado de un Router usando router_connector (mismo mecanismo que el dashboard).
+        Actualiza recursos y envía alertas.
+        """
         host = router.host
         logger.info(f"--- Verificando Router en {host} ---")
 
         status_data = None
         try:
-            def do_network_check():
-                with RouterService(
-                    host, router, decrypted_password=router.password
-                ) as router_service:
-                    return router_service.get_system_resources()
+            # Use router_connector directly for consistency with dashboard
+            # fetch_router_stats handles connection internally (using MikrotikBaseConnector)
+            
+            # Prepare credentials for ad-hoc connection (MonitorService doesn't subscribe)
+            # router.password is typically encrypted in DB, but RouterService and router_db might have decrypted it?
+            # get_enabled_routers_from_db returns routers with decrypted passwords.
+            
+            creds = {
+                "username": router.username,
+                "password": router.password,
+                "port": router.api_ssl_port,
+            }
 
-            status_data = await asyncio.to_thread(do_network_check)
+            # Run blocking call in thread
+            def do_check():
+                return router_connector.fetch_router_stats(host, creds=creds)
 
-        except (
-            RouterConnectionError,
-            RouterCommandError,
-            RouterNotProvisionedError,
-        ) as e:
-            logger.warning(f"No se pudo obtener el estado del Router {host}: {e}")
-            status_data = None
+            status_data = await asyncio.to_thread(do_check)
+            
+            # Check for explicit error key returned by fetch_router_stats
+            if status_data and "error" in status_data:
+                logger.warning(f"Error from connector for {host}: {status_data['error']}")
+                status_data = None
+
+
         except Exception as e:
-            logger.error(f"Error inesperado en Router {host}: {e}")
+            logger.error(f"Error verificando Router {host}: {e}")
             status_data = None
 
         previous_status = await get_router_status(session, host)
@@ -152,7 +166,15 @@ class MonitorService:
             hostname = status_data.get("name", host)
             logger.info(f"Estado de Router '{hostname}' ({host}): ONLINE")
 
+            # Update status and data in DB
             await update_router_status(session, host, current_status, data=status_data)
+            
+            # Save stats history
+            try:
+                # Use specific function for router stats (dict format)
+                await asyncio.to_thread(save_router_monitor_stats, host, status_data)
+            except Exception as e:
+                 logger.error(f"Error saving stats for {host}: {e}")
 
             if previous_status == DeviceStatus.OFFLINE:
                 message = f"✅ *ROUTER RECUPERADO*\n\nEl Router *{hostname}* (`{host}`) ha vuelto a estar en línea."
@@ -168,7 +190,7 @@ class MonitorService:
                 router_info = await get_router_by_host(session, host)
                 hostname = router_info.hostname if (router_info and router_info.hostname) else host
 
-                message = f"❌ *ALERTA: ROUTER CAÍDO*\n\nNo se pudo establecer conexión API-SSL con el Router *{hostname}* (`{host}`)."
+                message = f"❌ *ALERTA: ROUTER CAÍDO*\n\nNo se pudo establecer conexión API con el Router *{hostname}* (`{host}`)."
                 await asyncio.to_thread(add_event_log,
                     host,
                     "router",

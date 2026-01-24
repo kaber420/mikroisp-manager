@@ -72,8 +72,46 @@ document.addEventListener('alpine:init', () => {
             await Alpine.store('aps').save();
         },
 
-        repairAp() {
-            Alpine.store('aps').repair(this.currentAp);
+        async renewSSL() {
+            if (!this.currentAp?.host) return;
+
+            const hostname = this.currentAp.hostname || this.currentAp.host;
+            const confirmed = await window.ModalUtils.showConfirmModal({
+                title: 'Renovar Certificado SSL',
+                message: `¿Renovar certificado SSL para "<strong>${hostname}</strong>"?<br><br>Esto reinstalará el certificado sin cambiar usuario/contraseña.`,
+                confirmText: 'Renovar SSL',
+                confirmIcon: 'sync_lock',
+                type: 'primary',
+            });
+
+            if (confirmed) {
+                const result = await window.SSLActions.renew('ap', this.currentAp.host);
+                if (result.success) {
+                    this.closeModal();
+                    Alpine.store('aps').loadData();
+                }
+            }
+        },
+
+        async unlinkAp() {
+            if (!this.currentAp?.host) return;
+
+            const hostname = this.currentAp.hostname || this.currentAp.host;
+            const confirmed = await window.ModalUtils.showConfirmModal({
+                title: 'Desvincular AP',
+                message: `¿Desvincular el AP "<strong>${hostname}</strong>"?<br><br>Esto lo marcará como no aprovisionado para re-configurar.`,
+                confirmText: 'Desvincular',
+                confirmIcon: 'link_off',
+                type: 'warning',
+            });
+
+            if (confirmed) {
+                const result = await window.SSLActions.unprovision('ap', this.currentAp.host);
+                if (result.success) {
+                    this.closeModal();
+                    Alpine.store('aps').loadData();
+                }
+            }
         }
     }));
 

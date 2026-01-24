@@ -41,6 +41,48 @@ document.addEventListener('alpine:init', () => {
 
         async save() {
             await Alpine.store('switches').save();
+        },
+
+        async renewSSL() {
+            if (!this.currentSwitch?.host) return;
+
+            const hostname = this.currentSwitch.hostname || this.currentSwitch.host;
+            const confirmed = await window.ModalUtils.showConfirmModal({
+                title: 'Renovar Certificado SSL',
+                message: `¿Renovar certificado SSL para "<strong>${hostname}</strong>"?<br><br>Esto reinstalará el certificado sin cambiar usuario/contraseña.`,
+                confirmText: 'Renovar SSL',
+                confirmIcon: 'sync_lock',
+                type: 'primary',
+            });
+
+            if (confirmed) {
+                const result = await window.SSLActions.renew('switch', this.currentSwitch.host);
+                if (result.success) {
+                    this.close();
+                    Alpine.store('switches').loadData();
+                }
+            }
+        },
+
+        async unlinkSwitch() {
+            if (!this.currentSwitch?.host) return;
+
+            const hostname = this.currentSwitch.hostname || this.currentSwitch.host;
+            const confirmed = await window.ModalUtils.showConfirmModal({
+                title: 'Desvincular Switch',
+                message: `¿Desvincular el switch "<strong>${hostname}</strong>"?<br><br>Esto lo marcará como no aprovisionado para re-configurar.`,
+                confirmText: 'Desvincular',
+                confirmIcon: 'link_off',
+                type: 'warning',
+            });
+
+            if (confirmed) {
+                const result = await window.SSLActions.unprovision('switch', this.currentSwitch.host);
+                if (result.success) {
+                    this.close();
+                    Alpine.store('switches').loadData();
+                }
+            }
         }
     }));
 

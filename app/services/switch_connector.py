@@ -2,8 +2,11 @@ import asyncio
 import logging
 from datetime import datetime
 
-from ..db import switches_db
+from ..db.engine import async_session_maker
+from ..models.switch import Switch
+from ..utils.security import decrypt_data
 from .mikrotik_base_connector import MikrotikBaseConnector
+from sqlmodel import select
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +21,20 @@ class SwitchConnector(MikrotikBaseConnector):
         Subscribe to a switch.
         Overridden to fetch credentials from DB as per original implementation.
         """
-        # Get full switch data from DB
-        switch_data = await asyncio.to_thread(switches_db.get_switch_by_host, host)
-        if not switch_data:
-            self.logger.error(f"Switch {host} not found in DB")
-            raise ValueError(f"Switch {host} not found")
+        # Get full switch data from DB using async session
+        async with async_session_maker() as session:
+            switch = await session.get(Switch, host)
+            if not switch:
+                self.logger.error(f"Switch {host} not found in DB")
+                raise ValueError(f"Switch {host} not found")
+
+            # Prepare switch_data dict with decrypted password
+            switch_data = switch.model_dump()
+            if switch_data.get("password"):
+                try:
+                    switch_data["password"] = decrypt_data(switch_data["password"])
+                except Exception:
+                    pass
 
         # Call base subscribe with the fetched data
         # switch_data is expected to contain username/password

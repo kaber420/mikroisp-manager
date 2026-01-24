@@ -12,13 +12,17 @@ class RouterConnector(MikrotikBaseConnector):
     Fetches /system/resource and /system/health.
     """
 
-    def fetch_router_stats(self, host: str) -> dict:
+    def fetch_router_stats(self, host: str, creds: dict = None) -> dict:
         """
         Fetch monitoring statistics from a router.
         This is a synchronous method (runs in thread pool from scheduler).
+        
+        Args:
+            host: Router IP/Hostname
+            creds: Optional dict for ad-hoc connection (keys: username, password, port)
         """
         try:
-            with self.api_session(host) as api:
+            with self.api_session(host, creds=creds) as api:
                 # Execute /system/resource command
                 resource_list = api.get_resource("/system/resource").get()
                 if not resource_list:

@@ -12,10 +12,11 @@ from fastapi import (
     WebSocketDisconnect,
     status,
 )
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.users import require_admin, require_technician
-from ...db import settings_db
+
 from ...db.engine import get_session
 from ...models.user import User
 from ...services.monitor_scheduler import monitor_scheduler
@@ -99,8 +100,13 @@ async def router_resources_stream(websocket: WebSocket, host: str):
 
         while True:
             # Leer intervalo dinámico
-            interval_setting = settings_db.get_setting("dashboard_refresh_interval")
             try:
+                # Use async session to get setting
+                async with async_session_maker() as session:
+                    from ...services.settings_service import SettingsService
+                    svc = SettingsService(session)
+                    interval_setting = await svc.get_setting_value("dashboard_refresh_interval")
+                
                 interval = max(1, int(interval_setting or 2))
             except:
                 interval = 2
@@ -423,53 +429,74 @@ async def check_router_status_manual(
 
 
 # --- ENDPOINT DE REPARACIÓN/RECUPERACIÓN ---
+class RepairRequest(BaseModel):
+    """Request body for repair endpoint."""
+    action: str = "unprovision"  # 'renew' or 'unprovision'
+
+
 @router.post("/routers/{host}/repair", status_code=status.HTTP_200_OK)
 async def repair_router_connection(
     host: str,
-    reset_provision: bool = False,
+    body: RepairRequest | None = None,
+    reset_provision: bool = False,  # Keep for backward compatibility
     current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
     """
-    Repara/recupera un router que está en estado de error.
+    Repairs or recovers a router in an error state.
+
+    Actions:
+    - `unprovision`: Marks the router as not provisioned (DB only). Default.
+    - `renew`: Renews SSL certificates without full re-provisioning.
     """
     from ...core.audit import log_action
 
-    # 1. Verificar que el router existe
+    # Handle backward compatibility: if reset_provision is True and no body, treat as unprovision
+    action = "unprovision"
+    if body:
+        action = body.action
+    elif reset_provision:
+        action = "unprovision"
+
     creds = await get_router_by_host_service(session, host)
     if not creds:
         raise HTTPException(status_code=404, detail="Router no encontrado")
 
-    # 2. Resetear estado de conexión en el scheduler
-    reset_result = monitor_scheduler.reset_connection(host)
+    if action == "renew":
+        # Call renew_ssl to reinstall certificates
+        result = await MikrotikProvisioningService.renew_ssl(
+            host=host,
+            username=creds.username,
+            password=creds.password,
+            ssl_port=creds.api_ssl_port or 8729,
+        )
 
-    # 3. Opcionalmente marcar como no aprovisionado para re-aprovisionar
-    if reset_provision:
-        update_data = {
-            "is_provisioned": False  # Solo esto - NO cambiar puertos
+        if result.get("status") == "error":
+            raise HTTPException(status_code=500, detail=result.get("message", "SSL renewal failed"))
+
+        log_action("RENEW_SSL", "router", host, user=current_user)
+
+        return {
+            "status": "success",
+            "message": "Certificados SSL renovados exitosamente.",
+            "action": "renew",
         }
+
+    elif action == "unprovision":
+        # Reset connection state
+        reset_result = monitor_scheduler.reset_connection(host)
+
+        # Mark as not provisioned
+        update_data = {"is_provisioned": False}
         await update_router_service(session, host, update_data)
-        reset_result["provision_reset"] = True
-        reset_result["message"] += " Listo para re-aprovisionar SSL."
 
-    # 4. Audit log
-    log_action(
-        "REPAIR", "router", host, user=current_user, details={"reset_provision": reset_provision}
-    )
+        log_action("UNPROVISION", "router", host, user=current_user)
 
-    return {
-        "status": "success",
-        "message": reset_result["message"],
-        "provision_reset": reset_provision,
-        "next_steps": [
-            "Intente conectar nuevamente desde el Dashboard",
-            "Si persisten errores SSL, use reset_provision=true para re-aprovisionar",
-            "Verifique que el router esté encendido y accesible en la red",
-        ]
-        if not reset_provision
-        else [
-            "El router ahora muestra el botón 'Provision' en la lista",
-            "Haga clic en 'Provision' para re-configurar SSL",
-            "Use las credenciales admin del router",
-        ],
-    }
+        return {
+            "status": "success",
+            "message": "Router desvinculado. Listo para re-aprovisionar.",
+            "action": "unprovision",
+        }
+    else:
+        raise HTTPException(status_code=400, detail=f"Acción desconocida: {action}")
+

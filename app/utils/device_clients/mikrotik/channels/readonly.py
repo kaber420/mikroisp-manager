@@ -81,7 +81,7 @@ class ReadOnlyChannelManager:
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
 
-        return RouterOsApiPool(
+        pool = RouterOsApiPool(
             host,
             username=username,
             password=password,
@@ -90,6 +90,8 @@ class ReadOnlyChannelManager:
             ssl_context=ssl_context,
             plaintext_login=True,
         )
+        pool.set_timeout(30)
+        return pool
 
 
 # Singleton global

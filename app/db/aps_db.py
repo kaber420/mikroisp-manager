@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from typing import Any, Sequence
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, text
 
 from ..core.constants import DeviceStatus
@@ -161,33 +161,31 @@ async def get_all_aps_with_stats(session: AsyncSession) -> list[dict[str, Any]]:
                     ORDER BY a.host;
                 """
                 result = await session.execute(text(query))
+                rows = result.mappings().all()
+                return [dict(row) for row in rows]
             except Exception:
                 # Fallback if attach fails or stats_db locked/issue
-                query = """
-                    SELECT a.*, z.nombre as zona_nombre, NULL as client_count, NULL as airtime_total_usage 
-                    FROM aps a 
-                    LEFT JOIN zonas z ON a.zona_id = z.id 
-                    ORDER BY a.host;
-                """
-                result = await session.execute(text(query))
-        else:
-            query = """
-                SELECT a.*, z.nombre as zona_nombre, NULL as client_count, NULL as airtime_total_usage 
-                FROM aps a 
-                LEFT JOIN zonas z ON a.zona_id = z.id 
-                ORDER BY a.host;
-            """
-            result = await session.execute(text(query))
-            
-        rows = result.mappings().all()
-        return [dict(row) for row in rows]
-        
+                pass
+                
     finally:
         if attached:
             try:
                 await session.execute(text("DETACH DATABASE stats_db"))
             except Exception:
                 pass
+
+    # Fallback logic (SQLModel)
+    stmt = select(AP, Zona.nombre.label("zona_nombre")).outerjoin(Zona, AP.zona_id == Zona.id).order_by(AP.host)
+    result_obj = await session.exec(stmt)
+    
+    output = []
+    for ap, zona_name in result_obj.all():
+        d = ap.model_dump()
+        d['zona_nombre'] = zona_name
+        d['client_count'] = None
+        d['airtime_total_usage'] = None
+        output.append(d)
+    return output
 
 
 async def get_ap_by_host_with_stats(session: AsyncSession, host: str) -> dict[str, Any] | None:
@@ -216,15 +214,22 @@ async def get_ap_by_host_with_stats(session: AsyncSession, host: str) -> dict[st
                     WHERE a.host = :host;
                 """
                 result = await session.execute(text(query), {"host": host})
+                row = result.mappings().one_or_none()
+                return dict(row) if row else None
             except Exception:
-                query = "SELECT a.*, z.nombre as zona_nombre FROM aps a LEFT JOIN zonas z ON a.zona_id = z.id WHERE a.host = :host"
-                result = await session.execute(text(query), {"host": host})
-        else:
-            query = "SELECT a.*, z.nombre as zona_nombre FROM aps a LEFT JOIN zonas z ON a.zona_id = z.id WHERE a.host = :host"
-            result = await session.execute(text(query), {"host": host})
-
-        row = result.mappings().one_or_none()
-        return dict(row) if row else None
+                pass # Fall through to fallback logic below
+        
+        # SQLModel fallback
+        stmt = select(AP, Zona.nombre.label("zona_nombre")).outerjoin(Zona, AP.zona_id == Zona.id).where(AP.host == host)
+        result_obj = await session.exec(stmt)
+        res = result_obj.first()
+        if not res:
+             return None
+             
+        ap, zona_name = res
+        d = ap.model_dump()
+        d['zona_nombre'] = zona_name
+        return d
         
     finally:
         if attached:

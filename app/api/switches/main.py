@@ -10,10 +10,11 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.constants import DeviceStatus
-from ...core.users import require_technician
-from ...db import switches_db
+from ...core.users import require_admin, require_technician
+from ...db.engine import get_session
 from ...models.user import User
 from ...services import switch_service
 
@@ -87,8 +88,12 @@ async def switch_resources_stream(websocket: WebSocket, host: str):
     """
     await websocket.accept()
 
-    # Get switch data
-    switch_data = switches_db.get_switch_by_host(host)
+    # Get switch data using a new session
+    from ...db.engine import async_session_maker
+
+    async with async_session_maker() as session:
+        switch_data = await switch_service.get_switch_by_host(session, host)
+
     if not switch_data:
         await websocket.send_json({"error": f"Switch {host} not found"})
         await websocket.close()
@@ -169,6 +174,7 @@ async def switch_resources_stream(websocket: WebSocket, host: str):
 @router.post("/switches", response_model=SwitchResponse, status_code=status.HTTP_201_CREATED)
 async def create_switch(
     switch: SwitchCreate,
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
 ):
     """
@@ -176,7 +182,7 @@ async def create_switch(
     """
     try:
         switch_data = switch.model_dump()
-        new_switch = switch_service.create_switch(switch_data)
+        new_switch = await switch_service.create_switch(session, switch_data)
         return SwitchResponse(**new_switch)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -187,13 +193,14 @@ async def create_switch(
 
 @router.get("/switches", response_model=list[SwitchResponse])
 async def get_all_switches(
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
 ):
     """
     Get all registered switches.
     """
     try:
-        switches = switch_service.get_all_switches()
+        switches = await switch_service.get_all_switches(session)
         return [SwitchResponse(**s) for s in switches]
     except Exception as e:
         logger.error(f"Error getting switches: {e}")
@@ -203,12 +210,13 @@ async def get_all_switches(
 @router.get("/switches/{host}", response_model=SwitchResponse)
 async def get_switch(
     host: str,
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
 ):
     """
     Get details of a specific switch by its host/IP.
     """
-    switch_data = switch_service.get_switch_by_host(host)
+    switch_data = await switch_service.get_switch_by_host(session, host)
     if not switch_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
@@ -220,13 +228,14 @@ async def get_switch(
 async def update_switch(
     host: str,
     switch_update: SwitchUpdate,
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
 ):
     """
     Update an existing switch configuration.
     """
     # Check if switch exists
-    existing = switch_service.get_switch_by_host(host)
+    existing = await switch_service.get_switch_by_host(session, host)
     if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
@@ -238,32 +247,33 @@ async def update_switch(
     if not update_data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No data to update")
 
-    rows_affected = switch_service.update_switch(host, update_data)
+    rows_affected = await switch_service.update_switch(session, host, update_data)
     if rows_affected == 0:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update switch"
         )
 
     # Return updated data
-    updated_switch = switch_service.get_switch_by_host(host)
+    updated_switch = await switch_service.get_switch_by_host(session, host)
     return SwitchResponse(**updated_switch)
 
 
 @router.delete("/switches/{host}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_switch(
     host: str,
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
 ):
     """
     Delete a switch from the system.
     """
-    existing = switch_service.get_switch_by_host(host)
+    existing = await switch_service.get_switch_by_host(session, host)
     if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
         )
 
-    rows_deleted = switch_service.delete_switch(host)
+    rows_deleted = await switch_service.delete_switch(session, host)
     if rows_deleted == 0:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete switch"
@@ -275,20 +285,21 @@ async def delete_switch(
 @router.get("/switches/{host}/status")
 async def get_switch_live_status(
     host: str,
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
 ):
     """
     Get live status of a switch (CPU, RAM, etc).
     Connects directly to the device.
     """
-    switch_data = switch_service.get_switch_by_host(host)
+    switch_data = await switch_service.get_switch_by_host(session, host)
     if not switch_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
         )
 
     try:
-        service = switch_service.get_switch_service(host)
+        service = await switch_service.get_switch_service(session, host)
         status_data = service.get_status()
         service.disconnect()
         return status_data
@@ -341,13 +352,14 @@ async def validate_switch_connection(switch_data: SwitchCreate):
 @router.post("/switches/{host}/check", status_code=status.HTTP_200_OK)
 async def check_switch_status(
     host: str,
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
 ):
     """
     Connect to switch, get system info, and update database with hostname, model, firmware.
     This is called after adding a switch to populate device details without waiting for monitor.
     """
-    switch_data = switch_service.get_switch_by_host(host)
+    switch_data = await switch_service.get_switch_by_host(session, host)
     if not switch_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
@@ -379,7 +391,7 @@ async def check_switch_status(
                 "firmware": resources.get("version"),
                 "last_status": DeviceStatus.ONLINE,
             }
-            switches_db.update_switch_in_db(host, update_data)
+            await switch_service.update_switch(session, host, update_data)
 
             return {
                 "status": "success",
@@ -394,7 +406,7 @@ async def check_switch_status(
             }
         else:
             # Update status to offline
-            switches_db.update_switch_in_db(host, {"last_status": DeviceStatus.OFFLINE})
+            await switch_service.update_switch(session, host, {"last_status": DeviceStatus.OFFLINE})
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Could not retrieve system info from switch",
@@ -404,7 +416,7 @@ async def check_switch_status(
         raise
     except Exception as e:
         # Update status to offline on error
-        switches_db.update_switch_in_db(host, {"last_status": DeviceStatus.OFFLINE})
+        await switch_service.update_switch(session, host, {"last_status": DeviceStatus.OFFLINE})
         logger.error(f"Error checking switch {host}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Connection failed: {str(e)}"
@@ -417,19 +429,20 @@ async def check_switch_status(
 @router.get("/switches/{host}/interfaces")
 async def get_switch_interfaces(
     host: str,
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
 ):
     """
     Get all interfaces from a switch.
     """
-    switch_data = switch_service.get_switch_by_host(host)
+    switch_data = await switch_service.get_switch_by_host(session, host)
     if not switch_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
         )
 
     try:
-        service = switch_service.get_switch_service(host)
+        service = await switch_service.get_switch_service(session, host)
         interfaces = service.get_interfaces()
         service.disconnect()
         return interfaces
@@ -443,19 +456,20 @@ async def get_switch_interfaces(
 @router.get("/switches/{host}/bridges")
 async def get_switch_bridges(
     host: str,
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
 ):
     """
     Get all bridges configured on a switch.
     """
-    switch_data = switch_service.get_switch_by_host(host)
+    switch_data = await switch_service.get_switch_by_host(session, host)
     if not switch_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
         )
 
     try:
-        service = switch_service.get_switch_service(host)
+        service = await switch_service.get_switch_service(session, host)
         bridges = service.get_bridges()
         service.disconnect()
         return bridges
@@ -469,19 +483,20 @@ async def get_switch_bridges(
 @router.get("/switches/{host}/vlans")
 async def get_switch_vlans(
     host: str,
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
 ):
     """
     Get all VLANs configured on a switch.
     """
-    switch_data = switch_service.get_switch_by_host(host)
+    switch_data = await switch_service.get_switch_by_host(session, host)
     if not switch_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
         )
 
     try:
-        service = switch_service.get_switch_service(host)
+        service = await switch_service.get_switch_service(session, host)
         vlans = service.get_vlans()
         service.disconnect()
         return vlans
@@ -495,19 +510,20 @@ async def get_switch_vlans(
 @router.get("/switches/{host}/backups")
 async def get_switch_backups(
     host: str,
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
 ):
     """
     Get list of backup files on a switch.
     """
-    switch_data = switch_service.get_switch_by_host(host)
+    switch_data = await switch_service.get_switch_by_host(session, host)
     if not switch_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
         )
 
     try:
-        service = switch_service.get_switch_service(host)
+        service = await switch_service.get_switch_service(session, host)
         backups = service.get_backup_files()
         service.disconnect()
         return backups
@@ -521,19 +537,20 @@ async def get_switch_backups(
 @router.get("/switches/{host}/port-stats")
 async def get_switch_port_stats(
     host: str,
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
 ):
     """
     Get port statistics (ethernet interfaces) from a switch.
     """
-    switch_data = switch_service.get_switch_by_host(host)
+    switch_data = await switch_service.get_switch_by_host(session, host)
     if not switch_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
         )
 
     try:
-        service = switch_service.get_switch_service(host)
+        service = await switch_service.get_switch_service(session, host)
         port_stats = service.get_port_stats()
         service.disconnect()
         return port_stats
@@ -547,6 +564,7 @@ async def get_switch_port_stats(
 @router.get("/switches/{host}/ssl/status")
 async def get_switch_ssl_status(
     host: str,
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
 ):
     """
@@ -555,14 +573,14 @@ async def get_switch_ssl_status(
 
     MikrotikSwitchAdapter hereda de MikrotikRouterAdapter y tiene acceso a get_ssl_status().
     """
-    switch_data = switch_service.get_switch_by_host(host)
+    switch_data = await switch_service.get_switch_by_host(session, host)
     if not switch_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
         )
 
     try:
-        service = switch_service.get_switch_service(host)
+        service = await switch_service.get_switch_service(session, host)
 
         # MikrotikSwitchAdapter inherits get_ssl_status from MikrotikRouterAdapter
         status_data = service.get_ssl_status()
@@ -575,3 +593,68 @@ async def get_switch_ssl_status(
     except Exception as e:
         logger.error(f"Error getting SSL status for switch {host}: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+class SwitchRepairRequest(BaseModel):
+    """Request body for switch repair endpoint."""
+    action: str = "renew"  # 'renew' or 'unprovision'
+
+
+@router.post("/switches/{host}/ssl/repair")
+async def repair_switch_ssl(
+    host: str,
+    body: SwitchRepairRequest | None = None,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_admin),
+):
+    """
+    Repairs SSL configuration on a switch.
+
+    Actions:
+    - `renew`: Reinstalls SSL certificates (default).
+    - `unprovision`: Marks as not provisioned (DB only).
+    """
+    switch_data = await switch_service.get_switch_by_host(session, host)
+    if not switch_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
+        )
+
+    action = body.action if body else "renew"
+
+    if action == "unprovision":
+        # Mark switch as needing re-provisioning
+        await switch_service.update_switch(session, host, {"is_provisioned": False})
+        return {
+            "status": "success",
+            "message": "Switch desvinculado. Listo para re-aprovisionar.",
+            "action": "unprovision",
+        }
+
+    elif action == "renew":
+        # Use MikrotikProvisioningService.renew_ssl for consistency
+        from ...services.provisioning import MikrotikProvisioningService
+
+        result = await MikrotikProvisioningService.renew_ssl(
+            host=host,
+            username=switch_data.get("username", ""),
+            password=switch_data.get("password", ""),
+            ssl_port=switch_data.get("api_ssl_port") or 8729,
+        )
+
+        if result.get("status") == "error":
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result.get("message", "SSL renewal failed"),
+            )
+
+        return {
+            "status": "success",
+            "message": "Certificados SSL renovados exitosamente.",
+            "action": "renew",
+        }
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Acción desconocida: {action}"
+        )
+

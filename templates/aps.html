@@ -235,11 +235,18 @@
                             <p class="text-xs text-text-secondary">Update or repair the secure connection
                                 certificate.</p>
                         </div>
-                        <button type="button" @click="repairAp(currentAp)"
-                            class="px-3 py-1.5 text-xs font-semibold rounded bg-warning/20 text-warning hover:bg-warning/30 border border-warning/20 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-sm">sync_lock</span>
-                            Update Certificate
-                        </button>
+                        <div class="flex gap-2">
+                            <button type="button" @click="renewSSL()"
+                                class="px-3 py-1.5 text-xs font-semibold rounded bg-primary/20 text-primary hover:bg-primary/30 border border-primary/20 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm">sync_lock</span>
+                                Renovar SSL
+                            </button>
+                            <button type="button" @click="unlinkAp()"
+                                class="px-3 py-1.5 text-xs font-semibold rounded bg-warning/20 text-warning hover:bg-warning/30 border border-warning/20 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm">link_off</span>
+                                Desvincular
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -282,6 +289,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/utils/ssl_actions.js" defer></script>
 <script nonce="{{ request.state.csp_nonce }}" src="/static/js/provision.js" defer></script>
 <script nonce="{{ request.state.csp_nonce }}" src="/static/js/stores/ApStore.js" defer></script>
 <script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/aps/ApList.js" defer></script>

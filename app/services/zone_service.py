@@ -12,7 +12,7 @@ from typing import Any
 import aiofiles
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, select, text
+from sqlmodel import Session, select
 
 from ..models.zona import Zona, ZonaDocumento, ZonaInfra, ZonaNote
 from ..utils.security import decrypt_data, encrypt_data
@@ -101,17 +101,19 @@ class ZoneService(BaseCRUDService[Zona]):
         Delete zone with dependency checks (APs, Routers).
         Raises FileNotFoundError for backward compatibility.
         """
-        # Check for dependencies manually since they are not yet SQLModels
-        # Check APs
+        from ..models.ap import AP
+        from ..models.router import Router
+
+        # Check for APs in zone
         res_aps = self.session.exec(
-            text("SELECT 1 FROM aps WHERE zona_id = :id"), params={"id": zona_id}
+            select(AP).where(AP.zona_id == zona_id).limit(1)
         ).first()
         if res_aps:
             raise ValueError("No se puede eliminar la zona porque contiene APs.")
 
-        # Check Routers
+        # Check for Routers in zone
         res_routers = self.session.exec(
-            text("SELECT 1 FROM routers WHERE zona_id = :id"), params={"id": zona_id}
+            select(Router).where(Router.zona_id == zona_id).limit(1)
         ).first()
         if res_routers:
             raise ValueError("No se puede eliminar la zona porque contiene Routers.")

@@ -533,6 +533,8 @@ def start_api_server():
         port=port,
         log_level="info",
         server_header=False,  # --- SEGURIDAD: No revelar 'server: uvicorn' ---
+        proxy_headers=True,  # --- PROXY: Confiar en headers (X-Forwarded-For) de Caddy ---
+        forwarded_allow_ips="*",  # --- PROXY: Permitir IPs de cualquier proxy (Caddy es local) ---
     )
     try:
         Server(config).run()

@@ -72,7 +72,8 @@ document.addEventListener('alpine:init', () => {
         },
 
         repairRouter(router) {
-            Alpine.store('routers').repair(router);
+            // Open the edit modal so users can access the 2 SSL action buttons
+            Alpine.store('routers').openModal(router);
         },
 
         // Override openProvisionModal to set Router-specific values

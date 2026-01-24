@@ -7,7 +7,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from .db.settings_db import get_setting
+from .utils.settings_utils import get_setting_sync
 
 # Configuración del logging
 logging.basicConfig(
@@ -53,7 +53,7 @@ def run_scheduler():
 
     # --- Job 1: Monitor de Routers/APs ---
     # Obtener intervalo desde la configuración
-    interval_str = get_setting("default_monitor_interval")
+    interval_str = get_setting_sync("default_monitor_interval")
     try:
         monitor_interval = int(interval_str) if interval_str and interval_str.isdigit() else 300
     except (ValueError, TypeError):
@@ -70,7 +70,7 @@ def run_scheduler():
 
     # --- Job 2: Billing Engine (Suspensiones diarias) ---
     # Obtener hora desde la configuración
-    run_hour_str = get_setting("suspension_run_hour") or "02:00"
+    run_hour_str = get_setting_sync("suspension_run_hour") or "02:00"
     try:
         hour, minute = run_hour_str.split(":")
         hour = int(hour)
@@ -92,9 +92,9 @@ def run_scheduler():
     from .services.backup_service import run_backup_cycle
 
     # Obtener configuración de respaldo
-    backup_frequency = get_setting("backup_frequency") or "daily"
-    backup_day_of_week = get_setting("backup_day_of_week") or "mon"
-    backup_run_hour = get_setting("backup_run_hour") or "03:00"
+    backup_frequency = get_setting_sync("backup_frequency") or "daily"
+    backup_day_of_week = get_setting_sync("backup_day_of_week") or "mon"
+    backup_run_hour = get_setting_sync("backup_run_hour") or "03:00"
 
     # Debug: mostrar valores leídos
     logger.info(f"   [DEBUG] backup_frequency = '{backup_frequency}'")
@@ -129,7 +129,7 @@ def run_scheduler():
     # --- Job 4: Respaldo de Base de Datos (Diario) ---
     from .services.db_backup_service import run_db_backup
     
-    db_backup_hour = get_setting("db_backup_run_hour") or "04:00"
+    db_backup_hour = get_setting_sync("db_backup_run_hour") or "04:00"
     try:
         db_h, db_m = db_backup_hour.split(":")
         db_h = int(db_h)

@@ -2,13 +2,18 @@
 """
 Service layer for Switch domain.
 Handles device connections, CRUD operations, and status monitoring.
+Uses AsyncSession for database operations.
 """
 
 import logging
 from typing import Any
 
-from ..db import switches_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+
+from ..models.switch import Switch
 from ..utils.device_clients.adapters.mikrotik_switch import MikrotikSwitchAdapter
+from ..utils.security import decrypt_data, encrypt_data
 
 logger = logging.getLogger(__name__)
 
@@ -221,48 +226,115 @@ class SwitchService:
             return False
 
 
-# --- CRUD Helper Functions ---
+# --- Async CRUD Helper Functions (with Session) ---
 
 
-def get_all_switches() -> list[dict[str, Any]]:
+async def get_all_switches(session: AsyncSession) -> list[dict[str, Any]]:
     """Get all switches from database."""
-    return switches_db.get_all_switches()
+    stmt = select(Switch).order_by(Switch.host)
+    result = await session.exec(stmt)
+    switches = result.all()
+
+    output = []
+    for s in switches:
+        s_out = s.model_dump()
+        # Don't expose passwords in list view
+        s_out["password"] = None
+        output.append(s_out)
+    return output
 
 
-def get_switch_by_host(host: str) -> dict[str, Any] | None:
+async def get_switch_by_host(session: AsyncSession, host: str) -> dict[str, Any] | None:
     """Get switch by host from database."""
-    return switches_db.get_switch_by_host(host)
+    switch = await session.get(Switch, host)
+    if not switch:
+        return None
+
+    # Return a copy with decrypted password
+    data = switch.model_dump()
+    if data.get("password"):
+        try:
+            data["password"] = decrypt_data(data["password"])
+        except Exception as e:
+            logger.error(f"Error decrypting password for switch {host}: {e}")
+    return data
 
 
-def create_switch(switch_data: dict[str, Any]) -> dict[str, Any]:
+async def create_switch(session: AsyncSession, switch_data: dict[str, Any]) -> dict[str, Any]:
     """Create a new switch in database."""
-    return switches_db.create_switch_in_db(switch_data)
+    data = switch_data.copy()
+    if "password" in data:
+        data["password"] = encrypt_data(data["password"])
+
+    switch = Switch(**data)
+    session.add(switch)
+    try:
+        await session.commit()
+        await session.refresh(switch)
+    except Exception as e:
+        await session.rollback()
+        raise ValueError(f"Switch host (IP) '{switch_data.get('host')}' ya existe o error: {e}")
+
+    return await get_switch_by_host(session, switch.host)
 
 
-def update_switch(host: str, switch_data: dict[str, Any]) -> int:
+async def update_switch(session: AsyncSession, host: str, switch_data: dict[str, Any]) -> int:
     """Update switch in database."""
-    return switches_db.update_switch_in_db(host, switch_data)
+    switch = await session.get(Switch, host)
+    if not switch:
+        return 0
+
+    clean_updates = switch_data.copy()
+    if "password" in clean_updates and clean_updates["password"]:
+        clean_updates["password"] = encrypt_data(clean_updates["password"])
+
+    for key, value in clean_updates.items():
+        if hasattr(switch, key):
+            setattr(switch, key, value)
+
+    session.add(switch)
+    await session.commit()
+    await session.refresh(switch)
+    return 1
 
 
-def delete_switch(host: str) -> int:
+async def delete_switch(session: AsyncSession, host: str) -> int:
     """Delete switch from database."""
-    return switches_db.delete_switch_from_db(host)
+    switch = await session.get(Switch, host)
+    if not switch:
+        return 0
+    await session.delete(switch)
+    await session.commit()
+    return 1
 
 
-def get_enabled_switches() -> list[dict[str, Any]]:
+async def get_enabled_switches(session: AsyncSession) -> list[dict[str, Any]]:
     """Get all enabled switches for monitoring."""
-    return switches_db.get_enabled_switches_from_db()
+    stmt = select(Switch).where(Switch.is_enabled == True)
+    result = await session.exec(stmt)
+    switches = result.all()
+
+    output = []
+    for s in switches:
+        data = s.model_dump()
+        if data.get("password"):
+            try:
+                data["password"] = decrypt_data(data["password"])
+            except Exception:
+                pass
+        output.append(data)
+    return output
 
 
 # --- Dependency Injection Factory ---
 
 
-def get_switch_service(host: str):
+async def get_switch_service(session: AsyncSession, host: str) -> SwitchService:
     """
     Factory function to create a SwitchService instance.
     Fetches switch data from DB and initializes the service.
     """
-    switch_data = switches_db.get_switch_by_host(host)
+    switch_data = await get_switch_by_host(session, host)
     if not switch_data:
         raise SwitchConnectionError(f"Switch {host} no encontrado en la DB.")
 

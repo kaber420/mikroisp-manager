@@ -9,8 +9,9 @@ import os
 from collections.abc import AsyncGenerator
 
 from sqlalchemy import event
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 # Read database path from environment or use default in data/db/
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")

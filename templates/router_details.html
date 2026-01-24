@@ -842,6 +842,65 @@
     </div>
 </div>
 
+<!-- Edit Router Modal -->
+<div id="edit-router-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center">
+    <div class="bg-surface-1 rounded-lg shadow-xl w-full max-w-lg border border-border-color">
+        <div class="p-6 border-b border-border-color">
+            <h3 class="text-xl font-bold">Edit Router</h3>
+        </div>
+        <form id="edit-router-form">
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Host</label>
+                    <input type="text" id="edit-r-host"
+                        class="w-full bg-surface-2 border border-border-color rounded p-2 text-text-secondary cursor-not-allowed"
+                        readonly>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Username</label>
+                    <input type="text" id="edit-r-username" name="username"
+                        class="w-full bg-background border border-border-color rounded p-2" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Password</label>
+                    <input type="password" name="password" placeholder="Leave blank to keep current"
+                        class="w-full bg-background border border-border-color rounded p-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">API Port</label>
+                    <input type="number" id="edit-r-api-port" name="api_port"
+                        class="w-full bg-background border border-border-color rounded p-2" required>
+                </div>
+
+                <!-- Security Actions -->
+                <div class="pt-4 border-t border-border-color mt-4">
+                    <h4 class="text-sm font-semibold text-text-primary mb-2">Security Actions</h4>
+                    <div
+                        class="bg-surface-2 p-4 rounded-lg flex items-center justify-between border border-border-color">
+                        <div>
+                            <p class="text-sm font-medium text-text-primary">SSL Certificate</p>
+                            <p class="text-xs text-text-secondary">Update or repair the secure connection certificate.
+                            </p>
+                        </div>
+                        <button type="button" id="edit-repair-router-btn"
+                            class="px-3 py-1.5 text-xs font-semibold rounded bg-warning/20 text-warning hover:bg-warning/30 border border-warning/20 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm">sync_lock</span>
+                            Update Certificate
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end gap-3">
+                <button type="button" id="cancel-edit-router-btn"
+                    class="px-4 py-2 rounded text-sm font-semibold hover:bg-surface-1">Cancel</button>
+                <button type="submit"
+                    class="px-4 py-2 rounded text-sm font-semibold text-white bg-primary hover:bg-primary-hover">Save
+                    Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}

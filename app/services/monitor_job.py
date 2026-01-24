@@ -6,8 +6,7 @@ import os
 import httpx
 
 from app.db.engine import async_session_maker
-from app.db.engine_sync import get_sync_session
-from app.services.settings_service import SettingsService
+
 
 from .monitor_service import MonitorService
 
@@ -38,20 +37,21 @@ def run_monitor_cycle():
     Wraps the async implementation.
     """
     # 1. Get configuration synchronously (keeps it simple/safe)
-    session_sync = next(get_sync_session())
+    from app.utils.settings_utils import get_setting_sync
+    
     max_workers = 10
     try:
-        settings_service = SettingsService(session_sync)
-        all_settings = settings_service.get_all_settings()
-        max_workers_str = all_settings.get("monitor_max_workers")
+        max_workers_str = get_setting_sync("monitor_max_workers")
         try:
             max_workers = int(max_workers_str) if max_workers_str else 10
         except (ValueError, TypeError):
             logger.warning(
                 f"Valor inválido para monitor_max_workers: {max_workers_str}. Usando default: 10"
             )
-    finally:
-        session_sync.close()
+    except Exception as e:
+        logger.error(f"Error fetching settings: {e}")
+        # Continue with default
+        pass
 
     # 2. Run Async Cycle
     try:

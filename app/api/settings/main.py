@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Session
 
 from ...core.users import require_admin
+from ...db.engine import get_session
 from ...db.engine_sync import get_sync_session
 from ...models.user import User
 from ...services.billing_service import BillingService
@@ -10,25 +12,27 @@ from ...services.settings_service import SettingsService
 router = APIRouter()
 
 
-def get_settings_service(session: Session = Depends(get_sync_session)) -> SettingsService:
+async def get_settings_service(
+    session: AsyncSession = Depends(get_session),
+) -> SettingsService:
     return SettingsService(session)
 
 
 @router.get("/settings", response_model=dict[str, str])
-def api_get_settings(
+async def api_get_settings(
     service: SettingsService = Depends(get_settings_service),
     current_user: User = Depends(require_admin),
 ):
-    return service.get_all_settings()
+    return await service.get_all_settings()
 
 
 @router.put("/settings", status_code=status.HTTP_204_NO_CONTENT)
-def api_update_settings(
+async def api_update_settings(
     settings: dict[str, str],
     service: SettingsService = Depends(get_settings_service),
     current_user: User = Depends(require_admin),
 ):
-    service.update_settings(settings)
+    await service.update_settings(settings)
     return
 
 
@@ -62,28 +66,35 @@ def force_monitor_scan(current_user: User = Depends(require_admin)):
 
 # --- AUDIT LOGS ENDPOINTS (Admin Only) ---
 
-from ...db.audit_db import (
-    count_audit_logs,
-    get_audit_logs_paginated,
-    get_distinct_actions,
-    get_distinct_usernames,
-)
+# --- AUDIT LOGS ENDPOINTS (Admin Only) ---
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ...db.engine import get_session
+from ...services.audit_service import AuditService
+
+
+async def get_audit_service(
+    session: AsyncSession = Depends(get_session),
+) -> AuditService:
+    return AuditService(session)
 
 
 @router.get("/settings/audit-logs")
-def get_audit_logs(
+async def get_audit_logs(
     page: int = 1,
     page_size: int = 20,
     action: str = None,
     username: str = None,
+    service: AuditService = Depends(get_audit_service),
     current_user: User = Depends(require_admin),
 ):
     """
     Retrieves paginated audit logs for admin review.
     Supports filtering by action type and username.
     """
-    logs = get_audit_logs_paginated(page, page_size, action, username)
-    total_records = count_audit_logs(action, username)
+    logs = await service.get_audit_logs_paginated(page, page_size, action, username)
+    total_records = await service.count_audit_logs(action, username)
     total_pages = (total_records + page_size - 1) // page_size if total_records > 0 else 1
 
     return {
@@ -96,15 +107,16 @@ def get_audit_logs(
 
 
 @router.get("/settings/audit-logs/filters")
-def get_audit_log_filters(
+async def get_audit_log_filters(
+    service: AuditService = Depends(get_audit_service),
     current_user: User = Depends(require_admin),
 ):
     """
     Returns available filter options for audit logs.
     """
     return {
-        "actions": get_distinct_actions(),
-        "usernames": get_distinct_usernames(),
+        "actions": await service.get_distinct_actions(),
+        "usernames": await service.get_distinct_usernames(),
     }
 
 

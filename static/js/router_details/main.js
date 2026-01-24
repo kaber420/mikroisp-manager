@@ -16,6 +16,7 @@ import { initBackupModule, loadBackupData } from './backup.js';
 // import { initSslModule, loadSslStatus } from './ssl.js'; // LEGACY
 import { SslBadge } from '../components/ssl_badge.js';
 import { initHistoryTab } from './history.js';
+import { initEditRouter } from './edit_router.js';
 
 async function loadFullDetailsData() {
     try {
@@ -69,5 +70,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     initWanSelector();
 
     // 3. Iniciar el stream de datos en vivo (CPU, RAM)
+    // 3. Iniciar el stream de datos en vivo (CPU, RAM)
     initResourceStream();
+
+    // 4. Initialize Edit Router Modal
+    initEditRouter();
 });

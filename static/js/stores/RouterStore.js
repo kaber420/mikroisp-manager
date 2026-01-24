@@ -173,27 +173,34 @@ document.addEventListener('alpine:init', () => {
 
             window.ModalUtils.showConfirmModal({
                 title: 'Reparar Router',
-                message: `¿Desea permitir re-aprovisionar el router "<strong>${hostname}</strong>"?<br><br>Esto mostrará el botón "Provision" para configurar SSL nuevamente.`,
-                confirmText: 'Permitir',
+                message: `¿Desea desvincular el router "<strong>${hostname}</strong>"?<br><br>Esto mostrará el botón "Provision" para configurar SSL nuevamente.`,
+                confirmText: 'Desvincular',
                 confirmIcon: 'build',
                 type: 'warning',
             }).then(async (confirmed) => {
                 if (confirmed) {
-                    try {
-                        const url = `/api/routers/${encodeURIComponent(router.host)}/repair?reset_provision=true`;
-                        const response = await fetch(url, { method: 'POST' });
-                        const data = await response.json();
-
-                        if (!response.ok) {
-                            throw new Error(data.detail || 'Error al reparar router');
-                        }
-
-                        showToast('Router listo para re-aprovisionar', 'success');
+                    const result = await window.SSLActions.unprovision('router', router.host);
+                    if (result.success) {
                         await this.loadData();
+                    }
+                }
+            });
+        },
 
-                    } catch (error) {
-                        console.error('Repair error:', error);
-                        showToast(`Error: ${error.message}`, 'danger');
+        async renewSSL(router) {
+            const hostname = router.hostname || router.host;
+
+            window.ModalUtils.showConfirmModal({
+                title: 'Renovar Certificados SSL',
+                message: `¿Desea renovar los certificados SSL para "<strong>${hostname}</strong>"?<br><br>Esto reinstalará los certificados sin cambiar usuario/contraseña.`,
+                confirmText: 'Renovar SSL',
+                confirmIcon: 'security',
+                type: 'primary',
+            }).then(async (confirmed) => {
+                if (confirmed) {
+                    const result = await window.SSLActions.renew('router', router.host);
+                    if (result.success) {
+                        await this.loadData();
                     }
                 }
             });

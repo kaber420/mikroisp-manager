@@ -2,7 +2,7 @@
 
 import httpx
 
-from ..db.settings_db import get_setting
+from .settings_utils import get_setting_sync
 
 
 def send_telegram_alert(message: str):
@@ -13,8 +13,8 @@ def send_telegram_alert(message: str):
     Args:
         message (str): El texto del mensaje que se va a enviar. Soporta formato Markdown.
     """
-    bot_token = get_setting("telegram_bot_token")
-    chat_id = get_setting("telegram_chat_id")
+    bot_token = get_setting_sync("telegram_bot_token")
+    chat_id = get_setting_sync("telegram_chat_id")
 
     if not bot_token or not chat_id:
         print("\n--- ALERTA  ---")

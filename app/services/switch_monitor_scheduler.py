@@ -3,8 +3,11 @@ import logging
 import os
 from datetime import datetime
 
+from sqlmodel import select
+
 from ..core.constants import DeviceStatus
-from ..db import switches_db
+from ..db.engine import async_session_maker
+from ..models.switch import Switch
 from ..utils.cache import cache_manager
 from .switch_connector import switch_connector
 
@@ -135,21 +138,27 @@ class SwitchMonitorScheduler:
         logger.info(f"[SwitchMonitorScheduler] Fully unsubscribed from {host}")
 
     async def _update_db_status(self, host: str, status: str, result: dict = None):
-        """Update switch status in DB."""
+        """Update switch status in DB using async session."""
         try:
-            # Note: Assuming switches_db has this method, similar to router_db
-            # If not, we might need to add it or use update_switch_in_db
-            update_data = {"last_status": status}
-            if result:
-                update_data.update(
-                    {
-                        "hostname": result.get("name") or result.get("hostname"),
-                        "model": result.get("board_name"),
-                        "firmware": result.get("version"),
-                    }
-                )
+            async with async_session_maker() as session:
+                switch = await session.get(Switch, host)
+                if not switch:
+                    return
 
-            await asyncio.to_thread(switches_db.update_switch_in_db, host, update_data)
+                switch.last_status = status
+                switch.last_checked = datetime.utcnow()
+
+                if result:
+                    if result.get("name") or result.get("hostname"):
+                        switch.hostname = result.get("name") or result.get("hostname")
+                    if result.get("board_name"):
+                        switch.model = result.get("board_name")
+                    if result.get("version"):
+                        switch.firmware = result.get("version")
+
+                session.add(switch)
+                await session.commit()
+
         except Exception as e:
             logger.error(f"[SwitchMonitorScheduler] Failed to update DB for {host}: {e}")
 

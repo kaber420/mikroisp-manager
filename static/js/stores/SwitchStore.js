@@ -234,6 +234,40 @@ document.addEventListener('alpine:init', () => {
                 }
                 await this.loadData();
             }
+        },
+
+        async repairSSL(switchHost) {
+            window.ModalUtils.showConfirmModal({
+                title: 'Reparar SSL Switch',
+                message: `¿Está seguro de que desea reparar SSL para el switch "<strong>${switchHost}</strong>"?<br><br>Esto instalará la CA de confianza y generará un nuevo certificado.`,
+                confirmText: 'Reparar SSL',
+                confirmIcon: 'build',
+                type: 'warning',
+            }).then(async (confirmed) => {
+                if (confirmed) {
+                    const result = await window.SSLActions.renew('switch', switchHost);
+                    if (result.success) {
+                        await this.loadData();
+                    }
+                }
+            });
+        },
+
+        async unlinkSSL(switchHost) {
+            window.ModalUtils.showConfirmModal({
+                title: 'Desvincular Switch',
+                message: `¿Desea desvincular el switch "<strong>${switchHost}</strong>"?<br><br>Esto mostrará el botón "Provision" para configurar SSL nuevamente.`,
+                confirmText: 'Desvincular',
+                confirmIcon: 'link_off',
+                type: 'warning',
+            }).then(async (confirmed) => {
+                if (confirmed) {
+                    const result = await window.SSLActions.unprovision('switch', switchHost);
+                    if (result.success) {
+                        await this.loadData();
+                    }
+                }
+            });
         }
     });
 });

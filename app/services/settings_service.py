@@ -1,19 +1,21 @@
-from sqlmodel import Session, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 from ..models.setting import Setting
 
 
 class SettingsService:
-    def __init__(self, session: Session):
+    def __init__(self, session: AsyncSession):
         self.session = session
 
-    def get_all_settings(self) -> dict[str, str]:
-        settings = self.session.exec(select(Setting)).all()
+    async def get_all_settings(self) -> dict[str, str]:
+        result = await self.session.execute(select(Setting))
+        settings = result.scalars().all()
         return {s.key: s.value for s in settings}
 
-    def update_settings(self, settings_to_update: dict[str, str]):
+    async def update_settings(self, settings_to_update: dict[str, str]):
         for key, value in settings_to_update.items():
-            setting = self.session.get(Setting, key)
+            setting = await self.session.get(Setting, key)
             if setting:
                 setting.value = value
                 self.session.add(setting)
@@ -22,4 +24,8 @@ class SettingsService:
                 new_setting = Setting(key=key, value=value)
                 self.session.add(new_setting)
 
-        self.session.commit()
+        await self.session.commit()
+
+    async def get_setting_value(self, key: str) -> str | None:
+        setting = await self.session.get(Setting, key)
+        return setting.value if setting else None

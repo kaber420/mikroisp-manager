@@ -215,8 +215,25 @@
                             class="w-full bg-background border border-border-color rounded-md p-2 focus:ring-primary focus:border-primary">
                     </div>
                 </div>
-                <div id="edit-form-error" class="text-danger text-sm hidden"></div>
             </div>
+
+            <!-- Security Actions (Dynamic based on vendor) -->
+            <div id="edit-security-section" class="hidden pt-4 border-t border-border-color mt-2">
+                <h4 class="text-sm font-semibold text-text-primary mb-2">Security Actions</h4>
+                <div class="bg-surface-2 p-4 rounded-lg flex items-center justify-between border border-border-color">
+                    <div>
+                        <p class="text-sm font-medium text-text-primary">SSL Certificate</p>
+                        <p class="text-xs text-text-secondary">Update or repair the secure connection certificate.</p>
+                    </div>
+                    <button type="button" id="edit-repair-ssl-btn"
+                        class="px-3 py-1.5 text-xs font-semibold rounded bg-warning/20 text-warning hover:bg-warning/30 border border-warning/20 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">sync_lock</span>
+                        Update Certificate
+                    </button>
+                </div>
+            </div>
+
+            <div id="edit-form-error" class="text-danger text-sm hidden"></div>
             <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end gap-4">
                 <button type="button" id="edit-cancel-button"
                     class="px-4 py-2 rounded-md text-sm font-semibold hover:bg-surface-1">Cancel</button>

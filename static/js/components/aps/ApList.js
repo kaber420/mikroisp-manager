@@ -102,7 +102,8 @@ document.addEventListener('alpine:init', () => {
         },
 
         repairAp(ap) {
-            Alpine.store('aps').repair(ap);
+            // Open the edit modal so users can access the 2 SSL action buttons
+            Alpine.store('aps').openModal(ap);
         },
 
         // Override openProvisionModal to set AP-specific values

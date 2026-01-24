@@ -678,6 +678,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         populateZoneSelect(document.getElementById('edit-zona_id'), apData.zona_id);
         document.getElementById('edit-ap-modal').classList.remove('hidden');
         document.getElementById('edit-ap-modal').classList.add('flex');
+
+        // Show security section only for MikroTik
+        const securitySection = document.getElementById('edit-security-section');
+        if (securitySection) {
+            if (apData.vendor === 'mikrotik') {
+                securitySection.classList.remove('hidden');
+            } else {
+                securitySection.classList.add('hidden');
+            }
+        }
     }
 
     function closeEditModal() {
@@ -754,6 +764,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (editCancelButton && editApForm) {
         editCancelButton.addEventListener('click', closeEditModal);
         editApForm.addEventListener('submit', handleEditFormSubmit);
+
+        // Setup SSL Repair button listener
+        const repairBtn = document.getElementById('edit-repair-ssl-btn');
+        if (repairBtn) {
+            repairBtn.addEventListener('click', async () => {
+                const host = document.getElementById('edit-host').value;
+                const hostname = document.getElementById('main-hostname').textContent;
+
+                if (window.SSLActions) {
+                    await window.SSLActions.showRepairModal('ap', host, hostname, () => {
+                        closeEditModal();
+                        loadApDetails();
+                    });
+                } else {
+                    console.error('SSLActions utility not loaded');
+                }
+            });
+        }
     } else {
         console.error("Edit form elements not found. Edit functionality may fail.");
     }

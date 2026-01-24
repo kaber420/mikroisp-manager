@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 # Importaciones de nuestras utilidades y capas de DB
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 
 from ..api.aps.models import (
@@ -16,7 +16,7 @@ from ..api.aps.models import (
     HistoryDataPoint,
 )
 from ..core.constants import DeviceStatus, DeviceVendor
-from ..db import settings_db, stats_db
+from ..db import stats_db
 from ..db.base import get_stats_db_connection
 from ..models.ap import AP
 from ..utils.device_clients.adapter_factory import get_device_adapter
@@ -143,8 +143,14 @@ class APService:
         ap_dict = ap_data.model_dump()
 
         # Lógica de negocio: Asignar intervalo por defecto si no se proporciona
+        # Lógica de negocio: Asignar intervalo por defecto si no se proporciona
         if ap_dict.get("monitor_interval") is None:
-            default_interval_str = settings_db.get_setting("default_monitor_interval")
+            # Replaced raw SQL settings_db with SQLModel
+            from ..models.setting import Setting
+            
+            setting = await self.session.get(Setting, "default_monitor_interval")
+            default_interval_str = setting.value if setting else None
+            
             ap_dict["monitor_interval"] = (
                 int(default_interval_str)
                 if default_interval_str and default_interval_str.isdigit()
@@ -211,7 +217,7 @@ class APService:
         Returns:
             dict with 'synced_count' and 'clients' list.
         """
-        from ..db.base import get_db_connection
+        from ..models.cpe import CPE
         
         ap = await self.session.get(AP, host)
         if not ap:
@@ -243,9 +249,7 @@ class APService:
             for c in clients_data:
                 logger.info(f"[SyncNames] Client: MAC={c.get('mac')}, hostname={c.get('hostname')}, IP={c.get('ip_address')}")
             
-            # Update CPE inventory in database
-            conn = get_db_connection()
-            cursor = conn.cursor()
+            # Update CPE inventory using SQLModel
             now = datetime.utcnow()
             synced_count = 0
             
@@ -255,24 +259,34 @@ class APService:
                 ip_address = client.get("ip_address")
                 
                 if mac:
-                    # Update or insert CPE - always update even without hostname
-                    # This ensures we at least capture IP and last_seen
-                    cursor.execute(
-                        """
-                        INSERT INTO cpes (mac, hostname, ip_address, last_seen, status)
-                        VALUES (?, ?, ?, ?, 'active')
-                        ON CONFLICT(mac) DO UPDATE SET
-                            hostname = COALESCE(?, hostname),
-                            ip_address = COALESCE(?, ip_address),
-                            last_seen = ?
-                        """,
-                        (mac, hostname, ip_address, now, hostname, ip_address, now)
-                    )
+                    # Check if CPE exists
+                    existing_cpe = await self.session.get(CPE, mac)
+                    
+                    if existing_cpe:
+                        # Update existing CPE
+                        if hostname:
+                            existing_cpe.hostname = hostname
+                        if ip_address:
+                            existing_cpe.ip_address = ip_address
+                        existing_cpe.last_seen = now
+                        existing_cpe.status = "active"
+                        self.session.add(existing_cpe)
+                    else:
+                        # Create new CPE
+                        new_cpe = CPE(
+                            mac=mac,
+                            hostname=hostname,
+                            ip_address=ip_address,
+                            last_seen=now,
+                            first_seen=now,
+                            status="active"
+                        )
+                        self.session.add(new_cpe)
+                    
                     if hostname:
                         synced_count += 1
             
-            conn.commit()
-            conn.close()
+            await self.session.commit()
             
             return {
                 "synced_count": synced_count,
@@ -283,6 +297,7 @@ class APService:
                 ]
             }
         except Exception as e:
+            await self.session.rollback()
             raise APUnreachableError(f"Error syncing CPE names for {host}: {e}")
         finally:
             adapter.disconnect()

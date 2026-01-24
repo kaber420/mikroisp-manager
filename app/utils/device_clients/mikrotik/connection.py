@@ -41,6 +41,7 @@ def get_pool(
             ssl_context=ssl_context,
             plaintext_login=True,
         )
+        new_pool.set_timeout(30)
 
         if force_new:
             return new_pool

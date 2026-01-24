@@ -285,27 +285,34 @@ document.addEventListener('alpine:init', () => {
 
             window.ModalUtils.showConfirmModal({
                 title: 'Reparar AP',
-                message: `¿Desea permitir re-aprovisionar el AP "<strong>${hostname}</strong>"?<br><br>Esto mostrará el botón "Provision" para configurar SSL nuevamente.`,
-                confirmText: 'Permitir',
+                message: `¿Desea desvincular el AP "<strong>${hostname}</strong>"?<br><br>Esto mostrará el botón "Provision" para configurar SSL nuevamente.`,
+                confirmText: 'Desvincular',
                 confirmIcon: 'build',
                 type: 'warning',
             }).then(async (confirmed) => {
                 if (confirmed) {
-                    try {
-                        const url = `/api/aps/${encodeURIComponent(ap.host)}/repair?reset_provision=true`;
-                        const response = await fetch(url, { method: 'POST' });
-                        const data = await response.json();
-
-                        if (!response.ok) {
-                            throw new Error(data.detail || 'Error al reparar AP');
-                        }
-
-                        showToast('AP listo para re-aprovisionar', 'success');
+                    const result = await window.SSLActions.unprovision('ap', ap.host);
+                    if (result.success) {
                         await this.loadData();
+                    }
+                }
+            });
+        },
 
-                    } catch (error) {
-                        console.error('Repair error:', error);
-                        showToast(`Error: ${error.message}`, 'danger');
+        async renewSSL(ap) {
+            const hostname = ap.hostname || ap.host;
+
+            window.ModalUtils.showConfirmModal({
+                title: 'Renovar Certificados SSL',
+                message: `¿Desea renovar los certificados SSL para "<strong>${hostname}</strong>"?<br><br>Esto reinstalará los certificados sin cambiar usuario/contraseña.`,
+                confirmText: 'Renovar SSL',
+                confirmIcon: 'security',
+                type: 'primary',
+            }).then(async (confirmed) => {
+                if (confirmed) {
+                    const result = await window.SSLActions.renew('ap', ap.host);
+                    if (result.success) {
+                        await this.loadData();
                     }
                 }
             });

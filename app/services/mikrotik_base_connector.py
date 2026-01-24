@@ -28,31 +28,38 @@ class MikrotikBaseConnector(BaseDeviceConnector):
         await asyncio.to_thread(readonly_channels.release, host, port)
 
     @contextlib.contextmanager
-    def api_session(self, host: str):
+    def api_session(self, host: str, creds: dict = None):
         """
         Context manager to aquire/release API access for a block of code.
         The subscription keeps the connection alive, but we still use acquire/release
         pattern here to get the API object locally and ensure thread safety if needed
         by the manager.
+
+        Args:
+            host: The router IP/hostname.
+            creds: Optional dict with keys 'username', 'password', 'port'.
+                   If provided, uses these credentials directly (ad-hoc).
+                   If None, looks up credentials from active subscriptions.
         """
-        creds = self.get_credentials(host)
+        if creds:
+             # Ad-hoc connection (no subscription needed)
+             username = creds.get(CredentialKeys.USERNAME)
+             password = creds.get(CredentialKeys.PASSWORD)
+             port = creds.get(CredentialKeys.PORT, 8729)
+        else:
+             # Subscription-based connection
+             stored_creds = self.get_credentials(host)
+             username = stored_creds[CredentialKeys.USERNAME]
+             password = stored_creds[CredentialKeys.PASSWORD]
+             port = stored_creds.get(CredentialKeys.PORT, 8729)
+
         try:
-            # Sync call as per original code's usage in fetch_router_stats
-            # But wait, original code ran this in asyncio.to_thread implicitly?
-            # No, fetch_router_stats was a synchronous method running in a thread pool managed by the scheduler?
-            # Original: def fetch_router_stats(self, host: str) -> dict:
-            # logic...
-            # The scheduler calls it via: data = await loop.run_in_executor(None, self.connector.fetch_router_stats, host)
-            # So `fetch_router_stats` IS synchronous and blocking.
-
-            # So my `api_session` should be synchronous context manager.
-
             api = readonly_channels.acquire(
                 host,
-                creds[CredentialKeys.USERNAME],
-                creds[CredentialKeys.PASSWORD],
-                creds.get(CredentialKeys.PORT, 8729),
+                username,
+                password,
+                port,
             )
             yield api
         finally:
-            readonly_channels.release(host, creds.get(CredentialKeys.PORT, 8729))
+            readonly_channels.release(host, port)
