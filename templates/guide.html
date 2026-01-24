@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+
+{% block title %}Guía de uManager{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ request.state.csp_nonce }}" src="{{ url_for('static', path='/js/vendor/marked.min.js') }}"></script>
+<script nonce="{{ request.state.csp_nonce }}" src="{{ url_for('static', path='/js/utils/docs.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="h-full flex" x-data="guideApp()">
+
+    <!-- Sidebar Navigation -->
+    <aside class="w-80 bg-surface-1 border-r border-border-color flex-shrink-0 flex flex-col">
+        <!-- Header -->
+        <div class="p-6 border-b border-border-color">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="bg-primary/20 p-2 rounded-lg">
+                    <span class="material-symbols-outlined text-primary text-2xl">menu_book</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-text-primary">Guía de uManager</h1>
+                    <p class="text-sm text-text-secondary">Documentación completa</p>
+                </div>
+            </div>
+
+            <!-- Search (future enhancement) -->
+            <div class="relative">
+                <span
+                    class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">search</span>
+                <input type="text" placeholder="Buscar en la guía..."
+                    class="w-full pl-10 pr-4 py-2 bg-surface-2 border border-border-color rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary/50">
+            </div>
+        </div>
+
+        <!-- Navigation Tree -->
+        <div class="flex-1 overflow-y-auto p-6" id="docs-navigation">
+            <p class="text-text-secondary">Cargando índice...</p>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-y-auto">
+        <div class="max-w-4xl mx-auto p-8">
+            <div id="docs-content" class="prose prose-invert max-w-none">
+                <p class="text-text-secondary">Cargando contenido...</p>
+            </div>
+        </div>
+    </main>
+
+</div>
+
+<script nonce="{{ request.state.csp_nonce }}">
+    function guideApp() {
+        return {
+            currentArticleId: null,
+            index: null,
+
+            async init() {
+                try {
+                    // Load the documentation index
+                    this.index = await window.docsFetcher.loadIndex();
+
+                    // Render navigation
+                    this.renderNavigation();
+
+                    // Load default article (intro)
+                    await this.loadArticle('intro', 'basics/intro.md');
+
+                    // Attach navigation click handlers (delegation or re-binding)
+                    // We can rely on Alpine click handlers if we render with x-for, 
+                    // but since we are rendering raw HTML for nav, we stick to event listeners
+                    this.attachNavListeners();
+                } catch (error) {
+                    console.error('Error initializing guide:', error);
+                    document.getElementById('docs-content').innerHTML =
+                        '<p class="text-danger">Error al cargar la guía.</p>';
+                }
+            },
+
+            renderNavigation() {
+                if (!this.index) return;
+
+                let html = '<nav class="docs-nav">';
+
+                this.index.sections.forEach(section => {
+                    html += `
+                        <div class="nav-section mb-6">
+                            <h3 class="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-3 px-2">
+                                ${section.title}
+                            </h3>
+                            <ul class="space-y-1">
+                    `;
+
+                    section.items.forEach(item => {
+                        const isActive = item.id === this.currentArticleId;
+                        // Use button type="button" to avoid form submission behavior if any
+                        // Add proper data attributes for the click handler
+                        html += `
+                            <li>
+                                <button type="button"
+                                   data-article-id="${item.id}"
+                                   data-article-file="${item.file}"
+                                   class="doc-nav-link w-full text-left block px-3 py-2 rounded-lg transition-all duration-200 ${isActive
+                                ? 'bg-primary/20 text-primary font-medium'
+                                : 'text-text-secondary hover:text-text-primary hover:bg-surface-2/50'
+                            }">
+                                    ${item.title}
+                                </button>
+                            </li>
+                        `;
+                    });
+
+                    html += `
+                            </ul>
+                        </div>
+                    `;
+                });
+
+                html += '</nav>';
+                document.getElementById('docs-navigation').innerHTML = html;
+                this.attachNavListeners(); // Re-attach listeners after DOM update
+            },
+
+            async loadArticle(articleId, filePath) {
+                try {
+                    const html = await window.docsFetcher.loadArticle(filePath);
+                    document.getElementById('docs-content').innerHTML = html;
+                    this.currentArticleId = articleId;
+                    this.renderNavigation(); // Re-render to update active styling
+
+                    // Scroll to top
+                    document.querySelector('main').scrollTo(0, 0);
+                } catch (error) {
+                    console.error('Error loading article:', error);
+                    document.getElementById('docs-content').innerHTML =
+                        '<p class="text-danger">Error al cargar el artículo.</p>';
+                }
+            },
+
+            attachNavListeners() {
+                // Remove existing listeners if any (simple approach: just re-query)
+                // In a production Alpine app, we'd use x-for for the list to avoid this manual DOM handling
+                document.querySelectorAll('.doc-nav-link').forEach(link => {
+                    link.onclick = (e) => { // Using one-off onclick property to avoid duplicate listeners
+                        e.preventDefault();
+                        const articleId = link.dataset.articleId;
+                        const filePath = link.dataset.articleFile;
+                        this.loadArticle(articleId, filePath);
+                    };
+                });
+            }
+        }
+    }
+</script>
+
+<style nonce="{{ request.state.csp_nonce }}">
+    /* Reuse the prose styling from help_modal.html */
+    .prose-invert {
+        color: var(--text-primary);
+    }
+
+    .prose-invert h1,
+    .prose-invert h2,
+    .prose-invert h3,
+    .prose-invert h4,
+    .prose-invert h5,
+    .prose-invert h6 {
+        color: var(--text-primary);
+        font-weight: 700;
+        margin-top: 1.5em;
+        margin-bottom: 0.5em;
+    }
+
+    .prose-invert h1 {
+        font-size: 2em;
+        border-bottom: 2px solid var(--border-color);
+        padding-bottom: 0.3em;
+    }
+
+    .prose-invert h2 {
+        font-size: 1.5em;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 0.3em;
+    }
+
+    .prose-invert h3 {
+        font-size: 1.25em;
+    }
+
+    .prose-invert p {
+        margin-bottom: 1em;
+        line-height: 1.6;
+    }
+
+    .prose-invert ul,
+    .prose-invert ol {
+        margin: 1em 0;
+        padding-left: 2em;
+    }
+
+    .prose-invert li {
+        margin: 0.5em 0;
+    }
+
+    .prose-invert code {
+        background: var(--surface-2);
+        padding: 0.2em 0.4em;
+        border-radius: 4px;
+        font-size: 0.9em;
+        color: var(--primary);
+    }
+
+    .prose-invert pre {
+        background: var(--surface-2);
+        padding: 1em;
+        border-radius: 8px;
+        overflow-x: auto;
+        border: 1px solid var(--border-color);
+    }
+
+    .prose-invert pre code {
+        background: transparent;
+        padding: 0;
+        color: var(--text-primary);
+    }
+
+    .prose-invert a {
+        color: var(--primary);
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+        transition: border-color 0.2s;
+    }
+
+    .prose-invert a:hover {
+        border-bottom-color: var(--primary);
+    }
+
+    .prose-invert blockquote {
+        border-left: 4px solid var(--primary);
+        padding-left: 1em;
+        margin: 1em 0;
+        color: var(--text-secondary);
+        font-style: italic;
+    }
+
+    .prose-invert strong {
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+
+    .prose-invert video,
+    .prose-invert img {
+        max-width: 100%;
+        border-radius: 8px;
+        margin: 1em 0;
+        border: 1px solid var(--border-color);
+    }
+
+    .prose-invert hr {
+        border: 0;
+        border-top: 1px solid var(--border-color);
+        margin: 2em 0;
+    }
+
+    .prose-invert table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1em 0;
+    }
+
+    .prose-invert th,
+    .prose-invert td {
+        border: 1px solid var(--border-color);
+        padding: 0.5em;
+        text-align: left;
+    }
+
+    .prose-invert th {
+        background: var(--surface-2);
+        font-weight: 600;
+    }
+</style>
+{% endblock %}

@@ -216,6 +216,16 @@
                 {% endif %}
 
                 <div class="space-y-1">
+                    <button @click="$store.docs.open()"
+                        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors group"
+                        :class="collapsed ? 'justify-center' : ''">
+                        <div x-show="collapsed"
+                            class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">
+                            Ayuda</div>
+                        <span class="material-symbols-outlined text-[20px] group-hover:text-primary">help</span>
+                        <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap">Ayuda</span>
+                    </button>
+
                     <a href="/logout"
                         class="flex items-center gap-3 px-3 py-2 rounded-lg text-text-secondary hover:text-danger hover:bg-danger/10 transition-colors group"
                         :class="collapsed ? 'justify-center' : ''">
@@ -263,6 +273,12 @@
     </div>
 
     {% include 'partials/mobile_setup_modal.html' %}
+    {% include 'partials/help_modal.html' %}
+
+    <script nonce="{{ request.state.csp_nonce }}"
+        src="{{ url_for('static', path='/js/vendor/marked.min.js') }}"></script>
+    <script nonce="{{ request.state.csp_nonce }}" src="{{ url_for('static', path='/js/utils/docs.js') }}"></script>
+
 
     <script nonce="{{ request.state.csp_nonce }}" src="{{ url_for('static', path='/js/utils/toast.js') }}"></script>
     <script nonce="{{ request.state.csp_nonce }}" src="{{ url_for('static', path='/js/ws-client.js') }}"></script>

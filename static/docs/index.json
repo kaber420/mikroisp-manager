@@ -1,0 +1,37 @@
+{
+    "title": "Guía de uManager",
+    "sections": [
+        {
+            "id": "basics",
+            "title": "Conceptos Básicos",
+            "items": [
+                {
+                    "id": "intro",
+                    "title": "Introducción a uManager",
+                    "file": "basics/intro.md"
+                },
+                {
+                    "id": "first-zone",
+                    "title": "Creando tu Primera Zona",
+                    "file": "basics/first-zone.md"
+                }
+            ]
+        },
+        {
+            "id": "billing",
+            "title": "Facturación",
+            "items": [
+                {
+                    "id": "planes",
+                    "title": "Creando Planes de Internet",
+                    "file": "billing/planes.md"
+                },
+                {
+                    "id": "cortes",
+                    "title": "Gestión de Cortes y Suspensión",
+                    "file": "billing/cortes.md"
+                }
+            ]
+        }
+    ]
+}

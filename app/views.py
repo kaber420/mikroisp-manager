@@ -260,3 +260,13 @@ async def read_switch_details_page(
             "user": current_user,
         },
     )
+
+
+@router.get("/guia", response_class=HTMLResponse, tags=["Auth & Pages"])
+async def read_guide_page(request: Request, current_user: User = Depends(get_current_user_or_redirect)):
+    """Documentation guide page"""
+    return templates.TemplateResponse(
+        "guide.html",
+        {"request": request, "active_page": "guia", "user": current_user},
+    )
+

@@ -1,0 +1,179 @@
+<!-- Help Modal (Alpine.js) -->
+<div x-data x-show="$store.docs.isOpen" x-transition.opacity.duration.200ms
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" style="display: none;">
+    <!-- Hidden by default until Alpine loads -->
+
+    <div @click.outside="$store.docs.close()" @keydown.escape.window="$store.docs.close()"
+        class="bg-surface-1 border border-border-color rounded-xl w-full max-w-4xl mx-4 shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between p-6 border-b border-border-color">
+            <div class="flex items-center gap-3">
+                <div class="bg-primary/20 p-2 rounded-lg">
+                    <span class="material-symbols-outlined text-primary text-2xl">help</span>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-text-primary" x-text="$store.docs.currentTitle">Ayuda de uManager
+                    </h3>
+                    <p class="text-text-secondary text-sm">Documentación y guías de uso</p>
+                </div>
+            </div>
+            <button @click="$store.docs.close()" class="text-text-secondary hover:text-text-primary transition-colors">
+                <span class="material-symbols-outlined text-2xl">close</span>
+            </button>
+        </div>
+
+        <!-- Content Area -->
+        <div class="flex-1 overflow-y-auto p-6 scrollbar-thin">
+            <!-- Loading State -->
+            <div x-show="$store.docs.isLoading"
+                class="flex flex-col items-center justify-center py-12 text-text-secondary">
+                <span class="material-symbols-outlined animate-spin text-4xl mb-2">progress_activity</span>
+                <p>Cargando...</p>
+            </div>
+
+            <!-- Content -->
+            <div x-show="!$store.docs.isLoading" x-html="$store.docs.currentHtml" class="prose prose-invert max-w-none">
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="p-6 border-t border-border-color flex justify-between items-center">
+            <p class="text-sm text-text-secondary">💡 Tip: Navega a la guía completa para más información</p>
+            <button @click="window.location.href='/guia'"
+                class="bg-primary hover:bg-primary-hover text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">
+                <span class="material-symbols-outlined text-lg">open_in_full</span>
+                Ver Guía Completa
+            </button>
+        </div>
+
+    </div>
+</div>
+
+<style nonce="{{ request.state.csp_nonce }}">
+    /* Markdown prose styling for dark theme */
+    .prose-invert {
+        color: var(--text-primary);
+    }
+
+    .prose-invert h1,
+    .prose-invert h2,
+    .prose-invert h3,
+    .prose-invert h4,
+    .prose-invert h5,
+    .prose-invert h6 {
+        color: var(--text-primary);
+        font-weight: 700;
+        margin-top: 1.5em;
+        margin-bottom: 0.5em;
+    }
+
+    .prose-invert h1 {
+        font-size: 2em;
+        border-bottom: 2px solid var(--border-color);
+        padding-bottom: 0.3em;
+    }
+
+    .prose-invert h2 {
+        font-size: 1.5em;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 0.3em;
+    }
+
+    .prose-invert h3 {
+        font-size: 1.25em;
+    }
+
+    .prose-invert p {
+        margin-bottom: 1em;
+        line-height: 1.6;
+    }
+
+    .prose-invert ul,
+    .prose-invert ol {
+        margin: 1em 0;
+        padding-left: 2em;
+    }
+
+    .prose-invert li {
+        margin: 0.5em 0;
+    }
+
+    .prose-invert code {
+        background: var(--surface-2);
+        padding: 0.2em 0.4em;
+        border-radius: 4px;
+        font-size: 0.9em;
+        color: var(--primary);
+    }
+
+    .prose-invert pre {
+        background: var(--surface-2);
+        padding: 1em;
+        border-radius: 8px;
+        overflow-x: auto;
+        border: 1px solid var(--border-color);
+    }
+
+    .prose-invert pre code {
+        background: transparent;
+        padding: 0;
+        color: var(--text-primary);
+    }
+
+    .prose-invert a {
+        color: var(--primary);
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+        transition: border-color 0.2s;
+    }
+
+    .prose-invert a:hover {
+        border-bottom-color: var(--primary);
+    }
+
+    .prose-invert blockquote {
+        border-left: 4px solid var(--primary);
+        padding-left: 1em;
+        margin: 1em 0;
+        color: var(--text-secondary);
+        font-style: italic;
+    }
+
+    .prose-invert strong {
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+
+    .prose-invert video,
+    .prose-invert img {
+        max-width: 100%;
+        border-radius: 8px;
+        margin: 1em 0;
+        border: 1px solid var(--border-color);
+    }
+
+    .prose-invert hr {
+        border: 0;
+        border-top: 1px solid var(--border-color);
+        margin: 2em 0;
+    }
+
+    .prose-invert table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1em 0;
+    }
+
+    .prose-invert th,
+    .prose-invert td {
+        border: 1px solid var(--border-color);
+        padding: 0.5em;
+        text-align: left;
+    }
+
+    .prose-invert th {
+        background: var(--surface-2);
+        font-weight: 600;
+    }
+</style>
