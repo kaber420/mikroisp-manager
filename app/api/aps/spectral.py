@@ -1,3 +1,4 @@
+
 # app/api/aps/spectral.py
 """
 WebSocket endpoint for MikroTik Spectral Scan.
@@ -11,9 +12,11 @@ import threading
 import time
 from queue import Empty, Queue
 
-from fastapi import APIRouter, Cookie, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Cookie, Depends, Query, WebSocket, WebSocketDisconnect, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...db.aps_db import get_ap_by_host_with_stats, get_ap_credentials
+from ...db.engine import get_session
 from ...utils.device_clients.mikrotik.ssh_client import MikrotikSSHClient
 
 logger = logging.getLogger(__name__)
@@ -277,6 +280,7 @@ async def spectral_scan_websocket(
     host: str,
     umonitorpro_access_token_v2: str = Cookie(None),
     token: str = Query(None),
+    session: AsyncSession = Depends(get_session),
 ):
     """WebSocket endpoint for real-time spectral scan data."""
 
@@ -290,8 +294,8 @@ async def spectral_scan_websocket(
 
     await websocket.accept()
 
-    # Get AP details
-    ap_data = get_ap_by_host_with_stats(host)
+    # Get AP details (Async)
+    ap_data = await get_ap_by_host_with_stats(session, host)
     if not ap_data:
         await websocket.send_json({"status": "error", "message": f"AP '{host}' not found"})
         await websocket.close()
@@ -309,8 +313,8 @@ async def spectral_scan_websocket(
         await websocket.close()
         return
 
-    # Get credentials
-    creds = get_ap_credentials(host)
+    # Get credentials (Async)
+    creds = await get_ap_credentials(session, host)
     if not creds:
         await websocket.send_json({"status": "error", "message": "Could not retrieve credentials"})
         await websocket.close()

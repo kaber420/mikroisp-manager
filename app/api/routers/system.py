@@ -1,18 +1,25 @@
+
 # app/api/routers/system.py
 from typing import Any
+import logging
+import os
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import FileResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.users import current_active_user as get_current_active_user
 from ...db import router_db
+from ...db.engine import get_session
 from ...models.user import User
+from ...models.zona import Zona
 from ...services.router_service import (
     RouterCommandError,
     RouterService,
     get_router_service,
-)  # <-- LÍNEA CAMBIADA
+)
 
-# --- ¡IMPORTACIÓN MODIFICADA! ---
 from .models import (
     BackupCreateRequest,
     PppoeSecretDisable,
@@ -22,14 +29,19 @@ from .models import (
 
 router = APIRouter()
 
+# Base path for backups
+BACKUP_BASE_DIR = Path(os.getcwd()) / "data"
+
 
 @router.get("/resources", response_model=SystemResource)
-def get_router_resources(
+async def get_router_resources(
     host: str,
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_session),
 ):
     try:
+        # service is already connected via dependency
         resources = service.get_system_resources()
         # Actualizamos la DB con la info obtenida
         update_data = {
@@ -37,14 +49,14 @@ def get_router_resources(
             "model": resources.get("board-name"),
             "firmware": resources.get("version"),
         }
-        router_db.update_router_in_db(host, update_data)
+        await router_db.update_router_in_db(session, host, update_data)
         return resources
     except RouterCommandError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/system/files", response_model=list[dict[str, Any]])
-def api_get_backup_files(
+async def api_get_backup_files(
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
 ):
@@ -55,23 +67,20 @@ def api_get_backup_files(
 
 
 @router.post("/system/create-backup", response_model=dict[str, str])
-def api_create_backup(
+async def api_create_backup(
     request: BackupCreateRequest,
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
 ):
     try:
-        # Verificar si el archivo ya existe
         existing_files = service.get_backup_files()
         target_name = request.backup_name
 
-        # Asegurar extensión correcta para la búsqueda
         if request.backup_type == "backup" and not target_name.endswith(".backup"):
             target_name += ".backup"
         elif request.backup_type == "export" and not target_name.endswith(".rsc"):
             target_name += ".rsc"
 
-        # Buscar coincidencia exacta
         file_exists = any(f["name"] == target_name for f in existing_files)
 
         if file_exists and not request.overwrite:
@@ -99,7 +108,7 @@ def api_create_backup(
 
 
 @router.delete("/system/files/{file_id:path}", status_code=status.HTTP_204_NO_CONTENT)
-def api_remove_backup_file(
+async def api_remove_backup_file(
     file_id: str,
     host: str,
     request: Request,
@@ -110,6 +119,8 @@ def api_remove_backup_file(
 
     try:
         service.remove_file(file_id)
+        # Note: log_action might be sync, assuming it handles itself or we might need asyncio.to_thread if passing DB session
+        # For now, keeping as is (audit log usually separate)
         log_action("DELETE", "backup_file", f"{host}/{file_id}", user=user, request=request)
         return
     except RouterCommandError as e:
@@ -117,7 +128,7 @@ def api_remove_backup_file(
 
 
 @router.get("/system/users", response_model=list[dict[str, Any]])
-def api_get_router_users(
+async def api_get_router_users(
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
 ):
@@ -128,7 +139,7 @@ def api_get_router_users(
 
 
 @router.post("/system/users", response_model=dict[str, Any])
-def api_create_router_user(
+async def api_create_router_user(
     user_data: RouterUserCreate,
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
@@ -140,7 +151,7 @@ def api_create_router_user(
 
 
 @router.delete("/system/users/{user_id:path}", status_code=status.HTTP_204_NO_CONTENT)
-def api_remove_router_user(
+async def api_remove_router_user(
     user_id: str,
     host: str,
     request: Request,
@@ -157,23 +168,19 @@ def api_remove_router_user(
         raise HTTPException(status_code=404, detail=f"No se pudo eliminar el usuario: {e}")
 
 
-# --- ¡ENDPOINTS MODIFICADOS AQUÍ! ---
-
-
 @router.patch("/interfaces/{interface_id:path}", status_code=status.HTTP_204_NO_CONTENT)
-def api_set_interface_status(
+async def api_set_interface_status(
     interface_id: str,
-    status_update: PppoeSecretDisable,  # Reutilizamos este modelo (espera {"disable": true/false})
-    type: str = Query(..., description="El tipo de interfaz, ej. 'ether', 'bridge'"),  # <-- AÑADIDO
+    status_update: PppoeSecretDisable,
+    type: str = Query(..., description="El tipo de interfaz, ej. 'ether', 'bridge'"),
     service: RouterService = Depends(get_router_service),
     user: User = Depends(get_current_active_user),
 ):
     """Habilita o deshabilita una interfaz."""
     try:
-        # Pasar el tipo al servicio
         service.set_interface_status(
             interface_id, status_update.disable, interface_type=type
-        )  # <-- AÑADIDO
+        )
         return
     except (RouterCommandError, ValueError) as e:
         raise HTTPException(
@@ -183,7 +190,7 @@ def api_set_interface_status(
 
 
 @router.delete("/interfaces/{interface_id:path}", status_code=status.HTTP_204_NO_CONTENT)
-def api_remove_interface(
+async def api_remove_interface(
     interface_id: str,
     host: str,
     request: Request,
@@ -214,52 +221,36 @@ def api_remove_interface(
 
 # --- LOCAL BACKUP FILES (Server-side) ---
 
-import os
-from pathlib import Path
-
-from fastapi.responses import FileResponse
-
-# Base path for backups
-BACKUP_BASE_DIR = Path(os.getcwd()) / "data"
-
-
 @router.get("/system/local-backups", response_model=list[dict[str, Any]])
-def api_get_local_backup_files(
+async def api_get_local_backup_files(
     host: str,
     user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_session),
 ):
     """
     Lista archivos de backup locales (en el servidor) para un router específico.
     """
     # Obtener datos del router para encontrar su carpeta
-    router_info = router_db.get_router_by_host(host)
+    router_info = await router_db.get_router_by_host(session, host)
     if not router_info:
         raise HTTPException(status_code=404, detail="Router no encontrado")
 
     # Determinar la carpeta del router
-    zona_id = router_info.get("zona_id")
-    hostname = router_info.get("hostname") or host
+    zona_id = router_info.zona_id
+    hostname = router_info.hostname or host
 
-    # Buscar la carpeta por zona (misma lógica que backup_service)
+    # Buscar la carpeta por zona
     zona_folder = None
     if zona_id:
-        from ...db.base import get_db_connection
-
-        conn = get_db_connection()
-        cursor = conn.execute("SELECT nombre FROM zonas WHERE id = ?", (zona_id,))
-        row = cursor.fetchone()
-        conn.close()
-        if row:
-            zona_folder = row["nombre"].replace(" ", "_").replace("/", "-")
+        zona = await session.get(Zona, zona_id)
+        if zona:
+            zona_folder = zona.nombre.replace(" ", "_").replace("/", "-")
 
     if not zona_folder:
         zona_folder = f"Zona_{zona_id}" if zona_id else "Sin_Zona"
 
     router_folder = hostname.replace(" ", "_").replace("/", "-")
     backup_path = BACKUP_BASE_DIR / zona_folder / router_folder
-
-    # Debug logging
-    import logging
 
     logging.info(f"Looking for backups in: {backup_path}")
 
@@ -284,33 +275,27 @@ def api_get_local_backup_files(
 
 
 @router.get("/system/local-backups/download")
-def api_download_local_backup(
+async def api_download_local_backup(
     host: str,
     filename: str = Query(..., description="Nombre del archivo a descargar"),
     user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_session),
 ):
     """
     Descarga un archivo de backup local.
     """
-    # Obtener datos del router para encontrar su carpeta
-    router_info = router_db.get_router_by_host(host)
+    router_info = await router_db.get_router_by_host(session, host)
     if not router_info:
         raise HTTPException(status_code=404, detail="Router no encontrado")
 
-    zona_id = router_info.get("zona_id")
-    hostname = router_info.get("hostname") or host
+    zona_id = router_info.zona_id
+    hostname = router_info.hostname or host
 
-    # Determinar carpeta de zona
     zona_folder = None
     if zona_id:
-        from ...db.base import get_db_connection
-
-        conn = get_db_connection()
-        cursor = conn.execute("SELECT nombre FROM zonas WHERE id = ?", (zona_id,))
-        row = cursor.fetchone()
-        conn.close()
-        if row:
-            zona_folder = row["nombre"].replace(" ", "_").replace("/", "-")
+        zona = await session.get(Zona, zona_id)
+        if zona:
+            zona_folder = zona.nombre.replace(" ", "_").replace("/", "-")
 
     if not zona_folder:
         zona_folder = f"Zona_{zona_id}" if zona_id else "Sin_Zona"
@@ -318,7 +303,6 @@ def api_download_local_backup(
     router_folder = hostname.replace(" ", "_").replace("/", "-")
     file_path = BACKUP_BASE_DIR / zona_folder / router_folder / filename
 
-    # Validación de seguridad: asegurar que el archivo está dentro de BACKUP_BASE_DIR
     try:
         file_path.resolve().relative_to(BACKUP_BASE_DIR.resolve())
     except ValueError:
@@ -333,44 +317,37 @@ def api_download_local_backup(
 
 
 @router.delete("/system/local-backups", status_code=status.HTTP_204_NO_CONTENT)
-def api_delete_local_backup(
+async def api_delete_local_backup(
     host: str,
     filename: str = Query(..., description="Nombre del archivo a eliminar"),
     request: Request = None,
     user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_session),
 ):
     """
     Elimina un archivo de backup local del servidor.
     """
     from ...core.audit import log_action
 
-    # Obtener datos del router para encontrar su carpeta
-    router_info = router_db.get_router_by_host(host)
+    router_info = await router_db.get_router_by_host(session, host)
     if not router_info:
         raise HTTPException(status_code=404, detail="Router no encontrado")
 
-    zona_id = router_info.get("zona_id")
-    hostname = router_info.get("hostname") or host
+    zona_id = router_info.zona_id
+    hostname = router_info.hostname or host
 
-    # Determinar carpeta de zona
     zona_folder = None
     if zona_id:
-        from ...db.base import get_db_connection
-
-        conn = get_db_connection()
-        cursor = conn.execute("SELECT nombre FROM zonas WHERE id = ?", (zona_id,))
-        row = cursor.fetchone()
-        conn.close()
-        if row:
-            zona_folder = row["nombre"].replace(" ", "_").replace("/", "-")
-
+        zona = await session.get(Zona, zona_id)
+        if zona:
+            zona_folder = zona.nombre.replace(" ", "_").replace("/", "-")
+            
     if not zona_folder:
         zona_folder = f"Zona_{zona_id}" if zona_id else "Sin_Zona"
 
     router_folder = hostname.replace(" ", "_").replace("/", "-")
     file_path = BACKUP_BASE_DIR / zona_folder / router_folder / filename
 
-    # Validación de seguridad: asegurar que el archivo está dentro de BACKUP_BASE_DIR
     try:
         file_path.resolve().relative_to(BACKUP_BASE_DIR.resolve())
     except ValueError:
@@ -379,7 +356,6 @@ def api_delete_local_backup(
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
 
-    # Eliminar el archivo
     try:
         file_path.unlink()
         log_action("DELETE", "local_backup", f"{host}/{filename}", user=user, request=request)
@@ -390,40 +366,39 @@ def api_delete_local_backup(
 
 
 @router.post("/system/save-to-server", response_model=dict[str, Any])
-def api_save_backup_to_server(
+async def api_save_backup_to_server(
     host: str,
     filename: str = Query(..., description="Nombre del archivo en el router"),
     user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_session),
 ):
     """
     Descarga un archivo de backup del router y lo guarda en el servidor local.
     """
     from ...services.backup_service import save_file_to_server
 
-    # Obtener datos del router
-    router_info = router_db.get_router_by_host(host)
+    router_info = await router_db.get_router_by_host(session, host)
     if not router_info:
         raise HTTPException(status_code=404, detail="Router no encontrado")
 
-    zona_id = router_info.get("zona_id")
-    hostname = router_info.get("hostname") or host
-    username = router_info.get("username")
-    password = router_info.get("password")  # Ya decryptada por get_router_by_host
+    zona_id = router_info.zona_id
+    hostname = router_info.hostname or host
+    username = router_info.username
+    password = router_info.password  # Already decrypted
 
     # Obtener nombre de zona
     zona_name = "Sin_Zona"
     if zona_id:
-        from ...db.base import get_db_connection
+        zona = await session.get(Zona, zona_id)
+        if zona:
+            zona_name = zona.nombre
 
-        conn = get_db_connection()
-        cursor = conn.execute("SELECT nombre FROM zonas WHERE id = ?", (zona_id,))
-        row = cursor.fetchone()
-        conn.close()
-        if row:
-            zona_name = row["nombre"]
-
-    # Llamar al servicio de backup
-    result = save_file_to_server(
+    # Llamar al servicio de backup (Blocking function must be run in thread?)
+    # Since save_file_to_server is blocking, we should wrap it to avoid blocking async loop.
+    import asyncio
+    
+    result = await asyncio.to_thread(
+        save_file_to_server,
         host=host,
         username=username,
         password=password,

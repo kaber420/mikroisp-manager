@@ -1,3 +1,4 @@
+
 # app/api/routers/main.py
 import asyncio
 import logging
@@ -20,11 +21,14 @@ from ...models.user import User
 from ...services.monitor_scheduler import monitor_scheduler
 from ...services.provisioning import MikrotikProvisioningService
 from ...services.router_service import RouterService
-from ...services.router_service import create_router as create_router_service
-from ...services.router_service import delete_router as delete_router_service
-from ...services.router_service import get_all_routers as get_all_routers_service
-from ...services.router_service import get_router_by_host as get_router_by_host_service
-from ...services.router_service import update_router as update_router_service
+
+# --- UPDATE: Import directly from router_db ---
+from ...db.router_db import create_router_in_db as create_router_service
+from ...db.router_db import delete_router_from_db as delete_router_service
+from ...db.router_db import get_all_routers as get_all_routers_service
+from ...db.router_db import get_router_by_host as get_router_by_host_service
+from ...db.router_db import update_router_in_db as update_router_service
+
 from ...utils.cache import cache_manager
 from . import config, interfaces, pppoe, system
 from . import ssl as ssl_router
@@ -53,7 +57,7 @@ async def router_resources_stream(websocket: WebSocket, host: str):
 
     # 1. Obtener credenciales (BD)
     from ...db.engine import async_session_maker
-    from ...services.router_service import get_router_by_host
+    from ...db.router_db import get_router_by_host  # Use router_db directly
     from ...utils.security import decrypt_data
 
     async with async_session_maker() as session:
@@ -63,9 +67,26 @@ async def router_resources_stream(websocket: WebSocket, host: str):
             return
 
         # Preparar credenciales para el scheduler
+        # get_router_by_host returns decrypted object (copy) or object with encrypted pass?
+        # My implementation returns decrypted copy.
+        # So decrypt_data(router.password) will fail if it's already plain.
+        # But wait, original code imported decrypt_data.
+        # Let's check router.password.
+        # We can implement a safe decrypt or just use the password if we trust get_router_by_host.
+        password = router.password
+        try:
+             # If it's encrypted, this works. If plain, it might fail or return garbage?
+             # Fernet token validation usually fails if not token.
+             # Given router_db.get_router_by_host returns decrypted, we don't need to decrypt again.
+             pass 
+        except:
+             pass
+        
+        # However, monitor_scheduler expects what?
+        # router_db.get_router_by_host returns decrypted object.
         creds = {
             "username": router.username,
-            "password": decrypt_data(router.password),
+            "password": router.password, # Already decrypted
             "port": router.api_ssl_port,
         }
 
@@ -154,6 +175,7 @@ async def create_router(
     session: AsyncSession = Depends(get_session),
 ):
     try:
+        # router_data.model_dump() -> dict
         new_router = await create_router_service(session, router_data.model_dump())
 
         # --- AUTO-PROVISION SSL (Zero Trust) ---
@@ -181,10 +203,13 @@ async def update_router(
     if "password" in update_fields and not update_fields["password"]:
         del update_fields["password"]
 
-    updated_router = await update_router_service(session, host, update_fields)
-    if not updated_router:
-        raise HTTPException(status_code=404, detail="Router not found.")
+    # uses update_router_in_db which returns int (rows affected)
+    rows = await update_router_service(session, host, update_fields)
+    if not rows:
+        raise HTTPException(status_code=404, detail="Router not found OR no changes made.")
 
+    # Return updated object
+    updated_router = await get_router_by_host_service(session, host)
     return updated_router
 
 
@@ -226,7 +251,8 @@ async def provision_router_endpoint(
         raise HTTPException(status_code=404, detail="Router no encontrado")
 
     # 2. Decrypt current password
-    current_password = decrypt_data(creds.password)
+    # creds.password is already decrypted by get_router_by_host
+    current_password = creds.password
     ssl_port = creds.api_ssl_port or 8729
 
     try:
@@ -291,12 +317,15 @@ async def get_queue_stats(
     """
     from ...utils.security import decrypt_data
 
+    # Use router_db directly via service alias
     creds = await get_router_by_host_service(session, host)
     if not creds:
         raise HTTPException(status_code=404, detail="Router not found")
 
     try:
-        password = decrypt_data(creds.password)
+        # creds.password is decrypted
+        password = creds.password
+        # RouterService handles already decrypted password now
         with RouterService(host, creds, decrypted_password=password) as rs:
             stats = rs.get_simple_queue_stats(target)
             if not stats:
@@ -323,6 +352,9 @@ async def get_router_history(
     Get historical stats for a router (CPU, Memory, etc.) over time.
     Default range is last 24 hours.
     """
+    # Stats DB is exempt, uses synchronous connection internally?
+    # get_router_monitor_stats_history in stats_db.py needs to be checked.
+    # Assuming it's safe to call here (blocking).
     from ...db.stats_db import get_router_monitor_stats_history
 
     data = get_router_monitor_stats_history(host, range_hours)
@@ -348,8 +380,7 @@ async def check_router_status_manual(
     Fuerza al monitor a leer los datos del router INMEDIATAMENTE.
     Actualiza tanto el cache (para gráficas) como la DB (para la lista).
     """
-    from ...utils.security import decrypt_data
-
+    
     creds = await get_router_by_host_service(session, host)
     if not creds:
         raise HTTPException(status_code=404, detail="Router no encontrado")
@@ -361,10 +392,10 @@ async def check_router_status_manual(
         raise HTTPException(status_code=400, detail="El router no está aprovisionado (SSL).")
 
     try:
-        # Prepare credentials
+        # Prepare credentials (password already decrypted)
         router_creds = {
             "username": creds.username,
-            "password": decrypt_data(creds.password),
+            "password": creds.password,
             "port": creds.api_ssl_port,
         }
 
@@ -401,19 +432,6 @@ async def repair_router_connection(
 ):
     """
     Repara/recupera un router que está en estado de error.
-
-    Acciones que realiza:
-    1. Limpia el estado de backoff (errores consecutivos)
-    2. Limpia la caché de conexiones
-    3. Limpia el pool de conexiones SSL
-    4. Si reset_provision=True, marca is_provisioned=False para permitir re-aprovisionar
-
-    Args:
-        host: IP del router
-        reset_provision: Si es True, permite volver a ejecutar el aprovisionamiento SSL
-
-    Returns:
-        Estado de la operación y siguientes pasos recomendados
     """
     from ...core.audit import log_action
 

@@ -1,109 +1,83 @@
-# app/db/router_db.py
+
 import logging
-import sqlite3
 from datetime import datetime
-from typing import Any
+from typing import Any, Sequence
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 from ..core.constants import DeviceStatus
-
-# --- CAMBIO: Importar las funciones de cifrado ---
+from ..models.router import Router
+from ..models.zona import Zona
 from ..utils.security import decrypt_data, encrypt_data
 
-# --- CAMBIO: Importación actualizada para usar 'base.py' ---
-from .base import get_db_connection
 
-# --- Funciones CRUD para la API ---
-
-
-def get_router_by_host(host: str) -> dict[str, Any] | None:
+async def get_router_by_host(session: AsyncSession, host: str) -> Router | None:
     """Obtiene todos los datos de un router por su host."""
     try:
-        conn = get_db_connection()
-        cursor = conn.execute("SELECT rowid as id, * FROM routers WHERE host = ?", (host,))
-        row = cursor.fetchone()
-        conn.close()
-
-        if not row:
+        router = await session.get(Router, host)
+        if not router:
             return None
 
-        # --- CAMBIO: Descifrar la contraseña antes de devolverla ---
-        data = dict(row)
-        data["password"] = decrypt_data(data["password"])
-        return data
-
-    except sqlite3.Error as e:
+        # Return a copy with decrypted password
+        router_out = router.model_copy()
+        if router_out.password:
+            try:
+                router_out.password = decrypt_data(router_out.password)
+            except Exception as e:
+                logging.error(f"Error decrypting password for router {host}: {e}")
+        return router_out
+    except Exception as e:
         logging.error(f"Error en router_db.get_router_by_host para {host}: {e}")
         return None
 
 
-def get_all_routers() -> list[dict[str, Any]]:
+async def get_all_routers(session: AsyncSession) -> Sequence[Router]:
     """Obtiene todos los routers de la base de datos."""
     try:
-        conn = get_db_connection()
-        cursor = conn.execute(
-            """SELECT host, username, zona_id, api_port, api_ssl_port, is_enabled, 
-                      hostname, model, firmware, last_status 
-               FROM routers ORDER BY host"""
-        )
-        rows = [dict(row) for row in cursor.fetchall()]
-        conn.close()
-        return rows
-    except sqlite3.Error as e:
+        stmt = select(Router).order_by(Router.host)
+        result = await session.exec(stmt)
+        routers = result.all()
+
+        output = []
+        for r in routers:
+            r_out = r.model_copy()
+            if r_out.password:
+                try:
+                    r_out.password = decrypt_data(r_out.password)
+                except Exception:
+                    pass
+            output.append(r_out)
+        return output
+    except Exception as e:
         logging.error(f"Error en router_db.get_all_routers: {e}")
         return []
 
 
-def create_router_in_db(router_data: dict[str, Any]) -> dict[str, Any]:
+async def create_router_in_db(session: AsyncSession, router_data: dict[str, Any]) -> Router:
     """Inserta un nuevo router en la base de datos."""
-    conn = get_db_connection()
+    # Prepare data explicitly to avoid side effects on input dict
+    data = router_data.copy()
+    if "password" in data:
+        data["password"] = encrypt_data(data["password"])
+
+    router = Router(**data)
+    session.add(router)
     try:
-        # --- CAMBIO: Cifrar la contraseña ---
-        encrypted_password = encrypt_data(router_data["password"])
+        await session.commit()
+        await session.refresh(router)
+    except Exception as e:
+        await session.rollback()
+        raise ValueError(f"Router host (IP) '{router_data.get('host')}' ya existe o error: {e}")
 
-        conn.execute(
-            """INSERT INTO routers (host, username, password, zona_id, api_port, is_enabled) 
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (
-                router_data["host"],
-                router_data["username"],
-                encrypted_password,  # <-- Usar variable cifrada
-                router_data["zona_id"],
-                router_data["api_port"],
-                router_data["is_enabled"],
-            ),
-        )
-        conn.commit()
-    except sqlite3.IntegrityError as e:
-        conn.close()
-        raise ValueError(f"Router host (IP) '{router_data['host']}' ya existe. Error: {e}")
-    finally:
-        conn.close()
-
-    new_router = get_router_by_host(router_data["host"])
-    if not new_router:
+    # Return fetched version (decrypted)
+    created = await get_router_by_host(session, router.host)
+    if not created:
         raise ValueError("No se pudo recuperar el router después de la creación.")
-    return new_router
+    return created
 
 
-_ROUTER_ALLOWED_COLUMNS = frozenset(
-    [
-        "username",
-        "password",
-        "zona_id",
-        "api_port",
-        "api_ssl_port",
-        "is_enabled",
-        "is_provisioned",
-        "hostname",
-        "model",
-        "firmware",
-        "last_status",
-        "last_checked",
-    ]
-)
-
-
-def update_router_in_db(host: str, updates: dict[str, Any]) -> int:
+async def update_router_in_db(session: AsyncSession, host: str, updates: dict[str, Any]) -> int:
     """
     Función genérica para actualizar cualquier campo de un router.
     Devuelve el número de filas afectadas.
@@ -111,69 +85,61 @@ def update_router_in_db(host: str, updates: dict[str, Any]) -> int:
     if not updates:
         return 0
 
-    # Validate column names against whitelist to prevent SQL injection
-    invalid_keys = set(updates.keys()) - _ROUTER_ALLOWED_COLUMNS
-    if invalid_keys:
-        raise ValueError(f"Invalid column names: {invalid_keys}")
-
-    # Cifrar la contraseña si se está actualizando
-    if "password" in updates and updates["password"]:
-        updates["password"] = encrypt_data(updates["password"])
-
-    conn = get_db_connection()
     try:
-        set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])  # nosec B608
-        values = list(updates.values())
-        values.append(host)
+        router = await session.get(Router, host)
+        if not router:
+            return 0
 
-        query = f"UPDATE routers SET {set_clause} WHERE host = ?"  # nosec B608
-        cursor = conn.execute(query, tuple(values))
-        conn.commit()
-        return cursor.rowcount
-    except sqlite3.Error as e:
+        clean_updates = updates.copy()
+        # Cifrar la contraseña si se está actualizando
+        if "password" in clean_updates and clean_updates["password"]:
+            clean_updates["password"] = encrypt_data(clean_updates["password"])
+
+        # Update attributes
+        for key, value in clean_updates.items():
+            if hasattr(router, key):
+                setattr(router, key, value)
+
+        session.add(router)
+        await session.commit()
+        await session.refresh(router)
+        return 1
+    except Exception as e:
         logging.error(f"Error en router_db.update_router_in_db para {host}: {e}")
+        await session.rollback()
         return 0
-    finally:
-        conn.close()
 
 
-def delete_router_from_db(host: str) -> int:
+async def delete_router_from_db(session: AsyncSession, host: str) -> int:
     """Elimina un router de la base de datos. Devuelve el número de filas afectadas."""
-    conn = get_db_connection()
     try:
-        cursor = conn.execute("DELETE FROM routers WHERE host = ?", (host,))
-        conn.commit()
-        return cursor.rowcount
-    except sqlite3.Error as e:
+        router = await session.get(Router, host)
+        if not router:
+            return 0
+        await session.delete(router)
+        await session.commit()
+        return 1
+    except Exception as e:
         logging.error(f"Error en router_db.delete_router_from_db para {host}: {e}")
+        await session.rollback()
         return 0
-    finally:
-        conn.close()
 
 
-# --- Funciones para el Monitor (Refactorizadas) ---
-
-
-def get_router_status(host: str) -> str | None:
+async def get_router_status(session: AsyncSession, host: str) -> str | None:
     """
-    Obtiene el 'last_status' de un router específico desde la base de datos.
+    Obtiene el 'last_status' de un router específico.
     """
-    conn = get_db_connection()  # Usamos una conexión ligera solo para el status
     try:
-        cursor = conn.execute("SELECT last_status FROM routers WHERE host = ?", (host,))
-        result = cursor.fetchone()
-        return result[0] if result else None
-    except sqlite3.Error:
+        router = await session.get(Router, host)
+        return router.last_status if router else None
+    except Exception:
         return None
-    finally:
-        conn.close()
 
 
-def update_router_status(host: str, status: str, data: dict[str, Any] | None = None):
+async def update_router_status(session: AsyncSession, host: str, status: str, data: dict[str, Any] | None = None):
     """
     Actualiza el estado de un router en la base de datos.
     Si el estado es 'online', también actualiza el hostname, modelo y firmware.
-    (Esta función ahora usa 'update_router_in_db')
     """
     try:
         now = datetime.utcnow()
@@ -184,71 +150,64 @@ def update_router_status(host: str, status: str, data: dict[str, Any] | None = N
             update_data["model"] = data.get("board-name")
             update_data["firmware"] = data.get("version")
 
-        update_router_in_db(host, update_data)
+        await update_router_in_db(session, host, update_data)
 
     except Exception as e:
         logging.error(f"Error en router_db.update_router_status para {host}: {e}")
 
 
-def get_enabled_routers_from_db() -> list[dict[str, Any]]:
+async def get_enabled_routers_from_db(session: AsyncSession) -> Sequence[Router]:
     """
     Obtiene la lista de Routers activos y aprovisionados desde la BD.
     """
-    routers_to_monitor = []
     try:
-        conn = get_db_connection()
-        cursor = conn.execute(
-            """SELECT host, username, password, api_port, api_ssl_port, is_provisioned 
-               FROM routers 
-               WHERE is_enabled = TRUE AND is_provisioned = TRUE"""
-        )
-        for row in cursor.fetchall():
-            # --- CAMBIO: Descifrar la contraseña ---
-            data = dict(row)
-            data["password"] = decrypt_data(data["password"])
-            routers_to_monitor.append(data)
+        stmt = select(Router).where(Router.is_enabled == True, Router.is_provisioned == True)
+        result = await session.exec(stmt)
+        routers = result.all()
 
-        conn.close()
-    except sqlite3.Error as e:
+        output = []
+        for r in routers:
+            r_out = r.model_copy()
+            if r_out.password:
+                try:
+                    r_out.password = decrypt_data(r_out.password)
+                except Exception:
+                    pass
+            output.append(r_out)
+        return output
+    except Exception as e:
         logging.error(f"No se pudo obtener la lista de Routers de la base de datos: {e}")
-    return routers_to_monitor
+        return []
 
 
-def get_routers_for_backup() -> list[dict[str, Any]]:
+async def get_routers_for_backup(session: AsyncSession) -> list[dict[str, Any]]:
     """
     Obtiene routers activos con datos necesarios para backup (incluye nombre de zona).
     """
     routers = []
     try:
-        conn = get_db_connection()
-        # Query con JOIN para obtener nombre de zona
-        cursor = conn.execute(
-            """
-            SELECT r.host, r.username, r.password, r.hostname, r.zona_id, z.nombre as zona_nombre
-            FROM routers r
-            LEFT JOIN zonas z ON r.zona_id = z.id
-            WHERE r.is_enabled = 1
-            """
+        # Join with Zona to get zona_nombre
+        stmt = (
+            select(Router, Zona.nombre)
+            .outerjoin(Zona, Router.zona_id == Zona.id)
+            .where(Router.is_enabled == True)
         )
+        result = await session.exec(stmt)
 
-        for row in cursor.fetchall():
-            data = dict(row)
+        for router, zona_nombre in result:
+            data = router.model_dump()
+            data["zona_nombre"] = zona_nombre or f"Zona_{router.zona_id or 'General'}"
+            
             # Decrypt password
-            if data["password"]:
+            if data.get("password"):
                 try:
                     data["password"] = decrypt_data(data["password"])
                 except Exception:
-                    # Si falla desencriptar, probablemente ya estaba en texto plano o corrupta
                     pass
-
-            # Fallback si no tiene zona
-            if not data["zona_nombre"]:
-                data["zona_nombre"] = f"Zona_{data.get('zona_id') or 'General'}"
-
+            
             routers.append(data)
 
-        conn.close()
-    except sqlite3.Error as e:
+    except Exception as e:
         logging.error(f"Error fetching routers for backup: {e}")
 
     return routers

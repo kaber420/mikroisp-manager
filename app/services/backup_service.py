@@ -1,8 +1,11 @@
+
+import asyncio
 import logging
 import os
 import time
 from datetime import datetime
 
+from app.db.engine import async_session_maker
 from ..db.router_db import get_routers_for_backup
 from ..utils.device_clients.mikrotik.ssh_client import MikrotikSSHClient
 
@@ -16,16 +19,27 @@ def run_backup_cycle():
     """
     Función principal llamada por el scheduler.
     Recorre todos los routers y ejecuta el respaldo.
+    Wraps async implementation.
     """
-    logger.info("Iniciando ciclo de respaldo de routers...")
-    routers = get_routers_for_backup()
+    try:
+        asyncio.run(run_backup_cycle_async())
+    except Exception as e:
+        logger.error(f"Error crítico en ciclo de respaldo: {e}")
+
+async def run_backup_cycle_async():
+    logger.info("Iniciando ciclo de respaldo de routers (Async)...")
+    
+    async with async_session_maker() as session:
+        routers = await get_routers_for_backup(session)
 
     success_count = 0
     fail_count = 0
 
     for router in routers:
         try:
-            result = process_router_backup(router)
+            # Process in thread to avoid blocking loop (though we are sequential here)
+            result = await asyncio.to_thread(process_router_backup, router)
+            
             if result["status"] == "success":
                 success_count += 1
                 logger.info(f"✅ Respaldo exitoso para {router['host']}: {result['files']}")
@@ -43,6 +57,7 @@ def process_router_backup(router_data: dict):
     """
     Conecta por SSH, genera backup y export, descarga y limpia.
     Uses the reusable MikrotikSSHClient.
+    Blocking function.
     """
     host = router_data["host"]
     username = router_data["username"]
@@ -145,17 +160,7 @@ def save_file_to_server(
     """
     Descarga un archivo específico del router al servidor local.
     Uses the reusable MikrotikSSHClient.
-
-    Args:
-        host: IP del router
-        username: Usuario para SSH
-        password: Contraseña para SSH
-        remote_filename: Nombre del archivo en el router (ej: 'backup-2024.backup')
-        zona_name: Nombre de la zona para la estructura de carpetas
-        hostname: Nombre del router para la estructura de carpetas
-
-    Returns:
-        dict con status y mensaje
+    Blocking function.
     """
     # Limpiar nombres para rutas seguras
     zona_folder = zona_name.replace(" ", "_").replace("/", "-")

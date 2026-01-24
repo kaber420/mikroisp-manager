@@ -1,10 +1,11 @@
-# app/services/monitor_job.py
+
+import asyncio
 import logging
 import os
-from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 
+from app.db.engine import async_session_maker
 from app.db.engine_sync import get_sync_session
 from app.services.settings_service import SettingsService
 
@@ -34,57 +35,73 @@ def run_monitor_cycle():
     """
     Ejecuta UN ciclo de monitoreo de routers y APs.
     Esta función es llamada periódicamente por APScheduler.
+    Wraps the async implementation.
     """
-    monitor_service = MonitorService()
-    
-    # Obtener número de workers desde configuración usando SettingsService
-    session = next(get_sync_session())
+    # 1. Get configuration synchronously (keeps it simple/safe)
+    session_sync = next(get_sync_session())
+    max_workers = 10
     try:
-        settings_service = SettingsService(session)
+        settings_service = SettingsService(session_sync)
         all_settings = settings_service.get_all_settings()
         max_workers_str = all_settings.get("monitor_max_workers")
-        
         try:
             max_workers = int(max_workers_str) if max_workers_str else 10
         except (ValueError, TypeError):
-            max_workers = 10
             logger.warning(
                 f"Valor inválido para monitor_max_workers: {max_workers_str}. Usando default: 10"
             )
     finally:
-        session.close()
-    
-    logger.info(f"--- Iniciando ciclo de escaneo (workers: {max_workers}) ---")
+        session_sync.close()
 
+    # 2. Run Async Cycle
     try:
-        devices = monitor_service.get_active_devices()
+        asyncio.run(run_monitor_cycle_async(max_workers))
+    except Exception as e:
+        logger.exception(f"Error en el ciclo del monitor: {e}")
 
+
+async def run_monitor_cycle_async(max_workers: int):
+    monitor_service = MonitorService()
+    logger.info(f"--- Iniciando ciclo de escaneo (concurrency: {max_workers}) ---")
+
+    async with async_session_maker() as session:
+        devices = await monitor_service.get_active_devices(session)
         aps = devices["aps"]
         routers = devices["routers"]
 
-        # --- BLOQUE: AUTO-LIMPIEZA DE ROUTERS (DESHABILITADO) ---
-        # NOTA: La limpieza secuencial se removió porque causaba bloqueos fatales
-        # si un router no respondía (no hay timeout por defecto en sockets).
-        # La limpieza ahora ocurre de forma asíncrona dentro de cada worker.
-        # ----------------------------------------------
+        all_tasks = []
+        # Create a semaphore to limit concurrency equivalent to max_workers
+        sem = asyncio.Semaphore(max_workers)
+
+        async def sem_check_ap(ap_obj):
+            async with sem:
+                await monitor_service.check_ap(session, ap_obj)
+
+        async def sem_check_router(router_obj):
+            async with sem:
+                await monitor_service.check_router(session, router_obj)
 
         if not aps and not routers:
             logger.info("No hay dispositivos para monitorear.")
         else:
-            # 1. Procesar dispositivos en paralelo (Bloqueante hasta que terminen)
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                if aps:
-                    executor.map(monitor_service.check_ap, aps)
-                if routers:
-                    executor.map(monitor_service.check_router, routers)
+            if aps:
+                for ap in aps:
+                    all_tasks.append(sem_check_ap(ap))
+            
+            if routers:
+                for router in routers:
+                    all_tasks.append(sem_check_router(router))
 
-            # 2. Notificar a la API que hay datos frescos
+            if all_tasks:
+                await asyncio.gather(*all_tasks)
+
+            # Notificar a la API
             logger.info(
                 "Ciclo terminado. Notificando a la API para actualización en tiempo real..."
             )
-            notify_api_update()
+            # notify uses synchronous httpx? or fire and forget?
+            # It's a network call. Let's make it async or run in thread.
+            # notify_api_update is currently sync using httpx.post (blocking).
+            await asyncio.to_thread(notify_api_update)
 
-        logger.info("--- Ciclo de escaneo completado ---")
-
-    except Exception as e:
-        logger.exception(f"Error en el ciclo del monitor: {e}")
+            logger.info("--- Ciclo de escaneo completado ---")

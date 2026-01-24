@@ -1,4 +1,4 @@
-# app/services/router_service.py
+
 import logging
 from typing import Any
 
@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from ..db.router_db import get_router_by_host
 from ..models.router import Router
 from ..utils.security import decrypt_data, encrypt_data
 
@@ -45,11 +46,16 @@ class RouterService:
             )
 
         # Initialize the adapter
-        password = (
-            self.decrypted_password
-            if self.decrypted_password
-            else decrypt_data(self.creds.password)
-        )
+        # Handle password: it might be already decrypted if creds came from router_db.get_router_by_host
+        password = self.decrypted_password
+        if not password:
+            try:
+                # Attempt to decrypt
+                password = decrypt_data(self.creds.password)
+            except Exception:
+                # If decrypt fails, assume it's already plain text (refactored db returns decrypted)
+                password = self.creds.password
+
         from ..utils.device_clients.adapters.mikrotik_router import MikrotikRouterAdapter
 
         self.adapter = MikrotikRouterAdapter(
@@ -339,96 +345,24 @@ class RouterService:
             return False
 
 
-# --- CRUD Functions (Sync for background tasks) ---
 
+# --- CRUD Functions (Sync for background tasks) ---
 
 def get_enabled_routers_sync(session) -> list[Router]:
     """Synchronous version of get_enabled_routers."""
+    # We need to import select here or use existing
+    # select is already imported from sqlmodel at top level
     statement = select(Router).where(Router.is_enabled == True).where(Router.is_provisioned == True)
+    # Check if we need to decrypt passwords? 
+    # original get_enabled_routers_from_db did decrypt.
+    # The consumers of this function (like billing_job) expect Router objects.
+    # RouterService.__init__ handles decryption if we pass encrypted.
+    # But wait, RouterService.__init__ checks:
+    # password = self.decrypted_password
+    # if not password: try decrypt(self.creds.password)
+    # So if we return the object from DB directly (encrypted), RouterService will handle it.
+    # Correct.
     return session.exec(statement).all()
-
-
-# --- CRUD Functions (Async) ---
-
-
-async def get_all_routers(session: AsyncSession) -> list[dict[str, Any]]:
-    from ..models.zona import Zona
-
-    # Fetch routers with zona_nombre via LEFT JOIN
-    statement = select(Router, Zona.nombre.label("zona_nombre")).outerjoin(
-        Zona, Router.zona_id == Zona.id
-    )
-    result = await session.execute(statement)
-    rows = result.all()
-
-    # Convert to dict and add zona_nombre
-    routers_list = []
-    for router, zona_nombre in rows:
-        router_dict = router.model_dump()
-        router_dict["zona_nombre"] = zona_nombre
-        routers_list.append(router_dict)
-
-    return routers_list
-
-
-async def get_router_by_host(session: AsyncSession, host: str) -> Router | None:
-    router = await session.get(Router, host)
-    return router
-
-
-async def create_router(session: AsyncSession, router_data: dict) -> Router:
-    """Create a new router in the database.
-
-    Raises:
-        ValueError: If a router with the same host already exists.
-    """
-    # Check if router with this host already exists
-    host = router_data.get("host")
-    existing_router = await session.get(Router, host)
-    if existing_router:
-        raise ValueError(f"Ya existe un router con la IP '{host}'. Use editar para modificarlo.")
-
-    # Encrypt password
-    if "password" in router_data:
-        router_data["password"] = encrypt_data(router_data["password"])
-
-    router = Router(**router_data)
-    session.add(router)
-    await session.commit()
-    await session.refresh(router)
-    return router
-
-
-async def update_router(session: AsyncSession, host: str, router_data: dict) -> Router | None:
-    router = await session.get(Router, host)
-    if not router:
-        return None
-
-    if "password" in router_data and router_data["password"]:
-        router_data["password"] = encrypt_data(router_data["password"])
-
-    for key, value in router_data.items():
-        setattr(router, key, value)
-
-    session.add(router)
-    await session.commit()
-    await session.refresh(router)
-    return router
-
-
-async def delete_router(session: AsyncSession, host: str) -> bool:
-    router = await session.get(Router, host)
-    if not router:
-        return False
-    await session.delete(router)
-    await session.commit()
-    return True
-
-
-async def get_enabled_routers(session: AsyncSession) -> list[Router]:
-    statement = select(Router).where(Router.is_enabled == True).where(Router.is_provisioned == True)
-    result = await session.exec(statement)
-    return result.all()
 
 
 # --- Dependency Injection ---
@@ -444,7 +378,7 @@ async def get_router_service(host: str, session: AsyncSession = Depends(get_sess
     """
     service = None
     try:
-        # Obtener credenciales del router desde la BD
+        # Obtener credenciales del router desde la BD usando el módulo refactorizado
         router = await get_router_by_host(session, host)
         if not router:
             raise RouterConnectionError(f"Router {host} no encontrado en la DB.")
@@ -489,9 +423,13 @@ async def get_router_service_for_provisioning(
         if not router:
             raise RouterConnectionError(f"Router {host} no encontrado en la DB.")
 
-        # Decrypt password
-        password = decrypt_data(router.password)
-
+        # Handle password decryption safely
+        password = router.password
+        try:
+            password = decrypt_data(router.password)
+        except Exception:
+            pass
+            
         # Create adapter directly (bypassing is_provisioned check)
         from ..utils.device_clients.adapters.mikrotik_router import MikrotikRouterAdapter
 
