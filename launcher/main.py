@@ -19,6 +19,8 @@ from launcher.server import start_api_process
 from launcher.commands.diagnose import DiagnoseCommand
 from launcher.commands.management import ManagementCommand
 from launcher.commands.setup import SetupCommand
+from launcher.commands.config import ConfigCommand
+from launcher.config import config_manager
 
 # TUI
 from launcher.tui import TUIApp
@@ -68,7 +70,7 @@ def run_server(args):
 
     server_info = {
         "production": is_production and caddy_active,
-        "local_url": f"https://{hostname}.local" if is_production and caddy_active else f"http://localhost:{port}",
+        "local_url": f"https://localhost" if is_production and caddy_active else f"http://localhost:{port}",
         "network_url": f"https://{lan_ip}" if is_production and caddy_active else f"http://{lan_ip}:{port}",
         "port": port,
         "web_workers": os.getenv("UVICORN_WORKERS", "4"),
@@ -91,7 +93,10 @@ def run_server(args):
         p_scheduler.start()
         p_uvicorn = start_api_process(log_queue)
         
-        if args.headless:
+        # Combine CLI arg and Config persistence
+        is_headless = args.headless or config_manager.get("headless", False)
+        
+        if is_headless:
             # Headless Mode: Simple blocking wait
             print(f"Server running in HEADLESS mode.")
             print(f"Management: {server_info['local_url']}")
@@ -128,6 +133,10 @@ def main():
     # Setup
     setup_parser = subparsers.add_parser("setup", help="Asistente de configuración")
     commands["setup"] = SetupCommand(setup_parser)
+
+    # Config
+    config_parser = subparsers.add_parser("config", help="Configuración del Launcher")
+    commands["config"] = ConfigCommand(config_parser)
 
     # Server Arguments (Default)
     parser.add_argument("--headless", action="store_true", help="Ejecutar sin interfaz gráfica (TUI)")

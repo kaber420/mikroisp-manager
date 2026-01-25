@@ -13,6 +13,12 @@ class Dashboard:
         self.health = health_widget
         self.logs = logs_widget
         self.layout = Layout()
+        
+        # Menu State
+        self.show_menu = False
+        self.menu_items = []
+        self.selected_index = 0
+        
         self.setup_layout()
 
     def setup_layout(self):
@@ -59,8 +65,13 @@ class Dashboard:
     def generate_info_panel(self):
         info = self.server_info
         grid = Table.grid(expand=True)
-        grid.add_row("🏠 Local:", info.get('local_url', 'N/A'))
-        grid.add_row("📡 Net:", info.get('network_url', 'N/A'))
+        grid.add_column()
+        
+        grid.add_row("🏠 Local:")
+        grid.add_row(info.get('local_url', 'N/A'), style="blue link " + info.get('local_url', ''))
+        grid.add_row("")
+        grid.add_row("📡 Net:")
+        grid.add_row(info.get('network_url', 'N/A'), style="blue link " + info.get('network_url', ''))
         
         return Panel(
             grid,
@@ -69,7 +80,31 @@ class Dashboard:
             box=box.ROUNDED
         )
 
+    def render_menu(self):
+        from rich.align import Align
+        
+        grid = Table.grid(padding=1)
+        grid.add_column()
+        
+        for idx, (label, action) in enumerate(self.menu_items):
+            style = "bold white on blue" if idx == self.selected_index else "white"
+            prefix = "👉 " if idx == self.selected_index else "   "
+            grid.add_row(Text(f"{prefix}{label}", style=style))
+
+        panel = Panel(
+            grid,
+            title="Menu Principal (Esc/q Back)",
+            border_style="cyan",
+            box=box.DOUBLE,
+            width=50,
+            padding=(1, 2)
+        )
+        return Align.center(panel, vertical="middle")
+
     def render(self) -> Layout:
+        if self.show_menu:
+            return self.render_menu()
+            
         # Update components
         self.layout["header"].update(self.generate_header())
         
