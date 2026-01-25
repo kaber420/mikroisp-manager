@@ -26,6 +26,7 @@ class Dashboard:
         self.layout.split(
             Layout(name="header", size=3),
             Layout(name="main", ratio=1),
+            Layout(name="footer", size=3),
         )
         
         # Split Main into Sidebar (Stats) and Content (Logs)
@@ -86,6 +87,9 @@ class Dashboard:
         grid = Table.grid(padding=1)
         grid.add_column()
         
+        grid.add_row(Text("Use ↑/↓ to navigate, ENTER to select", style="dim italic"), end_section=True)
+        grid.add_row("") 
+
         for idx, (label, action) in enumerate(self.menu_items):
             style = "bold white on blue" if idx == self.selected_index else "white"
             prefix = "👉 " if idx == self.selected_index else "   "
@@ -93,13 +97,36 @@ class Dashboard:
 
         panel = Panel(
             grid,
-            title="Menu Principal (Esc/q Back)",
+            title="Menu Principal",
+            subtitle="[ESC] Close",
             border_style="cyan",
             box=box.DOUBLE,
-            width=50,
+            width=60,
             padding=(1, 2)
         )
         return Align.center(panel, vertical="middle")
+
+    def generate_footer(self):
+        """Genera una barra de estado inferior con atajos"""
+        grid = Table.grid(expand=True)
+        grid.add_column(justify="center")
+        
+        shortcuts = [
+            ("m", "Menu"),
+            ("Ctrl+c", "Stop"),
+        ]
+        
+        text = Text()
+        for key, desc in shortcuts:
+            text.append(f" [{key}] ", style="bold white on blue")
+            text.append(f" {desc} ", style="white on black")
+            text.append("  ")
+        
+        grid.add_row(text)
+            
+        return Panel(grid, title="Shortcuts", border_style="dim")
+        # Since I don't have a footer layout slot in setup_layout, I will append this to the info panel or make a new slot.
+        # Let's verify setup_layout first.
 
     def render(self) -> Layout:
         if self.show_menu:
@@ -113,5 +140,6 @@ class Dashboard:
         self.layout["info"].update(self.generate_info_panel())
         
         self.layout["content"].update(self.logs.render())
+        self.layout["footer"].update(self.generate_footer())
         
         return self.layout

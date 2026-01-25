@@ -14,19 +14,20 @@ import io
 import contextlib
 
 class TUIApp:
-    def __init__(self, log_queue, server_info):
+    def __init__(self, log_queue, service_manager):
         self.log_queue = log_queue
-        self.server_info = server_info
+        self.service_manager = service_manager
+        self.server_info = service_manager.server_info
         self.console = Console()
         
         # Initialize Widgets
         self.resources_widget = ResourceWidget()
-        self.health_widget = HealthWidget(server_info)
+        self.health_widget = HealthWidget(self.server_info)
         self.logs_widget = LogsWidget(log_queue)
         
         # Initialize Dashboard
         self.dashboard = Dashboard(
-            server_info,
+            self.server_info,
             self.resources_widget,
             self.health_widget,
             self.logs_widget
@@ -40,11 +41,17 @@ class TUIApp:
         
         self.dashboard.menu_items = [
             (f"Headless Mode (Start): {status}", self._toggle_headless),
+            ("Restart Web Server", self._restart_web),
             ("Diagnose System", self._run_diagnose),
             ("Clean Logs (>7 days)", self._clean_logs),
             ("Optimize DB (Vacuum)", self._vacuum_db),
             ("Exit Launcher", self._exit_app)
         ]
+
+    def _restart_web(self):
+        self.log_queue.put(self._make_log("Restarting Web Server...", "WARNING"))
+        self.service_manager.restart_web()
+        self.log_queue.put(self._make_log("Web Server Restarted", "INFO"))
 
     def _toggle_headless(self):
         current = config_manager.get("headless", False)
@@ -105,23 +112,20 @@ class TUIApp:
         d = self.dashboard
         
         if d.show_menu:
-            if key == 'q' or key == '\x1b': # Esc
+            if key == 'q' or key == 'KEY_ESC': # Esc
                 d.show_menu = False
-            elif key == 'A': # Up
+            elif key == 'KEY_UP' or key == 'A': # Up (A fallback if raw)
                 d.selected_index = max(0, d.selected_index - 1)
-            elif key == 'B': # Down
+            elif key == 'KEY_DOWN' or key == 'B': # Down (B fallback if raw)
                 d.selected_index = min(len(d.menu_items) - 1, d.selected_index + 1)
             elif key == '\r' or key == '\n': # Enter
                 label, action = d.menu_items[d.selected_index]
                 if action:
                     action()
-                    # If action didn't exit menu, maybe we should close it?
-                    # Let's keep it open for toggle, maybe close for actions?
-                    # For now keep open essentially.
         else:
             if key == 'm' or key == 'c':
                 d.show_menu = True
-            elif key == 'q':
+            elif key == 'q' or key == 'KEY_ESC':
                 # Confirm exit?
                 self._exit_app()
 
