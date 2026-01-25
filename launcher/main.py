@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from .constants import ENV_FILE
 from .caddy import is_caddy_running, start_caddy_if_needed
 from .network import get_lan_ip
-from .server import cleanup, start_api_server
+from .server import cleanup
 from .setup_wizard import run_setup_wizard
 from .user_setup import check_and_create_first_user
 
@@ -30,7 +30,6 @@ def main():
     # A. Si el usuario pide configurar O si no existe el archivo .env
     if "--config" in sys.argv or not os.path.exists(ENV_FILE):
         run_setup_wizard()
-        # Si usamos el flag --config, salimos para que el usuario reinicie limpio si quiere
         if "--config" in sys.argv:
             print("Reinicia el launcher para aplicar los cambios.")
             sys.exit(0)
@@ -45,71 +44,76 @@ def main():
     is_production = os.getenv("APP_ENV") == "production"
     caddy_active = is_caddy_running()
 
-    # Si SSL está habilitado pero Caddy no está corriendo, mostrar advertencia
     if is_production and not caddy_active:
         print("\n⚠️  HTTPS configurado pero Caddy no está activo.")
+        # Nota: estos prints iniciales se verán antes del TUI, lo cual está bien.
         if sys.platform == "win32":
             print("   Abre una terminal como Administrador y ejecuta: caddy run")
         else:
             print("   Ejecuta: sudo systemctl start caddy")
 
-    # D. Arrancar logic
+    # D. Preparar datos para TUI
     port = os.getenv("UVICORN_PORT", "7777")
     lan_ip = get_lan_ip()
     hostname = socket.gethostname()
-
+    
     # Process management
     caddy_process = start_caddy_if_needed(is_production)
     if caddy_process:
         caddy_active = True
 
-    # Leer workers para mostrar en banner
     workers = os.getenv("UVICORN_WORKERS", "4")
 
     # Obtener workers de monitoreo
-    from app.utils.settings_utils import get_setting_sync
-    monitor_workers = get_setting_sync("monitor_max_workers") or "10"
+    # MOVIDO: Importar aquí para evitar side-effects al spawnear procesos
+    monitor_workers = "10"
+    try:
+        from app.utils.settings_utils import get_setting_sync
+        monitor_workers = get_setting_sync("monitor_max_workers") or "10"
+    except Exception:
+        pass
+    
+    server_info = {
+        "production": is_production and caddy_active,
+        "local_url": f"https://{hostname}.local" if is_production and caddy_active else f"http://localhost:{port}",
+        "network_url": f"https://{lan_ip}" if is_production and caddy_active else f"http://{lan_ip}:{port}",
+        "port": port,
+        "web_workers": workers,
+        "monitor_workers": monitor_workers
+    }
 
-    print("-" * 60)
-    if is_production and caddy_active:
-        print("🚀 µMonitor Pro (Modo Producción - HTTPS)")
-        print(f"   🏠 Local:     https://{hostname}.local")
-        print(f"   📡 Network:   https://{lan_ip}")
-        print(f"   🔌 Management: http://localhost:{port}")
-        print(f"   ⚡ Workers:   {workers} (Web) | {monitor_workers} (Monitor)")
-    else:
-        print("🚀 µMonitor Pro (Modo Desarrollo/Local)")
-        print(f"   🔌 Local:     http://localhost:{port}")
-        print(f"   📡 Network:   http://{lan_ip}:{port}")
-        print(f"   ⚡ Workers:   {workers} (Web) | {monitor_workers} (Monitor)")
-        if is_production:
-            print(
-                "   ⚠️  HTTPS habilitado pero Caddy no responde. La web no cargará segura."
-            )
-        else:
-            print("   ⚠️  HTTPS no activo. Algunas funciones pueden limitarse.")
-
-    print("-" * 60)
-    print("ℹ️  Para reconfigurar puerto base: python launcher.py --config")
-    print("-" * 60)
-
+    # E. Configurar Orquestación (Colas y Procesos)
+    log_queue = multiprocessing.Queue()
+    
+    # Importaciones diferidas para el spawn
     from app.scheduler import run_scheduler
+    from launcher.tui import DashboardTUI
 
-    # Scheduler corre en subprocess, uvicorn en main process (para soportar workers)
-    p_scheduler = multiprocessing.Process(target=run_scheduler, name="Scheduler")
+    # Scheduler Process (Sigue usando Multiprocessing porque es código interno nuestro)
+    p_scheduler = multiprocessing.Process(
+        target=run_scheduler, 
+        args=(log_queue,),
+        name="Scheduler"
+    )
+    
+    # Uvicorn Process (Ahora usa Popen via helper para capturar logs y evitar stdin crash)
+    from launcher.server import start_api_process
+    # Nota: start_api_process ya inicia el proceso, no necesitamos .start()
+    p_uvicorn = None
 
     try:
         p_scheduler.start()
-        time.sleep(1)
-
-        # Uvicorn corre en el proceso principal para soportar múltiples workers
-        start_api_server()
+        # Iniciar Uvicorn
+        p_uvicorn = start_api_process(log_queue)
+        
+        # F. Iniciar TUI (Bloqueante, corre en Main Process)
+        tui = DashboardTUI(log_queue, server_info)
+        tui.run()
 
     except KeyboardInterrupt:
-        cleanup(caddy_process, p_scheduler)
-        sys.exit(0)
+        pass
     finally:
-        cleanup(caddy_process, p_scheduler)
+        cleanup(caddy_process, p_scheduler, p_uvicorn)
         sys.exit(0)
 
 

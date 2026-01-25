@@ -9,13 +9,8 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from .utils.settings_utils import get_setting_sync
 
-# Configuración del logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - [Scheduler] - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 logger = logging.getLogger("Scheduler")
+
 
 
 def job_listener(event):
@@ -29,11 +24,23 @@ def job_listener(event):
         logger.info(f"Job {event.job_id} ejecutado exitosamente")
 
 
-def run_scheduler():
+def run_scheduler(log_queue=None):
     """
     Punto de entrada para el proceso del scheduler.
     Configura y arranca todos los jobs programados.
     """
+    # Configurar logging si viene la cola
+    if log_queue:
+        from launcher.log_queue import configure_process_logging
+        configure_process_logging(log_queue)
+    else:
+        # Fallback para ejecución manual fuera de launcher
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(levelname)s - [Scheduler] - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+
     # Importaciones tardías para evitar problemas de circularidad
     from .services.billing_job import run_billing_check
     from .services.monitor_job import run_monitor_cycle
