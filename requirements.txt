@@ -25,3 +25,4 @@ slowapi
 python-dateutil
 pydantic-settings
 rich
+textual
