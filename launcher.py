@@ -385,7 +385,30 @@ def run_setup_wizard():
             print(f"⚠️  Error configurando SSL: {e}")
             print("   Continuando sin HTTPS...")
 
-    # 7. GENERAR CADDYFILE (si SSL está habilitado)
+    # 7. CONFIGURACIÓN DE WORKERS (rendimiento)
+    print("\n⚡ CONFIGURACIÓN DE RENDIMIENTO")
+    print("-" * 40)
+    cpu_count = multiprocessing.cpu_count()
+    recommended_workers = min(cpu_count * 2, 8)  # 2 per core, max 8
+    default_workers = os.getenv("UVICORN_WORKERS", str(recommended_workers))
+    
+    print(f"ℹ️  CPUs detectados: {cpu_count}")
+    print(f"   Recomendación: {recommended_workers} workers (2 por CPU, máx 8)")
+    print(f"   Para >500 clientes concurrentes, considera aumentar este valor.")
+    
+    while True:
+        workers_input = input(
+            f"¿Número de workers de Uvicorn? (Default: {default_workers}): "
+        ).strip()
+        if not workers_input:
+            workers = int(default_workers)
+            break
+        if workers_input.isdigit() and 1 <= int(workers_input) <= 32:
+            workers = int(workers_input)
+            break
+        print("❌ Valor inválido. Usa un número entre 1 y 32.")
+
+    # 8. GENERAR CADDYFILE (si SSL está habilitado)
     if use_ssl:
         if generate_caddyfile(hosts, port, ssl_cert_path, ssl_key_path):
             print("✅ Caddyfile generado.")
@@ -442,6 +465,7 @@ def run_setup_wizard():
             f.write(f"APP_ENV={app_env}\n")
             f.write(f"ALLOWED_ORIGINS={allowed_origins}\n")
             f.write(f"ALLOWED_HOSTS={allowed_hosts}\n")
+            f.write(f"UVICORN_WORKERS={workers}\n")
             f.write("# Flutter Mobile App Development (set to true to enable)\n")
             f.write("FLUTTER_DEV=false\n")
 
@@ -517,27 +541,26 @@ def check_and_create_first_user():
 
 
 def start_api_server():
-    from uvicorn import Config, Server
-
-    from app.main import app as fastapi_app
+    import uvicorn
 
     # Recargar ENV por si cambió el puerto
     load_dotenv(ENV_FILE, override=True)
 
     host = os.getenv("UVICORN_HOST", "0.0.0.0")
     port = int(os.getenv("UVICORN_PORT", 7777))
+    workers = int(os.getenv("UVICORN_WORKERS", 4))
 
-    config = Config(
-        app=fastapi_app,
-        host=host,
-        port=port,
-        log_level="info",
-        server_header=False,  # --- SEGURIDAD: No revelar 'server: uvicorn' ---
-        proxy_headers=True,  # --- PROXY: Confiar en headers (X-Forwarded-For) de Caddy ---
-        forwarded_allow_ips="*",  # --- PROXY: Permitir IPs de cualquier proxy (Caddy es local) ---
-    )
     try:
-        Server(config).run()
+        uvicorn.run(
+            "app.main:app",
+            host=host,
+            port=port,
+            workers=workers,
+            log_level="info",
+            server_header=False,  # --- SEGURIDAD: No revelar 'server: uvicorn' ---
+            proxy_headers=True,  # --- PROXY: Confiar en headers (X-Forwarded-For) de Caddy ---
+            forwarded_allow_ips="*",  # --- PROXY: Permitir IPs de cualquier proxy (Caddy es local) ---
+        )
     except KeyboardInterrupt:
         pass
 
@@ -577,15 +600,6 @@ if __name__ == "__main__":
     # Process management
     caddy_process = None
 
-    def cleanup():
-        print("\n🛑 Apagando...")
-        if caddy_process:
-            print("   Terminando Caddy...")
-            caddy_process.terminate()
-        for p in [p_api, p_scheduler]:
-            if p.is_alive():
-                p.terminate()
-
     # Auto-start Caddy if needed and possible
     if is_production and not caddy_active:
         import ctypes
@@ -614,16 +628,21 @@ if __name__ == "__main__":
             print("   debes ejecutar este script como Administrador/Root.")
             print("   O ejecuta 'caddy run' manualmente en otra terminal con permisos.")
 
+    # Leer workers para mostrar en banner
+    workers = os.getenv("UVICORN_WORKERS", "4")
+    
     print("-" * 60)
     if is_production and caddy_active:
         print("🚀 µMonitor Pro (Modo Producción - HTTPS)")
         print(f"   🏠 Local:     https://{hostname}.local")
         print(f"   📡 Network:   https://{lan_ip}")
         print(f"   🔌 Management: http://localhost:{port}")
+        print(f"   ⚡ Workers:   {workers}")
     else:
         print("🚀 µMonitor Pro (Modo Desarrollo/Local)")
         print(f"   🔌 Local:     http://localhost:{port}")
         print(f"   📡 Network:   http://{lan_ip}:{port}")
+        print(f"   ⚡ Workers:   {workers}")
         if is_production:
              print("   ⚠️  HTTPS habilitado pero Caddy no responde. La web no cargará segura.")
         else:
@@ -635,23 +654,24 @@ if __name__ == "__main__":
 
     from app.scheduler import run_scheduler
 
-    p_api = multiprocessing.Process(target=start_api_server, name="API")
+    # Scheduler corre en subprocess, uvicorn en main process (para soportar workers)
     p_scheduler = multiprocessing.Process(target=run_scheduler, name="Scheduler")
 
-    try:
-        p_api.start()
-        time.sleep(2)
-        p_scheduler.start()
+    def cleanup():
+        print("\n🛑 Apagando...")
+        if caddy_process:
+            print("   Terminando Caddy...")
+            caddy_process.terminate()
+        if p_scheduler.is_alive():
+            p_scheduler.terminate()
+            p_scheduler.join(timeout=5)
 
-        # Monitor Caddy if we started it
-        while True:
-            if not p_api.is_alive() or not p_scheduler.is_alive():
-                break
-            if caddy_process and caddy_process.poll() is not None:
-                print("⚠️  Caddy se detuvo inesperadamente.")
-                # Optional: break or restart? For now just warn.
-                caddy_process = None
-            time.sleep(1)
+    try:
+        p_scheduler.start()
+        time.sleep(1)
+        
+        # Uvicorn corre en el proceso principal para soportar múltiples workers
+        start_api_server()
 
     except KeyboardInterrupt:
         cleanup()
@@ -659,3 +679,4 @@ if __name__ == "__main__":
     finally:
         cleanup()
         sys.exit(0)
+

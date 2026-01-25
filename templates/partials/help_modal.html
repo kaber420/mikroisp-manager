@@ -23,17 +23,79 @@
             </button>
         </div>
 
-        <!-- Content Area -->
-        <div class="flex-1 overflow-y-auto p-6 scrollbar-thin">
-            <!-- Loading State -->
-            <div x-show="$store.docs.isLoading"
-                class="flex flex-col items-center justify-center py-12 text-text-secondary">
-                <span class="material-symbols-outlined animate-spin text-4xl mb-2">progress_activity</span>
-                <p>Cargando...</p>
-            </div>
+        <!-- Content Area with Sidebar -->
+        <div class="flex-1 overflow-hidden flex">
+            <!-- Sidebar (Desktop) -->
+            <aside class="w-64 border-r border-border-color bg-surface-2/30 overflow-y-auto hidden md:block">
+                <nav class="p-4 space-y-6">
+                    <template x-for="section in $store.docs.index?.sections" :key="section.id">
+                        <div>
+                            <h4 class="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2 px-2"
+                                x-text="section.title">
+                            </h4>
+                            <ul class="space-y-0.5">
+                                <template x-for="item in section.items" :key="item.id">
+                                    <li>
+                                        <button @click="$store.docs.open(item.id)"
+                                            class="w-full text-left px-2 py-1.5 rounded text-sm transition-colors flex items-center justify-between group"
+                                            :class="$store.docs.currentId === item.id ? 'bg-primary/10 text-primary font-medium' : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'">
+                                            <span x-text="item.title"></span>
+                                            <span x-show="$store.docs.currentId === item.id"
+                                                class="material-symbols-outlined text-[16px]">chevron_right</span>
+                                        </button>
+                                    </li>
+                                </template>
+                            </ul>
+                        </div>
+                    </template>
+                </nav>
+            </aside>
 
-            <!-- Content -->
-            <div x-show="!$store.docs.isLoading" x-html="$store.docs.currentHtml" class="prose prose-invert max-w-none">
+            <!-- Main Content -->
+            <div class="flex-1 overflow-y-auto p-6 scrollbar-thin relative">
+                <!-- Mobile Menu Toggle (Visible only on mobile) -->
+                <div class="md:hidden mb-4">
+                    <details class="bg-surface-2/50 rounded-lg p-3 border border-border-color">
+                        <summary class="font-medium flex items-center justify-between cursor-pointer list-none">
+                            <span>Navegación</span>
+                            <span class="material-symbols-outlined">expand_more</span>
+                        </summary>
+                        <nav class="mt-3 space-y-4 max-h-60 overflow-y-auto">
+                            <template x-for="section in $store.docs.index?.sections" :key="section.id">
+                                <div>
+                                    <h4 class="text-xs font-bold text-text-secondary uppercase tracking-wider mb-1"
+                                        x-text="section.title">
+                                    </h4>
+                                    <ul class="space-y-0.5 pl-2 border-l border-border-color">
+                                        <template x-for="item in section.items" :key="item.id">
+                                            <li>
+                                                <button
+                                                    @click="$store.docs.open(item.id); $el.closest('details').removeAttribute('open')"
+                                                    class="w-full text-left py-1 text-sm transition-colors"
+                                                    :class="$store.docs.currentId === item.id ? 'text-primary font-medium' : 'text-text-secondary'">
+                                                    <span x-text="item.title"></span>
+                                                </button>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </div>
+                            </template>
+                        </nav>
+                    </details>
+                </div>
+
+                <!-- Loading State -->
+                <div x-show="$store.docs.isLoading"
+                    class="absolute inset-0 flex flex-col items-center justify-center bg-surface-1/50 backdrop-blur-[1px] z-10">
+                    <span
+                        class="material-symbols-outlined animate-spin text-4xl mb-2 text-primary">progress_activity</span>
+                    <p class="text-text-secondary">Cargando...</p>
+                </div>
+
+                <!-- Content -->
+                <div x-show="!$store.docs.isLoading" x-html="$store.docs.currentHtml"
+                    class="prose prose-invert max-w-none pb-8">
+                </div>
             </div>
         </div>
 

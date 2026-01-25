@@ -317,6 +317,9 @@
     </div>
 
     <script nonce="{{ request.state.csp_nonce }}">
+        // Inject help context from backend
+        window.currentHelpContext = "{{ active_page }}";
+
         document.addEventListener('mousemove', (e) => {
             const glows = document.querySelectorAll('.glow-element');
             const x = e.clientX;

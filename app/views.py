@@ -1,6 +1,3 @@
-from datetime import datetime
-
-from dateutil.relativedelta import relativedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session
@@ -13,10 +10,7 @@ from .core.users import (
     require_technician,
 )
 from .db.engine_sync import get_sync_session
-from .models.client import Client
-from .models.payment import Payment
 from .models.user import User
-from .services.settings_service import SettingsService
 
 router = APIRouter()
 
@@ -175,40 +169,18 @@ async def read_payment_receipt(
     session: Session = Depends(get_sync_session),
     current_user: User = Depends(get_current_user_or_redirect),
 ):
-    payment = session.get(Payment, payment_id)
-    if not payment:
-        raise HTTPException(status_code=404, detail="Pago no encontrado")
+    from .services.billing_service import BillingService
 
-    client = session.get(Client, payment.client_id)
-    if not client:
-        raise HTTPException(status_code=404, detail="Cliente no encontrado para este pago")
-
-    settings_service = SettingsService(session)
-    settings = settings_service.get_all_settings()
-
-    # Calcular el ciclo de servicio
+    billing_service = BillingService(session)
+    
     try:
-        billing_day = client.billing_day or 1
-        payment_month_date = datetime.strptime(payment.mes_correspondiente, "%Y-%m")
-
-        start_date = payment_month_date.replace(day=billing_day)
-        end_date = start_date + relativedelta(months=1)
-    except (ValueError, TypeError):
-        start_date = None
-        end_date = None
-
-    context = {
-        "request": request,
-        "payment": payment,
-        "client": client,
-        "isp_name": settings.get("company_name"),
-        "isp_address": settings.get("billing_address"),
-        "isp_phone": settings.get("billing_phone") or settings.get("notification_email"),
-        "isp_logo": settings.get("company_logo_url"),
-        "ticket_message": settings.get("ticket_footer_message"),
-        "start_date": start_date.strftime("%d de %B de %Y") if start_date else "N/A",
-        "end_date": end_date.strftime("%d de %B de %Y") if end_date else "N/A",
-    }
+        context = billing_service.get_payment_receipt_context(payment_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    
+    # Add request to context for template
+    context["request"] = request
+    
     return templates.TemplateResponse("ticket.html", context)
 
 

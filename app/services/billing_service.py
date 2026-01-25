@@ -12,7 +12,12 @@ from typing import Any
 from sqlmodel import Session
 
 
+from dateutil.relativedelta import relativedelta
+
+from ..models.client import Client
+from ..models.payment import Payment
 from ..models.router import Router
+from ..models.setting import Setting
 from .client_service import ClientService
 from .payment_service import PaymentService
 from .router_service import RouterService
@@ -338,3 +343,57 @@ class BillingService:
                         )
             except Exception as e:
                 logger.error(f"Error asegurando servicio activo {service['id']}: {e}")
+
+    def get_payment_receipt_context(self, payment_id: int) -> dict[str, Any]:
+        """
+        Get all context data needed for payment receipt rendering.
+        
+        Args:
+            payment_id: Payment ID
+            
+        Returns:
+            Dictionary with payment, client, settings, and billing cycle info
+            
+        Raises:
+            ValueError: If payment or client not found
+        """
+        # Fetch payment
+        payment = self.session.get(Payment, payment_id)
+        if not payment:
+            raise ValueError(f"Pago no encontrado: {payment_id}")
+
+        # Fetch client
+        client = self.session.get(Client, payment.client_id)
+        if not client:
+            raise ValueError(f"Cliente no encontrado para el pago: {payment_id}")
+
+        # Fetch all settings synchronously
+        all_settings = self.session.query(Setting).all()
+        settings = {s.key: s.value for s in all_settings}
+
+        # Calculate billing cycle dates
+        start_date = None
+        end_date = None
+        try:
+            billing_day = client.billing_day or 1
+            payment_month_date = datetime.strptime(payment.mes_correspondiente, "%Y-%m")
+
+            start_date = payment_month_date.replace(day=billing_day)
+            end_date = start_date + relativedelta(months=1)
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Error calculando fechas de ciclo para pago {payment_id}: {e}")
+
+        # Build context
+        context = {
+            "payment": payment,
+            "client": client,
+            "isp_name": settings.get("company_name"),
+            "isp_address": settings.get("billing_address"),
+            "isp_phone": settings.get("billing_phone") or settings.get("notification_email"),
+            "isp_logo": settings.get("company_logo_url"),
+            "ticket_message": settings.get("ticket_footer_message"),
+            "start_date": start_date.strftime("%d de %B de %Y") if start_date else "N/A",
+            "end_date": end_date.strftime("%d de %B de %Y") if end_date else "N/A",
+        }
+
+        return context

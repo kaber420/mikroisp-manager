@@ -14,7 +14,8 @@ class DocsFetcher {
     async loadIndex() {
         if (this.index) return this.index;
         try {
-            const response = await fetch(`${this.basePath}/index.json`);
+            // Add timestamp to prevent caching
+            const response = await fetch(`${this.basePath}/index.json?t=${Date.now()}`);
             if (!response.ok) throw new Error('Failed to load documentation index');
             this.index = await response.json();
             return this.index;
@@ -28,7 +29,8 @@ class DocsFetcher {
         if (this.cache.has(filePath)) return this.cache.get(filePath);
 
         try {
-            const response = await fetch(`${this.basePath}/${filePath}`);
+            // Add timestamp to prevent caching
+            const response = await fetch(`${this.basePath}/${filePath}?t=${Date.now()}`);
             if (!response.ok) throw new Error(`Failed to load article: ${filePath}`);
             const markdown = await response.text();
 
@@ -66,6 +68,7 @@ document.addEventListener('alpine:init', () => {
         isLoading: false,
         currentHtml: '',
         currentTitle: '',
+        currentId: null,
         index: null,
 
         async init() {
@@ -86,18 +89,58 @@ document.addEventListener('alpine:init', () => {
                     this.index = await docsFetcher.loadIndex();
                 }
 
-                // Default to intro if no ID
-                const targetId = articleId || 'intro';
+                // Context mapping logic
+                const CONTEXT_MAP = {
+                    'dashboard': 'intro',
+                    'routers': 'routers-intro',
+                    'router_details': 'routers-intro',
+                    'switches': 'switches-intro',
+                    'aps': 'aps-intro',
+                    'clients': 'clients-intro',
+                    'zones': 'zones-intro',
+                    'settings': 'settings-intro',
+                    'billing': 'billing-intro',
+                    'planes': 'planes',
+                    'cortes': 'cortes'
+                };
+
+                let targetId = articleId;
+
+                // If no specific ID is requested, try to infer from context
+                if (!targetId && window.currentHelpContext) {
+                    targetId = CONTEXT_MAP[window.currentHelpContext] || 'intro';
+                    console.log(`[Docs] Auto-selecting help for context '${window.currentHelpContext}': ${targetId}`);
+                }
+
+                // Fallback to intro if still null
+                targetId = targetId || 'intro';
+
                 const article = docsFetcher.findArticleById(targetId) || docsFetcher.findArticleById('intro');
 
                 if (article) {
+                    this.currentId = targetId; // Track current ID
                     this.currentTitle = article.title;
-                    this.currentHtml = await docsFetcher.loadArticle(article.file);
+
+                    // Split file and hash to handle scrolling
+                    const [filePath, hash] = article.file.split('#');
+                    this.currentHtml = await docsFetcher.loadArticle(filePath);
+
+                    // Scroll to anchor if present
+                    if (hash) {
+                        setTimeout(() => {
+                            const element = document.getElementById(hash);
+                            if (element) {
+                                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }
+                        }, 150); // Small delay to ensure DOM update
+                    }
                 } else {
+                    this.currentId = null;
                     this.currentTitle = 'Error';
                     this.currentHtml = '<p class="text-text-secondary">Documento no encontrado.</p>';
                 }
             } catch (error) {
+                console.error("Docs Error:", error);
                 this.currentTitle = 'Error';
                 this.currentHtml = '<p class="text-danger">No se pudo cargar la documentación.</p>';
             } finally {

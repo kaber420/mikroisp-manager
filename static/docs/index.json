@@ -8,12 +8,60 @@
                 {
                     "id": "intro",
                     "title": "Introducción a uManager",
-                    "file": "basics/intro.md"
+                    "file": "intro.md"
                 },
                 {
                     "id": "first-zone",
                     "title": "Creando tu Primera Zona",
-                    "file": "basics/first-zone.md"
+                    "file": "basics/first_zone.md"
+                }
+            ]
+        },
+        {
+            "id": "management",
+            "title": "Gestión de Red",
+            "items": [
+                {
+                    "id": "routers-intro",
+                    "title": "Gestión de Routers",
+                    "file": "routers/intro.md"
+                },
+                {
+                    "id": "switches-intro",
+                    "title": "Gestión de Switches",
+                    "file": "switches/intro.md"
+                },
+                {
+                    "id": "aps-intro",
+                    "title": "Access Points",
+                    "file": "aps/intro.md"
+                },
+                {
+                    "id": "zones-intro",
+                    "title": "Zonas y Nodos",
+                    "file": "zones/intro.md"
+                }
+            ]
+        },
+        {
+            "id": "clients",
+            "title": "Clientes",
+            "items": [
+                {
+                    "id": "clients-intro",
+                    "title": "Gestión de Clientes",
+                    "file": "clients/intro.md"
+                }
+            ]
+        },
+        {
+            "id": "system",
+            "title": "Sistema",
+            "items": [
+                {
+                    "id": "settings-intro",
+                    "title": "Configuración",
+                    "file": "settings/intro.md"
                 }
             ]
         },
