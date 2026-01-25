@@ -66,18 +66,22 @@ def main():
     # Leer workers para mostrar en banner
     workers = os.getenv("UVICORN_WORKERS", "4")
 
+    # Obtener workers de monitoreo
+    from app.utils.settings_utils import get_setting_sync
+    monitor_workers = get_setting_sync("monitor_max_workers") or "10"
+
     print("-" * 60)
     if is_production and caddy_active:
         print("🚀 µMonitor Pro (Modo Producción - HTTPS)")
         print(f"   🏠 Local:     https://{hostname}.local")
         print(f"   📡 Network:   https://{lan_ip}")
         print(f"   🔌 Management: http://localhost:{port}")
-        print(f"   ⚡ Workers:   {workers}")
+        print(f"   ⚡ Workers:   {workers} (Web) | {monitor_workers} (Monitor)")
     else:
         print("🚀 µMonitor Pro (Modo Desarrollo/Local)")
         print(f"   🔌 Local:     http://localhost:{port}")
         print(f"   📡 Network:   http://{lan_ip}:{port}")
-        print(f"   ⚡ Workers:   {workers}")
+        print(f"   ⚡ Workers:   {workers} (Web) | {monitor_workers} (Monitor)")
         if is_production:
             print(
                 "   ⚠️  HTTPS habilitado pero Caddy no responde. La web no cargará segura."
