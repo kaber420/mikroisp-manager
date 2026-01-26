@@ -35,6 +35,7 @@ class UserService:
             role=user_create.role,
             telegram_chat_id=user_create.telegram_chat_id,
             receive_alerts=user_create.receive_alerts,
+            receive_device_down_alerts=user_create.receive_device_down_alerts,
             receive_announcements=user_create.receive_announcements,
         )
 

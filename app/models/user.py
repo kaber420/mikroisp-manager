@@ -44,6 +44,7 @@ class User(SQLModel, table=True):
     role: str = Field(default="admin", max_length=50)
     telegram_chat_id: str | None = Field(default=None, max_length=100)
     receive_alerts: bool = Field(default=False)
+    receive_device_down_alerts: bool = Field(default=False)
     receive_announcements: bool = Field(default=False)
 
     @property

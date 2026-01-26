@@ -51,6 +51,7 @@ def _setup_inventory_db():
     CREATE TABLE IF NOT EXISTS users (
         username TEXT PRIMARY KEY, hashed_password TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'admin',
         telegram_chat_id TEXT, receive_alerts BOOLEAN NOT NULL DEFAULT FALSE,
+        receive_device_down_alerts BOOLEAN NOT NULL DEFAULT FALSE,
         receive_announcements BOOLEAN NOT NULL DEFAULT FALSE, disabled BOOLEAN NOT NULL DEFAULT FALSE
     )
     """
@@ -68,6 +69,12 @@ def _setup_inventory_db():
         print("Migrando users: Agregando receive_alerts...")
         cursor.execute(
             "ALTER TABLE users ADD COLUMN receive_alerts BOOLEAN NOT NULL DEFAULT FALSE;"
+        )
+
+    if "receive_device_down_alerts" not in user_columns:
+        print("Migrando users: Agregando receive_device_down_alerts...")
+        cursor.execute(
+            "ALTER TABLE users ADD COLUMN receive_device_down_alerts BOOLEAN NOT NULL DEFAULT FALSE;"
         )
 
     if "receive_announcements" not in user_columns:

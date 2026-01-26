@@ -46,10 +46,12 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-4">
-                        <span x-show="user.receive_alerts || user.receive_announcements"
+                        <span
+                            x-show="user.receive_alerts || user.receive_device_down_alerts || user.receive_announcements"
                             class="material-symbols-outlined text-success text-base"
                             title="Notifications enabled">notifications_active</span>
-                        <span x-show="!user.receive_alerts && !user.receive_announcements"
+                        <span
+                            x-show="!user.receive_alerts && !user.receive_device_down_alerts && !user.receive_announcements"
                             class="material-symbols-outlined text-text-secondary text-base"
                             title="Notifications disabled">notifications_off</span>
 
@@ -139,6 +141,12 @@
                                     <input type="checkbox" id="user-receive_alerts" x-model="currentUser.receive_alerts"
                                         class="size-4 rounded bg-background border-border-color text-primary focus:ring-primary">
                                     <span class="text-sm">Receive system alerts (e.g., AP down)</span>
+                                </label>
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <input type="checkbox" id="user-receive_device_down_alerts"
+                                        x-model="currentUser.receive_device_down_alerts"
+                                        class="size-4 rounded bg-background border-border-color text-primary focus:ring-primary">
+                                    <span class="text-sm">Receive device down alerts (CPEs)</span>
                                 </label>
                                 <label class="flex items-center gap-3 cursor-pointer">
                                     <input type="checkbox" id="user-receive_announcements"

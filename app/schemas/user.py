@@ -20,6 +20,7 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
     role: str
     telegram_chat_id: str | None = None
     receive_alerts: bool
+    receive_device_down_alerts: bool
     receive_announcements: bool
     disabled: bool
 
@@ -36,6 +37,7 @@ class UserCreate(schemas.BaseUserCreate):
     role: str = "admin"
     telegram_chat_id: str | None = None
     receive_alerts: bool = False
+    receive_device_down_alerts: bool = False
     receive_announcements: bool = False
 
 
@@ -51,5 +53,6 @@ class UserUpdate(schemas.BaseUserUpdate):
     role: str | None = None
     telegram_chat_id: str | None = None
     receive_alerts: bool | None = None
+    receive_device_down_alerts: bool | None = None
     receive_announcements: bool | None = None
     disabled: bool | None = None
