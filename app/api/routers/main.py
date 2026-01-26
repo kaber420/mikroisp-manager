@@ -31,7 +31,7 @@ from ...db.router_db import get_router_by_host as get_router_by_host_service
 from ...db.router_db import update_router_in_db as update_router_service
 
 from ...utils.cache import cache_manager
-from . import config, interfaces, pppoe, system
+from . import config, interfaces, pppoe, system, tickets
 from . import ssl as ssl_router
 from .models import (
     ProvisionRequest,
@@ -42,6 +42,7 @@ from .models import (
 )
 
 router = APIRouter()
+
 
 
 @router.websocket("/routers/{host}/ws/resources")
@@ -373,6 +374,10 @@ router.include_router(pppoe.router, prefix="/routers/{host}")
 router.include_router(system.router, prefix="/routers/{host}")
 router.include_router(interfaces.router, prefix="/routers/{host}")
 router.include_router(ssl_router.router, prefix="/routers/{host}")
+
+# --- Tickets Router ---
+router.include_router(tickets.router)
+
 
 
 # --- NUEVO ENDPOINT PARA CONEXIÓN AUTOMÁTICA ---

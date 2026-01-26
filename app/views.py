@@ -181,7 +181,7 @@ async def read_payment_receipt(
     # Add request to context for template
     context["request"] = request
     
-    return templates.TemplateResponse("ticket.html", context)
+    return templates.TemplateResponse("payment_receipt.html", context)
 
 
 @router.get("/routers", response_class=HTMLResponse, tags=["Auth & Pages"])
@@ -231,6 +231,13 @@ async def read_switch_details_page(
             "host": host,
             "user": current_user,
         },
+    )
+
+
+@router.get("/tickets", response_class=HTMLResponse, tags=["Auth & Pages"])
+async def read_tickets_page(request: Request, current_user: User = Depends(require_technician)):
+    return templates.TemplateResponse(
+        "tickets.html", {"request": request, "active_page": "tickets", "user": current_user}
     )
 
 
