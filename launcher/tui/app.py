@@ -28,7 +28,7 @@ class MonitorApp(App):
         self.server_info = service_manager.server_info
 
     def on_mount(self) -> None:
-        self.install_screen(Dashboard(self.log_queue, self.server_info), name="dashboard")
+        self.install_screen(Dashboard(self.log_queue, self.server_info, self.service_manager), name="dashboard")
         self.push_screen("dashboard")
 
     def action_toggle_dark(self) -> None:

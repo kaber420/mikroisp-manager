@@ -38,14 +38,19 @@ def run_server(args):
         # Start Services
         service_manager.start_all()
         
-        # Combine CLI arg and Config persistence
-        is_headless = args.headless or config_manager.get("headless", False)
+        # Mode is already resolved in main() and stored in args.headless
+        is_headless = args.headless
         
         if is_headless:
             # Headless Mode: Simple blocking wait
             info = service_manager.server_info
             print(f"Server running in HEADLESS mode.")
             print(f"Management: {info['local_url']}")
+            print("-" * 50)
+            print(" OPCIONES DE RECUPERACIÓN:")
+            print(" 1. Solo esta vez (Rescue):   python launcher/main.py --tui")
+            print(" 2. Cambiar para siempre:     python launcher/main.py --tui --save")
+            print("-" * 50)
             while True:
                 time.sleep(1)
         else:
@@ -86,9 +91,41 @@ def main():
     commands["config"] = ConfigCommand(config_parser)
 
     # Server Arguments (Default)
-    parser.add_argument("--headless", action="store_true", help="Ejecutar sin interfaz gráfica (TUI)")
+    parser.add_argument("--headless", action="store_true", help="Ejecutar sin interfaz gráfica (Headless)")
+    parser.add_argument("--tui", action="store_true", help="Forzar ejecución con interfaz gráfica (TUI)")
+    parser.add_argument("--save", action="store_true", help="Guardar la preferencia de modo (--tui o --headless) en la configuración")
 
     args = parser.parse_args()
+
+    # Combinar argumentos CLI y persistencia
+    # Lógica de prioridad:
+    # 1. Flags explícitos (--tui o --headless)
+    # 2. Configuración guardada
+    
+    target_setting = None # Para guardar si se solicita
+
+    if args.tui:
+        is_headless = False
+        target_setting = False
+    elif args.headless:
+        is_headless = True
+        target_setting = True
+    else:
+        # Si no hay flags explícitos, usar configuración guardada
+        is_headless = config_manager.get("headless", False)
+        target_setting = None
+
+    # Manejar guardado si se solicita y hubo una intención explícita
+    if args.save and target_setting is not None:
+        config_manager.set("headless", target_setting)
+        mode_str = "HEADLESS" if target_setting else "TUI"
+        print(f"✅ Configuración actualizada: Modo {mode_str} guardado por defecto.")
+
+    # Inyectar el valor final en args para que run_server lo use si es necesario
+    # (aunque run_server recalcula un poco, es mejor pasarlo limpio o manejarlo en run_server)
+    # Para ser consistente con la estructura existente, modificaremos run_server para aceptar 'is_headless' explícito
+    # O mejor, "monkey-patch" args.headless con el valor calculado para no cambiar la firma de run_server
+    args.headless = is_headless
 
     if args.command in commands:
         commands[args.command].run(args)
