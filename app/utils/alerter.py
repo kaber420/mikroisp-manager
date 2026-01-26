@@ -1,8 +1,11 @@
 # app/utils/alerter.py
 
 import httpx
+import logging
 
 from .settings_utils import get_setting_sync
+
+logger = logging.getLogger(__name__)
 
 
 def send_telegram_alert(message: str):
@@ -17,11 +20,7 @@ def send_telegram_alert(message: str):
     chat_id = get_setting_sync("telegram_chat_id")
 
     if not bot_token or not chat_id:
-        print("\n--- ALERTA  ---")
-        print("ADVERTENCIA: Token o Chat ID de Telegram no configurados en la base de datos.")
-        print("La siguiente alerta solo se mostrará en la consola.")
-        print(message)
-        print("--------------------------\n")
+        logger.warning(f"Telegram no configurado. Alerta no enviada: {message}")
         return
 
     api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -31,10 +30,10 @@ def send_telegram_alert(message: str):
     try:
         response = httpx.post(api_url, json=payload, timeout=10)
         response.raise_for_status()
-        print("Alerta enviada exitosamente a Telegram.")
+        logger.info("Alerta enviada exitosamente a Telegram.")
 
     except httpx.HTTPStatusError as e:
-        print(f"Error crítico: No se pudo enviar la alerta de Telegram. Causa: {e}")
+        logger.error(f"Error crítico: No se pudo enviar la alerta de Telegram. Causa: {e}")
     except httpx.RequestError as e:
-        print(f"Error crítico: No se pudo enviar la alerta de Telegram. Causa: {e}")
+        logger.error(f"Error crítico: No se pudo enviar la alerta de Telegram. Causa: {e}")
 

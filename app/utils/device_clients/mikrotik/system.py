@@ -65,7 +65,8 @@ def provision_router_api_ssl(
     except Exception as e:
         import traceback
 
-        traceback.print_exc()
+        # traceback.print_exc()
+        logging.error(f"Error interno aprovisionando API-SSL: {e}", exc_info=True)
         return {"status": "error", "message": f"Error interno: {e}"}
 
 
@@ -175,7 +176,7 @@ def get_backup_files(api: RouterOsApi) -> list[dict[str, Any]]:
     try:
         return [f for f in api.get_resource("/file").get() if f.get("type") in ["backup", "script"]]
     except Exception as e:
-        print(f"Error al obtener lista de archivos: {e}")
+        logging.error(f"Error al obtener lista de archivos: {e}")
         return []
 
 
@@ -195,7 +196,7 @@ def get_router_users(api: RouterOsApi) -> list[dict[str, Any]]:
     try:
         return api.get_resource("/user").get()
     except Exception as e:
-        print(f"Error al obtener usuarios del router: {e}")
+        logging.error(f"Error al obtener usuarios del router: {e}")
         return []
 
 
@@ -290,5 +291,5 @@ def kill_zombie_sessions(api: RouterOsApi, username: str) -> int:
                 pass
         return count
     except Exception as e:
-        print(f"Error limpiando sesiones: {e}")
+        logging.error(f"Error limpiando sesiones: {e}")
         return 0

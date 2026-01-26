@@ -105,7 +105,7 @@ def apply_caddy_config(silent: bool = False) -> bool:
         return False
 
     if not silent:
-        print("\n🔧 Aplicando configuración de Caddy (ACLs)...")
+        logging.info("🔧 Aplicando configuración de Caddy (ACLs)...")
 
     try:
         # Run with sudo - requires user to enter password
@@ -271,23 +271,26 @@ def start_caddy_if_needed(is_production: bool) -> subprocess.Popen | None:
             is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
 
     if is_admin:
-        print("🚀 Iniciando Caddy (Administrator)...")
+        logging.info("🚀 Iniciando Caddy (Administrator)...")
         try:
             caddyfile_path = os.path.join(PROJECT_ROOT, "Caddyfile")
             caddy_cmd = ["caddy", "run", "--config", caddyfile_path]
-            caddy_process = subprocess.Popen(caddy_cmd)
-            print("✅ Caddy iniciado correctamente.")
+            # Silence output to avoid TUI corruption
+            caddy_process = subprocess.Popen(
+                caddy_cmd, 
+                stdout=subprocess.DEVNULL, 
+                stderr=subprocess.DEVNULL
+            )
+            logging.info("✅ Caddy iniciado correctamente.")
             return caddy_process
         except FileNotFoundError:
-            print("❌ No se encontró el ejecutable 'caddy' en el PATH.")
+            logging.error("❌ No se encontró el ejecutable 'caddy' en el PATH.")
         except Exception as e:
-            print(f"❌ Error al iniciar Caddy: {e}")
+            logging.error(f"❌ Error al iniciar Caddy: {e}")
     else:
-        print(
-            "\n⚠️  ADVERTENCIA: Caddy no está corriendo y no tienes permisos de Administrador."
-        )
-        print("   Para que el launcher inicie Caddy automáticamente (puertos 80/443),")
-        print("   debes ejecutar este script como Administrador/Root.")
-        print("   O ejecuta 'caddy run' manualmente en otra terminal con permisos.")
+        logging.warning("⚠️  ADVERTENCIA: Caddy no está corriendo y no tienes permisos de Administrador.")
+        logging.warning("   Para que el launcher inicie Caddy automáticamente (puertos 80/443),")
+        logging.warning("   debes ejecutar este script como Administrador/Root.")
+        logging.warning("   O ejecuta 'caddy run' manualmente en otra terminal con permisos.")
 
     return None

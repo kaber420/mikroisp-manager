@@ -30,6 +30,10 @@ def run_server(args):
     # Init Logging Queue
     log_queue = multiprocessing.Queue()
     
+    # Configure logging for the main process to use the queue
+    from launcher.log_queue import configure_process_logging
+    configure_process_logging(log_queue)
+    
     # Initialize Service Manager
     from launcher.services import ServiceManager
     service_manager = ServiceManager(log_queue, args)

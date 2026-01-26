@@ -2,11 +2,14 @@
 import sqlite3
 from datetime import datetime
 from typing import Any
+import logging
 
 from .base import get_db_connection, get_stats_db_connection
 from .engine_sync import get_sync_session
 from .init_db import _setup_stats_db  # Usamos la función de configuración
 from ..services.cpe_service import CPEService
+
+logger = logging.getLogger(__name__)
 
 
 def save_router_monitor_stats(router_host: str, stats: dict[str, Any]) -> bool:
@@ -66,7 +69,7 @@ def save_router_monitor_stats(router_host: str, stats: dict[str, Any]) -> bool:
         conn.commit()
         return True
     except sqlite3.Error as e:
-        print(f"Error guardando stats de router {router_host}: {e}")
+        logger.error(f"Error guardando stats de router {router_host}: {e}")
         return False
     finally:
         conn.close()
@@ -104,7 +107,7 @@ def get_router_monitor_stats_history(
         rows = [dict(row) for row in cursor.fetchall()]
         return rows
     except Exception as e:
-        print(f"Error fetching router history for {router_host}: {e}")
+        logger.error(f"Error fetching router history for {router_host}: {e}")
         return []
     finally:
         conn.close()
@@ -125,7 +128,7 @@ def save_device_stats(ap_host: str, status: "DeviceStatus", vendor: str = "ubiqu
 
     conn = get_stats_db_connection()
     if not conn:
-        print(f"Error: No se pudo conectar a la base de datos de estadísticas para {ap_host}.")
+        logger.error(f"Error: No se pudo conectar a la base de datos de estadísticas para {ap_host}.")
         return
 
     cursor = conn.cursor()
@@ -213,12 +216,12 @@ def save_device_stats(ap_host: str, status: "DeviceStatus", vendor: str = "ubiqu
             )
 
         conn.commit()
-        print(
+        logger.info(
             f"Datos de '{status.hostname or ap_host}' guardados en la base de datos de estadísticas."
         )
 
     except sqlite3.Error as e:
-        print(f"Error de base de datos al guardar stats para {ap_host}: {e}")
+        logger.error(f"Error de base de datos al guardar stats para {ap_host}: {e}")
     finally:
         if conn:
             conn.close()
@@ -229,7 +232,7 @@ def save_device_stats(ap_host: str, status: "DeviceStatus", vendor: str = "ubiqu
             service = CPEService(session)
             service.update_inventory_from_status(status)
     except Exception as e:
-        print(f"Error updating inventory from status: {e}")
+        logger.error(f"Error updating inventory from status: {e}")
 
 
 def save_full_snapshot(ap_host: str, data: dict):
@@ -245,13 +248,13 @@ def save_full_snapshot(ap_host: str, data: dict):
             service = CPEService(session)
             service.update_inventory_from_monitor(data)
     except Exception as e:
-        print(f"Error updating inventory from monitor: {e}")
+        logger.error(f"Error updating inventory from monitor: {e}")
 
     _setup_stats_db()
 
     conn = get_stats_db_connection()
     if not conn:
-        print(f"Error: No se pudo conectar a la base de datos de estadísticas para {ap_host}.")
+        logger.error(f"Error: No se pudo conectar a la base de datos de estadísticas para {ap_host}.")
         return
 
     cursor = conn.cursor()
@@ -361,10 +364,10 @@ def save_full_snapshot(ap_host: str, data: dict):
             )
 
         conn.commit()
-        print(f"Datos de '{ap_hostname}' y sus CPEs guardados en la base de datos de estadísticas.")
+        logger.info(f"Datos de '{ap_hostname}' y sus CPEs guardados en la base de datos de estadísticas.")
 
     except sqlite3.Error as e:
-        print(f"Error de base de datos al guardar snapshot para {ap_host}: {e}")
+        logger.error(f"Error de base de datos al guardar snapshot para {ap_host}: {e}")
     finally:
         if conn:
             conn.close()
