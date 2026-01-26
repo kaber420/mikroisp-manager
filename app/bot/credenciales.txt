@@ -1,0 +1,7 @@
+# Archivo de credenciales para CPE Ubiquiti
+# Formato:
+ssh_user=ubnt
+ssh_pw=Redline123
+ssh_pw=CelltechCC5
+ssh_pw=Celltech.420
+# Ejemplo (descomentar y modificar según necesidad):

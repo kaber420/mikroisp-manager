@@ -13,6 +13,8 @@ class Client(BaseModel):
     phone_number: str | None = None
     whatsapp_number: str | None = None
     email: str | None = None
+    telegram_contact: str | None = None
+    coordinates: str | None = None
     service_status: str
     billing_day: int | None = None
     created_at: datetime

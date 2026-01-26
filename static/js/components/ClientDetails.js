@@ -114,6 +114,7 @@ document.addEventListener('alpine:init', () => {
                 : '<span class="font-semibold">N/A</span>';
 
             container.innerHTML = `
+                <div class="flex justify-between"><span>Address:</span> <span class="font-semibold">${client.address || 'N/A'}</span></div>
                 <div class="flex justify-between"><span>Phone:</span> <span class="font-semibold">${client.phone_number || 'N/A'}</span></div>
                 <div class="flex justify-between"><span>WhatsApp:</span> <span class="font-semibold">${client.whatsapp_number || 'N/A'}</span></div>
                 <div class="flex justify-between"><span>Email:</span> <span class="font-semibold">${client.email || 'N/A'}</span></div>

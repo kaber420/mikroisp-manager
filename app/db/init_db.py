@@ -33,6 +33,7 @@ def _setup_inventory_db():
         ("currency_symbol", "$"),
         ("telegram_bot_token", ""),
         ("telegram_chat_id", ""),
+        ("client_bot_token", ""),
         ("days_before_due", "5"),
         ("default_monitor_interval", "300"),
         ("dashboard_refresh_interval", "5"),

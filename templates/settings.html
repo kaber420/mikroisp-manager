@@ -98,10 +98,16 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/10 pt-6">
                         <div>
                             <label for="telegram_bot_token"
-                                class="block text-sm font-medium mb-2 text-text-secondary">Bot
-                                Token</label>
+                                class="block text-sm font-medium mb-2 text-text-secondary">Tech Bot Token / Alerter</label>
                             <input type="password" id="telegram_bot_token" x-model="telegram_bot_token"
                                 name="telegram_bot_token"
+                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                        </div>
+                        <div>
+                            <label for="client_bot_token"
+                                class="block text-sm font-medium mb-2 text-text-secondary">Client Bot Token</label>
+                            <input type="password" id="client_bot_token" x-model="client_bot_token"
+                                name="client_bot_token"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
                         </div>
                         <div>

@@ -17,7 +17,9 @@ class ServiceManager:
         self.processes = {
             "caddy": None,
             "scheduler": None,
-            "uvicorn": None
+            "uvicorn": None,
+            "tech_bot": None,
+            "client_bot": None
         }
         self.server_info = {}
         self._init_server_info()
@@ -55,6 +57,8 @@ class ServiceManager:
         self.start_caddy()
         self.start_scheduler()
         self.start_uvicorn()
+        self.start_tech_bot()
+        self.start_client_bot()
 
     def start_caddy(self):
         """Inicia Caddy si es necesario."""
@@ -81,6 +85,83 @@ class ServiceManager:
         self.processes["uvicorn"] = p
         self._log("Uvicorn Web Server started", "INFO")
 
+    def start_tech_bot(self):
+        """Inicia el Tech Bot."""
+        from app.utils.settings_utils import get_setting_sync
+        token = get_setting_sync("telegram_bot_token")
+        if not token:
+            self._log("Tech Bot skipped: Token not set", "WARNING")
+            return
+
+        env = os.environ.copy()
+        env["TECH_BOT_TOKEN"] = token
+        # Add app/bot to PYTHONPATH so it can find 'core' modules
+        bot_path = os.path.join(os.getcwd(), 'app', 'bot')
+        env["PYTHONPATH"] = bot_path + os.pathsep + env.get("PYTHONPATH", "")
+
+        cmd = [sys.executable, "-m", "app.bot.bot_tech"]
+        self.processes["tech_bot"] = self._start_bot_process(cmd, env, "tech_bot")
+        self._log("Tech Bot started", "INFO")
+
+    def start_client_bot(self):
+        """Inicia el Client Bot."""
+        from app.utils.settings_utils import get_setting_sync
+        token = get_setting_sync("client_bot_token")
+        if not token:
+            self._log("Client Bot skipped: Token not set", "WARNING")
+            return
+
+        env = os.environ.copy()
+        env["CLIENT_BOT_TOKEN"] = token
+        # Add app/bot to PYTHONPATH
+        bot_path = os.path.join(os.getcwd(), 'app', 'bot')
+        env["PYTHONPATH"] = bot_path + os.pathsep + env.get("PYTHONPATH", "")
+
+        cmd = [sys.executable, "-m", "app.bot.bot_client.bot_client"]
+        self.processes["client_bot"] = self._start_bot_process(cmd, env, "client_bot")
+        self._log("Client Bot started", "INFO")
+
+    def _start_bot_process(self, cmd, env, name):
+        import subprocess
+        import threading
+        import logging
+
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            stdin=subprocess.DEVNULL,
+            env=env,
+            text=True,
+            bufsize=1
+        )
+
+        def log_reader(pipe, level):
+             try:
+                with pipe:
+                    for line in iter(pipe.readline, ''):
+                        if line.strip():
+                            record = logging.LogRecord(
+                                name=name,
+                                level=level,
+                                pathname="subprocess",
+                                lineno=0,
+                                msg=line.strip(),
+                                args=(),
+                                exc_info=None
+                            )
+                            self.log_queue.put(record)
+             except ValueError:
+                pass
+
+        t_out = threading.Thread(target=log_reader, args=(process.stdout, logging.INFO), daemon=True)
+        t_err = threading.Thread(target=log_reader, args=(process.stderr, logging.ERROR), daemon=True)
+        
+        t_out.start()
+        t_err.start()
+        
+        return process
+
     def restart_web(self):
         """Reinicia el servicio web (Uvicorn)."""
         self._log("Restarting Web Server...", "WARNING")
@@ -96,6 +177,8 @@ class ServiceManager:
         """Detiene todos los servicios."""
         self._log("Stopping all services...", "INFO")
         self._stop_process("scheduler")
+        self._stop_process("tech_bot")
+        self._stop_process("client_bot")
         self._stop_process("uvicorn")
         self._stop_process("caddy")
 

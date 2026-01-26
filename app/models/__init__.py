@@ -9,3 +9,4 @@ from .service import ClientService
 from .setting import Setting
 from .user import User
 from .zona import Zona, ZonaDocumento, ZonaInfra, ZonaNote
+from .ticket import Ticket, TicketMessage

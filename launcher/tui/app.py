@@ -81,7 +81,7 @@ class MonitorApp(App):
         except Exception as e:
              self._log(f"Restart Failed: {e}", "ERROR")
 
-    def _action_run_diagnose(self):i
+    def _action_run_diagnose(self):
         self._log("Running Diagnosis...", "INFO")
         cmd = DiagnoseCommand(argparse.ArgumentParser())
         output = self._capture_output(cmd.run, argparse.Namespace())
