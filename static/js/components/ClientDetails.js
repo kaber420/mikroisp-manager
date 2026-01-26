@@ -114,12 +114,15 @@ document.addEventListener('alpine:init', () => {
                 : '<span class="font-semibold">N/A</span>';
 
             container.innerHTML = `
-                <div class="flex justify-between"><span>Address:</span> <span class="font-semibold">${client.address || 'N/A'}</span></div>
+                <div class="flex justify-between"><span>Address:</span> <span class="font-semibold text-right">${client.address || 'N/A'}</span></div>
                 <div class="flex justify-between"><span>Phone:</span> <span class="font-semibold">${client.phone_number || 'N/A'}</span></div>
                 <div class="flex justify-between"><span>WhatsApp:</span> <span class="font-semibold">${client.whatsapp_number || 'N/A'}</span></div>
                 <div class="flex justify-between"><span>Email:</span> <span class="font-semibold">${client.email || 'N/A'}</span></div>
                 <div class="flex justify-between"><span>Telegram:</span> <span class="font-semibold">${client.telegram_contact || 'N/A'}</span></div>
-                <div class="flex justify-between"><span>Coordinates:</span> ${coordsLink}</div>
+                <div class="flex flex-col mt-2 pt-2 border-t border-white/10">
+                    <span>Coordinates:</span> 
+                    <div class="mt-1">${coordsLink}</div>
+                </div>
             `;
         },
 
