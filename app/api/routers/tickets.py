@@ -260,10 +260,15 @@ async def reply_ticket(
                 try:
                     bot = Bot(token=TOKEN)
                     
+                    # Determine display ID (use UUID short if ticket_id is 0)
+                    display_id = str(ticket.ticket_id)
+                    if ticket.ticket_id == 0:
+                        display_id = str(ticket.id)[-6:]
+
                     # Format message for the user
                     msg_text = (
                         f"🔔 *Nueva respuesta de soporte*\n"
-                        f"Ticket: `#{ticket.ticket_id}`\n\n"
+                        f"Ticket: `#{display_id}`\n\n"
                         f"{reply.content}"
                     )
                     
