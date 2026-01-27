@@ -31,6 +31,7 @@ class ClientCreate(BaseModel):
     service_status: str = "active"
     billing_day: int | None = None
     notes: str | None = None
+    telegram_contact: str | None = None
 
 
 class ClientUpdate(BaseModel):
@@ -42,6 +43,7 @@ class ClientUpdate(BaseModel):
     service_status: str | None = None
     billing_day: int | None = None
     notes: str | None = None
+    telegram_contact: str | None = None
 
 
 class AssignedCPE(BaseModel):
