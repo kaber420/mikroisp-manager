@@ -223,3 +223,5 @@ Caddyfile
 requirements-dev.txt
 pyproject.toml
 
+diagnose_raw.py
+diagnose_telegram.py

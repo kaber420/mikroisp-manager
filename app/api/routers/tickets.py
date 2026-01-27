@@ -236,6 +236,57 @@ async def reply_ticket(
         
     session.add(ticket)
     await session.commit()
+
+    # --- Telegram Notification Logic ---
+    print(f"DEBUG TIM: Trying to notify client {ticket.client_id}")
+    try:
+        # Fetch client to get telegram_contact
+        client = await session.get(Client, ticket.client_id)
+        
+        if not client:
+             print("DEBUG TIM: Client not found in DB")
+        else:
+             print(f"DEBUG TIM: Client found. Contact: {client.telegram_contact}")
+
+        # Check if client exists and has telegram contact
+        if client and client.telegram_contact:
+            from ...utils.settings_utils import get_setting_sync
+            from telegram import Bot
+            
+            TOKEN = get_setting_sync("client_bot_token")
+            print(f"DEBUG TIM: Token found? {'Yes' if TOKEN else 'No'}")
+            
+            if TOKEN:
+                try:
+                    bot = Bot(token=TOKEN)
+                    
+                    # Format message for the user
+                    msg_text = (
+                        f"🔔 *Nueva respuesta de soporte*\n"
+                        f"Ticket: `#{ticket.ticket_id}`\n\n"
+                        f"{reply.content}"
+                    )
+                    
+                    print(f"DEBUG TIM: Sending message to {client.telegram_contact}")
+                    await bot.send_message(
+                        chat_id=client.telegram_contact,
+                        text=msg_text,
+                        parse_mode="Markdown"
+                    )
+                    print("DEBUG TIM: Message sent successfully")
+                except Exception as inner_e:
+                     print(f"DEBUG TIM: Error inside bot send: {inner_e}")
+                     import logging
+                     logger = logging.getLogger(__name__)
+                     logger.error(f"Error sending Telegram notification (inner): {inner_e}")
+
+    except Exception as e:
+        # Log error but don't fail the request
+        print(f"DEBUG TIM: General Error: {e}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error sending Telegram notification: {e}")
+    # -----------------------------------
     
     return {"status": "success", "message": "Reply added"}
 
