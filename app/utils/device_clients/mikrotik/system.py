@@ -180,7 +180,18 @@ def get_backup_files(api: RouterOsApi) -> list[dict[str, Any]]:
         return []
 
 
-def create_backup(api: RouterOsApi, backup_name: str) -> None:
+def create_backup(api: RouterOsApi, backup_name: str, overwrite: bool = False) -> None:
+    if overwrite:
+        # Intentar borrar el archivo existente primero para asegurar que se sobrescriba
+        try:
+            files = api.get_resource("/file").get(name=backup_name)
+            if files:
+                from .base import get_id  # Asegúrate de importar get_id si no está disponible aquí, o usa get_id(files[0])
+                api.get_resource("/file").remove(id=files[0].get(".id") or files[0].get("id"))
+                time.sleep(0.5) 
+        except Exception as e:
+            logging.warning(f"No se pudo eliminar backup existente {backup_name} para sobrescribir: {e}")
+
     api.get_resource("/system/backup").call("save", {"name": backup_name})
 
 

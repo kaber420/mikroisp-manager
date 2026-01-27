@@ -89,7 +89,7 @@ async def api_create_backup(
         if request.backup_type == "backup":
             if not request.backup_name.endswith(".backup"):
                 request.backup_name += ".backup"
-            service.create_backup(request.backup_name)
+            service.create_backup(request.backup_name, overwrite=request.overwrite)
             message = f"Archivo .backup '{request.backup_name}' creado."
         elif request.backup_type == "export":
             if not request.backup_name.endswith(".rsc"):

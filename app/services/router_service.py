@@ -212,8 +212,8 @@ class RouterService:
     def get_backup_files(self):
         return self.adapter.get_backup_files()
 
-    def create_backup(self, backup_name: str):
-        return self.adapter.create_backup(backup_name)
+    def create_backup(self, backup_name: str, overwrite: bool = False):
+        return self.adapter.create_backup(backup_name, overwrite=overwrite)
 
     def create_export_script(self, script_name: str):
         return self.adapter.create_export_script(script_name)

@@ -4,7 +4,13 @@ import { CONFIG, DOM_ELEMENTS } from './config.js';
 
 // --- RENDERIZADOR PARA ARCHIVOS EN ROUTER ---
 
+// --- RENDERIZADOR PARA ARCHIVOS EN ROUTER ---
+
+// State variable for smart name finding
+let currentFiles = [];
+
 function renderBackupFiles(files) {
+    currentFiles = files || [];
     DOM_ELEMENTS.backupFilesList.innerHTML = (!files || files.length === 0) ? '<p class="text-text-secondary col-span-full">No hay backups.</p>' : '';
     files?.forEach(file => {
         const isBackup = file.type === 'backup';
@@ -111,19 +117,40 @@ const handleCreateBackup = async (name, type, overwrite = false) => {
                     // Retry with overwrite=true
                     handleCreateBackup(name, type, true);
                 } else if (action === 'copy') {
-                    // Retry with new name suffix
-                    // Generate new name: name(1) or name(2)...
-                    // Simple heuristic: append (1) if not present, or increment if present.
-                    let newName = name;
+                    // Copia Inteligente: Buscar el siguiente número libre
+                    let baseName = name;
+
+                    // Si el nombre ya era tipo "base(N)", extraemos la base
                     const match = name.match(/^(.*)\((\d+)\)$/);
                     if (match) {
-                        const base = match[1];
-                        const num = parseInt(match[2]) + 1;
-                        newName = `${base}(${num})`;
-                    } else {
-                        newName = `${name}(1)`;
+                        baseName = match[1];
                     }
-                    handleCreateBackup(newName, type, false);
+
+                    let counter = 1;
+                    let nextCandidate = `${baseName}(${counter})`;
+
+                    // Loop hasta encontrar un nombre que NO esté en la lista
+                    if (typeof currentFiles !== 'undefined' && Array.isArray(currentFiles)) {
+                        const existingNames = new Set(currentFiles.map(f => f.name));
+                        const ext = type === 'backup' ? '.backup' : '.rsc';
+
+                        // Chequear si existe el nombre (con o sin extensión)
+                        while (existingNames.has(nextCandidate + ext) || existingNames.has(nextCandidate)) {
+                            counter++;
+                            nextCandidate = `${baseName}(${counter})`;
+                            if (counter > 100) break; // Evitar loop infinito
+                        }
+                    } else {
+                        // Fallback simple por si falla la lista
+                        const matchold = name.match(/^(.*)\((\d+)\)$/);
+                        if (matchold) {
+                            nextCandidate = `${matchold[1]}(${parseInt(matchold[2]) + 1})`;
+                        } else {
+                            nextCandidate = `${name}(1)`;
+                        }
+                    }
+
+                    handleCreateBackup(nextCandidate, type, false);
                 }
             });
         } else {

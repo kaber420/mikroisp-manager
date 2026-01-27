@@ -277,9 +277,9 @@ class MikrotikRouterAdapter(BaseDeviceAdapter):
         api = self._get_api()
         return system.get_backup_files(api)
 
-    def create_backup(self, backup_name: str):
+    def create_backup(self, backup_name: str, overwrite: bool = False):
         api = self._get_api()
-        return system.create_backup(api, backup_name=backup_name)
+        return system.create_backup(api, backup_name=backup_name, overwrite=overwrite)
 
     def create_export_script(self, script_name: str):
         api = self._get_api()
