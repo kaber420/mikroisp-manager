@@ -159,6 +159,14 @@ document.addEventListener('alpine:init', () => {
             if (container) {
                 container.scrollTop = container.scrollHeight;
             }
+        },
+
+        getDisplayId(ticket) {
+            if (!ticket) return '';
+            // If ticket_id is present and not 0, use it (though backend sends 0 mostly)
+            if (ticket.ticket_id && ticket.ticket_id > 0) return '#' + ticket.ticket_id;
+            // Otherwise use last 6 of UUID
+            return '#' + (ticket.id ? ticket.id.slice(-6) : '??????');
         }
     }));
 });
