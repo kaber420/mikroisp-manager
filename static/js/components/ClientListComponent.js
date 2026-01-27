@@ -6,10 +6,27 @@ document.addEventListener('alpine:init', () => {
 
         // --- Filters binding ---
         get searchQuery() { return Alpine.store('clientList').filters.search; },
-        set searchQuery(val) { Alpine.store('clientList').filters.search = val; },
+        set searchQuery(val) {
+            Alpine.store('clientList').filters.search = val;
+
+            // Only search if empty (reset) or >= 3 chars
+            if (val.length === 0 || val.length >= 3) {
+                Alpine.store('clientList').pagination.page = 1;
+                Alpine.store('clientList').loadClients();
+            }
+        },
 
         get statusFilter() { return Alpine.store('clientList').filters.status; },
-        set statusFilter(val) { Alpine.store('clientList').filters.status = val; },
+        set statusFilter(val) {
+            Alpine.store('clientList').filters.status = val;
+            Alpine.store('clientList').pagination.page = 1;
+            Alpine.store('clientList').loadClients();
+        },
+
+        // --- Pagination ---
+        get pagination() { return Alpine.store('clientList').pagination; },
+        setPage(page) { Alpine.store('clientList').setPage(page); },
+        setPageSize(size) { Alpine.store('clientList').setPageSize(size); },
 
         init() {
             Alpine.store('clientList').loadClients();

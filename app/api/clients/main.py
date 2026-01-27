@@ -1,4 +1,5 @@
 import uuid
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session
@@ -41,12 +42,16 @@ def get_billing_service(session: Session = Depends(get_sync_session)) -> Billing
 # --- Client Endpoints ---
 
 
-@router.get("/clients", response_model=list[Client])
+@router.get("/clients")
 def api_get_all_clients(
+    page: int = 1,
+    page_size: int = 10,
+    search: Optional[str] = None,
+    status: Optional[str] = None,
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
-):
-    return service.get_all_clients()
+) -> dict[str, Any]:
+    return service.get_clients_paginated(page, page_size, search, status)
 
 
 @router.get("/clients/{client_id}", response_model=Client)

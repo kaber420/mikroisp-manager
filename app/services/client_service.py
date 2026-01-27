@@ -8,7 +8,7 @@ import logging
 import uuid
 from typing import Any
 
-from sqlmodel import Session, func, select
+from sqlmodel import Session, func, select, or_
 
 from app.models import Client
 
@@ -39,6 +39,77 @@ class ClientService:
         from .plan_service import PlanService
 
         self.plan_service = PlanService(session)
+
+    def get_clients_paginated(
+        self,
+        page: int = 1,
+        page_size: int = 10,
+        search: str | None = None,
+        status_filter: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get paginated clients with filtering.
+        """
+        # Build filters
+        filters = []
+        if search:
+            search_term = f"%{search}%"
+            filters.append(
+                or_(
+                    Client.name.ilike(search_term),
+                    Client.address.ilike(search_term),
+                    Client.phone_number.ilike(search_term),
+                )
+            )
+
+        if status_filter and status_filter != "all":
+            filters.append(Client.service_status == status_filter)
+
+        # Count total items
+        count_stmt = select(func.count()).select_from(Client)
+        for f in filters:
+            count_stmt = count_stmt.where(f)
+        total_items = self.session.exec(count_stmt).one()
+
+        # Get page items
+        statement = select(Client).order_by(Client.name)
+        for f in filters:
+            statement = statement.where(f)
+
+        statement = statement.offset((page - 1) * page_size).limit(page_size)
+        clients = self.session.exec(statement).all()
+
+        # Enhance with extra data
+        clients_dict_list = []
+        for client in clients:
+            client_dict = client.model_dump()
+            
+            # CPE Count
+            cpe_count_stmt = select(func.count()).select_from(CPE).where(CPE.client_id == client.id)
+            client_dict["cpe_count"] = self.session.exec(cpe_count_stmt).one()
+
+            # Billing Day from latest service
+            service_stmt = (
+                select(ClientServiceModel)
+                .where(ClientServiceModel.client_id == client.id)
+                .order_by(ClientServiceModel.created_at.desc())
+                .limit(1)
+            )
+            latest_service = self.session.exec(service_stmt).first()
+            if latest_service and latest_service.billing_day:
+                client_dict["billing_day"] = latest_service.billing_day
+
+            clients_dict_list.append(client_dict)
+
+        total_pages = (total_items + page_size - 1) // page_size if page_size > 0 else 1
+
+        return {
+            "items": clients_dict_list,
+            "total": total_items,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+        }
 
     def get_all_clients(self) -> list[dict[str, Any]]:
         """

@@ -46,7 +46,7 @@
                 <div class="relative">
                     <span
                         class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-lg">search</span>
-                    <input type="text" x-model.debounce.300ms="searchQuery" placeholder="Search..."
+                    <input type="text" x-model.debounce.500ms="searchQuery" placeholder="Search (min. 3 chars)..."
                         class="w-full sm:w-64 pl-10 pr-4 py-2 bg-surface-1/50 backdrop-blur-sm border border-white/10 rounded-lg focus:ring-primary focus:border-primary text-text-primary placeholder-text-secondary/50">
                 </div>
             </div>
@@ -117,6 +117,41 @@
 
                 </tbody>
             </table>
+        </div>
+
+        <!-- Pagination Footer -->
+        <div class="px-6 py-4 border-t border-white/5 flex flex-wrap items-center justify-between gap-4 bg-white/5">
+            <div class="flex items-center gap-2 text-sm text-text-secondary">
+                <span>Rows per page:</span>
+                <select @change="setPageSize(parseInt($event.target.value))"
+                    class="bg-surface-1 border border-white/10 rounded px-2 py-1 focus:ring-primary focus:border-primary text-text-primary text-xs">
+                    <option value="10" :selected="pagination.pageSize === 10">10</option>
+                    <option value="20" :selected="pagination.pageSize === 20">20</option>
+                    <option value="50" :selected="pagination.pageSize === 50">50</option>
+                    <option value="100" :selected="pagination.pageSize === 100">100</option>
+                </select>
+                <div class="h-4 w-px bg-white/10 mx-2"></div>
+                <span
+                    x-text="`Showing ${(pagination.page - 1) * pagination.pageSize + 1} - ${Math.min(pagination.page * pagination.pageSize, pagination.total)} of ${pagination.total}`"></span>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button @click="setPage(pagination.page - 1)" :disabled="pagination.page === 1"
+                    class="p-1 rounded hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed text-text-secondary transition-colors">
+                    <span class="material-symbols-outlined">chevron_left</span>
+                </button>
+
+                <span class="text-sm text-text-secondary font-mono">
+                    <span x-text="pagination.page" class="text-text-primary font-bold"></span>
+                    <span class="mx-1">/</span>
+                    <span x-text="pagination.totalPages"></span>
+                </span>
+
+                <button @click="setPage(pagination.page + 1)" :disabled="pagination.page >= pagination.totalPages"
+                    class="p-1 rounded hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed text-text-secondary transition-colors">
+                    <span class="material-symbols-outlined">chevron_right</span>
+                </button>
+            </div>
         </div>
     </div>
 </main>
