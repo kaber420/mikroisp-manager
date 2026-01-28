@@ -47,6 +47,7 @@ class TicketRead(BaseModel):
     status: str
     priority: str
     client_name: str
+    assigned_tech_id: Optional[uuid_pkg.UUID]
     assigned_tech_username: Optional[str]
     created_at: datetime
     updated_at: datetime
@@ -134,6 +135,7 @@ async def list_tickets(
             status=t.status,
             priority=t.priority,
             client_name=clients.get(t.client_id, "Unknown"),
+            assigned_tech_id=t.assigned_tech_id,
             assigned_tech_username=techs.get(t.assigned_tech_id),
             created_at=t.created_at,
             updated_at=t.updated_at,
@@ -179,6 +181,7 @@ async def get_ticket_detail(
         status=ticket.status,
         priority=ticket.priority,
         client_name=client.name if client else "Unknown",
+        assigned_tech_id=ticket.assigned_tech_id,
         assigned_tech_username=tech.username if tech else None,
         created_at=ticket.created_at,
         updated_at=ticket.updated_at,
@@ -218,6 +221,7 @@ async def create_ticket(
         status=new_ticket.status,
         priority=new_ticket.priority,
         client_name=client.name,
+        assigned_tech_id=new_ticket.assigned_tech_id,
         assigned_tech_username=None,
         created_at=new_ticket.created_at,
         updated_at=new_ticket.updated_at,

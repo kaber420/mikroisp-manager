@@ -5,7 +5,7 @@
  * Handles listing, filtering, detail view, and replying.
  */
 document.addEventListener('alpine:init', () => {
-    Alpine.data('ticketManager', () => ({
+    Alpine.data('ticketManager', (config = {}) => ({
         // --- State ---
         tickets: [],
         loading: true,
@@ -40,30 +40,13 @@ document.addEventListener('alpine:init', () => {
                 this.loadTickets();
             });
 
-            // 1. Get current user
-            try {
-                // Assuming we have an endpoint for this. The plan mentioned /api/users/me
-                // If not available, we might need to rely on a global variable injected by templates or fetch from a known endpoint.
-                // Let's try /api/users/me (standard FastAPI Users) or /api/system/me (if custom).
-                // Based on main.py, FastAPI Users is mounted at /users. So /users/me might be it?
-                // Wait, routers/main.py Includes /users as users_main_api.
-                // Let's double check if we can get ID.
-                // If not, we fall back to a safe assumption or try to grab from DOM if rendered.
-                // Actually, let's fetch /api/users/me if it exists.
-                // Based on standard FastAPI Users, it is usually /users/me. 
-                // But in main.py: app.include_router(fastapi_users.get_users_router..., prefix="/users")
-                // And app.include_router(users_main_api.router, prefix="/api")
-                // Let's rely on /users/me (root-level, from FastAPI Users) or /api/users/me (custom). 
-                // Let's try to fetch from /api/users/me first (custom endpoint) if likely. 
-                // Wait, users_main_api usually has CRUD. 
-                // FastApi Users is at /users/me for reading current user.
-
-                const user = await ApiService.fetchJSON('/users/me');
-                this.currentUserId = user.id;
-                this.currentUserName = user.email || user.username;
-                console.log('Current User:', this.currentUserId);
-            } catch (e) {
-                console.warn('Could not fetch current user:', e);
+            // 1. Initialize User from injected config
+            if (config.currentUserId) {
+                this.currentUserId = config.currentUserId;
+                this.currentUserName = config.currentUserName;
+                console.log('TicketManager: Initialized with User', this.currentUserId);
+            } else {
+                console.warn('TicketManager: No user ID provided in config');
             }
 
             await this.loadTickets();

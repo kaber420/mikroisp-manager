@@ -7,7 +7,8 @@
 {% endblock %}
 
 {% block content %}
-<div x-data="ticketManager" class="p-6 max-w-7xl mx-auto">
+<div x-data="ticketManager({currentUserId: '{{ user.id }}', currentUserName: '{{ user.username }}'})"
+    class="p-6 max-w-7xl mx-auto">
 
     <!-- Page Header -->
     <div class="flex items-center justify-between mb-8">
@@ -166,7 +167,7 @@
                                 @click="claimTicket()"
                                 class="px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 rounded-lg text-sm font-medium transition-colors flex items-center gap-1">
                                 <span class="material-symbols-outlined text-sm">front_hand</span>
-                                Claim
+                                <span>Claim</span>
                             </button>
 
                             <!-- Locked Indicator (If Assigned to Other) -->
@@ -177,21 +178,42 @@
                             </div>
 
                             <!-- Status Actions (Only if Owner or Unassigned) -->
-                            <div class="relative group" x-show="canModifyStatus()">
-                                <button
-                                    class="px-3 py-1.5 bg-surface-2 hover:bg-surface-3 rounded-lg border border-white/10 text-sm font-medium transition-colors">
-                                    Change Status
+                            <div class="relative" x-data="{ open: false }" x-show="canModifyStatus()">
+                                <button @click="open = !open" @click.away="open = false"
+                                    class="px-3 py-1.5 bg-surface-2 hover:bg-surface-3 rounded-lg border border-white/10 text-sm font-medium transition-colors flex items-center gap-2">
+                                    <span>Change Status</span>
+                                    <span class="material-symbols-outlined text-xs transition-transform"
+                                        :class="open ? 'rotate-180' : ''">expand_more</span>
                                 </button>
-                                <div
-                                    class="absolute right-0 mt-2 w-48 bg-surface-2 border border-border-color rounded-lg shadow-xl py-1 hidden group-hover:block z-50">
-                                    <button @click="changeStatus('open')"
-                                        class="block w-full text-left px-4 py-2 hover:bg-white/5 text-sm">Open</button>
-                                    <button @click="changeStatus('pending')"
-                                        class="block w-full text-left px-4 py-2 hover:bg-white/5 text-sm">Pending</button>
-                                    <button @click="changeStatus('resolved')"
-                                        class="block w-full text-left px-4 py-2 hover:bg-white/5 text-sm text-primary">Resolved</button>
-                                    <button @click="changeStatus('closed')"
-                                        class="block w-full text-left px-4 py-2 hover:bg-white/5 text-sm text-text-secondary">Closed</button>
+                                <div x-show="open" style="display: none;"
+                                    x-transition:enter="transition ease-out duration-100"
+                                    x-transition:enter-start="opacity-0 scale-95"
+                                    x-transition:enter-end="opacity-100 scale-100"
+                                    x-transition:leave="transition ease-in duration-75"
+                                    x-transition:leave-start="opacity-100 scale-100"
+                                    x-transition:leave-end="opacity-0 scale-95"
+                                    class="absolute right-0 mt-2 w-48 bg-surface-2 border border-border-color rounded-lg shadow-xl py-1 z-50">
+                                    <button @click="changeStatus('open'); open = false"
+                                        class="block w-full text-left px-4 py-2 hover:bg-white/5 text-sm flex items-center gap-2">
+                                        <span class="w-2 h-2 rounded-full bg-success"></span>
+                                        Open
+                                    </button>
+                                    <button @click="changeStatus('pending'); open = false"
+                                        class="block w-full text-left px-4 py-2 hover:bg-white/5 text-sm flex items-center gap-2">
+                                        <span class="w-2 h-2 rounded-full bg-warning"></span>
+                                        Pending
+                                    </button>
+                                    <button @click="changeStatus('resolved'); open = false"
+                                        class="block w-full text-left px-4 py-2 hover:bg-white/5 text-sm text-primary flex items-center gap-2">
+                                        <span class="w-2 h-2 rounded-full bg-primary"></span>
+                                        Resolved
+                                    </button>
+                                    <div class="h-px bg-white/10 my-1"></div>
+                                    <button @click="changeStatus('closed'); open = false"
+                                        class="block w-full text-left px-4 py-2 hover:bg-white/5 text-sm text-text-secondary flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-sm">archive</span>
+                                        Closed
+                                    </button>
                                 </div>
                             </div>
 
