@@ -440,15 +440,20 @@ async def notify_monitor_update(
     import logging
     logger = logging.getLogger("app.notifications")
     
-    # Try to get data from JSON if query params are missing
-    if not message and not ticket_id and request:
+    # Try to get data from JSON and merge with existing parameters
+    if request:
         try:
-            body = await request.json()
-            message = body.get("message")
-            level = body.get("level", level)
-            ticket_id = body.get("ticket_id")
-            logger.info(f"Received notification via JSON: {body}")
-        except:
+            # Only try to read JSON if there's a content-type header suggesting JSON
+            content_type = request.headers.get("content-type", "")
+            if "application/json" in content_type:
+                body = await request.json()
+                if body:
+                    message = message or body.get("message")
+                    level = body.get("level") or level
+                    ticket_id = ticket_id or body.get("ticket_id")
+                    logger.info(f"Received notification merge: query_msg={message}, json={body}")
+        except Exception as e:
+            logger.error(f"Error parsing JSON in notify-monitor-update: {e}")
             pass
 
     logger.info(f"Notify broadcast: msg={message}, level={level}, ticket={ticket_id}")

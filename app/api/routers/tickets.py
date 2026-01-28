@@ -329,13 +329,28 @@ async def reply_ticket(
     import httpx
     import os
     try:
-        # Notify the web monitor so other sessions update
+        # Try to get the port from environment, fallback to searching .env file, finally default to 8100
+        port = os.getenv("UVICORN_PORT")
+        if not port:
+            try:
+                # Look for the .env file in the root directory relative to this file
+                # From app/api/routers/tickets.py, root is ../../..
+                env_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", ".env")
+                if os.path.exists(env_path):
+                    with open(env_path, "r") as f:
+                        for line in f:
+                            if line.strip().startswith("UVICORN_PORT="):
+                                port = line.split("=")[1].strip()
+                                break
+            except:
+                pass
+        
+        port = port or "8100"
         params = {"ticket_id": str(ticket.id)}
-        # No message/level here to avoid showing a toast to the person who just sent it
-        # The frontend will check the ticket_id and refresh if open
-        port = os.getenv("UVICORN_PORT", "8100")
+        url = f"http://127.0.0.1:{port}/api/internal/notify-monitor-update"
+        
         async with httpx.AsyncClient(timeout=1.0) as client:
-            await client.post(f"http://127.0.0.1:{port}/api/internal/notify-monitor-update", json=params)
+            await client.post(url, json=params)
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)

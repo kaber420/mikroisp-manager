@@ -13,12 +13,12 @@ from telegram.warnings import PTBUserWarning
 warnings.filterwarnings("ignore", category=PTBUserWarning)
 
 # New Core Logic
-from core.config import DATA_DIR
-from core.auth import check_authorization
+from app.bot.core.config import DATA_DIR
+from app.bot.core.auth import check_authorization
 
 # Handlers
-from commands.ticket_manager import ticket_manager_conversation_handler
-from commands.location_cmd import location_conv_handler
+from app.bot.commands.ticket_manager import ticket_manager_conversation_handler
+from app.bot.commands.location_cmd import location_conv_handler
 
 load_dotenv()
 logging.basicConfig(

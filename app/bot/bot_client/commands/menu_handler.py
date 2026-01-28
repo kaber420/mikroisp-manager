@@ -11,9 +11,8 @@ from sqlmodel import select, Session
 from app.db.engine_sync import sync_engine as engine
 from app.models.client import Client
 
-# Add path to find core modules
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from core.ticket_manager import crear_ticket, obtener_tickets, agregar_respuesta_a_ticket
+from app.bot.core.ticket_manager import crear_ticket, obtener_tickets, agregar_respuesta_a_ticket
+from app.bot.core.utils import get_client_by_telegram_id
 
 logger = logging.getLogger(__name__)
 
@@ -27,17 +26,6 @@ def get_main_keyboard_markup() -> ReplyKeyboardMarkup:
     keyboard = [[BTN_REPORTAR], [BTN_VER_ESTADO], [BTN_SOLICITAR_AGENTE]]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-def get_client_by_telegram_id(telegram_id: str):
-    try:
-        with Session(engine) as session:
-            statement = select(Client).where(
-                (Client.telegram_contact == telegram_id) | 
-                (Client.whatsapp_number == telegram_id)
-            )
-            return session.exec(statement).first()
-    except Exception as e:
-        logger.error(f"Error lookup client: {e}")
-        return None
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.effective_user

@@ -15,8 +15,8 @@ from telegram.ext import (
     MessageHandler,
     filters
 )
-from core.auth import check_authorization
-from core.ticket_manager import (
+from app.bot.core.auth import check_authorization
+from app.bot.core.ticket_manager import (
     obtener_tickets,
     obtener_ticket_por_id,
     actualizar_estado_ticket,

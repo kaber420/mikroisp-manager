@@ -5,7 +5,6 @@ Refactorizado para usar SQLModel y la base de datos principal inventory.sqlite.
 """
 
 import logging
-import logging
 try:
     import httpx
     HTTPX_AVAILABLE = True
@@ -99,8 +98,7 @@ def obtener_ticket_por_id(ticket_id: str) -> Optional[TicketDict]:
                     "tecnico_asignado": tech.username if tech else None,
                     "fecha_creacion": ticket.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                     "fecha_actualizacion": ticket.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
-                    "descripcion": ticket.description,
-                    "respuesta_tecnico": "" # TODO: Fetch last message from tech?
+                    "descripcion": ticket.description
                 }
             else:
                 return None
@@ -135,25 +133,37 @@ def agregar_respuesta_a_ticket(ticket_id: str, mensaje: str, autor_tipo: str, au
             # Let's keep it simple.
             
             session.add(ticket)
-            session.add(ticket)
             session.commit()
             
             # --- REAL-TIME NOTIFICATION ---
             if HTTPX_AVAILABLE:
                 try:
-                    # Fire and forget notification to the main API
-                    # This tells the WebSocket manager to broadcast "db_updated"
+                    # Try to get the port from environment, fallback to searching .env file, finally default to 8100
+                    port = os.getenv("UVICORN_PORT")
+                    if not port:
+                        try:
+                            # Look for the .env file in the root directory relative to this file
+                            env_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", ".env")
+                            if os.path.exists(env_path):
+                                with open(env_path, "r") as f:
+                                    for line in f:
+                                        if line.strip().startswith("UVICORN_PORT="):
+                                            port = line.split("=")[1].strip()
+                                            break
+                        except:
+                            pass
+                    
+                    port = port or "8100"
+                    params = {"ticket_id": str(ticket.id)}
+                    if autor_tipo != 'tech':
+                        params["message"] = f"Nuevo mensaje en Ticket #{ticket.id}: {mensaje[:30]}..."
+                        params["level"] = "info"
+                    
+                    url = f"http://127.0.0.1:{port}/api/internal/notify-monitor-update"
+                    logger.info(f"Notifying web monitor at {url} for ticket {ticket.id}")
+                    
                     with httpx.Client(timeout=1.0) as client:
-                        # Construct notification message
-                        port = os.getenv("UVICORN_PORT", "8100")
-                        params = {"ticket_id": str(ticket.id)}
-                        if autor_tipo != 'tech':
-                            params["message"] = f"Nuevo mensaje en Ticket #{ticket.id}: {mensaje[:30]}..."
-                            params["level"] = "info"
-                        
-                        logger.info(f"Sending internal notification: {params}")
-                        # Use json= instead of params= for more robust delivery
-                        client.post(f"http://127.0.0.1:{port}/api/internal/notify-monitor-update", json=params)
+                        client.post(url, json=params)
                 except Exception as e:
                     # Non-blocking error logging
                     logger.warning(f"Failed to notify web monitor: {e}")
