@@ -34,6 +34,7 @@ from .api.switches import main as switches_main_api
 from .api.users import main as users_main_api
 from .api.zonas import infra as zonas_infra_api
 from .api.zonas import main as zonas_main_api
+from .api.tickets import routes as tickets_main_api
 
 # Shared Core Modules
 from .core.templates import templates
@@ -511,3 +512,4 @@ app.include_router(stats_main_api.router, prefix="/api", tags=["Stats"])
 app.include_router(plans_main_api.router, prefix="/api", tags=["Plans"])
 app.include_router(switches_main_api.router, prefix="/api", tags=["Switches"])
 app.include_router(security_main_api.router, prefix="/api", tags=["Security"])
+app.include_router(tickets_main_api.router, prefix="/api", tags=["Tickets"])
