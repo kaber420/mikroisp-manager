@@ -5,7 +5,14 @@ Refactorizado para usar SQLModel y la base de datos principal inventory.sqlite.
 """
 
 import logging
-import httpx
+import logging
+try:
+    import httpx
+    HTTPX_AVAILABLE = True
+except ImportError:
+    httpx = None
+    HTTPX_AVAILABLE = False
+import os
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from sqlmodel import select, Session, col
@@ -132,14 +139,26 @@ def agregar_respuesta_a_ticket(ticket_id: str, mensaje: str, autor_tipo: str, au
             session.commit()
             
             # --- REAL-TIME NOTIFICATION ---
-            try:
-                # Fire and forget notification to the main API
-                # This tells the WebSocket manager to broadcast "db_updated"
-                with httpx.Client(timeout=1.0) as client:
-                    client.post("http://127.0.0.1:8000/api/internal/notify-monitor-update")
-            except Exception as e:
-                # Non-blocking error logging
-                logger.warning(f"Failed to notify web monitor: {e}")
+            if HTTPX_AVAILABLE:
+                try:
+                    # Fire and forget notification to the main API
+                    # This tells the WebSocket manager to broadcast "db_updated"
+                    with httpx.Client(timeout=1.0) as client:
+                        # Construct notification message
+                        port = os.getenv("UVICORN_PORT", "8100")
+                        params = {"ticket_id": str(ticket.id)}
+                        if autor_tipo != 'tech':
+                            params["message"] = f"Nuevo mensaje en Ticket #{ticket.id}: {mensaje[:30]}..."
+                            params["level"] = "info"
+                        
+                        logger.info(f"Sending internal notification: {params}")
+                        # Use json= instead of params= for more robust delivery
+                        client.post(f"http://127.0.0.1:{port}/api/internal/notify-monitor-update", json=params)
+                except Exception as e:
+                    # Non-blocking error logging
+                    logger.warning(f"Failed to notify web monitor: {e}")
+            else:
+                logger.warning("Real-time notification skipped: httpx not installed.")
 
             return True
             

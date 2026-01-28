@@ -40,7 +40,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Cuando el monitor termina un ciclo, notifica a todos los componentes
             if (message.type === 'db_updated') {
-                window.dispatchEvent(new CustomEvent('data-refresh-needed'));
+                if (message.notification && window.showToast) {
+                    window.showToast(message.notification, message.level || 'info');
+                }
+                window.dispatchEvent(new CustomEvent('data-refresh-needed', { detail: message }));
             }
         };
 

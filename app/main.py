@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import asyncio
+from typing import Optional, List, Any
 
 from fastapi import Cookie, FastAPI, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -426,12 +427,41 @@ async def websocket_dashboard(
 
 
 @app.post("/api/internal/notify-monitor-update", include_in_schema=False)
-async def notify_monitor_update():
+async def notify_monitor_update(
+    message: Optional[str] = None, 
+    level: str = "info", 
+    ticket_id: Optional[str] = None,
+    request: Request = None
+):
     """
-    Endpoint interno llamado por monitor.py cuando termina un ciclo de escaneo.
+    Endpoint interno llamado por monitor.py o bots.
+    Ahora soporta tanto query params como JSON body.
     """
-    await manager.broadcast_event("db_updated")
-    return {"status": "broadcast_sent"}
+    import logging
+    logger = logging.getLogger("app.notifications")
+    
+    # Try to get data from JSON if query params are missing
+    if not message and not ticket_id and request:
+        try:
+            body = await request.json()
+            message = body.get("message")
+            level = body.get("level", level)
+            ticket_id = body.get("ticket_id")
+            logger.info(f"Received notification via JSON: {body}")
+        except:
+            pass
+
+    logger.info(f"Notify broadcast: msg={message}, level={level}, ticket={ticket_id}")
+    
+    payload = {"type": "db_updated"}
+    if message:
+        payload["notification"] = message
+        payload["level"] = level
+    if ticket_id:
+        payload["ticket_id"] = ticket_id
+        
+    await manager.broadcast_event("db_updated", payload)
+    return {"status": "broadcast_sent", "payload": payload}
 
 
 # --- ROUTERS INCLUSION ---

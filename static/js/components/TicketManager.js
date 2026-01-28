@@ -58,16 +58,28 @@ document.addEventListener('alpine:init', () => {
                 }
             }, 30000);
             // 2. Listen for WebSocket updates (via ws-client.js)
-            window.addEventListener('data-refresh-needed', () => {
-                console.log('TicketManager: Received data-refresh-needed event');
+            const self = this;
+            window.addEventListener('data-refresh-needed', (e) => {
+                const data = e.detail || {};
 
-                // If detail modal is open, refresh the specific ticket (chat thread)
-                if (this.showDetailModal && this.selectedTicket) {
-                    this.openTicket(this.selectedTicket); // Re-fetch details
-                } else {
-                    // Otherwise, just refresh the list silently
-                    this.loadTickets(true);
-                }
+                // Small delay to ensure DB consistency across processes
+                setTimeout(() => {
+                    if (self.showDetailModal && self.selectedTicket) {
+                        // Strip dashes for robust UUID comparison (some clients send without dashes)
+                        const currentId = String(self.selectedTicket.id).toLowerCase().replace(/-/g, '');
+                        const incomingId = data.ticket_id ? String(data.ticket_id).toLowerCase().replace(/-/g, '') : null;
+
+                        // If no ticket_id is provided, or it matches the active one, refresh chat
+                        if (!incomingId || incomingId === currentId) {
+                            self.openTicket(self.selectedTicket);
+                        } else {
+                            // Different ticket updated, refresh background list
+                            self.loadTickets(true);
+                        }
+                    } else {
+                        self.loadTickets(true);
+                    }
+                }, 500);
             });
 
         },
@@ -121,13 +133,14 @@ document.addEventListener('alpine:init', () => {
         // --- Ticket Detail ---
         async openTicket(ticket) {
             try {
-                // Fetch full details (messages might be loaded lazily or we just refresh)
-                const fullTicket = await ApiService.fetchJSON(`/api/tickets/${ticket.id}`);
+                // Add cache-buster to ensure we get the latest messages immediately
+                const fullTicket = await ApiService.fetchJSON(`/api/tickets/${ticket.id}?_t=${Date.now()}`);
                 this.selectedTicket = fullTicket;
                 this.showDetailModal = true;
 
                 // Scroll to bottom of chat
                 this.$nextTick(() => {
+                    console.log('TicketManager: Scrolling to bottom');
                     this.scrollToBottom();
                 });
             } catch (e) {

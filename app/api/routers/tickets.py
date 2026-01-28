@@ -318,13 +318,28 @@ async def reply_ticket(
                      import logging
                      logger = logging.getLogger(__name__)
                      logger.error(f"Error sending Telegram notification (inner): {inner_e}")
-
     except Exception as e:
-        # Log error but don't fail the request
-        print(f"DEBUG TIM: General Error: {e}")
         import logging
         logger = logging.getLogger(__name__)
-        logger.error(f"Error sending Telegram notification: {e}")
+        logger.error(f"Error in Telegram notification flow: {e}")
+
+    # -----------------------------------
+    
+    # --- REAL-TIME NOTIFICATION ---
+    import httpx
+    import os
+    try:
+        # Notify the web monitor so other sessions update
+        params = {"ticket_id": str(ticket.id)}
+        # No message/level here to avoid showing a toast to the person who just sent it
+        # The frontend will check the ticket_id and refresh if open
+        port = os.getenv("UVICORN_PORT", "8100")
+        async with httpx.AsyncClient(timeout=1.0) as client:
+            await client.post(f"http://127.0.0.1:{port}/api/internal/notify-monitor-update", json=params)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to notify web monitor on tech reply: {e}")
     # -----------------------------------
     
     return {"status": "success", "message": "Reply added"}

@@ -173,14 +173,19 @@ async def handle_chat_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     user_id = str(update.effective_user.id)
     message_text = update.message.text
     
+    logger.info(f"📩 DEBUG: Chat handler triggered for user {user_id}. Text: {message_text}")
+    
     # Check for active "Live Support" ticket
     # We need a way to check this efficiently. 
     # For now, we fetch recent open tickets for this client and check subject.
     
     client = get_client_by_telegram_id(user_id)
     if not client:
+        logger.info(f"🤔 DEBUG: Client not found for Telegram ID {user_id}")
         await show_menu_if_client(update, context)
         return
+    else:
+        logger.info(f"👤 DEBUG: Client found: {client.name} (ID: {client.id})")
 
     # TODO: Optimize this query to get ONLY open tickets for this client
     # Current helper obtener_tickets is too generic.
@@ -190,15 +195,18 @@ async def handle_chat_messages(update: Update, context: ContextTypes.DEFAULT_TYP
         with Session(engine) as session:
             # Check for ANY open ticket that implies "Chat Mode"? 
             # Or strictly "Solicitud de Soporte en Vivo"?
-            # Plan says: Subject="Solicitud de Soporte en Vivo" and Status != closed
+            # Match only tickets that are truly active (not closed or resolved)
+            # and pick the most recently updated one to avoid stale routing
             statement = select(Ticket).where(
                 Ticket.client_id == client.id,
                 Ticket.subject == "Solicitud de Soporte en Vivo",
-                Ticket.status != "closed"
-            )
+                Ticket.status.in_(["open", "pending"]) 
+            ).order_by(Ticket.updated_at.desc())
+            
             active_ticket = session.exec(statement).first()
             
             if active_ticket:
+                logger.info(f"🎫 DEBUG: Active ticket found: {active_ticket.id} - Status: {active_ticket.status}")
                 # Route message
                 success = agregar_respuesta_a_ticket(
                     ticket_id=active_ticket.id,
@@ -207,12 +215,15 @@ async def handle_chat_messages(update: Update, context: ContextTypes.DEFAULT_TYP
                     autor_id=user_id # using telegram id as author id for client
                 )
                 if success:
+                    logger.info("✅ DEBUG: Message added to ticket successfully.")
                     # Optional: Ack? No, chat should be seamless. 
                     # Maybe double check tick?
                     pass
                 else:
+                    logger.error("❌ DEBUG: Failed to add message to ticket.")
                     await update.message.reply_text("⚠️ Error al enviar mensaje.")
             else:
+                logger.info("🚫 DEBUG: No active 'Solicitud de Soporte en Vivo' ticket found.")
                 # No active chat session, show menu
                 await show_menu_if_client(update, context)
                 
@@ -235,6 +246,8 @@ main_menu_conv_handler = ConversationHandler(
             MessageHandler(filters.Regex(f"^{BTN_REPORTAR}"), reportar_falla),
             MessageHandler(filters.Regex(f"^{BTN_VER_ESTADO}"), ver_estado),
             MessageHandler(filters.Regex(f"^{BTN_SOLICITAR_AGENTE}"), solicitar_agente),
+            # Allow chat processing even while in menu state
+            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_chat_messages),
         ],
         AWAITING_FALLA: [MessageHandler(filters.TEXT & ~filters.COMMAND, guardar_solicitud)],
     },
