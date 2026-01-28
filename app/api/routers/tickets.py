@@ -5,7 +5,7 @@ from typing import List, Optional
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import select, col, desc
+from sqlmodel import select, col, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -53,9 +53,13 @@ class TicketRead(BaseModel):
     updated_at: datetime
     messages: List[TicketMessageRead] = []
 
+class TicketListResponse(BaseModel):
+    items: List[TicketRead]
+    total: int
+
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
 
-@router.get("/", response_model=List[TicketRead])
+@router.get("/", response_model=TicketListResponse)
 async def list_tickets(
     status_filter: Optional[str] = None,
     client_id: Optional[uuid_pkg.UUID] = None,
@@ -94,6 +98,30 @@ async def list_tickets(
             col(Client.name).ilike(search_term)
         )
 
+    # --- Pagination Logic ---
+    # 1. Get Total Count (optimized to not fetch relations)
+    count_query = select(func.count()).select_from(Ticket)
+    
+    # Apply same filters to count_query
+    if status_filter and status_filter != 'todos':
+        count_query = count_query.where(Ticket.status == status_filter)
+    
+    if client_id:
+        count_query = count_query.where(Ticket.client_id == client_id)
+        
+    if search:
+        search_term = f"%{search}%"
+        # Join Client only if searching
+        count_query = count_query.join(Client, isouter=True).where(
+            col(Ticket.subject).ilike(search_term) | 
+            col(Ticket.description).ilike(search_term) |
+            col(Client.name).ilike(search_term)
+        )
+        
+    total_result = await session.exec(count_query)
+    total_count = total_result.one()
+
+    # 2. Get Paginated Items
     query = query.order_by(desc(Ticket.updated_at)).offset(offset).limit(limit)
     
     result = await session.exec(query)
@@ -142,7 +170,10 @@ async def list_tickets(
             messages=msgs
         ))
         
-    return ticket_responses
+    return TicketListResponse(
+        items=ticket_responses,
+        total=total_count
+    )
 
 @router.get("/{ticket_id}", response_model=TicketRead)
 async def get_ticket_detail(

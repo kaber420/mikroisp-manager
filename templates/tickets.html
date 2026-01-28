@@ -125,6 +125,37 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination Footer -->
+        <div class="px-6 py-4 border-t border-white/10 bg-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-4 text-sm text-text-secondary">
+                <div class="flex items-center gap-2">
+                    <span>Rows per page:</span>
+                    <select @change="changePageSize($event.target.value)" class="bg-surface-1 border border-white/10 rounded px-2 py-1 text-sm focus:border-primary outline-none">
+                        <option value="10">10</option>
+                        <option value="20">20</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+                <span x-text="paginationInfo"></span>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button @click="prevPage()" :disabled="page === 0"
+                    class="p-2 rounded hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors">
+                    <span class="material-symbols-outlined text-lg">chevron_left</span>
+                </button>
+                <span class="text-sm text-text-secondary">
+                    Page <span x-text="page + 1" class="font-bold text-text-primary"></span>
+                    of <span x-text="totalPages || 1"></span>
+                </span>
+                <button @click="nextPage()" :disabled="(page + 1) * pageSize >= totalTickets"
+                    class="p-2 rounded hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors">
+                    <span class="material-symbols-outlined text-lg">chevron_right</span>
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Ticket Detail Modal -->

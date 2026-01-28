@@ -14,8 +14,11 @@ document.addEventListener('alpine:init', () => {
         // Filters
         filterStatus: 'open', // open, pending, resolved, closed, todos
         searchQuery: '', // Added search query state
+
+        // Pagination
         page: 0,
-        hasMore: true,
+        pageSize: 50,
+        totalTickets: 0,
 
         // Detailed View
         selectedTicket: null,
@@ -90,8 +93,8 @@ document.addEventListener('alpine:init', () => {
             try {
                 const params = new URLSearchParams({
                     status_filter: this.filterStatus,
-                    limit: 50,
-                    offset: this.page * 50
+                    limit: this.pageSize,
+                    offset: this.page * this.pageSize
                 });
 
                 if (this.searchQuery) {
@@ -99,7 +102,8 @@ document.addEventListener('alpine:init', () => {
                 }
 
                 const response = await ApiService.fetchJSON(`/api/tickets/?${params}`);
-                this.tickets = response || [];
+                this.tickets = response.items || [];
+                this.totalTickets = response.total || 0;
             } catch (e) {
                 console.error('Error loading tickets:', e);
                 this.error = e.message;
@@ -112,6 +116,37 @@ document.addEventListener('alpine:init', () => {
         async refresh() {
             this.page = 0;
             await this.loadTickets();
+        },
+
+        nextPage() {
+            if ((this.page + 1) * this.pageSize < this.totalTickets) {
+                this.page++;
+                this.loadTickets();
+            }
+        },
+
+        prevPage() {
+            if (this.page > 0) {
+                this.page--;
+                this.loadTickets();
+            }
+        },
+
+        changePageSize(newSize) {
+            this.pageSize = parseInt(newSize);
+            this.page = 0; // Reset to first page
+            this.loadTickets();
+        },
+
+        get totalPages() {
+            return Math.ceil(this.totalTickets / this.pageSize);
+        },
+
+        get paginationInfo() {
+            const start = this.page * this.pageSize + 1;
+            const end = Math.min((this.page + 1) * this.pageSize, this.totalTickets);
+            if (this.totalTickets === 0) return '0 - 0 of 0';
+            return `${start} - ${end} of ${this.totalTickets}`;
         },
 
         setFilter(status) {
