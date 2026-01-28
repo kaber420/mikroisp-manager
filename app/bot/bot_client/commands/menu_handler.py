@@ -13,7 +13,7 @@ from app.models.client import Client
 
 # Add path to find core modules
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from core.ticket_manager import crear_ticket, obtener_tickets
+from core.ticket_manager import crear_ticket, obtener_tickets, agregar_respuesta_a_ticket
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +21,10 @@ logger = logging.getLogger(__name__)
 (MENU_PRINCIPAL, AWAITING_FALLA) = range(2)
 BTN_REPORTAR = "📞 Reportar Falla / Solicitar Ayuda"
 BTN_VER_ESTADO = "📋 Ver Mis Tickets"
+BTN_SOLICITAR_AGENTE = "🙋 Solicitar Agente Humano"
 
 def get_main_keyboard_markup() -> ReplyKeyboardMarkup:
-    keyboard = [[BTN_REPORTAR], [BTN_VER_ESTADO]]
+    keyboard = [[BTN_REPORTAR], [BTN_VER_ESTADO], [BTN_SOLICITAR_AGENTE]]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 def get_client_by_telegram_id(telegram_id: str):
@@ -135,6 +136,90 @@ async def ver_estado(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         
     return MENU_PRINCIPAL
 
+async def solicitar_agente(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user_id = str(update.effective_user.id)
+    user_name = update.effective_user.first_name
+    
+    client = get_client_by_telegram_id(user_id)
+    client_name = client.name if client else user_name
+    
+    # Crear ticket de alta prioridad
+    ticket_id = crear_ticket(
+        cliente_external_id=user_id, 
+        cliente_plataforma='telegram',
+        cliente_nombre=client_name, 
+        cliente_ip_cpe="N/A",
+        tipo_solicitud='Solicitud de Soporte en Vivo', 
+        descripcion="Cliente solicita hablar con un agente humano ahora."
+    )
+
+    if ticket_id:
+        await update.message.reply_text(
+            "🙋 Solicitud enviada. Un agente se pondrá en contacto pronto.\n"
+            "Puedes escribir aquí y el agente lo verá.", 
+            reply_markup=get_main_keyboard_markup()
+        )
+    else:
+        await update.message.reply_text("❌ Error al solicitar agente.", reply_markup=get_main_keyboard_markup())
+    
+    return MENU_PRINCIPAL
+
+async def handle_chat_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Checks if the user has an active chat session (open ticket with specific subject).
+    If so, routes message to ticket.
+    If not, falls back to showing menu.
+    """
+    user_id = str(update.effective_user.id)
+    message_text = update.message.text
+    
+    # Check for active "Live Support" ticket
+    # We need a way to check this efficiently. 
+    # For now, we fetch recent open tickets for this client and check subject.
+    
+    client = get_client_by_telegram_id(user_id)
+    if not client:
+        await show_menu_if_client(update, context)
+        return
+
+    # TODO: Optimize this query to get ONLY open tickets for this client
+    # Current helper obtener_tickets is too generic.
+    # We will use a direct session here for specific logic.
+    try:
+        from app.models.ticket import Ticket
+        with Session(engine) as session:
+            # Check for ANY open ticket that implies "Chat Mode"? 
+            # Or strictly "Solicitud de Soporte en Vivo"?
+            # Plan says: Subject="Solicitud de Soporte en Vivo" and Status != closed
+            statement = select(Ticket).where(
+                Ticket.client_id == client.id,
+                Ticket.subject == "Solicitud de Soporte en Vivo",
+                Ticket.status != "closed"
+            )
+            active_ticket = session.exec(statement).first()
+            
+            if active_ticket:
+                # Route message
+                success = agregar_respuesta_a_ticket(
+                    ticket_id=active_ticket.id,
+                    mensaje=message_text,
+                    autor_tipo='client',
+                    autor_id=user_id # using telegram id as author id for client
+                )
+                if success:
+                    # Optional: Ack? No, chat should be seamless. 
+                    # Maybe double check tick?
+                    pass
+                else:
+                    await update.message.reply_text("⚠️ Error al enviar mensaje.")
+            else:
+                # No active chat session, show menu
+                await show_menu_if_client(update, context)
+                
+    except Exception as e:
+        logger.error(f"Error in chat handler: {e}")
+        await show_menu_if_client(update, context)
+
 async def cancelar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("Cancelado.", reply_markup=get_main_keyboard_markup())
     return MENU_PRINCIPAL
@@ -149,6 +234,7 @@ main_menu_conv_handler = ConversationHandler(
             CommandHandler("start", start_command),
             MessageHandler(filters.Regex(f"^{BTN_REPORTAR}"), reportar_falla),
             MessageHandler(filters.Regex(f"^{BTN_VER_ESTADO}"), ver_estado),
+            MessageHandler(filters.Regex(f"^{BTN_SOLICITAR_AGENTE}"), solicitar_agente),
         ],
         AWAITING_FALLA: [MessageHandler(filters.TEXT & ~filters.COMMAND, guardar_solicitud)],
     },
