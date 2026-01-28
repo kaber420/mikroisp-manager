@@ -34,7 +34,7 @@ from .api.switches import main as switches_main_api
 from .api.users import main as users_main_api
 from .api.zonas import infra as zonas_infra_api
 from .api.zonas import main as zonas_main_api
-from .api.tickets import routes as tickets_main_api
+from .api.tickets import main as tickets_main_api
 
 # Shared Core Modules
 from .core.templates import templates

@@ -1,8 +1,9 @@
-# app/api/routers/tickets.py
+# app/api/tickets/main.py
 
 import uuid as uuid_pkg
 from typing import List, Optional
 from datetime import datetime
+import os 
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import select, col, desc, func
@@ -15,47 +16,14 @@ from ...models.client import Client
 from ...models.ticket import Ticket, TicketMessage
 from ...core.users import require_technician, current_active_user
 
-# Models Pydantic (Internal for API)
-from pydantic import BaseModel
-
-class TicketCreate(BaseModel):
-    client_id: uuid_pkg.UUID
-    subject: str
-    description: str
-    priority: str = "normal"
-
-class TicketUpdateStatus(BaseModel):
-    status: str
-
-class TicketReply(BaseModel):
-    content: str
-    media_url: Optional[str] = None
-
-class TicketMessageRead(BaseModel):
-    id: uuid_pkg.UUID
-    sender_type: str
-    sender_id: Optional[str]
-    content: str
-    created_at: datetime
-    media_url: Optional[str]
-
-class TicketRead(BaseModel):
-    id: uuid_pkg.UUID
-    ticket_id: int
-    subject: str
-    description: str
-    status: str
-    priority: str
-    client_name: str
-    assigned_tech_id: Optional[uuid_pkg.UUID]
-    assigned_tech_username: Optional[str]
-    created_at: datetime
-    updated_at: datetime
-    messages: List[TicketMessageRead] = []
-
-class TicketListResponse(BaseModel):
-    items: List[TicketRead]
-    total: int
+from .models import (
+    TicketCreate,
+    TicketUpdateStatus,
+    TicketReply,
+    TicketMessageRead,
+    TicketRead,
+    TicketListResponse
+)
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
 
@@ -358,25 +326,10 @@ async def reply_ticket(
     
     # --- REAL-TIME NOTIFICATION ---
     import httpx
-    import os
     try:
-        # Try to get the port from environment, fallback to searching .env file, finally default to 8100
-        port = os.getenv("UVICORN_PORT")
-        if not port:
-            try:
-                # Look for the .env file in the root directory relative to this file
-                # From app/api/routers/tickets.py, root is ../../..
-                env_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", ".env")
-                if os.path.exists(env_path):
-                    with open(env_path, "r") as f:
-                        for line in f:
-                            if line.strip().startswith("UVICORN_PORT="):
-                                port = line.split("=")[1].strip()
-                                break
-            except:
-                pass
+        # Optimization: Use getenv directly, no file reading
+        port = os.getenv("UVICORN_PORT", "8100")
         
-        port = port or "8100"
         params = {"ticket_id": str(ticket.id)}
         url = f"http://127.0.0.1:{port}/api/internal/notify-monitor-update"
         
