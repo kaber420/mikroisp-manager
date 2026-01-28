@@ -58,6 +58,7 @@ router = APIRouter(prefix="/tickets", tags=["Tickets"])
 async def list_tickets(
     status_filter: Optional[str] = None,
     client_id: Optional[uuid_pkg.UUID] = None,
+    search: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
     current_user: User = Depends(require_technician),
@@ -71,15 +72,33 @@ async def list_tickets(
     if client_id:
         query = query.where(Ticket.client_id == client_id)
 
+    # Search Logic
+    if search:
+        search_term = f"%{search}%"
+        # We need to join with Client to search client names
+        # But `select(Ticket)` is the base.
+        # To filter by client name, we need a join or subquery.
+        # Let's try a join.
+        # Note: SQLModel select(Ticket) returns Ticket objects.
+        # If we join, we must be careful with what is returned.
+        # But we can just add where clauses if we join correctly.
+        
+        # A simple approach for subject/description first:
+        # query = query.where(col(Ticket.subject).ilike(search_term) | col(Ticket.description).ilike(search_term))
+        
+        # To include client name:
+        query = query.join(Client, isouter=True).where(
+            col(Ticket.subject).ilike(search_term) | 
+            col(Ticket.description).ilike(search_term) |
+            col(Client.name).ilike(search_term)
+        )
+
     query = query.order_by(desc(Ticket.updated_at)).offset(offset).limit(limit)
     
     result = await session.exec(query)
     tickets = result.all()
     
     # Enrichment (getting client names and tech names)
-    # This could be optimized with joins, but for simplicity and async selectinload limits we do manual mapping or separate queries if needed.
-    # Actually, let's fetch clients we need.
-    
     ticket_responses = []
     
     client_ids = {t.client_id for t in tickets}

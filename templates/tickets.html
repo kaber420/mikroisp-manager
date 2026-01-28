@@ -9,84 +9,121 @@
 {% block content %}
 <div x-data="ticketManager" class="p-6 max-w-7xl mx-auto">
 
-    <!-- Header & Filter -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between mb-8">
         <div>
-            <h1 class="text-2xl font-bold text-text-primary mb-1">Support Tickets</h1>
-            <p class="text-text-secondary text-sm">Manage customer support requests</p>
+            <h1 class="text-4xl font-bold">Manage Support Tickets</h1>
+            <p class="text-text-secondary text-sm mt-1">Manage customer support requests</p>
         </div>
-
-        <div class="flex flex-wrap gap-2">
-            <template x-for="status in ['todos', 'open', 'pending', 'resolved', 'closed']">
-                <button @click="setFilter(status)"
-                    class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border"
-                    :class="filterStatus === status ? 'bg-primary text-white border-primary' : 'bg-surface-2 text-text-secondary border-white/10 hover:bg-surface-2/80'"
-                    x-text="status.charAt(0).toUpperCase() + status.slice(1)">
-                </button>
-            </template>
+        <div class="flex gap-3">
             <button @click="loadTickets()"
-                class="p-1.5 rounded-lg bg-surface-2 text-text-secondary hover:text-white border border-white/10">
-                <span class="material-symbols-outlined text-lg">refresh</span>
+                class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-surface-2 hover:bg-surface-3 transition-colors border border-white/10">
+                <span class="material-symbols-outlined mr-2">refresh</span>
+                <span>Refresh</span>
             </button>
         </div>
     </div>
 
-    <!-- Ticket List -->
-    <div class="bg-surface-1 border border-border-color rounded-xl overflow-hidden shadow-sm min-h-[400px]">
+    <!-- Main Card -->
+    <div class="glass-card rounded-2xl border-0">
+        <!-- Card Header: Filters & Search -->
+        <div class="px-6 py-4 border-b border-white/10 flex flex-wrap gap-4 items-center justify-between bg-white/5">
+            <h2 class="text-xl font-bold text-white">Tickets</h2>
 
-        <!-- Loading State -->
-        <div x-show="loading" class="p-12 text-center text-text-secondary">
-            <span class="material-symbols-outlined animate-spin text-3xl mb-2">progress_activity</span>
-            <p>Loading tickets...</p>
+            <div class="flex flex-wrap items-center gap-4">
+                <!-- Status Filters -->
+                <div
+                    class="flex flex-wrap gap-1 bg-surface-1/50 backdrop-blur-sm p-1 rounded-lg border border-white/10">
+                    <template x-for="status in ['todos', 'open', 'pending', 'resolved', 'closed']">
+                        <button @click="setFilter(status)"
+                            class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200"
+                            :class="filterStatus === status ? getFilterActiveClass(status) : 'text-text-secondary hover:text-white hover:bg-white/5'"
+                            x-text="status.charAt(0).toUpperCase() + status.slice(1)">
+                        </button>
+                    </template>
+                </div>
+
+                <!-- Search -->
+                <div class="relative">
+                    <span
+                        class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-lg">search</span>
+                    <input type="text" x-model.debounce.300ms="searchQuery" placeholder="Search..."
+                        class="w-full sm:w-64 pl-10 pr-4 py-2 bg-surface-1/50 backdrop-blur-sm border border-white/10 rounded-lg focus:ring-primary focus:border-primary text-text-primary placeholder-text-secondary/50">
+                </div>
+            </div>
         </div>
 
-        <!-- Empty State -->
-        <div x-show="!loading && tickets.length === 0" class="p-12 text-center text-text-secondary">
-            <span class="material-symbols-outlined text-4xl mb-2 opacity-50">confirmation_number</span>
-            <p>No tickets found.</p>
-        </div>
+        <!-- Ticket List -->
+        <div class="overflow-x-auto min-h-[400px]">
+            <!-- Loading State -->
+            <div x-show="loading" class="p-12 text-center text-text-secondary">
+                <span class="material-symbols-outlined animate-spin text-3xl mb-2">progress_activity</span>
+                <p>Loading tickets...</p>
+            </div>
 
-        <!-- Table -->
-        <table x-show="!loading && tickets.length > 0" class="w-full text-left">
-            <thead class="bg-surface-2/50 text-text-secondary text-xs uppercase font-semibold">
-                <tr>
-                    <th class="px-6 py-3">Status</th>
-                    <th class="px-6 py-3">Subject</th>
-                    <th class="px-6 py-3">Client</th>
-                    <th class="px-6 py-3">Assigned</th>
-                    <th class="px-6 py-3">Created</th>
-                    <th class="px-6 py-3 text-right">Action</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-white/5">
-                <template x-for="ticket in tickets" :key="ticket.id">
-                    <tr class="hover:bg-surface-2/30 transition-colors group cursor-pointer"
-                        @click="openTicket(ticket)">
-                        <td class="px-6 py-4">
-                            <span class="px-2 py-1 rounded-full text-xs font-bold border"
-                                :class="getStatusColor(ticket.status)" x-text="ticket.status.toUpperCase()">
-                            </span>
-                        </td>
-                        <td class="px-6 py-4">
-                            <p class="text-xs font-mono text-primary mb-0.5" x-text="getDisplayId(ticket)"></p>
-                            <p class="font-medium text-text-primary" x-text="ticket.subject"></p>
-                            <p class="text-xs text-text-secondary truncate max-w-[200px]" x-text="ticket.description">
-                            </p>
-                        </td>
-                        <td class="px-6 py-4 text-sm text-text-secondary" x-text="ticket.client_name"></td>
-                        <td class="px-6 py-4 text-sm text-text-secondary">
-                            <span x-text="ticket.assigned_tech_username ? ticket.assigned_tech_username : '-'"
-                                :class="ticket.assigned_tech_username ? 'text-primary' : 'opacity-50'"></span>
-                        </td>
-                        <td class="px-6 py-4 text-sm text-text-secondary" x-text="formatDate(ticket.created_at)"></td>
-                        <td class="px-6 py-4 text-right">
-                            <span
-                                class="material-symbols-outlined text-text-secondary group-hover:text-primary transition-colors">chevron_right</span>
-                        </td>
+            <!-- Empty State -->
+            <div x-show="!loading && tickets.length === 0" class="p-12 text-center text-text-secondary">
+                <span class="material-symbols-outlined text-4xl mb-2 opacity-50">confirmation_number</span>
+                <p>No tickets found.</p>
+            </div>
+
+            <!-- Table -->
+            <table x-show="!loading && tickets.length > 0" class="min-w-full text-sm">
+                <thead class="bg-white/5">
+                    <tr>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                            Status</th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                            Subject</th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                            Client</th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                            Assigned</th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                            Created</th>
+                        <th
+                            class="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                            Action</th>
                     </tr>
-                </template>
-            </tbody>
-        </table>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    <template x-for="ticket in tickets" :key="ticket.id">
+                        <tr class="hover:bg-surface-2 transition-colors duration-200 cursor-pointer group"
+                            @click="openTicket(ticket)">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 rounded-full text-xs font-bold border"
+                                    :class="getStatusColor(ticket.status)" x-text="ticket.status.toUpperCase()">
+                                </span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <p class="text-xs font-mono text-primary mb-0.5" x-text="getDisplayId(ticket)"></p>
+                                <p class="font-medium text-text-primary" x-text="ticket.subject"></p>
+                                <p class="text-xs text-text-secondary truncate max-w-[200px]"
+                                    x-text="ticket.description"></p>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-text-secondary" x-text="ticket.client_name">
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span x-text="ticket.assigned_tech_username ? ticket.assigned_tech_username : '-'"
+                                    class="text-sm"
+                                    :class="ticket.assigned_tech_username ? 'text-primary font-medium' : 'text-text-secondary opacity-50'"></span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-text-secondary"
+                                x-text="formatDate(ticket.created_at)"></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <span
+                                    class="material-symbols-outlined text-text-secondary group-hover:text-primary transition-colors">chevron_right</span>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <!-- Ticket Detail Modal -->

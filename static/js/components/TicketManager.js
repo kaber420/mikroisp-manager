@@ -13,6 +13,7 @@ document.addEventListener('alpine:init', () => {
 
         // Filters
         filterStatus: 'open', // open, pending, resolved, closed, todos
+        searchQuery: '', // Added search query state
         page: 0,
         hasMore: true,
 
@@ -32,6 +33,12 @@ document.addEventListener('alpine:init', () => {
         // --- Lifecycle ---
         async init() {
             console.log('TicketManager initialized');
+
+            // Watch for search query changes
+            this.$watch('searchQuery', () => {
+                this.page = 0;
+                this.loadTickets();
+            });
 
             // 1. Get current user
             try {
@@ -79,6 +86,10 @@ document.addEventListener('alpine:init', () => {
                     offset: this.page * 50
                 });
 
+                if (this.searchQuery) {
+                    params.append('search', this.searchQuery);
+                }
+
                 const response = await ApiService.fetchJSON(`/api/tickets/?${params}`);
                 this.tickets = response || [];
             } catch (e) {
@@ -98,6 +109,17 @@ document.addEventListener('alpine:init', () => {
         setFilter(status) {
             this.filterStatus = status;
             this.refresh();
+        },
+
+        getFilterActiveClass(status) {
+            switch (status) {
+                case 'todos': return 'bg-primary text-white shadow-lg shadow-primary/20';
+                case 'open': return 'bg-success text-white shadow-lg shadow-success/20';
+                case 'pending': return 'bg-warning text-white shadow-lg shadow-warning/20';
+                case 'resolved': return 'bg-primary text-white shadow-lg shadow-primary/20';
+                case 'closed': return 'bg-surface-3 text-white border-white/20';
+                default: return 'bg-primary text-white';
+            }
         },
 
         // --- Ticket Detail ---
