@@ -14,7 +14,7 @@ except ImportError:
 import os
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
-from sqlmodel import select, Session, col
+from sqlmodel import select, Session, col, func
 from app.db.engine_sync import sync_engine as engine
 from app.models.ticket import Ticket, TicketMessage
 from app.models.client import Client
@@ -24,6 +24,11 @@ from app.models.user import User
 logger = logging.getLogger(__name__)
 
 TicketDict = Dict[str, Any]
+
+class TicketLimitExceeded(Exception):
+    pass
+
+MAX_TICKETS_PER_DAY = 3
 
 def crear_ticket(
     cliente_external_id: str,
@@ -55,6 +60,19 @@ def crear_ticket(
                 session.add(client)
                 session.commit()
                 session.refresh(client)
+                session.refresh(client)
+            
+            # --- Rate Limiting Check ---
+            cutoff = datetime.utcnow() - timedelta(days=1)
+            count_stmt = select(func.count(Ticket.id)).where(
+                Ticket.client_id == client.id,
+                Ticket.created_at >= cutoff
+            )
+            daily_count = session.exec(count_stmt).one()
+            
+            if daily_count >= MAX_TICKETS_PER_DAY:
+                logger.warning(f"Client {client.name} exceeded daily ticket limit ({daily_count}/{MAX_TICKETS_PER_DAY})")
+                raise TicketLimitExceeded("Daily limit exceeded")
             
             new_ticket = Ticket(
                 client_id=client.id,
@@ -69,6 +87,10 @@ def crear_ticket(
             
             return str(new_ticket.id)
 
+            return str(new_ticket.id)
+
+    except TicketLimitExceeded:
+        raise
     except Exception as e:
         logger.error(f"❌ Error al crear ticket: {e}", exc_info=True)
         return None

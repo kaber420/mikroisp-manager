@@ -1,6 +1,7 @@
 # app/bot/core/utils.py
 import os
 import logging
+import html
 from sqlmodel import select, Session
 from app.db.engine_sync import sync_engine as engine
 from app.models.client import Client
@@ -40,3 +41,21 @@ def get_server_port() -> str:
         pass
 
     return "8100"
+
+def sanitize_input(text: str, max_length: int = 1000) -> str:
+    """
+    Sanitiza el texto de entrada del usuario:
+    1. Trunca a max_length.
+    2. Escapa caracteres HTML.
+    3. Elimina espacios extra.
+    """
+    if not text:
+        return ""
+    
+    # Truncate
+    text = text[:max_length]
+    
+    # Escape HTML
+    text = html.escape(text)
+    
+    return text.strip()

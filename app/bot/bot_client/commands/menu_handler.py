@@ -3,6 +3,7 @@
 import logging
 import os
 import sys
+import time
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
     ContextTypes, CommandHandler, MessageHandler, ConversationHandler, filters
@@ -11,8 +12,8 @@ from sqlmodel import select, Session
 from app.db.engine_sync import sync_engine as engine
 from app.models.client import Client
 
-from app.bot.core.ticket_manager import crear_ticket, obtener_tickets, agregar_respuesta_a_ticket
-from app.bot.core.utils import get_client_by_telegram_id
+from app.bot.core.ticket_manager import crear_ticket, obtener_tickets, agregar_respuesta_a_ticket, TicketLimitExceeded
+from app.bot.core.utils import get_client_by_telegram_id, sanitize_input
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,12 @@ logger = logging.getLogger(__name__)
 BTN_REPORTAR = "📞 Reportar Falla / Solicitar Ayuda"
 BTN_VER_ESTADO = "📋 Ver Mis Tickets"
 BTN_SOLICITAR_AGENTE = "🙋 Solicitar Agente Humano"
+BTN_SOLICITAR_AGENTE = "🙋 Solicitar Agente Humano"
 BTN_CAMBIAR_CLAVE = "🔑 Solicitar Cambio Clave WiFi"
+
+# Security
+user_last_message_time = {}
+THROTTLE_SECONDS = 3.0
 
 def get_main_keyboard_markup() -> ReplyKeyboardMarkup:
     keyboard = [
@@ -59,7 +65,9 @@ async def reportar_falla(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     return AWAITING_FALLA
 
 async def guardar_solicitud(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    descripcion = update.message.text
+    # Sanitize input
+    descripcion = sanitize_input(update.message.text, max_length=500)
+    
     user_id = str(update.effective_user.id)
     user_name = update.effective_user.first_name
     
@@ -67,26 +75,37 @@ async def guardar_solicitud(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     client = get_client_by_telegram_id(user_id)
     client_name = client.name if client else user_name
     
-    # Crear ticket
-    ticket_id = crear_ticket(
-        cliente_external_id=user_id, 
-        cliente_plataforma='telegram',
-        cliente_nombre=client_name, 
-        cliente_ip_cpe="N/A",
-        tipo_solicitud='Soporte General', 
-        descripcion=descripcion
-    )
+    try:
+        # Crear ticket
+        ticket_id = crear_ticket(
+            cliente_external_id=user_id, 
+            cliente_plataforma='telegram',
+            cliente_nombre=client_name, 
+            cliente_ip_cpe="N/A",
+            tipo_solicitud='Soporte General', 
+            descripcion=descripcion
+        )
 
-    if ticket_id:
-        # Visual ID adjustment (last 6 chars?)
-        short_id = ticket_id[-6:]
+        if ticket_id:
+            # Visual ID adjustment (last 6 chars?)
+            short_id = ticket_id[-6:]
+            await update.message.reply_text(
+                f"✅ Solicitud recibida. Ticket: `{short_id}`.", 
+                parse_mode="Markdown", 
+                reply_markup=get_main_keyboard_markup()
+            )
+        else:
+            await update.message.reply_text("❌ Error al crear ticket.", reply_markup=get_main_keyboard_markup())
+
+    except TicketLimitExceeded:
         await update.message.reply_text(
-            f"✅ Solicitud recibida. Ticket: `{short_id}`.", 
-            parse_mode="Markdown", 
+            "⛔️ Has excedido el número máximo de tickets diarios (3).\n"
+            "Por favor, intenta de nuevo mañana o contacta a soporte por otro medio si es urgente.", 
             reply_markup=get_main_keyboard_markup()
         )
-    else:
-        await update.message.reply_text("❌ Error al crear ticket.", reply_markup=get_main_keyboard_markup())
+    except Exception as e:
+        logger.error(f"Error creating ticket: {e}")
+        await update.message.reply_text("❌ Error interno.", reply_markup=get_main_keyboard_markup())
     
     return MENU_PRINCIPAL
 
@@ -138,23 +157,28 @@ async def solicitar_agente(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     client_name = client.name if client else user_name
     
     # Crear ticket de alta prioridad
-    ticket_id = crear_ticket(
-        cliente_external_id=user_id, 
-        cliente_plataforma='telegram',
-        cliente_nombre=client_name, 
-        cliente_ip_cpe="N/A",
-        tipo_solicitud='Solicitud de Soporte en Vivo', 
-        descripcion="Cliente solicita hablar con un agente humano ahora."
-    )
-
-    if ticket_id:
-        await update.message.reply_text(
-            "🙋 Solicitud enviada. Un agente se pondrá en contacto pronto.\n"
-            "Puedes escribir aquí y el agente lo verá.", 
-            reply_markup=get_main_keyboard_markup()
+    try:
+        ticket_id = crear_ticket(
+            cliente_external_id=user_id, 
+            cliente_plataforma='telegram',
+            cliente_nombre=client_name, 
+            cliente_ip_cpe="N/A",
+            tipo_solicitud='Solicitud de Soporte en Vivo', 
+            descripcion="Cliente solicita hablar con un agente humano ahora."
         )
-    else:
-        await update.message.reply_text("❌ Error al solicitar agente.", reply_markup=get_main_keyboard_markup())
+    
+        if ticket_id:
+            await update.message.reply_text(
+                "🙋 Solicitud enviada. Un agente se pondrá en contacto pronto.\n"
+                "Puedes escribir aquí y el agente lo verá.", 
+                reply_markup=get_main_keyboard_markup()
+            )
+        else:
+            await update.message.reply_text("❌ Error al solicitar agente.", reply_markup=get_main_keyboard_markup())
+            
+    except TicketLimitExceeded:
+        await update.message.reply_text("⛔️ Has alcanzado el límite diario de solicitudes.", reply_markup=get_main_keyboard_markup())
+
     
     return MENU_PRINCIPAL
 
@@ -167,33 +191,37 @@ async def solicitar_cambio_clave(update: Update, context: ContextTypes.DEFAULT_T
     return AWAITING_NEW_PASSWORD
 
 async def guardar_nueva_clave(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    nueva_clave = update.message.text
+    nueva_clave = sanitize_input(update.message.text, max_length=100)
     user_id = str(update.effective_user.id)
     user_name = update.effective_user.first_name
     
     client = get_client_by_telegram_id(user_id)
     client_name = client.name if client else user_name
     
-    # Crear ticket
-    ticket_id = crear_ticket(
-        cliente_external_id=user_id, 
-        cliente_plataforma='telegram',
-        cliente_nombre=client_name, 
-        cliente_ip_cpe="N/A",
-        tipo_solicitud='Cambio de Clave WiFi', 
-        descripcion=f"El cliente solicita cambio de contraseña WiFi.\nNueva clave deseada: {nueva_clave}"
-    )
-
-    if ticket_id:
-        short_id = ticket_id[-6:]
-        await update.message.reply_text(
-            f"✅ Solicitud de cambio de clave recibida. Ticket: `{short_id}`.\nUn técnico realizará el cambio pronto.", 
-            parse_mode="Markdown", 
-            reply_markup=get_main_keyboard_markup()
+    try:
+        # Crear ticket
+        ticket_id = crear_ticket(
+            cliente_external_id=user_id, 
+            cliente_plataforma='telegram',
+            cliente_nombre=client_name, 
+            cliente_ip_cpe="N/A",
+            tipo_solicitud='Cambio de Clave WiFi', 
+            descripcion=f"El cliente solicita cambio de contraseña WiFi.\nNueva clave deseada: {nueva_clave}"
         )
-    else:
-        await update.message.reply_text("❌ Error al crear la solicitud.", reply_markup=get_main_keyboard_markup())
-    
+
+        if ticket_id:
+            short_id = ticket_id[-6:]
+            await update.message.reply_text(
+                f"✅ Solicitud de cambio de clave recibida. Ticket: `{short_id}`.\nUn técnico realizará el cambio pronto.", 
+                parse_mode="Markdown", 
+                reply_markup=get_main_keyboard_markup()
+            )
+        else:
+            await update.message.reply_text("❌ Error al crear la solicitud.", reply_markup=get_main_keyboard_markup())
+
+    except TicketLimitExceeded:
+         await update.message.reply_text("⛔️ Has alcanzado el límite diario de solicitudes.", reply_markup=get_main_keyboard_markup())
+
     return MENU_PRINCIPAL
 
 async def handle_chat_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -203,7 +231,16 @@ async def handle_chat_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     If not, falls back to showing menu.
     """
     user_id = str(update.effective_user.id)
-    message_text = update.message.text
+    
+    # Throttle Check
+    now = time.time()
+    last_time = user_last_message_time.get(user_id, 0)
+    if now - last_time < THROTTLE_SECONDS:
+        # Ignore silent
+        return
+    user_last_message_time[user_id] = now
+    
+    message_text = sanitize_input(update.message.text, max_length=1000)
     
     logger.info(f"📩 DEBUG: Chat handler triggered for user {user_id}. Text: {message_text}")
     
