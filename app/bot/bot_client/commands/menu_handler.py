@@ -17,13 +17,19 @@ from app.bot.core.utils import get_client_by_telegram_id
 logger = logging.getLogger(__name__)
 
 # Estados
-(MENU_PRINCIPAL, AWAITING_FALLA) = range(2)
+(MENU_PRINCIPAL, AWAITING_FALLA, AWAITING_NEW_PASSWORD) = range(3)
 BTN_REPORTAR = "📞 Reportar Falla / Solicitar Ayuda"
 BTN_VER_ESTADO = "📋 Ver Mis Tickets"
 BTN_SOLICITAR_AGENTE = "🙋 Solicitar Agente Humano"
+BTN_CAMBIAR_CLAVE = "🔑 Solicitar Cambio Clave WiFi"
 
 def get_main_keyboard_markup() -> ReplyKeyboardMarkup:
-    keyboard = [[BTN_REPORTAR], [BTN_VER_ESTADO], [BTN_SOLICITAR_AGENTE]]
+    keyboard = [
+        [BTN_REPORTAR], 
+        [BTN_VER_ESTADO], 
+        [BTN_CAMBIAR_CLAVE],
+        [BTN_SOLICITAR_AGENTE]
+    ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 
@@ -152,6 +158,44 @@ async def solicitar_agente(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     
     return MENU_PRINCIPAL
 
+async def solicitar_cambio_clave(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text(
+        "🔒 Para procesar el cambio de clave, por favor escribe la **nueva contraseña** que deseas configurar:",
+        parse_mode="Markdown",
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return AWAITING_NEW_PASSWORD
+
+async def guardar_nueva_clave(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    nueva_clave = update.message.text
+    user_id = str(update.effective_user.id)
+    user_name = update.effective_user.first_name
+    
+    client = get_client_by_telegram_id(user_id)
+    client_name = client.name if client else user_name
+    
+    # Crear ticket
+    ticket_id = crear_ticket(
+        cliente_external_id=user_id, 
+        cliente_plataforma='telegram',
+        cliente_nombre=client_name, 
+        cliente_ip_cpe="N/A",
+        tipo_solicitud='Cambio de Clave WiFi', 
+        descripcion=f"El cliente solicita cambio de contraseña WiFi.\nNueva clave deseada: {nueva_clave}"
+    )
+
+    if ticket_id:
+        short_id = ticket_id[-6:]
+        await update.message.reply_text(
+            f"✅ Solicitud de cambio de clave recibida. Ticket: `{short_id}`.\nUn técnico realizará el cambio pronto.", 
+            parse_mode="Markdown", 
+            reply_markup=get_main_keyboard_markup()
+        )
+    else:
+        await update.message.reply_text("❌ Error al crear la solicitud.", reply_markup=get_main_keyboard_markup())
+    
+    return MENU_PRINCIPAL
+
 async def handle_chat_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Checks if the user has an active chat session (open ticket with specific subject).
@@ -234,10 +278,12 @@ main_menu_conv_handler = ConversationHandler(
             MessageHandler(filters.Regex(f"^{BTN_REPORTAR}"), reportar_falla),
             MessageHandler(filters.Regex(f"^{BTN_VER_ESTADO}"), ver_estado),
             MessageHandler(filters.Regex(f"^{BTN_SOLICITAR_AGENTE}"), solicitar_agente),
+            MessageHandler(filters.Regex(f"^{BTN_CAMBIAR_CLAVE}"), solicitar_cambio_clave),
             # Allow chat processing even while in menu state
             MessageHandler(filters.TEXT & ~filters.COMMAND, handle_chat_messages),
         ],
         AWAITING_FALLA: [MessageHandler(filters.TEXT & ~filters.COMMAND, guardar_solicitud)],
+        AWAITING_NEW_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, guardar_nueva_clave)],
     },
     fallbacks=[CommandHandler("cancelar", cancelar)],
 )
