@@ -5,6 +5,7 @@ Refactorizado para usar SQLModel y la base de datos principal inventory.sqlite.
 """
 
 import logging
+import httpx
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from sqlmodel import select, Session, col
@@ -127,7 +128,19 @@ def agregar_respuesta_a_ticket(ticket_id: str, mensaje: str, autor_tipo: str, au
             # Let's keep it simple.
             
             session.add(ticket)
+            session.add(ticket)
             session.commit()
+            
+            # --- REAL-TIME NOTIFICATION ---
+            try:
+                # Fire and forget notification to the main API
+                # This tells the WebSocket manager to broadcast "db_updated"
+                with httpx.Client(timeout=1.0) as client:
+                    client.post("http://127.0.0.1:8000/api/internal/notify-monitor-update")
+            except Exception as e:
+                # Non-blocking error logging
+                logger.warning(f"Failed to notify web monitor: {e}")
+
             return True
             
     except Exception as e:

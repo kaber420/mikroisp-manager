@@ -57,6 +57,19 @@ document.addEventListener('alpine:init', () => {
                     this.loadTickets(true); // Silent refresh
                 }
             }, 30000);
+            // 2. Listen for WebSocket updates (via ws-client.js)
+            window.addEventListener('data-refresh-needed', () => {
+                console.log('TicketManager: Received data-refresh-needed event');
+
+                // If detail modal is open, refresh the specific ticket (chat thread)
+                if (this.showDetailModal && this.selectedTicket) {
+                    this.openTicket(this.selectedTicket); // Re-fetch details
+                } else {
+                    // Otherwise, just refresh the list silently
+                    this.loadTickets(true);
+                }
+            });
+
         },
 
         // --- Data Loading ---
