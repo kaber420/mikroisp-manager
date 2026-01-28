@@ -53,6 +53,7 @@
                     <th class="px-6 py-3">Status</th>
                     <th class="px-6 py-3">Subject</th>
                     <th class="px-6 py-3">Client</th>
+                    <th class="px-6 py-3">Assigned</th>
                     <th class="px-6 py-3">Created</th>
                     <th class="px-6 py-3 text-right">Action</th>
                 </tr>
@@ -73,6 +74,10 @@
                             </p>
                         </td>
                         <td class="px-6 py-4 text-sm text-text-secondary" x-text="ticket.client_name"></td>
+                        <td class="px-6 py-4 text-sm text-text-secondary">
+                            <span x-text="ticket.assigned_tech_username ? ticket.assigned_tech_username : '-'"
+                                :class="ticket.assigned_tech_username ? 'text-primary' : 'opacity-50'"></span>
+                        </td>
                         <td class="px-6 py-4 text-sm text-text-secondary" x-text="formatDate(ticket.created_at)"></td>
                         <td class="px-6 py-4 text-right">
                             <span
@@ -110,11 +115,32 @@
                             <p class="text-sm text-text-secondary mt-1">
                                 Client: <span class="text-primary" x-text="selectedTicket.client_name"></span> •
                                 Created: <span x-text="formatDate(selectedTicket.created_at)"></span>
+                                <span x-show="selectedTicket.assigned_tech_username"
+                                    class="ml-2 px-2 py-0.5 bg-primary/10 text-primary rounded text-xs border border-primary/20">
+                                    <span class="material-symbols-outlined text-[14px] align-middle mr-1">person</span>
+                                    <span x-text="selectedTicket.assigned_tech_username"></span>
+                                </span>
                             </p>
                         </div>
                         <div class="flex items-center gap-2">
-                            <!-- Status Actions -->
-                            <div class="relative group">
+                            <!-- Claim Button (If Unassigned) -->
+                            <button
+                                x-show="!isAssignedToOther() && !isOwner() && selectedTicket.status !== 'closed' && selectedTicket.status !== 'resolved'"
+                                @click="claimTicket()"
+                                class="px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 rounded-lg text-sm font-medium transition-colors flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm">front_hand</span>
+                                Claim
+                            </button>
+
+                            <!-- Locked Indicator (If Assigned to Other) -->
+                            <div x-show="isAssignedToOther()"
+                                class="flex items-center gap-1 px-3 py-1.5 bg-warning/10 text-warning border border-warning/20 rounded-lg text-sm">
+                                <span class="material-symbols-outlined text-sm">lock</span>
+                                <span>Locked by <span x-text="selectedTicket.assigned_tech_username"></span></span>
+                            </div>
+
+                            <!-- Status Actions (Only if Owner or Unassigned) -->
+                            <div class="relative group" x-show="canModifyStatus()">
                                 <button
                                     class="px-3 py-1.5 bg-surface-2 hover:bg-surface-3 rounded-lg border border-white/10 text-sm font-medium transition-colors">
                                     Change Status
@@ -167,12 +193,25 @@
                     </div>
 
                     <!-- Reply Input -->
-                    <div class="p-4 bg-surface-2/30 border-t border-white/10">
+                    <div class="p-4 bg-surface-2/30 border-t border-white/10 relative">
+                        <!-- Locked Overlay -->
+                        <div x-show="!canReply()"
+                            class="absolute inset-0 bg-surface-1/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                            <div
+                                class="bg-surface-2 border border-border-color px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+                                <span class="material-symbols-outlined text-warning">lock</span>
+                                <span class="text-sm text-text-secondary">Ticket is assigned to <span
+                                        class="text-primary font-bold"
+                                        x-text="selectedTicket.assigned_tech_username"></span></span>
+                            </div>
+                        </div>
+
                         <div class="flex gap-2">
                             <textarea x-model="replyContent"
                                 class="flex-1 bg-surface-1 border border-white/10 rounded-lg p-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"
                                 rows="2" placeholder="Type your reply here..."
-                                @keydown.enter.prevent="if(!$event.shiftKey) sendReply()"></textarea>
+                                @keydown.enter.prevent="if(!$event.shiftKey) sendReply()"
+                                :disabled="!canReply()"></textarea>
 
                             <button @click="sendReply()" :disabled="sendingReply || !replyContent.trim()"
                                 class="px-4 py-2 bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center self-end h-[46px]">

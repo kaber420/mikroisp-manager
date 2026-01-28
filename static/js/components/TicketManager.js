@@ -25,9 +25,40 @@ document.addEventListener('alpine:init', () => {
         // Status Update
         updatingStatus: false,
 
+        // User Context
+        currentUserId: null,
+        currentUserName: null,
+
         // --- Lifecycle ---
         async init() {
             console.log('TicketManager initialized');
+
+            // 1. Get current user
+            try {
+                // Assuming we have an endpoint for this. The plan mentioned /api/users/me
+                // If not available, we might need to rely on a global variable injected by templates or fetch from a known endpoint.
+                // Let's try /api/users/me (standard FastAPI Users) or /api/system/me (if custom).
+                // Based on main.py, FastAPI Users is mounted at /users. So /users/me might be it?
+                // Wait, routers/main.py Includes /users as users_main_api.
+                // Let's double check if we can get ID.
+                // If not, we fall back to a safe assumption or try to grab from DOM if rendered.
+                // Actually, let's fetch /api/users/me if it exists.
+                // Based on standard FastAPI Users, it is usually /users/me. 
+                // But in main.py: app.include_router(fastapi_users.get_users_router..., prefix="/users")
+                // And app.include_router(users_main_api.router, prefix="/api")
+                // Let's rely on /users/me (root-level, from FastAPI Users) or /api/users/me (custom). 
+                // Let's try to fetch from /api/users/me first (custom endpoint) if likely. 
+                // Wait, users_main_api usually has CRUD. 
+                // FastApi Users is at /users/me for reading current user.
+
+                const user = await ApiService.fetchJSON('/users/me');
+                this.currentUserId = user.id;
+                this.currentUserName = user.email || user.username;
+                console.log('Current User:', this.currentUserId);
+            } catch (e) {
+                console.warn('Could not fetch current user:', e);
+            }
+
             await this.loadTickets();
 
             // Auto-refresh every 30s
@@ -128,6 +159,21 @@ document.addEventListener('alpine:init', () => {
                 });
 
                 this.selectedTicket.status = newStatus;
+
+                // Update local ownership state based on status change
+                if (newStatus === 'open') {
+                    this.selectedTicket.assigned_tech_id = null;
+                    this.selectedTicket.assigned_tech_username = null;
+                } else if (!this.selectedTicket.assigned_tech_id && this.currentUserId) {
+                    // Auto-claimed
+                    this.selectedTicket.assigned_tech_id = this.currentUserId;
+                    // We might want to set username too but we might not have it fully (email vs username loop)
+                    // A Reload is safer
+                    await this.openTicket(this.selectedTicket);
+                    showToast(`Status updated to ${newStatus} (Auto-claimed)`, 'success');
+                    return;
+                }
+
                 showToast(`Status updated to ${newStatus}`, 'success');
                 // Optional: Close modal if resolved/closed?
                 // this.closeTicket();
@@ -136,6 +182,38 @@ document.addEventListener('alpine:init', () => {
             } finally {
                 this.updatingStatus = false;
             }
+        },
+
+        async claimTicket() {
+            // Claiming is essentially just assigning (or setting status to pending which triggers auto-claim)
+            // Let's use status update to 'pending' as the "Take" action
+            await this.changeStatus('pending');
+        },
+
+        // --- Computed/Helpers for UI ---
+
+        isOwner() {
+            if (!this.selectedTicket || !this.currentUserId) return false;
+            return this.selectedTicket.assigned_tech_id === this.currentUserId;
+        },
+
+        isAssignedToOther() {
+            if (!this.selectedTicket || !this.selectedTicket.assigned_tech_id) return false;
+            return this.selectedTicket.assigned_tech_id !== this.currentUserId;
+        },
+
+        canReply() {
+            // Can reply if I own it OR if it's unassigned (will auto-claim)
+            if (!this.selectedTicket) return false;
+            if (this.isAssignedToOther()) return false;
+            return true;
+        },
+
+        canModifyStatus() {
+            // Can modify if I own it OR if unassigned
+            if (!this.selectedTicket) return false;
+            if (this.isAssignedToOther()) return false;
+            return true;
         },
 
         // --- Helpers ---

@@ -216,6 +216,17 @@ async def reply_ticket(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
         
+    # Ownership Logic: Block if assigned to someone else
+    if ticket.assigned_tech_id and ticket.assigned_tech_id != current_user.id:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"This ticket is assigned to another technician."
+        )
+
+    # Auto-claim if unassigned
+    if not ticket.assigned_tech_id:
+        ticket.assigned_tech_id = current_user.id
+
     # Create message
     new_msg = TicketMessage(
         ticket_id=ticket.id,
@@ -306,12 +317,27 @@ async def update_ticket_status(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
         
+    # Ownership Check
+    if ticket.assigned_tech_id and ticket.assigned_tech_id != current_user.id:
+         raise HTTPException(
+            status_code=403, 
+            detail=f"This ticket is assigned to another technician."
+        )
+
     ticket.status = status_in.status
     ticket.updated_at = datetime.utcnow()
     
-    # If resolving, ensure assigned_tech is set?
-    if not ticket.assigned_tech_id:
-        ticket.assigned_tech_id = current_user.id
+    # Logic:
+    # 1. If status is 'open', Release ticket (clear assigned_tech_id)
+    # 2. If status is NOT 'open', ensure assigned_tech_id is set (Auto-claim)
+    
+    if ticket.status == 'open':
+        # Release ticket
+        ticket.assigned_tech_id = None
+    else:
+        # If resolving/pending, ensure assigned_tech is set to current user if it was None
+        if not ticket.assigned_tech_id:
+            ticket.assigned_tech_id = current_user.id
         
     session.add(ticket)
     await session.commit()
