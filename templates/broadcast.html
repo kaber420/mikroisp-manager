@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Difusión - µMonitor Pro{% endblock %}
+
+{% block content %}
+<main class="flex-1 p-6 lg:p-8" x-data="botBroadcast">
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-4xl font-bold">Difusión Masiva</h1>
+            <p class="text-text-secondary mt-2">Envía mensajes a clientes, prospectos o a todos los usuarios.</p>
+        </div>
+    </div>
+
+    <div class="glass-card rounded-2xl border-0 p-6 max-w-3xl">
+        <!-- Decoration -->
+        <div
+            class="absolute top-0 right-0 -mr-16 -mt-16 w-32 h-32 bg-primary/20 blur-3xl rounded-full pointer-events-none">
+        </div>
+
+        <div class="mb-6 relative z-10">
+            <label class="block text-sm font-medium text-text-secondary mb-2">Destinatarios</label>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+
+                <label class="cursor-pointer relative group">
+                    <input type="radio" name="target" value="all_clients" x-model="target_group" class="peer sr-only">
+                    <div
+                        class="p-3 rounded-lg border border-border-color bg-surface-2 hover:bg-surface-3 peer-checked:border-primary peer-checked:bg-primary/10 transition-all text-center h-full flex flex-col items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-2xl"
+                            :class="target_group === 'all_clients' ? 'text-primary' : 'text-text-secondary'">groups</span>
+                        <span class="text-sm font-medium"
+                            :class="target_group === 'all_clients' ? 'text-primary' : 'text-text-primary'">Solo
+                            Clientes</span>
+                    </div>
+                </label>
+
+                <label class="cursor-pointer relative group">
+                    <input type="radio" name="target" value="prospects" x-model="target_group" class="peer sr-only">
+                    <div
+                        class="p-3 rounded-lg border border-border-color bg-surface-2 hover:bg-surface-3 peer-checked:border-secondary peer-checked:bg-secondary/10 transition-all text-center h-full flex flex-col items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-2xl"
+                            :class="target_group === 'prospects' ? 'text-secondary' : 'text-text-secondary'">person_add</span>
+                        <span class="text-sm font-medium"
+                            :class="target_group === 'prospects' ? 'text-secondary' : 'text-text-primary'">Prospectos</span>
+                    </div>
+                </label>
+
+                <label class="cursor-pointer relative group">
+                    <input type="radio" name="target" value="all" x-model="target_group" class="peer sr-only">
+                    <div
+                        class="p-3 rounded-lg border border-border-color bg-surface-2 hover:bg-surface-3 peer-checked:border-accent peer-checked:bg-accent/10 transition-all text-center h-full flex flex-col items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-2xl"
+                            :class="target_group === 'all' ? 'text-accent' : 'text-text-secondary'">public</span>
+                        <span class="text-sm font-medium"
+                            :class="target_group === 'all' ? 'text-accent' : 'text-text-primary'">Todos</span>
+                    </div>
+                </label>
+
+            </div>
+            <p class="text-xs text-text-secondary mt-2 px-1" x-show="target_group === 'prospects'">
+                <span class="material-symbols-outlined text-[14px] align-middle mr-1">info</span>
+                Personas que iniciaron el bot pero <strong>no</strong> han iniciado sesión con su cuenta de cliente.
+            </p>
+        </div>
+
+        <div class="mb-6 relative z-10">
+            <label class="block text-sm font-medium text-text-secondary mb-2">Mensaje</label>
+            <div class="relative">
+                <textarea x-model="message" rows="6"
+                    class="w-full bg-surface-1 border border-border-color rounded-lg px-4 py-3 text-text-primary focus:outline-none focus:border-primary transition-colors resize-none"
+                    placeholder="Escribe tu mensaje aquí..."></textarea>
+                <div class="absolute bottom-3 right-3 text-xs text-text-secondary">
+                    <span x-text="message.length">0</span> caracteres
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-6 relative z-10" x-data="{ imageError: false }">
+            <label class="block text-sm font-medium text-text-secondary mb-2">
+                Imagen (Opcional)
+                <span class="text-xs text-text-secondary font-normal ml-2">URL pública (JPG/PNG)</span>
+            </label>
+            <div class="flex gap-3">
+                <div class="flex-grow relative">
+                    <span
+                        class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">image</span>
+                    <input type="url" x-model="image_url" @input="imageError = false"
+                        class="w-full bg-surface-1 border border-border-color rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:outline-none focus:border-primary transition-colors"
+                        :class="{'border-danger': imageError}" placeholder="https://ejemplo.com/imagen.jpg">
+                </div>
+                <button @click="previewMode = !previewMode"
+                    class="px-3 py-2 bg-surface-2 border border-border-color rounded-lg hover:bg-surface-3 transition-colors text-text-secondary"
+                    :class="previewMode ? 'text-primary border-primary' : ''" title="Previsualizar">
+                    <span class="material-symbols-outlined">visibility</span>
+                </button>
+            </div>
+
+            <p x-show="imageError && image_url" class="text-xs text-danger mt-1">
+                La URL parece inválida o no es accesible.
+            </p>
+
+            <!-- Image Preview -->
+            <div x-show="previewMode && image_url && !imageError"
+                class="mt-4 rounded-lg overflow-hidden border border-border-color bg-black/20" x-transition>
+                <img :src="image_url" class="w-full h-48 object-cover opacity-80 hover:opacity-100 transition-opacity"
+                    @error="imageError = true">
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-white/5 relative z-10">
+            <span class="text-sm text-text-secondary mr-auto" x-show="lastResult">
+                Último envío: <span class="text-success" x-text="lastResult?.recipient_count + ' destinatarios'"></span>
+            </span>
+
+            <button @click="send" :disabled="sending || !message"
+                class="btn-primary flex items-center gap-2 px-6 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed">
+                <span x-show="sending" class="animate-spin material-symbols-outlined text-sm">progress_activity</span>
+                <span x-show="!sending" class="material-symbols-outlined text-sm">send</span>
+                <span x-text="sending ? 'Enviando...' : 'Enviar Broadcast'"></span>
+            </button>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='/js/components/settings/BotBroadcast.js') }}"></script>
+{% endblock %}

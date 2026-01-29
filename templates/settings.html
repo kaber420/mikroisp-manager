@@ -22,6 +22,12 @@
                 <span class="material-symbols-outlined text-lg">security</span>
                 Auditoría
             </button>
+            <button type="button" @click="$store.settings.setTab('bot'); $dispatch('tab-activated', 'bot')"
+                :class="$store.settings.activeTab === 'bot' ? 'active' : ''"
+                class="tab-button py-3 px-6 text-sm font-semibold flex items-center gap-2">
+                <span class="material-symbols-outlined text-lg">smart_toy</span>
+                Bot Config
+            </button>
         </div>
 
         <!-- TAB 1: Configuration -->
@@ -98,7 +104,8 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/10 pt-6">
                         <div>
                             <label for="telegram_bot_token"
-                                class="block text-sm font-medium mb-2 text-text-secondary">Tech Bot Token / Alerter</label>
+                                class="block text-sm font-medium mb-2 text-text-secondary">Tech Bot Token /
+                                Alerter</label>
                             <input type="password" id="telegram_bot_token" x-model="telegram_bot_token"
                                 name="telegram_bot_token"
                                 class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
@@ -433,12 +440,108 @@
                 </div>
             </div>
         </div>
-    </div>
-</main>
-{% endblock %}
 
-{% block scripts %}
-<script nonce="{{ request.state.csp_nonce }}" src="/static/js/stores/SettingsStore.js" defer></script>
-<script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/settings/GeneralSettings.js" defer></script>
-<script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/settings/AuditLogs.js" defer></script>
-{% endblock %}
+        <!-- TAB 3: Bot Config -->
+        <div x-show="$store.settings.activeTab === 'bot'">
+            <form x-data="botSettings()" @submit.prevent="save()" class="glass-card rounded-2xl border-0">
+                <div class="p-8 space-y-8">
+
+                    <div>
+                        <h3 class="text-lg font-semibold text-white">Mensajes de Bienvenida</h3>
+                        <p class="text-sm text-text-secondary mt-1">Personaliza los mensajes iniciales del bot.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-6 border-t border-white/10 pt-6">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label for="bot_welcome_msg_client"
+                                    class="block text-sm font-medium text-text-secondary">Saludo (Cliente)</label>
+                                <button type="button" @click="insertVariable('bot_welcome_msg_client', '{name}')"
+                                    class="text-xs text-primary hover:text-primary-hover font-mono bg-primary/10 px-2 py-1 rounded">+
+                                    {name}</button>
+                            </div>
+                            <textarea id="bot_welcome_msg_client" x-model="bot_welcome_msg_client"
+                                name="bot_welcome_msg_client" rows="3"
+                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 text-white font-mono text-sm"></textarea>
+                            <p class="text-xs text-text-secondary mt-1">Se muestra cuando el usuario YA está vinculado.
+                            </p>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label for="bot_welcome_msg_guest"
+                                    class="block text-sm font-medium text-text-secondary">Saludo (Invitado)</label>
+                                <button type="button" @click="insertVariable('bot_welcome_msg_guest', '{user_id}')"
+                                    class="text-xs text-primary hover:text-primary-hover font-mono bg-primary/10 px-2 py-1 rounded">+
+                                    {user_id}</button>
+                            </div>
+                            <textarea id="bot_welcome_msg_guest" x-model="bot_welcome_msg_guest"
+                                name="bot_welcome_msg_guest" rows="4"
+                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 text-white font-mono text-sm"></textarea>
+                            <p class="text-xs text-text-secondary mt-1">Se muestra a usuarios desconocidos. Debe incluir
+                                {user_id} para que puedan reportarlo.</p>
+                        </div>
+                    </div>
+
+                    <div class="pt-6 border-t border-white/10">
+                        <h3 class="text-lg font-semibold text-white">Textos de Botones</h3>
+                        <p class="text-sm text-text-secondary mt-1">Personaliza el texto de los botones del menú
+                            principal.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/10 pt-6">
+                        <div>
+                            <label for="bot_val_btn_report"
+                                class="block text-sm font-medium mb-2 text-text-secondary">Botón: Reportar Falla</label>
+                            <input type="text" id="bot_val_btn_report" x-model="bot_val_btn_report"
+                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                        </div>
+                        <div>
+                            <label for="bot_val_btn_status"
+                                class="block text-sm font-medium mb-2 text-text-secondary">Botón: Ver Tickets</label>
+                            <input type="text" id="bot_val_btn_status" x-model="bot_val_btn_status"
+                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                        </div>
+                        <div>
+                            <label for="bot_val_btn_wifi"
+                                class="block text-sm font-medium mb-2 text-text-secondary">Botón: Clave WiFi</label>
+                            <input type="text" id="bot_val_btn_wifi" x-model="bot_val_btn_wifi"
+                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                        </div>
+                        <div>
+                            <label for="bot_val_btn_agent"
+                                class="block text-sm font-medium mb-2 text-text-secondary">Botón: Agente Humano</label>
+                            <input type="text" id="bot_val_btn_agent" x-model="bot_val_btn_agent"
+                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="p-6 bg-white/5 rounded-b-lg flex justify-end gap-4 items-center">
+                    <span x-show="$store.settings.saveStatus.visible" x-transition
+                        x-text="$store.settings.saveStatus.message"
+                        :class="$store.settings.saveStatus.type === 'success' ? 'text-success' : 'text-danger'"
+                        class="text-sm"></span>
+                    <button type="submit" :disabled="$store.settings.isLoading"
+                        class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary-hover flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50">
+                        <span x-show="$store.settings.isLoading"
+                            class="material-symbols-outlined text-base animate-spin">sync</span>
+                        Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+        <!-- TAB 4: Broadcast -->
+
+        {% endblock %}
+
+        {% block scripts %}
+        <script nonce="{{ request.state.csp_nonce }}" src="/static/js/stores/SettingsStore.js" defer></script>
+        <script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/settings/GeneralSettings.js"
+            defer></script>
+        <script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/settings/BotSettings.js"
+            defer></script>
+
+        <script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/settings/AuditLogs.js" defer></script>
+        {% endblock %}

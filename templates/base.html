@@ -175,6 +175,18 @@
                         <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap">Tickets</span>
                     </a>
                     {% endif %}
+
+                    {% if user and user.role == 'admin' %}
+                    <a href="/broadcast"
+                        class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == 'broadcast' %}active{% endif %}"
+                        :class="collapsed ? 'justify-center' : ''">
+                        <div x-show="collapsed"
+                            class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">
+                            Difusión</div>
+                        <span class="material-symbols-outlined text-2xl">campaign</span>
+                        <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap">Difusión</span>
+                    </a>
+                    {% endif %}
                 </nav>
 
                 {% if user and user.role == 'admin' %}

@@ -249,3 +249,10 @@ async def read_guide_page(request: Request, current_user: User = Depends(get_cur
         {"request": request, "active_page": "guia", "user": current_user},
     )
 
+
+@router.get("/broadcast", response_class=HTMLResponse, tags=["Auth & Pages"])
+async def read_broadcast_page(request: Request, current_user: User = Depends(require_admin)):
+    """Broadcast messaging page for sending Telegram messages"""
+    return templates.TemplateResponse(
+        "broadcast.html", {"request": request, "active_page": "broadcast", "user": current_user}
+    )

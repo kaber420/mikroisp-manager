@@ -13,28 +13,33 @@ from app.db.engine_sync import sync_engine as engine
 from app.models.client import Client
 
 from app.bot.core.ticket_manager import crear_ticket, obtener_tickets, agregar_respuesta_a_ticket, TicketLimitExceeded
-from app.bot.core.utils import get_client_by_telegram_id, sanitize_input
+from app.bot.core.ticket_manager import crear_ticket, obtener_tickets, agregar_respuesta_a_ticket, TicketLimitExceeded
+from app.bot.core.utils import get_client_by_telegram_id, sanitize_input, get_bot_setting, upsert_bot_user
 
 logger = logging.getLogger(__name__)
 
 # Estados
 (MENU_PRINCIPAL, AWAITING_FALLA, AWAITING_NEW_PASSWORD) = range(3)
-BTN_REPORTAR = "📞 Reportar Falla / Solicitar Ayuda"
-BTN_VER_ESTADO = "📋 Ver Mis Tickets"
-BTN_SOLICITAR_AGENTE = "🙋 Solicitar Agente Humano"
-BTN_SOLICITAR_AGENTE = "🙋 Solicitar Agente Humano"
-BTN_CAMBIAR_CLAVE = "🔑 Solicitar Cambio Clave WiFi"
+BTN_REPORTAR_DEFAULT = "📞 Reportar Falla / Solicitar Ayuda"
+BTN_VER_ESTADO_DEFAULT = "📋 Ver Mis Tickets"
+BTN_SOLICITAR_AGENTE_DEFAULT = "🙋 Solicitar Agente Humano"
+BTN_CAMBIAR_CLAVE_DEFAULT = "🔑 Solicitar Cambio Clave WiFi"
 
 # Security
 user_last_message_time = {}
 THROTTLE_SECONDS = 3.0
 
 def get_main_keyboard_markup() -> ReplyKeyboardMarkup:
+    btn_report = get_bot_setting("bot_val_btn_report", BTN_REPORTAR_DEFAULT)
+    btn_status = get_bot_setting("bot_val_btn_status", BTN_VER_ESTADO_DEFAULT)
+    btn_wifi = get_bot_setting("bot_val_btn_wifi", BTN_CAMBIAR_CLAVE_DEFAULT)
+    btn_agent = get_bot_setting("bot_val_btn_agent", BTN_SOLICITAR_AGENTE_DEFAULT)
+
     keyboard = [
-        [BTN_REPORTAR], 
-        [BTN_VER_ESTADO], 
-        [BTN_CAMBIAR_CLAVE],
-        [BTN_SOLICITAR_AGENTE]
+        [btn_report], 
+        [btn_status], 
+        [btn_wifi],
+        [btn_agent]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
@@ -43,21 +48,25 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     user = update.effective_user
     user_id = str(user.id)
     client = get_client_by_telegram_id(user_id)
+    
+    # Track user/prospect
+    upsert_bot_user(user, client.id if client else None)
 
     if client:
+        welcome_msg = get_bot_setting("bot_welcome_msg_client", "¡Hola de nuevo, {name}! 👋\n\n¿En qué podemos ayudarte?")
+        # Simple string formatting for dynamic values
+        welcome_msg = welcome_msg.replace("{name}", client.name)
+        
         await update.message.reply_text(
-            f"¡Hola de nuevo, {client.name}! 👋\n\n¿En qué podemos ayudarte?",
+            welcome_msg,
             reply_markup=get_main_keyboard_markup()
         )
         return MENU_PRINCIPAL
     else:
-        mensaje_registro = (
-            "Hola, bienvenido. 👋\n\n"
-            "Parece que tu cuenta de Telegram no está vinculada.\n"
-            "Por favor, comparte este ID con soporte:\n"
-            f"`{user_id}`"
-        )
-        await update.message.reply_text(mensaje_registro, parse_mode="Markdown")
+        welcome_guest = get_bot_setting("bot_welcome_msg_guest", "Hola, bienvenido. 👋\n\nParece que tu cuenta de Telegram no está vinculada.\nPor favor, comparte este ID con soporte:\n`{user_id}`")
+        welcome_guest = welcome_guest.replace("{user_id}", user_id)
+        
+        await update.message.reply_text(welcome_guest, parse_mode="Markdown")
         return ConversationHandler.END
 
 async def reportar_falla(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -307,17 +316,42 @@ async def cancelar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def show_menu_if_client(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Menú:", reply_markup=get_main_keyboard_markup())
 
+async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """
+    Dispatcher manual para los botones del menú, permitiendo nombres dinámicos.
+    """
+    # Track user interaction updates
+    user = update.effective_user
+    client = get_client_by_telegram_id(str(user.id))
+    upsert_bot_user(user, client.id if client else None)
+    
+    text = update.message.text
+    
+    # Obtener valores actuales de botones para comparar
+    btn_report = get_bot_setting("bot_val_btn_report", BTN_REPORTAR_DEFAULT)
+    btn_status = get_bot_setting("bot_val_btn_status", BTN_VER_ESTADO_DEFAULT)
+    btn_agent = get_bot_setting("bot_val_btn_agent", BTN_SOLICITAR_AGENTE_DEFAULT)
+    btn_wifi = get_bot_setting("bot_val_btn_wifi", BTN_CAMBIAR_CLAVE_DEFAULT)
+    
+    if text == btn_report:
+        return await reportar_falla(update, context)
+    elif text == btn_status:
+        return await ver_estado(update, context)
+    elif text == btn_agent:
+        return await solicitar_agente(update, context)
+    elif text == btn_wifi:
+        return await solicitar_cambio_clave(update, context)
+    else:
+        # Si no es ningún botón, asumir que es chat
+        return await handle_chat_messages(update, context)
+
 main_menu_conv_handler = ConversationHandler(
     entry_points=[CommandHandler("start", start_command)],
     states={
         MENU_PRINCIPAL: [
             CommandHandler("start", start_command),
-            MessageHandler(filters.Regex(f"^{BTN_REPORTAR}"), reportar_falla),
-            MessageHandler(filters.Regex(f"^{BTN_VER_ESTADO}"), ver_estado),
-            MessageHandler(filters.Regex(f"^{BTN_SOLICITAR_AGENTE}"), solicitar_agente),
-            MessageHandler(filters.Regex(f"^{BTN_CAMBIAR_CLAVE}"), solicitar_cambio_clave),
-            # Allow chat processing even while in menu state
-            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_chat_messages),
+            # Usamos un handler genérico de texto para el menú
+            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_selection),
         ],
         AWAITING_FALLA: [MessageHandler(filters.TEXT & ~filters.COMMAND, guardar_solicitud)],
         AWAITING_NEW_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, guardar_nueva_clave)],
