@@ -22,6 +22,7 @@ class BroadcastRequest(BaseModel):
     message: str
     target_type: Literal["clients", "technicians"]
     zone_ids: Optional[List[int]] = None
+    staff_roles: Optional[List[str]] = None
     image_url: Optional[str] = None
 
 async def send_broadcast_task(token: str, chat_ids: List[str], message: str, image_url: Optional[str] = None):
@@ -116,13 +117,7 @@ async def send_broadcast(
         chat_ids.update(valid_contacts)
         
     elif request.target_type == "technicians":
-        # Logic for technicians - they are Users with specific roles and telegram_chat_id
-        # Use tech bot token if available, otherwise fall back or error?
-        # Usually tech bot is different. Let's try to get it from env if not in settings, 
-        # or use client bot if it's the same bot (unlikely).
-        # For now, let's look for the token in environment if not in settings db, 
-        # but the code above tries to get it from settings.
-        
+
         import os
         if not tech_bot_token:
              # Fallback to env var mainly for dev/legacy
@@ -134,8 +129,12 @@ async def send_broadcast(
         token_to_use = tech_bot_token
         
         # Get users with telegram_chat_id
-        # Optionally filter by role if needed, but currently "technicians" target implies all staff with telegram
         statement = select(User.telegram_chat_id).where(User.telegram_chat_id != None)
+        
+        # Filter by roles if provided
+        if request.staff_roles:
+            statement = statement.where(col(User.role).in_(request.staff_roles))
+
         result = await session.execute(statement)
         valid_contacts = [c for c in result.scalars().all() if c and c.strip()]
         chat_ids.update(valid_contacts)

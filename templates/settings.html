@@ -97,34 +97,7 @@
                         </div>
                     </div>
 
-                    <div class="pt-6 border-t border-white/10">
-                        <h3 class="text-lg font-semibold text-white">Telegram Alerts</h3>
-                        <p class="text-sm text-text-secondary mt-1">Configure your Telegram Bot.</p>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/10 pt-6">
-                        <div>
-                            <label for="telegram_bot_token"
-                                class="block text-sm font-medium mb-2 text-text-secondary">Tech Bot Token /
-                                Alerter</label>
-                            <input type="password" id="telegram_bot_token" x-model="telegram_bot_token"
-                                name="telegram_bot_token"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
-                        </div>
-                        <div>
-                            <label for="client_bot_token"
-                                class="block text-sm font-medium mb-2 text-text-secondary">Client Bot Token</label>
-                            <input type="password" id="client_bot_token" x-model="client_bot_token"
-                                name="client_bot_token"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
-                        </div>
-                        <div>
-                            <label for="telegram_chat_id"
-                                class="block text-sm font-medium mb-2 text-text-secondary">Chat
-                                ID</label>
-                            <input type="text" id="telegram_chat_id" x-model="telegram_chat_id" name="telegram_chat_id"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
-                        </div>
-                    </div>
+
 
                     <div class="pt-6 border-t border-white/10">
                         <h3 class="text-lg font-semibold text-white">Monitoring & Backups</h3>
@@ -446,7 +419,47 @@
             <form x-data="botSettings()" @submit.prevent="save()" class="glass-card rounded-2xl border-0">
                 <div class="p-8 space-y-8">
 
+                    <!-- Bot Tokens Section -->
                     <div>
+                        <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">key</span>
+                            Tokens de Bots
+                        </h3>
+                        <p class="text-sm text-text-secondary mt-1">Configura los tokens de Telegram para los bots de
+                            cliente y técnicos.</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/10 pt-6">
+                        <div>
+                            <label for="telegram_bot_token"
+                                class="block text-sm font-medium mb-2 text-text-secondary">Bot Técnicos /
+                                Alertas</label>
+                            <input type="password" id="telegram_bot_token" x-model="telegram_bot_token"
+                                name="telegram_bot_token"
+                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white"
+                                placeholder="123456:ABC-DEF...">
+                            <p class="text-xs text-text-secondary mt-1">Token del bot de técnicos y alertas internas.
+                            </p>
+                        </div>
+                        <div>
+                            <label for="client_bot_token" class="block text-sm font-medium mb-2 text-text-secondary">Bot
+                                Clientes</label>
+                            <input type="password" id="client_bot_token" x-model="client_bot_token"
+                                name="client_bot_token"
+                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white"
+                                placeholder="123456:ABC-DEF...">
+                            <p class="text-xs text-text-secondary mt-1">Token del bot público para clientes.</p>
+                        </div>
+                        <div>
+                            <label for="telegram_chat_id"
+                                class="block text-sm font-medium mb-2 text-text-secondary">Chat ID Alertas</label>
+                            <input type="text" id="telegram_chat_id" x-model="telegram_chat_id" name="telegram_chat_id"
+                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white"
+                                placeholder="-123456789">
+                            <p class="text-xs text-text-secondary mt-1">ID del grupo/canal para alertas del sistema.</p>
+                        </div>
+                    </div>
+
+                    <div class="pt-6 border-t border-white/10">
                         <h3 class="text-lg font-semibold text-white">Mensajes de Bienvenida</h3>
                         <p class="text-sm text-text-secondary mt-1">Personaliza los mensajes iniciales del bot.</p>
                     </div>

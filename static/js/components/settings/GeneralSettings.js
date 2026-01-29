@@ -12,9 +12,7 @@ document.addEventListener('alpine:init', () => {
         company_logo_url: '',
         billing_address: '',
         ticket_footer_message: '',
-        telegram_bot_token: '',
-        telegram_chat_id: '',
-        client_bot_token: '',
+
         default_monitor_interval: '',
         monitor_max_workers: '',
         dashboard_refresh_interval: '',
@@ -58,9 +56,7 @@ document.addEventListener('alpine:init', () => {
                 company_logo_url: this.company_logo_url,
                 billing_address: this.billing_address,
                 ticket_footer_message: this.ticket_footer_message,
-                telegram_bot_token: this.telegram_bot_token,
-                telegram_chat_id: this.telegram_chat_id,
-                client_bot_token: this.client_bot_token,
+
                 default_monitor_interval: this.default_monitor_interval,
                 monitor_max_workers: this.monitor_max_workers,
                 dashboard_refresh_interval: this.dashboard_refresh_interval,

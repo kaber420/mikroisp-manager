@@ -5,6 +5,11 @@
 
 document.addEventListener('alpine:init', () => {
     Alpine.data('botSettings', () => ({
+        // Bot Token fields
+        telegram_bot_token: '',
+        client_bot_token: '',
+        telegram_chat_id: '',
+
         // Form fields with default values
         bot_welcome_msg_client: '',
         bot_welcome_msg_guest: '',
@@ -19,7 +24,12 @@ document.addEventListener('alpine:init', () => {
                 // Fetch all settings from store (cached or fresh)
                 const settings = await this.$store.settings.fetchSettings();
 
-                // Populate fields
+                // Populate token fields
+                this.telegram_bot_token = settings.telegram_bot_token || '';
+                this.client_bot_token = settings.client_bot_token || '';
+                this.telegram_chat_id = settings.telegram_chat_id || '';
+
+                // Populate message fields
                 this.bot_welcome_msg_client = settings.bot_welcome_msg_client || "¡Hola de nuevo, {name}! 👋\n\n¿En qué podemos ayudarte?";
                 this.bot_welcome_msg_guest = settings.bot_welcome_msg_guest || "Hola, bienvenido. 👋\n\nParece que tu cuenta de Telegram no está vinculada.\nPor favor, comparte este ID con soporte:\n`{user_id}`";
                 this.bot_val_btn_report = settings.bot_val_btn_report || "📞 Reportar Falla / Solicitar Ayuda";
@@ -35,6 +45,11 @@ document.addEventListener('alpine:init', () => {
         // Save settings
         async save() {
             const settingsData = {
+                // Token settings
+                telegram_bot_token: this.telegram_bot_token,
+                client_bot_token: this.client_bot_token,
+                telegram_chat_id: this.telegram_chat_id,
+                // Message settings
                 bot_welcome_msg_client: this.bot_welcome_msg_client,
                 bot_welcome_msg_guest: this.bot_welcome_msg_guest,
                 bot_val_btn_report: this.bot_val_btn_report,

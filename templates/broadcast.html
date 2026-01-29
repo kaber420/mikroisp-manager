@@ -7,7 +7,7 @@
     <div class="flex items-center justify-between mb-8">
         <div>
             <h1 class="text-4xl font-bold">Difusión Masiva</h1>
-            <p class="text-text-secondary mt-2">Envía mensajes a clientes, prospectos o a todos los usuarios.</p>
+            <p class="text-text-secondary mt-2">Envía mensajes a clientes segmentados por zona o al equipo técnico.</p>
         </div>
     </div>
 
@@ -17,72 +17,134 @@
             class="absolute top-0 right-0 -mr-16 -mt-16 w-32 h-32 bg-primary/20 blur-3xl rounded-full pointer-events-none">
         </div>
 
-        <div class="mb-6 relative z-10">
-            <label class="block text-sm font-medium text-text-secondary mb-4">Destinatarios</label>
+        <div class="mb-8 relative z-10">
+            <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Seleccionar
+                Destinatarios</h2>
 
-            <!-- Type Tabs -->
-            <div class="flex p-1 bg-surface-2 rounded-lg mb-6 w-fit">
-                <button @click="target_type = 'clients'" class="px-4 py-2 rounded-md text-sm font-medium transition-all"
-                    :class="target_type === 'clients' ? 'bg-primary text-white shadow-lg' : 'text-text-secondary hover:text-text-primary'">
-                    Clientes
+            <!-- Type Tabs (Styled as Cards) -->
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <!-- Clients Tab -->
+                <button @click="target_type = 'clients'"
+                    class="relative p-4 rounded-xl border transition-all text-left flex flex-col gap-2 group overflow-hidden"
+                    :class="target_type === 'clients' 
+                        ? 'bg-primary/10 border-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)]' 
+                        : 'bg-surface-2 border-transparent hover:bg-surface-3'">
+
+                    <div class="flex items-center justify-between">
+                        <span class="p-2 rounded-lg transition-colors"
+                            :class="target_type === 'clients' ? 'bg-primary text-white' : 'bg-surface-3 text-text-secondary'">
+                            <span class="material-symbols-outlined text-xl">groups</span>
+                        </span>
+                        <div x-show="target_type === 'clients'"
+                            class="w-3 h-3 rounded-full bg-primary shadow shadow-primary"></div>
+                    </div>
+
+                    <div>
+                        <span class="block font-bold text-lg"
+                            :class="target_type === 'clients' ? 'text-primary' : 'text-text-primary'">Clientes</span>
+                        <span class="text-xs text-text-secondary">Difusión a usuarios del servicio</span>
+                    </div>
                 </button>
+
+                <!-- Staff Tab -->
                 <button @click="target_type = 'technicians'"
-                    class="px-4 py-2 rounded-md text-sm font-medium transition-all"
-                    :class="target_type === 'technicians' ? 'bg-secondary text-white shadow-lg' : 'text-text-secondary hover:text-text-primary'">
-                    Técnicos
+                    class="relative p-4 rounded-xl border transition-all text-left flex flex-col gap-2 group overflow-hidden"
+                    :class="target_type === 'technicians' 
+                        ? 'bg-secondary/10 border-secondary shadow-[0_0_20px_rgba(var(--secondary-rgb),0.1)]' 
+                        : 'bg-surface-2 border-transparent hover:bg-surface-3'">
+
+                    <div class="flex items-center justify-between">
+                        <span class="p-2 rounded-lg transition-colors"
+                            :class="target_type === 'technicians' ? 'bg-secondary text-white' : 'bg-surface-3 text-text-secondary'">
+                            <span class="material-symbols-outlined text-xl">badge</span>
+                        </span>
+                        <div x-show="target_type === 'technicians'"
+                            class="w-3 h-3 rounded-full bg-secondary shadow shadow-secondary"></div>
+                    </div>
+
+                    <div>
+                        <span class="block font-bold text-lg"
+                            :class="target_type === 'technicians' ? 'text-secondary' : 'text-text-primary'">Personal
+                            (Staff)</span>
+                        <span class="text-xs text-text-secondary">Técnicos, Cobranza, Admins</span>
+                    </div>
                 </button>
             </div>
 
-            <!-- Clients - Zone Selector -->
-            <div x-show="target_type === 'clients'" x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
-                <div class="flex flex-col gap-3">
-                    <label
-                        class="flex items-center gap-3 p-3 rounded-xl border border-border-color bg-surface-2/50 cursor-pointer hover:bg-surface-2 transition-colors">
+            <!-- Content Area: Clients -->
+            <div x-show="target_type === 'clients'" x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+                <div class="bg-surface-2/30 rounded-xl p-5 border border-border-color/50">
+                    <label class="flex items-center gap-3 mb-4 cursor-pointer w-fit group">
                         <input type="checkbox" x-model="all_zones"
-                            class="w-5 h-5 rounded border-border-color bg-surface-1 text-primary focus:ring-primary focus:ring-offset-surface-1">
-                        <div>
-                            <span class="block font-medium text-text-primary">Todas las Zonas</span>
-                            <span class="block text-xs text-text-secondary">Enviar a todos los clientes
-                                vinculados</span>
-                        </div>
+                            class="w-5 h-5 rounded border-border-color bg-surface-1 text-primary focus:ring-primary focus:ring-offset-0">
+                        <span class="font-medium text-text-primary group-hover:text-primary transition-colors">Todas las
+                            Zonas</span>
                     </label>
 
-                    <div x-show="!all_zones" class="p-4 border border-border-color rounded-xl bg-surface-1/50">
-                        <p class="text-xs text-text-secondary mb-3 uppercase tracking-wider font-semibold">Seleccionar
-                            Zonas</p>
-                        <div
-                            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                            <template x-if="available_zones.length === 0">
-                                <div class="col-span-full text-center py-4 text-text-secondary italic">
-                                    <span class="material-symbols-outlined block text-2xl mb-1">travel_explore</span>
-                                    Cargando zonas...
-                                </div>
-                            </template>
-                            <template x-for="zone in available_zones" :key="zone.id">
-                                <label
-                                    class="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-2 cursor-pointer group transition-colors">
-                                    <input type="checkbox" :value="zone.id" x-model="selected_zones"
-                                        class="rounded border-border-color bg-surface-1 text-primary focus:ring-primary">
-                                    <span x-text="zone.name"
-                                        class="text-sm text-text-primary group-hover:text-primary transition-colors"></span>
-                                </label>
-                            </template>
-                        </div>
+                    <div x-show="!all_zones" x-transition
+                        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                        <template x-if="available_zones.length === 0">
+                            <div class="col-span-full flex flex-col items-center py-6 text-text-secondary">
+                                <span class="material-symbols-outlined text-3xl mb-2 opacity-50">travel_explore</span>
+                                <span class="text-sm">Cargando zonas disponibles...</span>
+                            </div>
+                        </template>
+                        <template x-for="zone in available_zones" :key="zone.id">
+                            <label
+                                class="flex items-center gap-3 p-3 rounded-lg bg-surface-1/50 border border-transparent hover:border-primary/30 hover:bg-surface-1 cursor-pointer transition-all">
+                                <input type="checkbox" :value="zone.id" x-model="selected_zones"
+                                    class="w-4 h-4 rounded border-border-color bg-surface-2 text-primary focus:ring-primary focus:ring-offset-0">
+                                <span x-text="zone.name" class="text-sm text-text-primary"></span>
+                            </label>
+                        </template>
                     </div>
                 </div>
             </div>
 
-            <!-- Previews / Info -->
-            <div x-show="target_type === 'technicians'" x-transition
-                class="p-4 rounded-xl bg-secondary/10 border border-secondary/20 flex items-start gap-4">
-                <div class="p-2 bg-secondary/20 rounded-lg text-secondary">
-                    <span class="material-symbols-outlined text-xl">engineering</span>
-                </div>
-                <div>
-                    <h4 class="text-secondary font-medium mb-1">Difusión a Personal Técnico</h4>
-                    <p class="text-sm text-text-secondary">El mensaje se enviará a todos los administradores y técnicos
-                        con Telegram configurado en sus perfiles.</p>
+            <!-- Content Area: Staff Roles -->
+            <div x-show="target_type === 'technicians'" x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+                <div class="bg-secondary/5 rounded-xl p-4 border border-secondary/20">
+                    <div class="flex items-center justify-between flex-wrap gap-3">
+                        <p class="text-sm font-medium text-secondary flex items-center gap-2">
+                            <span class="material-symbols-outlined text-lg">filter_alt</span>
+                            Roles:
+                        </p>
+
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <!-- Admin -->
+                            <label
+                                class="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all text-sm"
+                                :class="staff_roles.admin ? 'border-secondary bg-secondary/10 text-secondary' : 'border-border-color bg-surface-1 text-text-secondary hover:border-secondary/50'">
+                                <input type="checkbox" x-model="staff_roles.admin"
+                                    class="w-4 h-4 rounded border-border-color bg-surface-2 text-secondary focus:ring-secondary focus:ring-offset-0">
+                                <span
+                                    class="material-symbols-outlined text-base text-red-500">admin_panel_settings</span>
+                                Admin
+                            </label>
+
+                            <!-- Technician -->
+                            <label
+                                class="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all text-sm"
+                                :class="staff_roles.technician ? 'border-secondary bg-secondary/10 text-secondary' : 'border-border-color bg-surface-1 text-text-secondary hover:border-secondary/50'">
+                                <input type="checkbox" x-model="staff_roles.technician"
+                                    class="w-4 h-4 rounded border-border-color bg-surface-2 text-secondary focus:ring-secondary focus:ring-offset-0">
+                                <span class="material-symbols-outlined text-base text-blue-500">build</span>
+                                Técnico
+                            </label>
+
+                            <!-- Billing -->
+                            <label
+                                class="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all text-sm"
+                                :class="staff_roles.billing ? 'border-secondary bg-secondary/10 text-secondary' : 'border-border-color bg-surface-1 text-text-secondary hover:border-secondary/50'">
+                                <input type="checkbox" x-model="staff_roles.billing"
+                                    class="w-4 h-4 rounded border-border-color bg-surface-2 text-secondary focus:ring-secondary focus:ring-offset-0">
+                                <span class="material-symbols-outlined text-base text-green-500">payments</span>
+                                Cobranza
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

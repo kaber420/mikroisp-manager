@@ -11,6 +11,13 @@ document.addEventListener('alpine:init', () => {
         selected_zones: [],
         available_zones: [],
 
+        // Technician/Staff roles
+        staff_roles: {
+            'admin': true,
+            'technician': true,
+            'billing': true
+        },
+
         image_url: '',
         previewMode: false,
         sending: false,
@@ -34,7 +41,13 @@ document.addEventListener('alpine:init', () => {
 
         get targetLabel() {
             if (this.target_type === 'technicians') {
-                return 'Técnicos y Administradores';
+                const roles = Object.keys(this.staff_roles).filter(k => this.staff_roles[k]);
+                if (roles.length === 3) return 'Todo el Personal (Admin, Tech, Billing)';
+                if (roles.length === 0) return 'Ningún rol seleccionado';
+                // Translate role names
+                const roleNames = { 'billing': 'Cobranza', 'technician': 'Técnicos', 'admin': 'Admin' };
+                const names = roles.map(r => roleNames[r] || r);
+                return `Personal: ${names.join(', ')}`;
             }
             if (this.all_zones) {
                 return 'Todos los Clientes (Multizona)';
@@ -45,9 +58,15 @@ document.addEventListener('alpine:init', () => {
         async send() {
             if (!this.message) return window.showToast('Escribe un mensaje primero.', 'danger');
 
-            // Validation for zones
+            // Validation for clients
             if (this.target_type === 'clients' && !this.all_zones && this.selected_zones.length === 0) {
                 return window.showToast('Selecciona al menos una zona o marca "Todas".', 'warning');
+            }
+
+            // Validation for staff
+            if (this.target_type === 'technicians') {
+                const hasRole = Object.values(this.staff_roles).some(v => v);
+                if (!hasRole) return window.showToast('Selecciona al menos un rol de personal.', 'warning');
             }
 
             const confirmed = await window.ModalUtils.showConfirmModal({
@@ -73,6 +92,11 @@ document.addEventListener('alpine:init', () => {
                 if (this.target_type === 'clients' && !this.all_zones) {
                     // Alpine proxies need to be converted to array
                     payload.zone_ids = Array.from(this.selected_zones).map(Number);
+                }
+
+                if (this.target_type === 'technicians') {
+                    // Send selected roles
+                    payload.staff_roles = Object.keys(this.staff_roles).filter(k => this.staff_roles[k]);
                 }
 
                 const response = await fetch(`${window.location.origin}/api/broadcast/send`, {
