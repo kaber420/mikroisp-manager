@@ -1,16 +1,18 @@
 from typing import List, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from sqlmodel import select
+from sqlmodel import select, col
 from pydantic import BaseModel
 from telegram import Bot
-from telegram.error import TelegramError
 import asyncio
 import logging
 
 from ...core.users import require_admin
 from ..settings.main import get_settings_service
 from ...models.client import Client
-from ...models.bot_user import BotUser
+from ...models.service import ClientService
+from ...models.router import Router
+from ...models.user import User
+from ...models.zona import Zona
 from ...services.settings_service import SettingsService
 
 router = APIRouter()
@@ -18,13 +20,17 @@ logger = logging.getLogger(__name__)
 
 class BroadcastRequest(BaseModel):
     message: str
-    target_group: Literal["all_clients", "prospects", "all"]
+    target_type: Literal["clients", "technicians"]
+    zone_ids: Optional[List[int]] = None
     image_url: Optional[str] = None
 
 async def send_broadcast_task(token: str, chat_ids: List[str], message: str, image_url: Optional[str] = None):
     """
     Background task to send messages.
     """
+    if not chat_ids:
+        return
+
     bot = Bot(token=token)
     logger.info(f"Starting broadcast to {len(chat_ids)} recipients.")
     
@@ -46,6 +52,29 @@ async def send_broadcast_task(token: str, chat_ids: List[str], message: str, ima
             
     logger.info(f"Broadcast finished. Success: {success_count}, Fail: {fail_count}")
 
+@router.get("/zones")
+async def get_broadcast_zones(
+    settings: SettingsService = Depends(get_settings_service),
+    current_user = Depends(require_admin)
+):
+    """Gets a list of zones that have at least one client with a linked Telegram account."""
+    session = settings.session
+    
+    # We want zones that have routers, which have services, which have clients with telegram_contact
+    # This query allows the frontend to show only relevant zones
+    statement = (
+        select(Zona.id, Zona.nombre)
+        .join(Router, Router.zona_id == Zona.id)
+        .join(ClientService, ClientService.router_host == Router.host)
+        .join(Client, ClientService.client_id == Client.id)
+        .where(Client.telegram_contact != None)
+        .distinct()
+    )
+    
+    result = await session.execute(statement)
+    zones = [{"id": r[0], "name": r[1]} for r in result.all()]
+    return zones
+
 @router.post("/send")
 async def send_broadcast(
     request: BroadcastRequest,
@@ -53,38 +82,72 @@ async def send_broadcast(
     settings: SettingsService = Depends(get_settings_service),
     current_user = Depends(require_admin)
 ):
-    # Get Token
-    token = await settings.get_setting_value("client_bot_token")
-    if not token:
+    # Get Tokens
+    client_bot_token = await settings.get_setting_value("client_bot_token")
+    tech_bot_token = await settings.get_setting_value("tech_bot_token") # Assuming this setting exists or will use env var
+    
+    if request.target_type == "clients" and not client_bot_token:
         raise HTTPException(status_code=400, detail="Client Bot Token not configured")
         
     # Gather Recipients
     chat_ids = set()
-    
-    # We use the session from settings service
-    # Make sure to clone or use it properly. SettingsService uses an injected AsyncSession.
-    
     session = settings.session
+    token_to_use = client_bot_token
     
-    if request.target_group in ["all_clients", "all"]:
-         result = await session.execute(select(Client.telegram_contact).where(Client.telegram_contact != None))
-         # Filter out empty/None
-         valid_contacts = [c for c in result.scalars().all() if c and c.strip()]
-         chat_ids.update(valid_contacts)
-         
-    if request.target_group in ["prospects", "all"]:
-         # Prospects are users NOT in clients table (handled by BotUser with is_client=False)
-         result = await session.execute(select(BotUser.telegram_id).where(BotUser.is_client == False))
-         chat_ids.update(result.scalars().all())
+    if request.target_type == "clients":
+        # Base query for clients with telegram
+        query = (
+            select(Client.telegram_contact)
+            .where(Client.telegram_contact != None)
+        )
+        
+        # If specific zones are selected, join tables to filter
+        if request.zone_ids:
+            query = (
+                query
+                .join(ClientService, ClientService.client_id == Client.id)
+                .join(Router, ClientService.router_host == Router.host)
+                .where(col(Router.zona_id).in_(request.zone_ids))
+            )
+            
+        result = await session.execute(query)
+        # Clean up and add to set
+        valid_contacts = [c for c in result.scalars().all() if c and c.strip()]
+        chat_ids.update(valid_contacts)
+        
+    elif request.target_type == "technicians":
+        # Logic for technicians - they are Users with specific roles and telegram_chat_id
+        # Use tech bot token if available, otherwise fall back or error?
+        # Usually tech bot is different. Let's try to get it from env if not in settings, 
+        # or use client bot if it's the same bot (unlikely).
+        # For now, let's look for the token in environment if not in settings db, 
+        # but the code above tries to get it from settings.
+        
+        import os
+        if not tech_bot_token:
+             # Fallback to env var mainly for dev/legacy
+             tech_bot_token = os.getenv("TECH_BOT_TOKEN")
+             
+        if not tech_bot_token:
+             raise HTTPException(status_code=400, detail="Tech Bot Token not configured")
+             
+        token_to_use = tech_bot_token
+        
+        # Get users with telegram_chat_id
+        # Optionally filter by role if needed, but currently "technicians" target implies all staff with telegram
+        statement = select(User.telegram_chat_id).where(User.telegram_chat_id != None)
+        result = await session.execute(statement)
+        valid_contacts = [c for c in result.scalars().all() if c and c.strip()]
+        chat_ids.update(valid_contacts)
              
     if not chat_ids:
-        raise HTTPException(status_code=404, detail="No recipients found for the selected group")
+        raise HTTPException(status_code=404, detail="No recipients found for the selected criteria")
         
     # Send in background
-    background_tasks.add_task(send_broadcast_task, token, list(chat_ids), request.message, request.image_url)
+    background_tasks.add_task(send_broadcast_task, token_to_use, list(chat_ids), request.message, request.image_url)
     
     return {
         "status": "queued", 
         "recipient_count": len(chat_ids),
-        "target": request.target_group
+        "target": request.target_type
     }

@@ -18,48 +18,73 @@
         </div>
 
         <div class="mb-6 relative z-10">
-            <label class="block text-sm font-medium text-text-secondary mb-2">Destinatarios</label>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <label class="block text-sm font-medium text-text-secondary mb-4">Destinatarios</label>
 
-                <label class="cursor-pointer relative group">
-                    <input type="radio" name="target" value="all_clients" x-model="target_group" class="peer sr-only">
-                    <div
-                        class="p-3 rounded-lg border border-border-color bg-surface-2 hover:bg-surface-3 peer-checked:border-primary peer-checked:bg-primary/10 transition-all text-center h-full flex flex-col items-center justify-center gap-2">
-                        <span class="material-symbols-outlined text-2xl"
-                            :class="target_group === 'all_clients' ? 'text-primary' : 'text-text-secondary'">groups</span>
-                        <span class="text-sm font-medium"
-                            :class="target_group === 'all_clients' ? 'text-primary' : 'text-text-primary'">Solo
-                            Clientes</span>
-                    </div>
-                </label>
-
-                <label class="cursor-pointer relative group">
-                    <input type="radio" name="target" value="prospects" x-model="target_group" class="peer sr-only">
-                    <div
-                        class="p-3 rounded-lg border border-border-color bg-surface-2 hover:bg-surface-3 peer-checked:border-secondary peer-checked:bg-secondary/10 transition-all text-center h-full flex flex-col items-center justify-center gap-2">
-                        <span class="material-symbols-outlined text-2xl"
-                            :class="target_group === 'prospects' ? 'text-secondary' : 'text-text-secondary'">person_add</span>
-                        <span class="text-sm font-medium"
-                            :class="target_group === 'prospects' ? 'text-secondary' : 'text-text-primary'">Prospectos</span>
-                    </div>
-                </label>
-
-                <label class="cursor-pointer relative group">
-                    <input type="radio" name="target" value="all" x-model="target_group" class="peer sr-only">
-                    <div
-                        class="p-3 rounded-lg border border-border-color bg-surface-2 hover:bg-surface-3 peer-checked:border-accent peer-checked:bg-accent/10 transition-all text-center h-full flex flex-col items-center justify-center gap-2">
-                        <span class="material-symbols-outlined text-2xl"
-                            :class="target_group === 'all' ? 'text-accent' : 'text-text-secondary'">public</span>
-                        <span class="text-sm font-medium"
-                            :class="target_group === 'all' ? 'text-accent' : 'text-text-primary'">Todos</span>
-                    </div>
-                </label>
-
+            <!-- Type Tabs -->
+            <div class="flex p-1 bg-surface-2 rounded-lg mb-6 w-fit">
+                <button @click="target_type = 'clients'" class="px-4 py-2 rounded-md text-sm font-medium transition-all"
+                    :class="target_type === 'clients' ? 'bg-primary text-white shadow-lg' : 'text-text-secondary hover:text-text-primary'">
+                    Clientes
+                </button>
+                <button @click="target_type = 'technicians'"
+                    class="px-4 py-2 rounded-md text-sm font-medium transition-all"
+                    :class="target_type === 'technicians' ? 'bg-secondary text-white shadow-lg' : 'text-text-secondary hover:text-text-primary'">
+                    Técnicos
+                </button>
             </div>
-            <p class="text-xs text-text-secondary mt-2 px-1" x-show="target_group === 'prospects'">
-                <span class="material-symbols-outlined text-[14px] align-middle mr-1">info</span>
-                Personas que iniciaron el bot pero <strong>no</strong> han iniciado sesión con su cuenta de cliente.
-            </p>
+
+            <!-- Clients - Zone Selector -->
+            <div x-show="target_type === 'clients'" x-transition:enter="transition ease-out duration-200"
+                x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+                <div class="flex flex-col gap-3">
+                    <label
+                        class="flex items-center gap-3 p-3 rounded-xl border border-border-color bg-surface-2/50 cursor-pointer hover:bg-surface-2 transition-colors">
+                        <input type="checkbox" x-model="all_zones"
+                            class="w-5 h-5 rounded border-border-color bg-surface-1 text-primary focus:ring-primary focus:ring-offset-surface-1">
+                        <div>
+                            <span class="block font-medium text-text-primary">Todas las Zonas</span>
+                            <span class="block text-xs text-text-secondary">Enviar a todos los clientes
+                                vinculados</span>
+                        </div>
+                    </label>
+
+                    <div x-show="!all_zones" class="p-4 border border-border-color rounded-xl bg-surface-1/50">
+                        <p class="text-xs text-text-secondary mb-3 uppercase tracking-wider font-semibold">Seleccionar
+                            Zonas</p>
+                        <div
+                            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                            <template x-if="available_zones.length === 0">
+                                <div class="col-span-full text-center py-4 text-text-secondary italic">
+                                    <span class="material-symbols-outlined block text-2xl mb-1">travel_explore</span>
+                                    Cargando zonas...
+                                </div>
+                            </template>
+                            <template x-for="zone in available_zones" :key="zone.id">
+                                <label
+                                    class="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-2 cursor-pointer group transition-colors">
+                                    <input type="checkbox" :value="zone.id" x-model="selected_zones"
+                                        class="rounded border-border-color bg-surface-1 text-primary focus:ring-primary">
+                                    <span x-text="zone.name"
+                                        class="text-sm text-text-primary group-hover:text-primary transition-colors"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Previews / Info -->
+            <div x-show="target_type === 'technicians'" x-transition
+                class="p-4 rounded-xl bg-secondary/10 border border-secondary/20 flex items-start gap-4">
+                <div class="p-2 bg-secondary/20 rounded-lg text-secondary">
+                    <span class="material-symbols-outlined text-xl">engineering</span>
+                </div>
+                <div>
+                    <h4 class="text-secondary font-medium mb-1">Difusión a Personal Técnico</h4>
+                    <p class="text-sm text-text-secondary">El mensaje se enviará a todos los administradores y técnicos
+                        con Telegram configurado en sus perfiles.</p>
+                </div>
+            </div>
         </div>
 
         <div class="mb-6 relative z-10">
