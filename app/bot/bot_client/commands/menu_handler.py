@@ -314,7 +314,9 @@ async def cancelar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return MENU_PRINCIPAL
 
 async def show_menu_if_client(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Menú:", reply_markup=get_main_keyboard_markup())
+    default_msg = "🤖 Soy un asistente virtual. Solo puedo procesar reportes y solicitudes a través del menú.\nSi deseas hablar con un humano, por favor presiona el botón '🙋 Solicitar Agente Humano'."
+    auto_reply_msg = get_bot_setting("bot_auto_reply_msg", default_msg)
+    await update.message.reply_text(auto_reply_msg, reply_markup=get_main_keyboard_markup())
 
 async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """

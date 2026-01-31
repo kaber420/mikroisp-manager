@@ -529,6 +529,24 @@
                         </div>
                     </div>
 
+                    <div class="pt-6 border-t border-white/10">
+                        <h3 class="text-lg font-semibold text-white">Mensaje de Respuesta Automática</h3>
+                        <p class="text-sm text-text-secondary mt-1">Este mensaje se muestra cuando un cliente escribe
+                            sin tener un reporte o sesión de soporte activa.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-6 border-t border-white/10 pt-6">
+                        <div>
+                            <label for="bot_auto_reply_msg"
+                                class="block text-sm font-medium mb-2 text-text-secondary">Mensaje Automático</label>
+                            <textarea id="bot_auto_reply_msg" x-model="bot_auto_reply_msg" name="bot_auto_reply_msg"
+                                rows="4"
+                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 text-white font-mono text-sm"></textarea>
+                            <p class="text-xs text-text-secondary mt-1">Recuerda al usuario que es un bot y que puede
+                                solicitar un agente humano.</p>
+                        </div>
+                    </div>
+
                 </div>
 
                 <div class="p-6 bg-white/5 rounded-b-lg flex justify-end gap-4 items-center">

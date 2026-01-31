@@ -17,6 +17,7 @@ document.addEventListener('alpine:init', () => {
         bot_val_btn_status: '',
         bot_val_btn_agent: '',
         bot_val_btn_wifi: '',
+        bot_auto_reply_msg: '',
 
         // Initialize component
         async init() {
@@ -36,6 +37,7 @@ document.addEventListener('alpine:init', () => {
                 this.bot_val_btn_status = settings.bot_val_btn_status || "📋 Ver Mis Tickets";
                 this.bot_val_btn_agent = settings.bot_val_btn_agent || "🙋 Solicitar Agente Humano";
                 this.bot_val_btn_wifi = settings.bot_val_btn_wifi || "🔑 Solicitar Cambio Clave WiFi";
+                this.bot_auto_reply_msg = settings.bot_auto_reply_msg || "🤖 Soy un asistente virtual. Solo puedo procesar reportes y solicitudes a través del menú.\nSi deseas hablar con un humano, por favor presiona el botón '🙋 Solicitar Agente Humano'.";
 
             } catch (error) {
                 console.error('Failed to initialize bot settings:', error);
@@ -56,6 +58,7 @@ document.addEventListener('alpine:init', () => {
                 bot_val_btn_status: this.bot_val_btn_status,
                 bot_val_btn_agent: this.bot_val_btn_agent,
                 bot_val_btn_wifi: this.bot_val_btn_wifi,
+                bot_auto_reply_msg: this.bot_auto_reply_msg,
             };
 
             await this.$store.settings.updateSettings(settingsData);
