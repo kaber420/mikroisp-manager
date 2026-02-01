@@ -32,7 +32,10 @@ class ServiceManager:
         self.is_production = os.getenv("APP_ENV") == "production"
         caddy_active = is_caddy_running() # Check initial state
 
-        port = os.getenv("UVICORN_PORT", "7777")
+        # Use resolved values from args if available, else fallback to env
+        port = getattr(self.args, 'resolved_port', None) or int(os.getenv("UVICORN_PORT", "7777"))
+        web_workers = getattr(self.args, 'web_workers', None) or int(os.getenv("UVICORN_WORKERS", "1"))
+        
         lan_ip = get_lan_ip()
         
         # Monitor Workers Setting
@@ -47,8 +50,8 @@ class ServiceManager:
             "production": self.is_production, # Caddy active might change, but mode usually doesn't
             "local_url": f"https://localhost" if self.is_production else f"http://localhost:{port}",
             "network_url": f"https://{lan_ip}" if self.is_production else f"http://{lan_ip}:{port}",
-            "port": port,
-            "web_workers": os.getenv("UVICORN_WORKERS", "4"),
+            "port": str(port),
+            "web_workers": str(web_workers),
             "monitor_workers": monitor_workers
         }
 
@@ -80,10 +83,14 @@ class ServiceManager:
 
     def start_uvicorn(self):
         """Inicia Uvicorn (API Server)."""
+        # Get resolved values from args
+        workers = getattr(self.args, 'web_workers', None)
+        port = getattr(self.args, 'resolved_port', None)
+        
         # start_api_process returns a Popen object (subprocess)
-        p = start_api_process(self.log_queue)
+        p = start_api_process(self.log_queue, workers=workers, port=port)
         self.processes["uvicorn"] = p
-        self._log("Uvicorn Web Server started", "INFO")
+        self._log(f"Uvicorn Web Server started (workers={workers}, port={port})", "INFO")
 
     def start_tech_bot(self):
         """Inicia el Tech Bot."""

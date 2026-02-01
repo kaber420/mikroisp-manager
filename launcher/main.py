@@ -46,7 +46,7 @@ def run_server(args):
         is_headless = args.headless
         
         if is_headless:
-            # Headless Mode: Simple blocking wait
+            # Headless Mode: Log Monitor
             info = service_manager.server_info
             print(f"Server running in HEADLESS mode.")
             print(f"Management: {info['local_url']}")
@@ -55,8 +55,17 @@ def run_server(args):
             print(" 1. Solo esta vez (Rescue):   python launcher/main.py --tui")
             print(" 2. Cambiar para siempre:     python launcher/main.py --tui --save")
             print("-" * 50)
+            print("Showing live logs (Ctrl+C to stop)...")
+            
+            import queue
             while True:
-                time.sleep(1)
+                try:
+                    # Non-blocking get with timeout to allow checking for signals
+                    record = log_queue.get(timeout=0.5)
+                    # Simple formatting: [LEVEL] Source: Message
+                    print(f"[{record.levelname}] {record.name}: {record.msg}")
+                except queue.Empty:
+                    continue
         else:
             # TUI Mode
             # Pass service_manager instead of just server_info
@@ -71,6 +80,9 @@ def run_server(args):
 
 def main():
     multiprocessing.freeze_support()
+    
+    # Load .env early for fallback values
+    load_dotenv(ENV_FILE)
     
     parser = argparse.ArgumentParser(description="µMonitor Pro Launcher")
     subparsers = parser.add_subparsers(dest="command", help="Comandos disponibles")
@@ -98,38 +110,67 @@ def main():
     parser.add_argument("--headless", action="store_true", help="Ejecutar sin interfaz gráfica (Headless)")
     parser.add_argument("--tui", action="store_true", help="Forzar ejecución con interfaz gráfica (TUI)")
     parser.add_argument("--save", action="store_true", help="Guardar la preferencia de modo (--tui o --headless) en la configuración")
+    parser.add_argument("--webworkers", type=int, default=None, help="Número de workers de Uvicorn (ej: --webworkers 4)")
+    parser.add_argument("--port", type=int, default=None, help="Puerto de escucha de Uvicorn (ej: --port 8100)")
 
     args = parser.parse_args()
 
-    # Combinar argumentos CLI y persistencia
-    # Lógica de prioridad:
-    # 1. Flags explícitos (--tui o --headless)
-    # 2. Configuración guardada
-    
-    target_setting = None # Para guardar si se solicita
-
+    # --- Resolve Headless Mode ---
+    # Priority: 1. CLI flags, 2. Saved config, 3. Default (False)
+    target_headless = None
     if args.tui:
         is_headless = False
-        target_setting = False
+        target_headless = False
     elif args.headless:
         is_headless = True
-        target_setting = True
+        target_headless = True
     else:
-        # Si no hay flags explícitos, usar configuración guardada
         is_headless = config_manager.get("headless", False)
-        target_setting = None
+        target_headless = None
 
-    # Manejar guardado si se solicita y hubo una intención explícita
-    if args.save and target_setting is not None:
-        config_manager.set("headless", target_setting)
-        mode_str = "HEADLESS" if target_setting else "TUI"
-        print(f"✅ Configuración actualizada: Modo {mode_str} guardado por defecto.")
+    # --- Resolve Web Workers ---
+    # Priority: 1. CLI, 2. config_manager, 3. .env
+    if args.webworkers is not None:
+        web_workers = args.webworkers
+    else:
+        saved_workers = config_manager.get("web_workers")
+        if saved_workers is not None:
+            web_workers = saved_workers
+        else:
+            web_workers = int(os.getenv("UVICORN_WORKERS", "1"))
 
-    # Inyectar el valor final en args para que run_server lo use si es necesario
-    # (aunque run_server recalcula un poco, es mejor pasarlo limpio o manejarlo en run_server)
-    # Para ser consistente con la estructura existente, modificaremos run_server para aceptar 'is_headless' explícito
-    # O mejor, "monkey-patch" args.headless con el valor calculado para no cambiar la firma de run_server
+    # --- Resolve Port ---
+    # Priority: 1. CLI, 2. config_manager, 3. .env
+    if args.port is not None:
+        port = args.port
+    else:
+        saved_port = config_manager.get("port")
+        if saved_port is not None:
+            port = saved_port
+        else:
+            port = int(os.getenv("UVICORN_PORT", "7777"))
+
+    # --- Handle --save ---
+    if args.save:
+        save_msg_parts = []
+        if target_headless is not None:
+            config_manager.set("headless", target_headless)
+            mode_str = "HEADLESS" if target_headless else "TUI"
+            save_msg_parts.append(f"Modo: {mode_str}")
+        if args.webworkers is not None:
+            config_manager.set("web_workers", args.webworkers)
+            save_msg_parts.append(f"Workers: {args.webworkers}")
+        if args.port is not None:
+            config_manager.set("port", args.port)
+            save_msg_parts.append(f"Puerto: {args.port}")
+        
+        if save_msg_parts:
+            print(f"✅ Configuración guardada: {', '.join(save_msg_parts)}")
+
+    # Inject resolved values into args for run_server and ServiceManager
     args.headless = is_headless
+    args.web_workers = web_workers
+    args.resolved_port = port
 
     if args.command in commands:
         commands[args.command].run(args)
@@ -139,3 +180,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

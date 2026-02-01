@@ -10,24 +10,31 @@ import logging
 from dotenv import load_dotenv
 from .constants import ENV_FILE
 
-def start_api_process(log_queue) -> subprocess.Popen:
+def start_api_process(log_queue, workers: int | None = None, port: int | None = None) -> subprocess.Popen:
     """
     Inicia uvicorn como un subproceso independiente y captura su salida
     para redirigirla a la cola de logs.
+    
+    Args:
+        log_queue: Cola de logs para capturar salida.
+        workers: Número de workers (opcional, fallback a UVICORN_WORKERS env).
+        port: Puerto de escucha (opcional, fallback a UVICORN_PORT env).
     """
     load_dotenv(ENV_FILE, override=True)
 
     host = os.getenv("UVICORN_HOST", "0.0.0.0")
-    port = os.getenv("UVICORN_PORT", "7777")
-    workers = os.getenv("UVICORN_WORKERS", "4")
+    
+    # Use passed values or fall back to env vars
+    final_port = str(port) if port is not None else os.getenv("UVICORN_PORT", "7777")
+    final_workers = str(workers) if workers is not None else os.getenv("UVICORN_WORKERS", "4")
     
     # Comando para ejecutar uvicorn desde el mismo entorno python
     cmd = [
         sys.executable, "-m", "uvicorn", 
         "app.main:app",
         "--host", host,
-        "--port", port,
-        "--workers", workers,
+        "--port", final_port,
+        "--workers", final_workers,
         "--log-level", "info",
         "--no-server-header",
         "--proxy-headers",

@@ -51,7 +51,7 @@ from .core.websockets import manager
 
 # CSP Middleware with Nonces
 from .csp_middleware import CSPMiddleware
-from .db.engine import create_db_and_tables
+
 from .schemas.user import UserCreate, UserRead, UserUpdate
 
 # Importaciones de API Routers
@@ -64,8 +64,24 @@ app = FastAPI(title="µMonitor Pro", version="0.5.0")
 @app.on_event("startup")
 async def on_startup():
     """Initialize database tables and background services on application startup"""
-    await create_db_and_tables()
-    print("✅ Database tables initialized")
+    """Initialize database tables and background services on application startup"""
+    from .core.bootstrap import bootstrap_system
+    bootstrap_system()
+    print("✅ System bootstrapped (DB & Admin)")
+
+    # --- Redict Cache: Conectar si está habilitado ---
+    if os.getenv("CACHE_BACKEND") == "redict":
+        from .utils.cache.redict_store import redict_manager
+
+        redict_url = os.getenv("REDICT_URL", "redis://localhost:6379/0")
+        connected = await redict_manager.connect(redict_url)
+        if connected:
+            print("✅ Redict cache conectado")
+            # Iniciar listener Pub/Sub para notificaciones en tiempo real
+            asyncio.create_task(manager.start_redict_listener())
+            print("✅ Redict Pub/Sub listener iniciado")
+        else:
+            print("⚠️ Redict no disponible, usando cache en memoria")
 
     # --- Cache V2: Iniciar MonitorScheduler ---
     # Este scheduler consulta routers suscritos y llena el cache
@@ -88,6 +104,18 @@ async def on_startup():
 
     asyncio.create_task(switch_monitor_scheduler.run())
     print("✅ SwitchMonitorScheduler iniciado (Cache V2)")
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    """Cleanup on application shutdown"""
+    # Desconectar Redict si estaba conectado
+    if os.getenv("CACHE_BACKEND") == "redict":
+        from .utils.cache.redict_store import redict_manager
+
+        if redict_manager.is_connected:
+            await redict_manager.disconnect()
+            print("✅ Redict desconectado")
 
 
 # --- Configuración de SlowAPI ---

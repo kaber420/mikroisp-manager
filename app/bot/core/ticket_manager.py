@@ -30,6 +30,40 @@ class TicketLimitExceeded(Exception):
 
 MAX_TICKETS_PER_DAY = 3
 
+
+def _publish_ticket_event(event_type: str, data: dict):
+    """
+    Helper para publicar eventos de tickets a Redict Pub/Sub.
+    Non-blocking: falla silenciosamente si Redict no está disponible.
+    """
+    try:
+        # Import lazy para evitar dependencias circulares al iniciar
+        from app.utils.cache import cache_manager
+        
+        if cache_manager.cache_backend != "redict":
+            return  # Solo publicar si usamos Redict
+        
+        import asyncio
+        from app.utils.cache.redict_store import redict_manager
+        
+        async def _do_publish():
+            if redict_manager.is_connected:
+                await redict_manager.publish("chat:updates", {
+                    "type": event_type,
+                    **data
+                })
+        
+        # Ejecutar async desde contexto sync
+        try:
+            loop = asyncio.get_running_loop()
+            asyncio.ensure_future(_do_publish())
+        except RuntimeError:
+            # No hay loop corriendo, crear uno temporal
+            asyncio.run(_do_publish())
+            
+    except Exception as e:
+        logger.debug(f"Pub/Sub event not published (non-critical): {e}")
+
 def crear_ticket(
     cliente_external_id: str,
     cliente_plataforma: str,
@@ -85,8 +119,13 @@ def crear_ticket(
             session.commit()
             session.refresh(new_ticket)
             
-            return str(new_ticket.id)
-
+            # --- Publicar a Redict Pub/Sub ---
+            _publish_ticket_event("ticket:created", {
+                "ticket_id": str(new_ticket.id),
+                "client_name": client.name,
+                "subject": tipo_solicitud
+            })
+            
             return str(new_ticket.id)
 
     except TicketLimitExceeded:
@@ -156,6 +195,13 @@ def agregar_respuesta_a_ticket(ticket_id: str, mensaje: str, autor_tipo: str, au
             
             session.add(ticket)
             session.commit()
+            
+            # --- Publicar a Redict Pub/Sub (nuevo) ---
+            _publish_ticket_event("chat:message", {
+                "ticket_id": str(ticket.id),
+                "sender_type": autor_tipo,
+                "content": mensaje[:100]  # Preview
+            })
             
             # --- REAL-TIME NOTIFICATION ---
             if HTTPX_AVAILABLE:

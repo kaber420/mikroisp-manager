@@ -2,7 +2,7 @@
 """
 SQLModel database engine and session management for FastAPI Users integration.
 Uses AsyncSession for compatibility with fastapi-users-db-sqlalchemy.
-Configured with WAL mode for improved concurrency.
+Supports SQLite (default) and PostgreSQL via DATABASE_URL environment variable.
 """
 
 import os
@@ -13,22 +13,32 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-# Read database path from environment or use default in data/db/
-DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
-DATABASE_FILE = os.path.join(DATA_DIR, "db", "inventory.sqlite")
-# Use aiosqlite for async support with SQLite
-DATABASE_URL = f"sqlite+aiosqlite:///{DATABASE_FILE}"
+# --- Database URL Configuration ---
+# Read DATABASE_URL from environment. If not set, default to SQLite.
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Create async engine
-engine = create_async_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
+if DATABASE_URL is None:
+    # Default to SQLite in data/db/
+    DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+    DATABASE_FILE = os.path.join(DATA_DIR, "db", "inventory.sqlite")
+    os.makedirs(os.path.dirname(DATABASE_FILE), exist_ok=True)
+    DATABASE_URL = f"sqlite+aiosqlite:///{DATABASE_FILE}"
+
+# Detect dialect from URL
+_is_sqlite = DATABASE_URL.startswith("sqlite")
+
+# Create async engine with appropriate connect_args
+_connect_args = {"check_same_thread": False} if _is_sqlite else {}
+engine = create_async_engine(DATABASE_URL, echo=False, connect_args=_connect_args)
 
 
-# Activar WAL mode para mejorar concurrencia y evitar "database is locked"
-@event.listens_for(engine.sync_engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL;")
-    cursor.close()
+# Activate WAL mode only for SQLite to improve concurrency
+if _is_sqlite:
+    @event.listens_for(engine.sync_engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL;")
+        cursor.close()
 
 # Create session maker
 async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

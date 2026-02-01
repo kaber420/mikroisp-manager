@@ -1,7 +1,17 @@
+# app/utils/cache/manager.py
+"""
+Gestor de caché con soporte para backend en memoria o Redict.
+El backend se selecciona mediante la variable de entorno CACHE_BACKEND.
+"""
+
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from threading import RLock
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .redict_store import RedictStore
 
 
 @dataclass
@@ -12,7 +22,7 @@ class CacheEntry:
 
 
 class CacheStore:
-    """Cache store sin dependencias externas (sin Redis)."""
+    """Cache store en memoria (fallback cuando Redict no está disponible)."""
 
     def __init__(self, name: str, default_ttl: int = 300, max_size: int = 1000):
         self.name = name
@@ -65,7 +75,12 @@ class CacheStore:
 
 
 class CacheManager:
-    """Gestor global de caches."""
+    """
+    Gestor global de caches con soporte dual: memoria o Redict.
+
+    El backend se selecciona mediante CACHE_BACKEND=redict|memory.
+    Si Redict no está disponible, hace fallback automático a memoria.
+    """
 
     _instance = None
 
@@ -73,19 +88,71 @@ class CacheManager:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._stores = {}
+            cls._instance._memory_stores = {}
+            cls._instance._use_redict = os.getenv("CACHE_BACKEND", "memory") == "redict"
         return cls._instance
 
-    def get_store(self, name: str, **kwargs) -> CacheStore:
-        if name not in self._stores:
-            self._stores[name] = CacheStore(name=name, **kwargs)
-        return self._stores[name]
+    def get_store(self, name: str, **kwargs) -> "CacheStore | RedictStore":
+        """
+        Obtiene un store de caché por nombre.
 
-    def get_stats(self) -> dict[str, int]:
-        return {name: store.size for name, store in self._stores.items()}
+        Si CACHE_BACKEND=redict y la conexión está activa, retorna RedictStore.
+        De lo contrario, retorna CacheStore en memoria.
+        """
+        # Intentar usar Redict si está configurado
+        if self._use_redict:
+            try:
+                from .redict_store import redict_manager
+
+                if redict_manager.is_connected:
+                    redict_store = redict_manager.get_store(name, **kwargs)
+                    if redict_store is not None:
+                        return redict_store
+            except ImportError:
+                pass  # Fallback a memoria
+
+        # Fallback: usar store en memoria
+        if name not in self._memory_stores:
+            self._memory_stores[name] = CacheStore(name=name, **kwargs)
+        return self._memory_stores[name]
+
+    def get_stats(self) -> dict[str, Any]:
+        """Retorna estadísticas de todos los stores."""
+        stats = {"backend": "redict" if self._use_redict else "memory"}
+
+        if self._use_redict:
+            try:
+                from .redict_store import redict_manager
+
+                if redict_manager.is_connected:
+                    stats["redict_connected"] = True
+                    stats["stores"] = list(redict_manager._stores.keys())
+                    return stats
+            except ImportError:
+                pass
+
+        stats["redict_connected"] = False
+        stats["memory_stores"] = {
+            name: store.size for name, store in self._memory_stores.items()
+        }
+        return stats
 
     def clear_all(self) -> None:
-        for store in self._stores.values():
+        """Limpia todos los stores."""
+        for store in self._memory_stores.values():
             store.clear()
+
+    @property
+    def is_using_redict(self) -> bool:
+        """Retorna True si está usando Redict como backend."""
+        if not self._use_redict:
+            return False
+        try:
+            from .redict_store import redict_manager
+
+            return redict_manager.is_connected
+        except ImportError:
+            return False
 
 
 # Singleton global
