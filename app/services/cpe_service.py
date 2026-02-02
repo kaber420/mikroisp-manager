@@ -1,14 +1,16 @@
+
 import os
-import sqlite3
 import uuid
 from datetime import datetime
 from typing import Any
 
+from sqlalchemy import text
 from sqlmodel import Session, func, select
 
 from ..core.constants import CPEStatus
-from ..db.base import get_db_connection, get_stats_db_file
 from ..models.cpe import CPE
+from ..models.stats import CPEStats, APStats # Import stats models
+from ..models.ap import AP
 
 
 class CPEService:
@@ -60,14 +62,7 @@ class CPEService:
         return True
 
     def hard_delete_cpe(self, mac: str) -> bool:
-        """Elimina permanentemente un CPE de la base de datos.
-        
-        El CPE debe estar deshabilitado antes de poder eliminarlo.
-        
-        Raises:
-            FileNotFoundError: Si el CPE no existe.
-            ValueError: Si se intenta eliminar un CPE habilitado.
-        """
+        """Elimina permanentemente un CPE de la base de datos."""
         cpe = self.session.get(CPE, mac)
         if not cpe:
             raise FileNotFoundError("CPE not found.")
@@ -90,23 +85,11 @@ class CPEService:
         return self.session.exec(statement).one()
 
     def update_cpe(self, mac: str, update_data: dict[str, Any]) -> CPE:
-        """
-        Actualiza campos de un CPE existente (ip_address, hostname, model).
-
-        Args:
-            mac: MAC address of the CPE to update
-            update_data: Dictionary with fields to update
-
-        Returns:
-            Updated CPE object
-        """
-        from datetime import datetime
-
+        """Actualiza campos de un CPE existente."""
         cpe = self.session.get(CPE, mac)
         if not cpe:
             raise FileNotFoundError("CPE not found.")
 
-        # Only update allowed fields
         allowed_fields = {"ip_address", "hostname", "model"}
         for key, value in update_data.items():
             if key in allowed_fields and value is not None:
@@ -120,71 +103,73 @@ class CPEService:
 
     def get_all_cpes_globally(self, status_filter: str | None = None) -> list[dict[str, Any]]:
         """
-        Obtiene todos los CPEs con sus datos de estado más recientes, nombre del AP, y estado persistido.
-
-        Args:
-            status_filter: Opcional. Filtrar por estado: 'active', 'offline', 'disabled', o None para todos.
-
-        Returns:
-            Lista de CPEs con campo 'status': 'active', 'offline', o 'disabled'.
-
-        Nota: Esta función usa SQL crudo porque hace ATTACH DATABASE a stats_db.
+        Obtiene todos los CPEs con sus datos de estado más recientes y nombre del AP.
+        Unified DB version using SQL JOINs.
         """
+        # Note: Using raw SQL with text() because SQLModel doesn't easily support 
+        # complex Window Functions + CTEs + Joins + Selecting everything easily yet.
+        # But we can query from same DB now!
 
-        stats_db_file = get_stats_db_file()
-
-        if not os.path.exists(stats_db_file):
-            # Return only CPEs from inventory (no stats available) using SQLModel
-            statement = select(CPE).order_by(CPE.hostname, CPE.mac)
-            results = self.session.exec(statement).all()
+        query = text("""
+            WITH LatestCPEStats AS (
+                SELECT *, ROW_NUMBER() OVER(PARTITION BY cpe_mac ORDER BY timestamp DESC) as rn
+                FROM cpestats
+            )
+            SELECT s.*, a.hostname as ap_hostname, c.is_enabled, c.status, c.last_seen,
+                    c.ip_address as db_ip_address, c.mac as real_mac, c.hostname as real_hostname
+            FROM cpes c
+            LEFT JOIN LatestCPEStats s ON s.cpe_mac = c.mac AND s.rn = 1
+            LEFT JOIN aps a ON s.ap_host = a.host
+            ORDER BY c.hostname, c.mac;
+        """)
+        
+        cursor = self.session.exec(query)
+        rows = []
+        for row in cursor.mappings():
+            cpe = dict(row)
             
-            rows = []
-            for cpe_obj in results:
-                cpe = cpe_obj.model_dump()
-                cpe["cpe_mac"] = cpe.pop("mac")
-                cpe["cpe_hostname"] = cpe.pop("hostname", None)
-                
-                # Use is_enabled to override status to 'disabled'
-                if not cpe.get("is_enabled", True):
-                    cpe["status"] = CPEStatus.DISABLED
-                # status is already set from DB ('active' or 'offline')
-                rows.append(cpe)
-            return self._apply_status_filter(rows, status_filter)
+            # Fix keys because "SELECT s.*" brings in 'cpe_mac' and 'cpe_hostname' from stats
+            # But we also have 'real_mac' and 'real_hostname' from cpes table.
+            # We want to prioritize real_mac/hostname if stats are missing.
+            
+            # Mapping result of s.* might be prefix-less if not careful? 
+            # Actually '*' in sqlalchemy text() returns columns as is.
+            # If CPEStats has 'cpe_mac', it returns 'cpe_mac'.
+            
+            # Fallback if no stats
+            if not cpe.get("cpe_mac"):
+                cpe["cpe_mac"] = cpe.get("real_mac")
+            if not cpe.get("cpe_hostname"):
+                cpe["cpe_hostname"] = cpe.get("real_hostname")
 
-        conn = get_db_connection()
-        try:
-            conn.execute(f"ATTACH DATABASE '{stats_db_file}' AS stats_db")
-            query = """
-                WITH LatestCPEStats AS (
-                    SELECT *, ROW_NUMBER() OVER(PARTITION BY cpe_mac ORDER BY timestamp DESC) as rn
-                    FROM stats_db.cpe_stats_history
-                )
-                SELECT s.*, a.hostname as ap_hostname, c.is_enabled, c.status, c.last_seen,
-                       c.ip_address as db_ip_address
-                FROM cpes c
-                LEFT JOIN LatestCPEStats s ON s.cpe_mac = c.mac AND s.rn = 1
-                LEFT JOIN aps a ON s.ap_host = a.host
-                ORDER BY s.cpe_hostname, c.mac;
-            """
-            cursor = conn.execute(query)
-            rows = []
-            for row in cursor.fetchall():
-                cpe = dict(row)
-                # Merge IP: use live IP if available, otherwise fall back to DB IP
-                if not cpe.get("ip_address") and cpe.get("db_ip_address"):
-                    cpe["ip_address"] = cpe["db_ip_address"]
-                # Clean up the temporary db_ip_address key
-                cpe.pop("db_ip_address", None)
-                # Use is_enabled to override status to 'disabled'
-                if not cpe.get("is_enabled", True):
-                    cpe["status"] = CPEStatus.DISABLED
-                # status is already set from DB ('active' or 'offline')
-                rows.append(cpe)
-            return self._apply_status_filter(rows, status_filter)
-        except sqlite3.OperationalError as e:
-            raise RuntimeError(f"Error al adjuntar la base de datos de estadísticas: {e}")
-        finally:
-            conn.close()
+            # Merge IP: use live IP from stats (ip_address) if available, otherwise fall back to DB IP
+            # 's.*' has ip_address. 'c.ip_address' is db_ip_address.
+            if not cpe.get("ip_address") and cpe.get("db_ip_address"):
+                cpe["ip_address"] = cpe.get("db_ip_address")
+            
+            # Clean up temporary keys
+            cpe.pop("db_ip_address", None)
+            cpe.pop("real_mac", None)
+            cpe.pop("real_hostname", None)
+            cpe.pop("rn", None) # Remove row number
+
+            # Use is_enabled to override status to 'disabled'
+            is_enabled = cpe.get("is_enabled")
+            # Handle boolean conversion if sqlite returns 1/0
+            if is_enabled == 1 or is_enabled is True:
+                is_enabled = True
+            else:
+                is_enabled = False
+
+            if not is_enabled:
+               cpe["status"] = CPEStatus.DISABLED
+               
+            # If status is not overwritten by disabled, it stays as what comes from DB ('active'/'offline')
+            # The query selects c.status.
+            
+            rows.append(cpe)
+
+        return self._apply_status_filter(rows, status_filter)
 
     def _apply_status_filter(
         self, rows: list[dict[str, Any]], status_filter: str | None
@@ -230,10 +215,6 @@ class CPEService:
             return
 
         now = datetime.utcnow()
-        from sqlmodel import select
-        
-        # Determine model/platform key
-        # Depending on how DeviceStatus is structured, usually client.extra['model'] or 'platform'
         
         for client in status.clients:
             if not client.mac:
@@ -247,11 +228,14 @@ class CPEService:
             if client.hostname:
                 cpe.hostname = client.hostname
             
-            model = client.extra.get("model") or client.extra.get("platform")
+            # Safe access to extra dict
+            extra = getattr(client, "extra", {}) or {}
+
+            model = extra.get("model") or extra.get("platform")
             if model:
                 cpe.model = model
                 
-            fw = client.extra.get("firmware") or client.extra.get("version")
+            fw = extra.get("firmware") or extra.get("version")
             if fw:
                 cpe.firmware = fw
                 
@@ -268,7 +252,7 @@ class CPEService:
         """
         Marks CPEs as 'offline' if they haven't been seen for configured threshold.
         """
-        from datetime import datetime, timedelta
+        from datetime import timedelta
         from ..models.setting import Setting
         
         # Get settings via session
@@ -280,11 +264,6 @@ class CPEService:
         
         threshold_seconds = monitor_interval * stale_cycles
         threshold_time = datetime.utcnow() - timedelta(seconds=threshold_seconds)
-        
-        # Update statement
-        # select(CPE).where(CPE.status == 'active', CPE.is_enabled == True, CPE.last_seen < threshold_time)
-        # Iterate and update or use update statement (if supported by SQLModel/dialect)
-        # SQLModel doesn't have direct update() yet, iterate is safer
         
         statement = select(CPE).where(
             CPE.status == "active",
@@ -299,4 +278,3 @@ class CPEService:
             
         if stale_cpes:
             self.session.commit()
-            # print(f"Marcados {len(stale_cpes)} CPEs como offline.")

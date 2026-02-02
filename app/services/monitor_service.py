@@ -81,8 +81,8 @@ class MonitorService:
                 hostname = status.hostname or host
                 logger.info(f"Estado de '{hostname}' ({host}): ONLINE")
 
-                # Save stats (stats_db is likely sync)
-                await asyncio.to_thread(save_device_stats, host, status, vendor=vendor)
+                # Save stats (stats_db is now async)
+                await save_device_stats(session, host, status, vendor=vendor)
 
                 # Update AP status (async)
                 await update_ap_status(
@@ -99,7 +99,7 @@ class MonitorService:
 
                 if previous_status == DeviceStatus.OFFLINE:
                     message = f"✅ *AP RECUPERADO*\n\nEl AP *{hostname}* (`{host}`) ha vuelto a estar en línea."
-                    await asyncio.to_thread(add_event_log, host, "ap", "success", f"El AP {hostname} ({host}) está en línea nuevamente.")
+                    await add_event_log(session, host, "ap", "success", f"El AP {hostname} ({host}) está en línea nuevamente.")
                     await asyncio.to_thread(send_telegram_alert, message)
             else:
                 await self._handle_offline_ap(session, host, previous_status)
@@ -117,7 +117,7 @@ class MonitorService:
             ap_info = await get_ap_by_host_with_stats(session, host)
             hostname = ap_info.get("hostname") if (ap_info and ap_info.get("hostname")) else host
             message = f"❌ *ALERTA: AP CAÍDO*\n\nNo se pudo establecer conexión con el AP *{hostname}* (`{host}`)."
-            await asyncio.to_thread(add_event_log, host, "ap", "danger", f"El AP {hostname} ({host}) ha perdido conexión.")
+            await add_event_log(session, host, "ap", "danger", f"El AP {hostname} ({host}) ha perdido conexión.")
             await asyncio.to_thread(send_telegram_alert, message)
 
     async def check_router(self, session: AsyncSession, router: Router):
@@ -172,13 +172,13 @@ class MonitorService:
             # Save stats history
             try:
                 # Use specific function for router stats (dict format)
-                await asyncio.to_thread(save_router_monitor_stats, host, status_data)
+                await save_router_monitor_stats(session, host, status_data)
             except Exception as e:
                  logger.error(f"Error saving stats for {host}: {e}")
 
             if previous_status == DeviceStatus.OFFLINE:
                 message = f"✅ *ROUTER RECUPERADO*\n\nEl Router *{hostname}* (`{host}`) ha vuelto a estar en línea."
-                await asyncio.to_thread(add_event_log, host, "router", "success", f"Router {hostname} ({host}) recuperado.")
+                await add_event_log(session, host, "router", "success", f"Router {hostname} ({host}) recuperado.")
                 await asyncio.to_thread(send_telegram_alert, message)
         else:
             current_status = DeviceStatus.OFFLINE
@@ -191,7 +191,8 @@ class MonitorService:
                 hostname = router_info.hostname if (router_info and router_info.hostname) else host
 
                 message = f"❌ *ALERTA: ROUTER CAÍDO*\n\nNo se pudo establecer conexión API con el Router *{hostname}* (`{host}`)."
-                await asyncio.to_thread(add_event_log,
+                await add_event_log(
+                    session,
                     host,
                     "router",
                     "danger",

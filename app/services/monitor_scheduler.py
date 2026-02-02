@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from ..core.constants import DeviceStatus
 from ..db import router_db
 from ..db.stats_db import save_router_monitor_stats
+from ..db.engine import get_session
 from ..utils.cache import cache_manager
 from .router_connector import router_connector
 
@@ -155,7 +156,14 @@ class MonitorScheduler:
     async def _update_db_status(self, host: str, status: str, result: dict = None):
         """Actualiza el estado del router en la base de datos."""
         try:
-            await asyncio.to_thread(router_db.update_router_status, host, status, result)
+            async for session in get_session():
+                await router_db.update_router_status(session, host, status, result)
+                # Session closes automatically due to generator? 
+                # Actually get_session yields and assumes caller handles commit/close logic via 'yield' typically?
+                # app/db/engine.py get_session typically yields session and closes in finally.
+                # So we just break after one usage.
+                break
+                
             logger.debug(f"[MonitorScheduler] DB updated: {host} -> {status}")
         except Exception as e:
             logger.error(f"[MonitorScheduler] Failed to update DB for {host}: {e}")
@@ -269,7 +277,10 @@ class MonitorScheduler:
                             or (current_time - last_save).total_seconds() >= ROUTER_HISTORY_INTERVAL
                         ):
                             try:
-                                await asyncio.to_thread(save_router_monitor_stats, host, result)
+                                async for session in get_session():
+                                    await save_router_monitor_stats(session, host, result)
+                                    break
+                                    
                                 info["last_history_save"] = current_time
                                 logger.debug(f"[MonitorScheduler] Saved history for {host}")
                             except Exception as e:

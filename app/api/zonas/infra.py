@@ -101,9 +101,8 @@ def get_router_ports(
 
 
 @router.get("/zonas/{zona_id}/infra/switches")
-def get_zone_switches(
+async def get_zone_switches(
     zona_id: int,
-    session: Session = Depends(get_sync_session),
     current_user: User = Depends(require_technician),
 ) -> list[dict[str, Any]]:
     """
@@ -111,19 +110,21 @@ def get_zone_switches(
     Returns basic info for each switch (host, hostname, model, status).
     """
     from ...db import switches_db
+    from ...db.engine import async_session_maker
 
     # Get all switches and filter by zona_id
-    all_switches = switches_db.get_all_switches()
-    zone_switches = [s for s in all_switches if s.get("zona_id") == zona_id]
+    async with async_session_maker() as session:
+        all_switches = await switches_db.get_all_switches(session)
+        zone_switches = [s for s in all_switches if s.zona_id == zona_id]
 
     return [
         {
-            "host": s.get("host"),
-            "hostname": s.get("hostname"),
-            "model": s.get("model"),
-            "firmware": s.get("firmware"),
-            "last_status": s.get("last_status"),
-            "is_enabled": s.get("is_enabled", True),
+            "host": s.host,
+            "hostname": s.hostname,
+            "model": s.model,
+            "firmware": s.firmware,
+            "last_status": s.last_status,
+            "is_enabled": s.is_enabled if hasattr(s, 'is_enabled') else True,
             "device_type": "switch",
         }
         for s in zone_switches
@@ -131,7 +132,7 @@ def get_zone_switches(
 
 
 @router.get("/zonas/infra/switch/{host}/ports")
-def get_switch_ports(
+async def get_switch_ports(
     host: str,
     current_user: User = Depends(require_technician),
 ) -> dict[str, Any]:
@@ -139,11 +140,15 @@ def get_switch_ports(
     Fetch live interface data from a switch for SVG rendering.
     Returns structured data: physical ports, VLANs, bridges, and their relationships.
     """
-    switch_data = switches_db.get_switch_by_host(host)
+    from ...db.engine import async_session_maker
+
+    async with async_session_maker() as session:
+        switch_data = await switches_db.get_switch_by_host(session, host)
+
     if not switch_data:
         raise HTTPException(status_code=404, detail=f"Switch {host} not found")
 
-    if not switch_data.get("is_enabled", True):
+    if not getattr(switch_data, 'is_enabled', True):
         raise HTTPException(status_code=400, detail=f"Switch {host} is disabled")
 
     try:
@@ -155,8 +160,8 @@ def get_switch_ports(
             # Use shared infrastructure service to get data
             from ...services.infrastructure_service import get_device_infrastructure_data
 
-            hostname = switch_data.get("hostname") or host
-            model = switch_data.get("model") or "Unknown Switch"
+            hostname = switch_data.hostname or host
+            model = switch_data.model or "Unknown Switch"
 
             return get_device_infrastructure_data(
                 api=api, host=host, hostname=hostname, model=model

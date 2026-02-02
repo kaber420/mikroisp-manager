@@ -24,6 +24,7 @@ from app.models.switch import Switch
 from app.models.ticket import Ticket
 from app.models.user import User
 from app.models.zona import Zona
+from app.models.stats import RouterStats, APStats, CPEStats, EventLog, DisconnectionEvent
 
 # Configure logging
 logger = logging.getLogger(__name__)

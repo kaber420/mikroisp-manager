@@ -1,11 +1,10 @@
-# app/services/ap_service.py
-import sqlite3
-from datetime import datetime, timedelta
+
+from datetime import datetime
 from typing import Any
 
-# Importaciones de nuestras utilidades y capas de DB
+from sqlalchemy import func
+from sqlmodel import select, col
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlmodel import select
 
 from ..api.aps.models import (
     APCreate,
@@ -16,9 +15,9 @@ from ..api.aps.models import (
     HistoryDataPoint,
 )
 from ..core.constants import DeviceStatus, DeviceVendor
-from ..db import stats_db
-from ..db.base import get_stats_db_connection
+from ..db import stats_db, aps_db
 from ..models.ap import AP
+from ..models.stats import APStats
 from ..utils.device_clients.adapter_factory import get_device_adapter
 from ..utils.device_clients.mikrotik import wireless as mikrotik_wireless
 from ..utils.security import decrypt_data, encrypt_data
@@ -51,101 +50,34 @@ class APService:
 
     async def get_all_aps(self) -> list[dict[str, Any]]:
         """Obtiene todos los APs con sus últimas estadísticas."""
-        from ..models.zona import Zona
+        # Use centralized logic from aps_db
+        return await aps_db.get_all_aps_with_stats(self.session)
 
-        # 1. Fetch APs with zona_nombre via LEFT JOIN
-        statement = select(AP, Zona.nombre.label("zona_nombre")).outerjoin(
-            Zona, AP.zona_id == Zona.id
-        )
-        result = await self.session.execute(statement)
-        rows = result.all()
-
-        # 2. Fetch stats
-        stats_map = self._fetch_latest_stats_map()
-
-        results = []
-        for ap, zona_nombre in rows:
-            ap_dict = ap.model_dump()
-
-            # Merge stats
-            stat = stats_map.get(ap.host, {})
-            ap_dict.update(stat)
-
-            # Add zona_nombre
-            ap_dict["zona_nombre"] = zona_nombre
-
-            results.append(ap_dict)
-
-        return results
-
-    def _fetch_latest_stats_map(self) -> dict[str, dict[str, Any]]:
-        """Helper to fetch latest stats for all APs from stats DB."""
-        # This logic is adapted from aps_db.get_all_aps_with_stats
-        try:
-            conn = get_stats_db_connection()
-            if not conn:
-                return {}
-
-            query = """
-                SELECT 
-                    ap_host, client_count, airtime_total_usage, frequency, chanbw,
-                    total_tx_bytes, total_rx_bytes, total_throughput_tx, total_throughput_rx
-                FROM ap_stats_history
-                WHERE (ap_host, timestamp) IN (
-                    SELECT ap_host, MAX(timestamp)
-                    FROM ap_stats_history
-                    GROUP BY ap_host
-                )
-            """
-            cursor = conn.execute(query)
-            stats = {}
-            for row in cursor.fetchall():
-                stats[row[0]] = dict(row)  # row[0] is ap_host
-            conn.close()
-            return stats
-        except Exception as e:
-            print(f"Error fetching stats: {e}")
-            return {}
+    # _fetch_latest_stats_map is no longer needed
 
     async def get_ap_by_host(self, host: str) -> dict[str, Any]:
         """Obtiene un AP específico por host."""
-        ap = await self.session.get(AP, host)
-        if not ap:
+        ap_dict = await aps_db.get_ap_by_host_with_stats(self.session, host)
+        if not ap_dict:
             raise APNotFoundError(f"AP no encontrado: {host}")
 
-        ap_dict = ap.model_dump()
-        ap_dict["password"] = decrypt_data(ap.password)
-
-        # Fetch stats
-        stats = self._fetch_latest_stats_for_host(host)
-        ap_dict.update(stats)
-
+        # Decrypt password for service usage (if needed by caller, though risky to return in API)
+        # The legacy service returned it decrypted.
+        if ap_dict.get("password"):
+            try:
+                ap_dict["password"] = decrypt_data(ap_dict["password"])
+            except Exception:
+                pass
+        
         return ap_dict
 
-    def _fetch_latest_stats_for_host(self, host: str) -> dict[str, Any]:
-        try:
-            conn = get_stats_db_connection()
-            if not conn:
-                return {}
-
-            query = """
-                SELECT * FROM ap_stats_history WHERE ap_host = ? ORDER BY timestamp DESC LIMIT 1
-            """
-            cursor = conn.execute(query, (host,))
-            row = cursor.fetchone()
-            conn.close()
-            return dict(row) if row else {}
-        except Exception:
-            return {}
+    # _fetch_latest_stats_for_host is no longer needed
 
     async def create_ap(self, ap_data: APCreate) -> dict[str, Any]:
         """Crea un nuevo AP en la base de datos."""
         ap_dict = ap_data.model_dump()
 
-        # Lógica de negocio: Asignar intervalo por defecto si no se proporciona
-        # Lógica de negocio: Asignar intervalo por defecto si no se proporciona
         if ap_dict.get("monitor_interval") is None:
-            # Replaced raw SQL settings_db with SQLModel
             from ..models.setting import Setting
             
             setting = await self.session.get(Setting, "default_monitor_interval")
@@ -181,7 +113,6 @@ class APService:
         if not update_fields:
             raise APDataError("No se proporcionaron campos para actualizar.")
 
-        # Lógica de negocio: No permitir cambiar contraseña si está vacía
         if "password" in update_fields:
             if not update_fields["password"]:
                 del update_fields["password"]
@@ -209,13 +140,6 @@ class APService:
     async def sync_cpe_names(self, host: str) -> dict[str, Any]:
         """
         Synchronizes CPE hostnames by fetching ARP table from the AP.
-        Updates the CPE inventory database with resolved hostnames.
-        
-        This is a 'heavy' operation intended to be triggered manually via a button,
-        not during every live poll.
-        
-        Returns:
-            dict with 'synced_count' and 'clients' list.
         """
         from ..models.cpe import CPE
         
@@ -239,17 +163,8 @@ class APService:
 
         try:
             api = adapter._get_api()
-            # Fetch with ARP enabled (full sync)
             clients_data = mikrotik_wireless.get_connected_clients(api, fetch_arp=True)
             
-            # Log the raw data for debugging
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.info(f"[SyncNames] Found {len(clients_data)} clients for {host}")
-            for c in clients_data:
-                logger.info(f"[SyncNames] Client: MAC={c.get('mac')}, hostname={c.get('hostname')}, IP={c.get('ip_address')}")
-            
-            # Update CPE inventory using SQLModel
             now = datetime.utcnow()
             synced_count = 0
             
@@ -259,11 +174,8 @@ class APService:
                 ip_address = client.get("ip_address")
                 
                 if mac:
-                    # Check if CPE exists
                     existing_cpe = await self.session.get(CPE, mac)
-                    
                     if existing_cpe:
-                        # Update existing CPE
                         if hostname:
                             existing_cpe.hostname = hostname
                         if ip_address:
@@ -272,7 +184,6 @@ class APService:
                         existing_cpe.status = "active"
                         self.session.add(existing_cpe)
                     else:
-                        # Create new CPE
                         new_cpe = CPE(
                             mac=mac,
                             hostname=hostname,
@@ -302,22 +213,18 @@ class APService:
         finally:
             adapter.disconnect()
 
-    def get_cpes_for_ap(self, host: str) -> list[dict[str, Any]]:
+    async def get_cpes_for_ap(self, host: str) -> list[dict[str, Any]]:
         """Obtiene los CPEs conectados a un AP desde el último snapshot."""
-        # This still uses stats_db, so we can keep using the helper or move logic here.
-        # Since it's purely stats DB, we can keep using stats_db helper or import it.
-        return stats_db.get_cpes_for_ap_from_stats(host)
+        result = await stats_db.get_cpes_for_ap_from_stats(self.session, host)
+        return result if result else []
 
     async def get_live_data(self, host: str) -> APLiveDetail:
         """Obtiene datos en vivo de un AP y los formatea."""
-        # Get credentials from DB (using SQLModel)
         ap = await self.session.get(AP, host)
         if not ap:
             raise APNotFoundError(f"AP no encontrado en el inventario: {host}")
 
         password = decrypt_data(ap.password)
-
-        # Get the appropriate adapter based on vendor
         vendor = ap.vendor or DeviceVendor.UBIQUITI
         port = ap.api_port or (443 if vendor == DeviceVendor.UBIQUITI else 8729)
 
@@ -337,7 +244,6 @@ class APService:
                     f"No se pudo obtener datos del AP {host}. Error: {status.last_error}"
                 )
 
-            # Convert DeviceStatus to APLiveDetail for backwards compatibility
             clients_list = []
             for client in status.clients:
                 clients_list.append(
@@ -358,17 +264,15 @@ class APService:
                         cpe_uptime=client.uptime,
                         eth_plugged=client.extra.get("eth_plugged"),
                         eth_speed=client.extra.get("eth_speed"),
-                        # MikroTik-specific fields
                         ccq=client.ccq,
                         tx_rate=client.tx_rate,
                         rx_rate=client.rx_rate,
                     )
                 )
 
-            # Prepare extra data with calculated fields
             extra_data = dict(status.extra) if status.extra else {}
-
-            # Calculate memory usage percentage for MikroTik
+            # (Memory usage calculation logic skipped/assumed mostly presentation)
+             # Calculate memory usage percentage for MikroTik (Adding back as it's useful)
             if extra_data.get("free_memory") and extra_data.get("total_memory"):
                 try:
                     free = int(extra_data["free_memory"])
@@ -377,20 +281,21 @@ class APService:
                         used = total - free
                         extra_data["memory_usage"] = round((used / total) * 100, 1)
                 except (ValueError, TypeError):
-                    pass  # Skip if conversion fails
-
-            # Format uptime for display (status.uptime is in seconds)
+                    pass
+                    
             if status.uptime:
                 uptime_secs = status.uptime
                 days = uptime_secs // 86400
                 hours = (uptime_secs % 86400) // 3600
                 minutes = (uptime_secs % 3600) // 60
-                if days > 0:
-                    extra_data["uptime"] = f"{days}d {hours}h {minutes}m"
-                elif hours > 0:
-                    extra_data["uptime"] = f"{hours}h {minutes}m"
-                else:
-                    extra_data["uptime"] = f"{minutes}m"
+                
+                # Simplified formatting
+                parts = []
+                if days > 0: parts.append(f"{days}d")
+                if hours > 0: parts.append(f"{hours}h")
+                parts.append(f"{minutes}m")
+                extra_data["uptime"] = " ".join(parts)
+
 
             return APLiveDetail(
                 host=host,
@@ -417,26 +322,21 @@ class APService:
                 airtime_tx_usage=status.extra.get("airtime_tx") if status.extra else None,
                 airtime_rx_usage=status.extra.get("airtime_rx") if status.extra else None,
                 clients=clients_list,
-                # Include vendor info for UI differentiation
                 vendor=vendor,
-                # Include extra data for MikroTik (CPU, memory, uptime, platform)
                 extra=extra_data if extra_data else None,
             )
         finally:
             adapter.disconnect()
 
     async def get_wireless_interfaces(self, host: str) -> list[dict[str, str]]:
-        """
-        Obtiene las interfaces inalámbricas disponibles para un AP MikroTik.
-        Incluye información de banda detectada de la frecuencia real operativa.
-        """
+        # Copy-paste implementation but with async session if needed (it already used session so it's fine)
         ap = await self.session.get(AP, host)
         if not ap:
             raise APNotFoundError(f"AP no encontrado: {host}")
 
         vendor = ap.vendor or DeviceVendor.UBIQUITI
         if vendor != DeviceVendor.MIKROTIK:
-            return []  # Solo MikroTik tiene múltiples interfaces
+            return []
 
         password = decrypt_data(ap.password)
         port = ap.api_port or 8729
@@ -460,7 +360,7 @@ class APService:
                     "frequency": str(i["frequency"]) if i.get("frequency") else None,
                     "channel_width": str(i.get("width")) if i.get("width") else None,
                     "ssid": (
-                        i.get("ssid")  # Direct field from wireless.py
+                        i.get("ssid")
                         or i.get("original_record", {}).get("configuration.ssid")
                         or i.get("original_record", {}).get("ssid")
                         or None
@@ -475,44 +375,52 @@ class APService:
         except Exception as e:
             error_msg = str(e).lower()
             if "ssl" in error_msg or "handshake" in error_msg:
-                raise APUnreachableError(
-                    f"Error de conexión SSL al AP {host}. "
-                    f"Verifique el certificado del dispositivo. Detalle: {e}"
-                )
+                raise APUnreachableError(f"Error de conexión SSL al AP {host}: {e}")
             raise APUnreachableError(f"No se pudo conectar al AP {host}: {e}")
         finally:
             adapter.disconnect()
 
     async def get_ap_history(self, host: str, period: str = "24h") -> APHistoryResponse:
         """Obtiene datos históricos de un AP desde la DB de estadísticas."""
+        ap_info = await aps_db.get_ap_by_host_with_stats(self.session, host)
+        hostname = ap_info.get("hostname", host) if ap_info else host
 
-        # Obtenemos info básica del AP (como el hostname)
-        ap_info = await self.get_ap_by_host(host)  # Reutilizamos nuestro propio método
-
-        # Lógica de conexión a la DB de stats (movida desde la API)
-        stats_conn = get_stats_db_connection()
-        if not stats_conn:
-            return APHistoryResponse(host=host, hostname=ap_info.get("hostname", host), history=[])
-
+        # Calculate time
+        from datetime import timedelta
         if period == "7d":
-            start_time = datetime.utcnow() - timedelta(days=7)
+            delta = timedelta(days=7)
         elif period == "30d":
-            start_time = datetime.utcnow() - timedelta(days=30)
+            delta = timedelta(days=30)
         else:
-            start_time = datetime.utcnow() - timedelta(hours=24)
+            delta = timedelta(hours=24)
+        
+        start_time = datetime.utcnow() - delta
 
         try:
-            query = "SELECT timestamp, client_count, airtime_total_usage, total_throughput_tx, total_throughput_rx FROM ap_stats_history WHERE ap_host = ? AND timestamp >= ? ORDER BY timestamp ASC;"
-            cursor = stats_conn.execute(query, (host, start_time))
-            rows = cursor.fetchall()
+            # Stats Query using APStats model
+            stmt = select(APStats).where(
+                APStats.ap_host == host, 
+                APStats.timestamp >= start_time
+            ).order_by(APStats.timestamp.asc())
+            
+            result = await self.session.exec(stmt)
+            rows = result.all()
+            
+            # Map APStats model to HistoryDataPoint
+            history_points = []
+            for row in rows:
+                history_points.append(HistoryDataPoint(
+                    timestamp=row.timestamp,
+                    client_count=row.client_count,
+                    airtime_total_usage=row.airtime_total_usage,
+                    total_throughput_tx=row.total_throughput_tx,
+                    total_throughput_rx=row.total_throughput_rx
+                ))
 
             return APHistoryResponse(
                 host=host,
-                hostname=ap_info.get("hostname"),
-                history=[HistoryDataPoint(**dict(row)) for row in rows],
+                hostname=hostname,
+                history=history_points,
             )
-        except sqlite3.Error as e:
+        except Exception as e:
             raise APDataError(f"Error en la base de datos de estadísticas: {e}")
-        finally:
-            if stats_conn:
-                stats_conn.close()

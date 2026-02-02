@@ -353,17 +353,15 @@ async def get_router_history(
     host: str,
     range_hours: int = 24,
     current_user: User = Depends(require_technician),
+    session: AsyncSession = Depends(get_session),
 ):
     """
     Get historical stats for a router (CPU, Memory, etc.) over time.
     Default range is last 24 hours.
     """
-    # Stats DB is exempt, uses synchronous connection internally?
-    # get_router_monitor_stats_history in stats_db.py needs to be checked.
-    # Assuming it's safe to call here (blocking).
     from ...db.stats_db import get_router_monitor_stats_history
 
-    data = get_router_monitor_stats_history(host, range_hours)
+    data = await get_router_monitor_stats_history(session, host, range_hours)
     return {"status": "success", "data": data}
 
 

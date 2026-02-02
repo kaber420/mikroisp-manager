@@ -13,6 +13,7 @@ from datetime import datetime
 
 from ..core.constants import DeviceStatus
 from ..db import aps_db
+from ..db.engine import async_session_maker
 from ..utils.cache import cache_manager
 from .ap_connector import ap_connector
 
@@ -123,6 +124,7 @@ class APMonitorScheduler:
 
         logger.info("[APMonitorScheduler] Cleanup task stopped")
 
+
     async def _do_cleanup(self, host: str):
         """Limpia suscripciones, cache y credenciales de un AP."""
         if host not in self._subscribed_aps:
@@ -141,10 +143,12 @@ class APMonitorScheduler:
 
         logger.info(f"[APMonitorScheduler] Fully unsubscribed from {host} (timeout expired)")
 
+
     async def _update_db_status(self, host: str, status: str, result: dict = None):
         """Actualiza el estado del AP en la base de datos."""
         try:
-            await asyncio.to_thread(aps_db.update_ap_status, host, status, result)
+            async with async_session_maker() as session:
+                await aps_db.update_ap_status(session, host, status, result)
             logger.debug(f"[APMonitorScheduler] DB updated: {host} -> {status}")
         except Exception as e:
             logger.error(f"[APMonitorScheduler] Failed to update DB for {host}: {e}")

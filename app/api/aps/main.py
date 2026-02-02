@@ -158,7 +158,7 @@ async def sync_cpe_names(
 
 
 @router.get("/aps/{host}/cpes", response_model=list[CPEDetail])
-def get_cpes_for_ap(
+async def get_cpes_for_ap(
     host: str,
     service: APService = Depends(get_ap_service),
     current_user: User = Depends(require_technician),
@@ -166,7 +166,7 @@ def get_cpes_for_ap(
     """
     Lista todos los CPEs (clientes) conectados a este AP.
     """
-    cpes_data = service.get_cpes_for_ap(host)
+    cpes_data = await service.get_cpes_for_ap(host)
     return [CPEDetail(**cpe) for cpe in cpes_data]
 
 

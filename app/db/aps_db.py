@@ -1,6 +1,5 @@
 
 import logging
-import os
 from datetime import datetime
 from typing import Any, Sequence
 
@@ -11,13 +10,11 @@ from ..core.constants import DeviceStatus
 from ..models.ap import AP
 from ..models.zona import Zona
 from ..utils.security import decrypt_data, encrypt_data
-from .base import get_stats_db_file
 
 
 async def get_enabled_aps_for_monitor(session: AsyncSession) -> Sequence[AP]:
     """
     Obtiene la lista de APs activos desde la BD y descifra sus contraseñas.
-    Includes vendor and api_port for multi-vendor adapter support.
     """
     try:
         stmt = select(AP).where(AP.is_enabled == True)
@@ -33,7 +30,6 @@ async def get_enabled_aps_for_monitor(session: AsyncSession) -> Sequence[AP]:
                 except Exception:
                     pass
             
-            # Default vendor to ubiquiti for backwards compatibility
             if not ap_out.vendor:
                 ap_out.vendor = "ubiquiti"
             
@@ -57,9 +53,6 @@ async def update_ap_status(session: AsyncSession, host: str, status: str, data: 
     """Actualiza el estado de un AP, y opcionalmente sus metadatos si está online."""
     try:
         now = datetime.utcnow()
-        # We can use update_ap_in_db logic or raw update for speed/simplicity
-        # Logic is complex for "data" parsing.
-        
         updates = {"last_status": status, "last_checked": now}
         
         if status == DeviceStatus.ONLINE and data:
@@ -118,7 +111,6 @@ async def create_ap_in_db(session: AsyncSession, ap_data: dict[str, Any]) -> dic
     if "password" in data:
         data["password"] = encrypt_data(data["password"])
     
-    # Set default first_seen if not provided
     if "first_seen" not in data:
         data["first_seen"] = datetime.utcnow()
 
@@ -131,112 +123,81 @@ async def create_ap_in_db(session: AsyncSession, ap_data: dict[str, Any]) -> dic
         await session.rollback()
         raise ValueError(f"Host duplicado o zona_id inválida. Error: {e}")
 
-    # Return fetched version with stats (likely empty stats but standard return)
     return await get_ap_by_host_with_stats(session, ap.host)
 
 
 async def get_all_aps_with_stats(session: AsyncSession) -> list[dict[str, Any]]:
     """Obtiene todos los APs, uniendo los datos de estado más recientes de la DB de estadísticas."""
-    stats_db_file = get_stats_db_file()
-    attached = False
-    
     try:
-        if os.path.exists(stats_db_file):
-            try:
-                # Attempt to attach
-                await session.execute(text(f"ATTACH DATABASE '{stats_db_file}' AS stats_db"))
-                attached = True
-                
-                query = """
-                    WITH LatestStats AS (
-                        SELECT 
-                            ap_host, client_count, airtime_total_usage,
-                            ROW_NUMBER() OVER(PARTITION BY ap_host ORDER BY timestamp DESC) as rn
-                        FROM stats_db.ap_stats_history
-                    )
-                    SELECT a.*, z.nombre as zona_nombre, s.client_count, s.airtime_total_usage
-                    FROM aps AS a
-                    LEFT JOIN zonas AS z ON a.zona_id = z.id
-                    LEFT JOIN LatestStats AS s ON a.host = s.ap_host AND s.rn = 1
-                    ORDER BY a.host;
-                """
-                result = await session.execute(text(query))
-                rows = result.mappings().all()
-                return [dict(row) for row in rows]
-            except Exception:
-                # Fallback if attach fails or stats_db locked/issue
-                pass
-                
-    finally:
-        if attached:
-            try:
-                await session.execute(text("DETACH DATABASE stats_db"))
-            except Exception:
-                pass
-
-    # Fallback logic (SQLModel)
-    stmt = select(AP, Zona.nombre.label("zona_nombre")).outerjoin(Zona, AP.zona_id == Zona.id).order_by(AP.host)
-    result_obj = await session.exec(stmt)
-    
-    output = []
-    for ap, zona_name in result_obj.all():
-        d = ap.model_dump()
-        d['zona_nombre'] = zona_name
-        d['client_count'] = None
-        d['airtime_total_usage'] = None
-        output.append(d)
-    return output
+        # Unified query using SQLModel/SQLAlchemy text for Window Function
+        query = text("""
+            WITH LatestStats AS (
+                SELECT 
+                    ap_host, client_count, airtime_total_usage,
+                    ROW_NUMBER() OVER(PARTITION BY ap_host ORDER BY timestamp DESC) as rn
+                FROM apstats
+            )
+            SELECT a.*, z.nombre as zona_nombre, s.client_count, s.airtime_total_usage
+            FROM aps AS a
+            LEFT JOIN zonas AS z ON a.zona_id = z.id
+            LEFT JOIN LatestStats AS s ON a.host = s.ap_host AND s.rn = 1
+            ORDER BY a.host;
+        """)
+        
+        result = await session.exec(query)
+        rows = result.mappings().all()
+        return [dict(row) for row in rows]
+        
+    except Exception as e:
+        logging.error(f"Error getting all APs with stats: {e}")
+        # Fallback to basic list w/o stats
+        stmt = select(AP, Zona.nombre.label("zona_nombre")).outerjoin(Zona, AP.zona_id == Zona.id).order_by(AP.host)
+        result_obj = await session.exec(stmt)
+        output = []
+        for ap, zona_name in result_obj.all():
+            d = ap.model_dump()
+            d['zona_nombre'] = zona_name
+            d['client_count'] = None
+            d['airtime_total_usage'] = None
+            output.append(d)
+        return output
 
 
 async def get_ap_by_host_with_stats(session: AsyncSession, host: str) -> dict[str, Any] | None:
     """Obtiene un AP específico, uniendo sus datos de estado más recientes."""
-    stats_db_file = get_stats_db_file()
-    attached = False
-    
     try:
-        if os.path.exists(stats_db_file):
-            try:
-                await session.execute(text(f"ATTACH DATABASE '{stats_db_file}' AS stats_db"))
-                attached = True
-                query = """
-                    WITH LatestStats AS (
-                        SELECT *, ROW_NUMBER() OVER(PARTITION BY ap_host ORDER BY timestamp DESC) as rn
-                        FROM stats_db.ap_stats_history
-                        WHERE ap_host = :host
-                    )
-                    SELECT 
-                        a.*, z.nombre as zona_nombre, s.client_count, s.airtime_total_usage, s.airtime_tx_usage, 
-                        s.airtime_rx_usage, s.total_throughput_tx, s.total_throughput_rx, s.noise_floor, s.chanbw, 
-                        s.frequency, s.essid, s.total_tx_bytes, s.total_rx_bytes, s.gps_lat, s.gps_lon, s.gps_sats
-                    FROM aps AS a
-                    LEFT JOIN zonas AS z ON a.zona_id = z.id
-                    LEFT JOIN LatestStats AS s ON a.host = s.ap_host AND s.rn = 1
-                    WHERE a.host = :host;
-                """
-                result = await session.execute(text(query), {"host": host})
-                row = result.mappings().one_or_none()
-                return dict(row) if row else None
-            except Exception:
-                pass # Fall through to fallback logic below
+        query = text("""
+            WITH LatestStats AS (
+                SELECT *, ROW_NUMBER() OVER(PARTITION BY ap_host ORDER BY timestamp DESC) as rn
+                FROM apstats
+                WHERE ap_host = :host
+            )
+            SELECT 
+                a.*, z.nombre as zona_nombre, s.client_count, s.airtime_total_usage, s.airtime_tx_usage, 
+                s.airtime_rx_usage, s.total_throughput_tx, s.total_throughput_rx, s.noise_floor, s.chanbw, 
+                s.frequency, s.essid, s.total_tx_bytes, s.total_rx_bytes, s.gps_lat, s.gps_lon, s.gps_sats
+            FROM aps AS a
+            LEFT JOIN zonas AS z ON a.zona_id = z.id
+            LEFT JOIN LatestStats AS s ON a.host = s.ap_host AND s.rn = 1
+            WHERE a.host = :host;
+        """)
         
-        # SQLModel fallback
+        result = await session.exec(query, params={"host": host})
+        row = result.mappings().one_or_none()
+        return dict(row) if row else None
+        
+    except Exception as e:
+        logging.error(f"Error getting AP {host} with stats: {e}")
+        # Fallback
         stmt = select(AP, Zona.nombre.label("zona_nombre")).outerjoin(Zona, AP.zona_id == Zona.id).where(AP.host == host)
         result_obj = await session.exec(stmt)
         res = result_obj.first()
         if not res:
-             return None
-             
+            return None
         ap, zona_name = res
         d = ap.model_dump()
         d['zona_nombre'] = zona_name
         return d
-        
-    finally:
-        if attached:
-            try:
-                await session.execute(text("DETACH DATABASE stats_db"))
-            except Exception:
-                pass
 
 
 async def update_ap_in_db(session: AsyncSession, host: str, updates: dict[str, Any]) -> int:

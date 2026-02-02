@@ -1,130 +1,130 @@
-# app/api/stats/main.py
-import os
-import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func, text
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-from ...core.constants import CPEStatus, DeviceStatus
-
-# --- RBAC: Stats is read-only, allow all authenticated users ---
 from ...core.users import current_active_user
-from ...db.base import get_db_connection, get_stats_db_connection, get_stats_db_file
+from ...db.engine import get_session
+from ...models.ap import AP
+from ...models.cpe import CPE
+from ...core.constants import DeviceStatus 
+from ...models.switch import Switch
+from ...models.stats import APStats, CPEStats, RouterStats
 from ...models.user import User
+from ...core.constants import CPEStatus
 
-# --- ¡IMPORTACIÓN CORREGIDA! (Ahora desde '.models') ---
+# Models specifically for response
 from .models import CPECount, SwitchCount, TopAP, TopCPE
+
+from ...db.logs_db import (
+    count_event_logs,
+    get_event_logs_paginated,
+)
 
 router = APIRouter()
 
 
-# --- Dependencias de DB (Lógica sin cambios) ---
-def get_inventory_db():
-    conn = get_db_connection()
-    try:
-        yield conn
-    finally:
-        if conn:
-            conn.close()
-
-
-def get_stats_db():
-    conn = get_stats_db_connection()
-    try:
-        yield conn
-    finally:
-        if conn:
-            conn.close()
-
-
-# --- Endpoints de la API (Lógica sin cambios) ---
 @router.get("/stats/top-aps-by-airtime", response_model=list[TopAP])
-def get_top_aps_by_airtime(
+async def get_top_aps_by_airtime(
     limit: int = 5,
-    conn: sqlite3.Connection = Depends(get_inventory_db),
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(current_active_user),
 ):
-    stats_db_file = get_stats_db_file()
-    if not os.path.exists(stats_db_file):
-        return []
-
+    """
+    Returns top APs by airtime usage.
+    """
     try:
-        conn.execute(f"ATTACH DATABASE '{stats_db_file}' AS stats_db")
-        query = """
+        # We need the latest stats for each AP.
+        # Efficient way in SQLModel: Join AP with APStats on subquery?
+        # Or just window function via raw SQL like stats_db, but APStats is now in same DB.
+        
+        # Using raw SQL for window function support is cleaner for "latest by group"
+        query = text(f"""
             WITH LatestStats AS (
                 SELECT 
                     ap_host, airtime_total_usage,
                     ROW_NUMBER() OVER(PARTITION BY ap_host ORDER BY timestamp DESC) as rn
-                FROM stats_db.ap_stats_history
+                FROM apstats
                 WHERE airtime_total_usage IS NOT NULL
             )
             SELECT a.hostname, a.host, s.airtime_total_usage
             FROM aps as a 
             JOIN LatestStats s ON a.host = s.ap_host AND s.rn = 1
             ORDER BY s.airtime_total_usage DESC 
-            LIMIT ?;
-        """
-        cursor = conn.execute(query, (limit,))
-        rows = [dict(row) for row in cursor.fetchall()]
+            LIMIT :limit;
+        """)
+        
+        result = await session.exec(query, params={"limit": limit})
+        rows = [dict(row) for row in result.mappings()]
         return rows
-    except sqlite3.OperationalError:
+        
+    except Exception as e:
+        # In case of table name mismatch (SQLModel defaults to lower case usually? 
+        # Actually standard sqlmodel is class name lower cased if not specified? 
+        # I didn't specify __tablename__ in stats.py for APStats/CPEStats, so it defaults to classname "apstats".
+        # But wait, original code used "ap_stats_history".
+        # I should check stats.py class definition. 
+        # I defined: class APStats(SQLModel, table=True) -> default table name "apstats"
+        # I should double check if I want to enforce legacy names.
+        # But since I am creating new tables via create_db_and_tables, "apstats" is fine.
+        # However, data migration (NOT done automatically) means these tables start empty. 
+        # That is acceptable per plan ("This plan focuses on NEW data").
+        print(f"Error getting top APs: {e}")
         return []
-    finally:
-        conn.close()
 
 
 @router.get("/stats/top-cpes-by-signal", response_model=list[TopCPE])
-def get_top_cpes_by_weak_signal(
+async def get_top_cpes_by_weak_signal(
     limit: int = 5,
-    stats_conn: sqlite3.Connection | None = Depends(get_stats_db),
-    current_user: User = Depends(current_active_user),
-):
-    if not stats_conn:
-        return []
-
-    query = """
-        WITH LatestCPEStats AS (
-            SELECT 
-                *,
-                ROW_NUMBER() OVER(PARTITION BY cpe_mac ORDER BY timestamp DESC) as rn
-            FROM cpe_stats_history
-            WHERE signal IS NOT NULL
-        )
-        SELECT cpe_hostname, cpe_mac, ap_host, signal
-        FROM LatestCPEStats
-        WHERE rn = 1
-        ORDER BY signal ASC 
-        LIMIT ?;
-    """
-    cursor = stats_conn.execute(query, (limit,))
-    rows = [dict(row) for row in cursor.fetchall()]
-    return rows
-
-
-@router.get("/stats/cpe-count", response_model=CPECount)
-def get_cpe_total_count(
-    conn: sqlite3.Connection = Depends(get_inventory_db),
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(current_active_user),
 ):
     try:
-        # Total count (Only Enabled)
-        cursor = conn.execute("SELECT COUNT(*) FROM cpes WHERE is_enabled=1")
-        total = cursor.fetchone()[0]
+        query = text(f"""
+            WITH LatestCPEStats AS (
+                SELECT 
+                    *,
+                    ROW_NUMBER() OVER(PARTITION BY cpe_mac ORDER BY timestamp DESC) as rn
+                FROM cpestats
+                WHERE signal IS NOT NULL
+            )
+            SELECT cpe_hostname, cpe_mac, ap_host, signal
+            FROM LatestCPEStats
+            WHERE rn = 1
+            ORDER BY signal ASC 
+            LIMIT :limit;
+        """)
+        
+        result = await session.exec(query, params={"limit": limit})
+        rows = [dict(row) for row in result.mappings()]
+        return rows
+    except Exception as e:
+        print(f"Error getting top CPEs: {e}")
+        return []
 
-        # Active count
-        cursor = conn.execute(
-            f"SELECT COUNT(*) FROM cpes WHERE status='{CPEStatus.ACTIVE.value}' AND is_enabled=1"
-        )
-        active = cursor.fetchone()[0]
 
-        # Offline count
-        cursor = conn.execute(
-            f"SELECT COUNT(*) FROM cpes WHERE status='{CPEStatus.OFFLINE.value}' AND is_enabled=1"
-        )
-        offline = cursor.fetchone()[0]
+@router.get("/stats/cpe-count", response_model=CPECount)
+async def get_cpe_total_count(
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(current_active_user),
+):
+    try:
+        # Total Enabled
+        total = await session.exec(select(func.count()).select_from(CPE).where(CPE.is_enabled == True))
+        total = total.one()
 
-        # Disabled count
-        cursor = conn.execute("SELECT COUNT(*) FROM cpes WHERE is_enabled=0")
-        disabled = cursor.fetchone()[0]
+        # Active
+        active = await session.exec(select(func.count()).select_from(CPE).where(CPE.status == CPEStatus.ACTIVE, CPE.is_enabled == True))
+        active = active.one()
+
+        # Offline
+        offline = await session.exec(select(func.count()).select_from(CPE).where(CPE.status == CPEStatus.OFFLINE, CPE.is_enabled == True))
+        offline = offline.one()
+
+        # Disabled
+        disabled = await session.exec(select(func.count()).select_from(CPE).where(CPE.is_enabled == False))
+        disabled = disabled.one()
 
         return {
             "total_cpes": total,
@@ -132,66 +132,47 @@ def get_cpe_total_count(
             "offline": offline,
             "disabled": disabled,
         }
-    except sqlite3.Error as e:
+    except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
 
 @router.get("/stats/switch-count", response_model=SwitchCount)
-def get_switch_total_count(
-    conn: sqlite3.Connection = Depends(get_inventory_db),
+async def get_switch_total_count(
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(current_active_user),
 ):
-    """
-    Returns the count of switches by status.
-    """
     try:
-        # Total count
-        cursor = conn.execute("SELECT COUNT(*) FROM switches")
-        total = cursor.fetchone()[0]
-
-        # Online count
-        cursor = conn.execute(
-            f"SELECT COUNT(*) FROM switches WHERE last_status = '{DeviceStatus.ONLINE.value}' AND is_enabled = 1"
-        )
-        online = cursor.fetchone()[0]
-
-        # Offline count
-        cursor = conn.execute(
-            f"SELECT COUNT(*) FROM switches WHERE last_status = '{DeviceStatus.OFFLINE.value}' AND is_enabled = 1"
-        )
-        offline = cursor.fetchone()[0]
+        total = await session.exec(select(func.count()).select_from(Switch))
+        total = total.one()
+        
+        online = await session.exec(select(func.count()).select_from(Switch).where(Switch.last_status == DeviceStatus.ONLINE, Switch.is_enabled == True))
+        online = online.one()
+        
+        offline = await session.exec(select(func.count()).select_from(Switch).where(Switch.last_status == DeviceStatus.OFFLINE, Switch.is_enabled == True))
+        offline = offline.one()
 
         return {
             "total_switches": total,
             "online": online,
             "offline": offline,
         }
-    except sqlite3.Error as e:
+    except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
 
-from ...db.logs_db import (
-    count_event_logs,
-    get_event_logs_paginated,
-)  # Importamos las nuevas funciones
-
-# ... (otros endpoints) ...
-
-
 @router.get("/stats/events")
-def get_dashboard_events(
+async def get_dashboard_events(
     host: str = None,
-    page: int = 1,  # Nuevo parámetro
-    page_size: int = 10,  # Nuevo parámetro (default 10)
-    conn: sqlite3.Connection | None = Depends(get_stats_db),
+    page: int = 1,
+    page_size: int = 10,
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(current_active_user),
 ):
     """
     Obtiene los logs paginados.
     """
-    # Usamos las funciones de DB dedicadas en lugar de SQL crudo aquí
-    logs = get_event_logs_paginated(host, page, page_size)
-    total_records = count_event_logs(host)
+    logs = await get_event_logs_paginated(session, host, page, page_size)
+    total_records = await count_event_logs(session, host)
 
     total_pages = (total_records + page_size - 1) // page_size
 

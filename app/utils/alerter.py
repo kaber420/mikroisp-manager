@@ -4,7 +4,7 @@ import httpx
 import logging
 
 from .settings_utils import get_setting_sync
-from ..db.base import get_db_connection
+from .settings_utils import get_setting_sync
 
 logger = logging.getLogger(__name__)
 
@@ -35,16 +35,22 @@ def send_telegram_alert(message: str, alert_type: str = "system"):
         pref_column = "receive_announcements"
 
     # Obtener usuarios destinatarios
+    from sqlmodel import select
+    from ..db.engine_sync import get_sync_session
+    from ..models.user import User
+
+    # Obtener usuarios destinatarios
     chat_ids = set()
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        # Seleccionar chat_id de usuarios que tienen la preferencia activa Y tienen chat_id configurado
-        query = f"SELECT telegram_chat_id FROM users WHERE {pref_column} = 1 AND telegram_chat_id IS NOT NULL AND telegram_chat_id != ''"
-        cursor.execute(query)
-        rows = cursor.fetchall()
-        chat_ids = set(row[0] for row in rows)
-        conn.close()
+        with next(get_sync_session()) as session:
+            # Construir la query dinámica
+            statement = select(User.telegram_chat_id).where(
+                getattr(User, pref_column) == True,
+                User.telegram_chat_id != None,
+                User.telegram_chat_id != ""
+            )
+            results = session.exec(statement).all()
+            chat_ids = set(results)
     except Exception as e:
         logger.error(f"Error obteniendo destinatarios de alertas: {e}")
         return
