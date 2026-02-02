@@ -428,6 +428,38 @@
                         <p class="text-sm text-text-secondary mt-1">Configura los tokens de Telegram para los bots de
                             cliente y técnicos.</p>
                     </div>
+
+                    <!-- Execution Mode Section -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/10 pt-6">
+                        <div>
+                            <label for="bot_execution_mode"
+                                class="block text-sm font-medium mb-2 text-text-secondary">Modo de Ejecución</label>
+                            <select id="bot_execution_mode" x-model="bot_execution_mode"
+                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white cursor-pointer">
+                                <option value="auto">⚡ Auto (Recomendado)</option>
+                                <option value="polling">🔄 Polling (Interno)</option>
+                                <option value="webhook">🌐 Webhook (Dominio/Túnel)</option>
+                            </select>
+                            <p class="text-xs text-text-secondary mt-1">
+                                <span x-show="bot_execution_mode === 'auto'">Usa Webhook si hay URL externa, sino
+                                    Polling.</span>
+                                <span x-show="bot_execution_mode === 'polling'">Fuerza polling. Ideal si no tienes HTTPS
+                                    público.</span>
+                                <span x-show="bot_execution_mode === 'webhook'">Requiere URL Externa HTTPS
+                                    válida.</span>
+                            </p>
+                        </div>
+                        <div>
+                            <label for="bot_external_url" class="block text-sm font-medium mb-2 text-text-secondary">URL
+                                Externa (Túnel/Dominio)</label>
+                            <input type="text" id="bot_external_url" x-model="bot_external_url"
+                                placeholder="https://mi-dominio.com"
+                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                            <p class="text-xs text-text-secondary mt-1">Necesario para Webhooks. Telegram enviará los
+                                datos aquí.</p>
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/10 pt-6">
                         <div>
                             <label for="telegram_bot_token"
@@ -549,17 +581,27 @@
 
                 </div>
 
-                <div class="p-6 bg-white/5 rounded-b-lg flex justify-end gap-4 items-center">
-                    <span x-show="$store.settings.saveStatus.visible" x-transition
-                        x-text="$store.settings.saveStatus.message"
-                        :class="$store.settings.saveStatus.type === 'success' ? 'text-success' : 'text-danger'"
-                        class="text-sm"></span>
-                    <button type="submit" :disabled="$store.settings.isLoading"
-                        class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary-hover flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50">
-                        <span x-show="$store.settings.isLoading"
-                            class="material-symbols-outlined text-base animate-spin">sync</span>
-                        Guardar Cambios
+                <div class="p-6 bg-white/5 rounded-b-lg flex justify-between gap-4 items-center">
+
+                    <button type="button" @click="restartBots()" :disabled="isRestarting || $store.settings.isLoading"
+                        class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-orange hover:bg-orange-600 flex items-center gap-2 shadow-lg shadow-orange/20 disabled:opacity-50">
+                        <span :class="isRestarting ? 'animate-spin' : ''"
+                            class="material-symbols-outlined">restart_alt</span>
+                        <span x-text="isRestarting ? 'Reiniciando...' : 'Aplicar y Reiniciar Bots'"></span>
                     </button>
+
+                    <div class="flex items-center gap-4">
+                        <span x-show="$store.settings.saveStatus.visible" x-transition
+                            x-text="$store.settings.saveStatus.message"
+                            :class="$store.settings.saveStatus.type === 'success' ? 'text-success' : 'text-danger'"
+                            class="text-sm"></span>
+                        <button type="submit" :disabled="$store.settings.isLoading"
+                            class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary-hover flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50">
+                            <span x-show="$store.settings.isLoading"
+                                class="material-symbols-outlined text-base animate-spin">sync</span>
+                            Guardar Cambios
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>

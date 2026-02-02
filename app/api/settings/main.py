@@ -64,6 +64,18 @@ def force_monitor_scan(current_user: User = Depends(require_admin)):
     return {"message": "El monitor continuará su ciclo en segundo plano (intervalo normal)."}
 
 
+@router.post("/settings/restart-bots", status_code=200)
+async def restart_bots(current_user: User = Depends(require_admin)):
+    """
+    Reinicia el subsistema de bots (BotManager).
+    Útil después de cambiar tokens o modo de ejecución (Polling/Webhook).
+    """
+    from ...services.bot_manager import bot_manager
+    await bot_manager.stop()
+    await bot_manager.start()
+    return {"message": "Bots reiniciados correctamente."}
+
+
 # --- AUDIT LOGS ENDPOINTS (Admin Only) ---
 
 # --- AUDIT LOGS ENDPOINTS (Admin Only) ---

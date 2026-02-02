@@ -98,12 +98,18 @@ async def on_startup():
     asyncio.create_task(ap_monitor_scheduler.run())
     print("✅ APMonitorScheduler iniciado (Cache V2)")
 
+
     # --- Cache V2: Iniciar SwitchMonitorScheduler ---
     # Mismo patrón para Switches
     from .services.switch_monitor_scheduler import switch_monitor_scheduler
 
     asyncio.create_task(switch_monitor_scheduler.run())
     print("✅ SwitchMonitorScheduler iniciado (Cache V2)")
+
+    # --- BOT MANAGER (Hybrid Architecture) ---
+    from .services.bot_manager import bot_manager
+    asyncio.create_task(bot_manager.start())
+
 
 
 @app.on_event("shutdown")
@@ -116,6 +122,10 @@ async def on_shutdown():
         if redict_manager.is_connected:
             await redict_manager.disconnect()
             print("✅ Redict desconectado")
+
+    # Detener Bots
+    from .services.bot_manager import bot_manager
+    await bot_manager.stop()
 
 
 # --- Configuración de SlowAPI ---
@@ -543,3 +553,21 @@ app.include_router(switches_main_api.router, prefix="/api", tags=["Switches"])
 app.include_router(security_main_api.router, prefix="/api", tags=["Security"])
 app.include_router(tickets_main_api.router, prefix="/api", tags=["Tickets"])
 app.include_router(broadcast_main_api.router, prefix="/api/broadcast", tags=["Broadcast"])
+
+# --- WEBHOOKS PARA BOTS ---
+@app.post("/api/webhooks/{bot_type}/{token}", include_in_schema=False)
+async def bot_webhook(bot_type: str, token: str, request: Request):
+    """
+    Endpoint único para recibir updates de Telegram.
+    bot_type: 'client' o 'tech'
+    """
+    from .services.bot_manager import bot_manager
+    
+    try:
+        data = await request.json()
+        await bot_manager.process_update(bot_type, token, data)
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"⚠️ Webhook Error: {e}")
+        return {"status": "error", "detail": str(e)}
+

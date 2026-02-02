@@ -26,6 +26,11 @@ logging.basicConfig(
     level=logging.INFO,
     stream=sys.stdout
 )
+# Silenciar librerías ruidosas
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("telegram").setLevel(logging.WARNING)
+logging.getLogger("apscheduler").setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 TECH_BOT_TOKEN = os.getenv("TECH_BOT_TOKEN")
 
@@ -41,15 +46,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-def main():
-    logger.info("🚀 Iniciando Bot de Técnicos (Lightweight)...")
-    if not TECH_BOT_TOKEN:
-        logger.error("❌ No se encontró un TECH_BOT_TOKEN válido en el archivo .env")
-        sys.exit(1)
 
-    os.makedirs(DATA_DIR, exist_ok=True)
-
-    application = Application.builder().token(TECH_BOT_TOKEN).build()
+def create_application(token):
+    application = Application.builder().token(token).build()
 
     # Registrando Handlers
     application.add_handler(CommandHandler("start", start_command))
@@ -59,6 +58,18 @@ def main():
     
     # 2. Location (/here)
     application.add_handler(location_conv_handler)
+    
+    return application
+
+def main():
+    logger.info("🚀 Iniciando Bot de Técnicos (Lightweight)...")
+    if not TECH_BOT_TOKEN:
+        logger.error("❌ No se encontró un TECH_BOT_TOKEN válido en el archivo .env")
+        sys.exit(1)
+
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+    application = create_application(TECH_BOT_TOKEN)
 
     logger.info("✅ Handlers registrados. Escuchando...")
     application.run_polling()

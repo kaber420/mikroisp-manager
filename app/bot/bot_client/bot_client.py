@@ -22,22 +22,31 @@ logging.basicConfig(
     level=logging.INFO,
     stream=sys.stdout
 )
+# Silenciar librerías ruidosas
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("telegram").setLevel(logging.WARNING)
+logging.getLogger("apscheduler").setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 CLIENT_BOT_TOKEN = os.getenv("CLIENT_BOT_TOKEN")
 
-def main():
-    if not CLIENT_BOT_TOKEN:
-        logger.error("❌ No CLIENT_BOT_TOKEN found.")
-        sys.exit(1)
-        
-    application = Application.builder().token(CLIENT_BOT_TOKEN).build()
+
+def create_application(token):
+    application = Application.builder().token(token).build()
     
     application.add_handler(main_menu_conv_handler)
     
     # Chat Handler (Global fallback for text that checks for active tickets)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_chat_messages))
     
-    
+    return application
+
+def main():
+    if not CLIENT_BOT_TOKEN:
+        logger.error("❌ No CLIENT_BOT_TOKEN found.")
+        sys.exit(1)
+        
+    application = create_application(CLIENT_BOT_TOKEN)
     logger.info("🌟 Bot de Clientes (Lightweight) iniciado.")
     application.run_polling()
 

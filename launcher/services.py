@@ -78,8 +78,9 @@ class ServiceManager:
         self.start_caddy()
         self.start_scheduler()
         self.start_uvicorn()
-        self.start_tech_bot()
-        self.start_client_bot()
+        # Bots now integrated in main.py (hybrid architecture)
+        # self.start_tech_bot()
+        # self.start_client_bot()
 
     def start_caddy(self):
         """Inicia Caddy si es necesario."""

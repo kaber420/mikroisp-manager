@@ -10,6 +10,11 @@ document.addEventListener('alpine:init', () => {
         client_bot_token: '',
         telegram_chat_id: '',
 
+        // Execution Mode
+        bot_execution_mode: 'auto',
+        bot_external_url: '',
+        isRestarting: false,
+
         // Form fields with default values
         bot_welcome_msg_client: '',
         bot_welcome_msg_guest: '',
@@ -29,6 +34,9 @@ document.addEventListener('alpine:init', () => {
                 this.telegram_bot_token = settings.telegram_bot_token || '';
                 this.client_bot_token = settings.client_bot_token || '';
                 this.telegram_chat_id = settings.telegram_chat_id || '';
+
+                this.bot_execution_mode = settings.bot_execution_mode || 'auto';
+                this.bot_external_url = settings.bot_external_url || '';
 
                 // Populate message fields
                 this.bot_welcome_msg_client = settings.bot_welcome_msg_client || "¡Hola de nuevo, {name}! 👋\n\n¿En qué podemos ayudarte?";
@@ -51,6 +59,8 @@ document.addEventListener('alpine:init', () => {
                 telegram_bot_token: this.telegram_bot_token,
                 client_bot_token: this.client_bot_token,
                 telegram_chat_id: this.telegram_chat_id,
+                bot_execution_mode: this.bot_execution_mode,
+                bot_external_url: this.bot_external_url,
                 // Message settings
                 bot_welcome_msg_client: this.bot_welcome_msg_client,
                 bot_welcome_msg_guest: this.bot_welcome_msg_guest,
@@ -82,6 +92,31 @@ document.addEventListener('alpine:init', () => {
                 }, 10);
             } else {
                 this[field] += variable;
+            }
+        },
+
+        // Restart bots with current settings
+        async restartBots() {
+            this.isRestarting = true;
+            try {
+                // Save settings first
+                await this.save();
+                // Then restart bots
+                const response = await fetch('/api/settings/restart-bots', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (response.ok) {
+                    window.toast?.success?.('Bots reiniciados correctamente') || console.log('Bots restarted');
+                } else {
+                    const data = await response.json();
+                    window.toast?.error?.(data.detail || 'Error al reiniciar bots') || console.error('Restart failed');
+                }
+            } catch (error) {
+                console.error('Restart bots failed:', error);
+                window.toast?.error?.('Error de conexión') || console.error(error);
+            } finally {
+                this.isRestarting = false;
             }
         }
     }));
