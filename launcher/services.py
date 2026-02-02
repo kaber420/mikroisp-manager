@@ -46,13 +46,31 @@ class ServiceManager:
         except Exception:
             pass
 
+        # Parse Database Info
+        db_url = os.getenv("DATABASE_URL") or os.getenv("DATABASE_URL_SYNC")
+        db_type = "SQLite"
+        db_host = "Local File"
+        
+        if db_url and "postgres" in db_url:
+            db_type = "PostgreSQL"
+            try:
+                # Basic parsing to hide credentials
+                # format: postgresql://user:pass@host:port/db
+                from urllib.parse import urlparse
+                parsed = urlparse(db_url.replace("postgresql+asyncpg://", "postgresql://"))
+                db_host = f"{parsed.hostname}:{parsed.port}" if parsed.port else parsed.hostname
+            except Exception:
+                db_host = "Unknown"
+
         self.server_info = {
             "production": self.is_production, # Caddy active might change, but mode usually doesn't
             "local_url": f"https://localhost" if self.is_production else f"http://localhost:{port}",
             "network_url": f"https://{lan_ip}" if self.is_production else f"http://{lan_ip}:{port}",
             "port": str(port),
             "web_workers": str(web_workers),
-            "monitor_workers": monitor_workers
+            "monitor_workers": monitor_workers,
+            "db_type": db_type,
+            "db_host": db_host
         }
 
     def start_all(self):

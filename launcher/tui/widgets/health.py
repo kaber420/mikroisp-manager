@@ -40,6 +40,8 @@ class HealthWidget(Static):
         server_info = self.service_manager.server_info
         web_workers = server_info.get("web_workers", 0)
         monitor_workers = server_info.get("monitor_workers", 0)
+        db_type = server_info.get("db_type", "Unknown")
+        db_host = server_info.get("db_host", "Unknown")
         
         # Network info (local only)
         lan_ip = server_info.get("network_url", "Unknown")
@@ -49,6 +51,7 @@ class HealthWidget(Static):
             f"[b]Api Server:[/b] {uvicorn_status}",
             f"[b]Scheduler:[/b] {scheduler_status}",
             f"[b]Caddy Proxy:[/b] {caddy_status}",
-            f"[b]Workers:[/b] Web({web_workers}) / Monitor({monitor_workers})"
+            f"[b]Workers:[/b] Web({web_workers}) / Monitor({monitor_workers})",
+            f"[b]Database:[/b] {db_type} ({db_host})"
         ]
         self.update("\n".join(lines))
