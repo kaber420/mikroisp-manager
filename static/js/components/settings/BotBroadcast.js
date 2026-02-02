@@ -19,7 +19,9 @@ document.addEventListener('alpine:init', () => {
         },
 
         image_url: '',
-        previewMode: false,
+        selectedFile: null,
+        localPreviewUrl: null,
+        uploading: false,
         sending: false,
         lastResult: null,
 
@@ -55,6 +57,63 @@ document.addEventListener('alpine:init', () => {
             return `${this.selected_zones.length} Zonas Seleccionadas`;
         },
 
+        handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Validate file type
+            const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                window.showToast('Tipo de archivo no permitido. Usa JPG, PNG o WebP.', 'danger');
+                return;
+            }
+
+            // Validate size (5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                window.showToast('Archivo demasiado grande. Máximo 5MB.', 'danger');
+                return;
+            }
+
+            this.selectedFile = file;
+            this.image_url = ''; // Clear URL when file is selected
+
+            // Create local preview
+            if (this.localPreviewUrl) {
+                URL.revokeObjectURL(this.localPreviewUrl);
+            }
+            this.localPreviewUrl = URL.createObjectURL(file);
+        },
+
+        clearSelectedFile() {
+            this.selectedFile = null;
+            if (this.localPreviewUrl) {
+                URL.revokeObjectURL(this.localPreviewUrl);
+                this.localPreviewUrl = null;
+            }
+            // Reset file input
+            const input = document.getElementById('broadcastImageInput');
+            if (input) input.value = '';
+        },
+
+        async uploadImage() {
+            if (!this.selectedFile) return null;
+
+            const formData = new FormData();
+            formData.append('file', this.selectedFile);
+
+            const response = await fetch('/api/broadcast/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || 'Error uploading image');
+            }
+
+            return await response.json();
+        },
+
         async send() {
             if (!this.message) return window.showToast('Escribe un mensaje primero.', 'danger');
 
@@ -86,8 +145,24 @@ document.addEventListener('alpine:init', () => {
                 const payload = {
                     message: this.message,
                     target_type: this.target_type,
-                    image_url: this.image_url || null
+                    image_url: null,
+                    local_image_path: null
                 };
+
+                // Handle image upload if file selected
+                if (this.selectedFile) {
+                    this.uploading = true;
+                    try {
+                        const uploadResult = await this.uploadImage();
+                        payload.local_image_path = uploadResult.temp_path;
+                    } catch (e) {
+                        throw new Error(`Error subiendo imagen: ${e.message}`);
+                    } finally {
+                        this.uploading = false;
+                    }
+                } else if (this.image_url) {
+                    payload.image_url = this.image_url;
+                }
 
                 if (this.target_type === 'clients' && !this.all_zones) {
                     // Alpine proxies need to be converted to array
@@ -114,9 +189,10 @@ document.addEventListener('alpine:init', () => {
                 this.lastResult = data;
                 window.showToast(`Broadcast en cola para ${data.recipient_count} destinatarios.`, 'success');
 
-                // Reset form slightly but keep context
+                // Reset form
                 this.message = '';
                 this.image_url = '';
+                this.clearSelectedFile();
 
             } catch (e) {
                 console.error(e);
