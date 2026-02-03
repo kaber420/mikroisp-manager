@@ -34,35 +34,56 @@ MAX_TICKETS_PER_DAY = 3
 def _publish_ticket_event(event_type: str, data: dict):
     """
     Helper para publicar eventos de tickets a Redict Pub/Sub.
-    Non-blocking: falla silenciosamente si Redict no está disponible.
+    Se conecta directamente a Redict sin depender del cache_manager del web server.
     """
-    try:
-        # Import lazy para evitar dependencias circulares al iniciar
-        from app.utils.cache import cache_manager
+    import threading
+    import json
+    
+    def _do_notify():
+        redict_url = os.getenv("REDICT_URL", "redis://localhost:6379/0")
         
-        if cache_manager.cache_backend != "redict":
-            return  # Solo publicar si usamos Redict
-        
-        import asyncio
-        from app.utils.cache.redict_store import redict_manager
-        
-        async def _do_publish():
-            if redict_manager.is_connected:
-                await redict_manager.publish("chat:updates", {
-                    "type": event_type,
-                    **data
-                })
-        
-        # Ejecutar async desde contexto sync
+        # Try Redict Pub/Sub first
         try:
-            loop = asyncio.get_running_loop()
-            asyncio.ensure_future(_do_publish())
-        except RuntimeError:
-            # No hay loop corriendo, crear uno temporal
-            asyncio.run(_do_publish())
+            import redis
             
-    except Exception as e:
-        logger.debug(f"Pub/Sub event not published (non-critical): {e}")
+            # Parse URL and connect
+            client = redis.from_url(redict_url)
+            
+            payload = json.dumps({
+                "type": event_type,
+                **data
+            })
+            
+            result = client.publish("chat:updates", payload)
+            logger.info(f"📡 [REDICT] Published {event_type} to chat:updates (subscribers: {result})")
+            client.close()
+            return  # Success
+            
+        except ImportError:
+            logger.debug("redis library not installed, falling back to HTTP")
+        except Exception as e:
+            logger.debug(f"Redict Pub/Sub failed ({e}), falling back to HTTP")
+        
+        # HTTP fallback (for when Redict unavailable)
+        if HTTPX_AVAILABLE:
+            try:
+                port = os.getenv("UVICORN_PORT", "8100")
+                url = f"http://127.0.0.1:{port}/api/internal/notify-monitor-update"
+                payload = {
+                    "ticket_id": data.get("ticket_id"),
+                    "message": data.get("notification"),
+                    "level": data.get("level", "info")
+                }
+                
+                with httpx.Client(timeout=3.0) as client:
+                    response = client.post(url, json=payload)
+                    logger.info(f"📡 [HTTP] Notification sent, status: {response.status_code}")
+            except Exception as e:
+                logger.warning(f"HTTP notification failed: {e}")
+    
+    # Run in background thread to not block
+    thread = threading.Thread(target=_do_notify, daemon=True)
+    thread.start()
 
 def crear_ticket(
     cliente_external_id: str,
@@ -119,11 +140,17 @@ def crear_ticket(
             session.commit()
             session.refresh(new_ticket)
             
-            # --- Publicar a Redict Pub/Sub ---
-            _publish_ticket_event("ticket:created", {
-                "ticket_id": str(new_ticket.id),
-                "client_name": client.name,
-                "subject": tipo_solicitud
+            # --- REAL-TIME NOTIFICATION ---
+            # Capture values BEFORE session closes
+            ticket_id_str = str(new_ticket.id)
+            client_name = client.name
+            subject = tipo_solicitud
+            
+            # Redict Pub/Sub for cross-worker broadcast (reaches ALL uvicorn workers)
+            _publish_ticket_event("db_updated", {
+                "ticket_id": ticket_id_str,
+                "notification": f"🎫 Nuevo Ticket de {client_name}: {subject}",
+                "level": "success"
             })
             
             return str(new_ticket.id)
@@ -196,47 +223,19 @@ def agregar_respuesta_a_ticket(ticket_id: str, mensaje: str, autor_tipo: str, au
             session.add(ticket)
             session.commit()
             
-            # --- Publicar a Redict Pub/Sub (nuevo) ---
-            _publish_ticket_event("chat:message", {
-                "ticket_id": str(ticket.id),
-                "sender_type": autor_tipo,
-                "content": mensaje[:100]  # Preview
-            })
-            
             # --- REAL-TIME NOTIFICATION ---
-            if HTTPX_AVAILABLE:
-                try:
-                    # Try to get the port from environment, fallback to searching .env file, finally default to 8100
-                    port = os.getenv("UVICORN_PORT")
-                    if not port:
-                        try:
-                            # Look for the .env file in the root directory relative to this file
-                            env_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", ".env")
-                            if os.path.exists(env_path):
-                                with open(env_path, "r") as f:
-                                    for line in f:
-                                        if line.strip().startswith("UVICORN_PORT="):
-                                            port = line.split("=")[1].strip()
-                                            break
-                        except:
-                            pass
-                    
-                    port = port or "8100"
-                    params = {"ticket_id": str(ticket.id)}
-                    if autor_tipo != 'tech':
-                        params["message"] = f"Nuevo mensaje en Ticket #{ticket.id}: {mensaje[:30]}..."
-                        params["level"] = "info"
-                    
-                    url = f"http://127.0.0.1:{port}/api/internal/notify-monitor-update"
-                    logger.info(f"Notifying web monitor at {url} for ticket {ticket.id}")
-                    
-                    with httpx.Client(timeout=1.0) as client:
-                        client.post(url, json=params)
-                except Exception as e:
-                    # Non-blocking error logging
-                    logger.warning(f"Failed to notify web monitor: {e}")
-            else:
-                logger.warning("Real-time notification skipped: httpx not installed.")
+            # Capture values BEFORE session closes to avoid DetachedInstanceError
+            ticket_id_str = str(ticket.id)
+            mensaje_preview = mensaje[:30] if mensaje else ""
+            sender_type = autor_tipo
+            
+            # Redict Pub/Sub for cross-worker broadcast (reaches ALL uvicorn workers)
+            notification_data = {"ticket_id": ticket_id_str}
+            if sender_type != 'tech':
+                notification_data["notification"] = f"Nuevo mensaje en Ticket #{ticket_id_str[-6:]}: {mensaje_preview}..."
+                notification_data["level"] = "info"
+            
+            _publish_ticket_event("db_updated", notification_data)
 
             return True
             

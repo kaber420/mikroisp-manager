@@ -126,7 +126,8 @@ class CacheManager:
 
                 if redict_manager.is_connected:
                     stats["redict_connected"] = True
-                    stats["stores"] = list(redict_manager._stores.keys())
+                    # RedictManager doesn't track individual stores list in memory
+                    stats["stores"] = ["Distributed Redict Stores"] 
                     return stats
             except ImportError:
                 pass

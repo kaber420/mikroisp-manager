@@ -218,5 +218,25 @@ class BotManager:
             update = Update.de_json(update_data, app.bot)
             await app.process_update(update)
 
+    def get_status_summary(self) -> dict:
+        """Returns a summary of the bot status (Client & Tech)."""
+        client_token = get_setting_sync("client_bot_token")
+        tech_token = get_setting_sync("telegram_bot_token")
+        bot_mode = get_setting_sync("bot_execution_mode") or "auto"
+        
+        return {
+            "client_bot": {
+                "enabled": bool(client_token),
+                "running": self.client_app is not None,
+                "polling": self._is_polling_leader if (self.client_app and bot_mode != "webhook") else False
+            },
+            "tech_bot": {
+                "enabled": bool(tech_token),
+                "running": self.tech_app is not None,
+                "polling": self._is_polling_leader if (self.tech_app and bot_mode != "webhook") else False
+            },
+            "mode": bot_mode
+        }
+
 
 bot_manager = BotManager.get_instance()

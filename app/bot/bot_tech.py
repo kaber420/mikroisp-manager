@@ -15,6 +15,7 @@ warnings.filterwarnings("ignore", category=PTBUserWarning)
 # New Core Logic
 from app.bot.core.config import DATA_DIR
 from app.bot.core.auth import check_authorization
+from app.bot.core.middleware import rate_limit
 
 # Handlers
 from app.bot.commands.ticket_manager import ticket_manager_conversation_handler
@@ -34,6 +35,7 @@ logging.getLogger("apscheduler").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 TECH_BOT_TOKEN = os.getenv("TECH_BOT_TOKEN")
 
+@rate_limit(limit=5, window=10)
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_authorization(update, context):
         await update.message.reply_text("❌ No estás autorizado para usar este bot.")

@@ -36,6 +36,7 @@ from .api.zonas import infra as zonas_infra_api
 from .api.zonas import main as zonas_main_api
 from .api.tickets import main as tickets_main_api
 from .api.broadcast import main as broadcast_main_api
+from .api.health import router as health_router
 
 # Shared Core Modules
 from .core.templates import templates
@@ -109,6 +110,11 @@ async def on_startup():
     # --- BOT MANAGER (Hybrid Architecture) ---
     from .services.bot_manager import bot_manager
     asyncio.create_task(bot_manager.start())
+    
+    # --- STATUS REPORTER (File-Based for TUI) ---
+    from .services.status_reporter import status_reporter_loop
+    asyncio.create_task(status_reporter_loop())
+
 
 
 
@@ -199,6 +205,7 @@ class TrustedOriginMiddleware(BaseHTTPMiddleware):
     SAFE_PATHS = {
         "/api/internal/",
         "/auth/jwt/login",
+        "/api/webhooks/",  # Webhooks are server-to-server (no Origin header)
     }  # Internal endpoints & Login don't need Origin check
 
     async def dispatch(self, request: Request, call_next):
@@ -428,15 +435,20 @@ async def _handle_http_exception(request: Request, status_code: int, detail: str
 async def websocket_dashboard(
     websocket: WebSocket, umonitorpro_access_token_v2: str = Cookie(None)
 ):
+    import logging
+    logger = logging.getLogger("app.websocket")
+    logger.info(f"🔌 WebSocket connection attempt from {websocket.client}")
+    
     # --- SECURITY: Validate authentication cookie ---
     if umonitorpro_access_token_v2 is None:
-        print(f"⚠️ [WebSocket] Rechazado: No se encontró la cookie '{ACCESS_TOKEN_COOKIE_NAME}'.")
+        logger.warning(f"⚠️ [WebSocket] Rechazado: No cookie '{ACCESS_TOKEN_COOKIE_NAME}'.")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
     # --- SECURITY: Validate Origin header to prevent CSWSH ---
-    # (Cross-Site WebSocket Hijacking)
     origin = websocket.headers.get("origin")
+    logger.info(f"🔌 WebSocket origin: {origin}, checking against allowed: {origins}")
+    
     if origin:
         origin_normalized = origin.rstrip("/")
         is_trusted_origin = False
@@ -453,17 +465,22 @@ async def websocket_dashboard(
                 break
 
         if not is_trusted_origin:
-            print(f"🛡️ [WebSocket] BLOCKED: Untrusted origin {origin}")
+            logger.warning(f"🛡️ [WebSocket] BLOCKED: Untrusted origin {origin}")
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
 
     # --- Accept connection ---
     await manager.connect(websocket)
+    logger.info(f"✅ WebSocket connected! Total clients: {len(manager.active_connections)}")
     try:
         while True:
-            await websocket.receive_text()
+            data = await websocket.receive_text()
+            # Handle ping/pong for keep-alive
+            if data == 'ping':
+                await websocket.send_text('pong')
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+        logger.info(f"🔌 WebSocket disconnected. Remaining clients: {len(manager.active_connections)}")
 
 
 @app.post("/api/internal/notify-monitor-update", include_in_schema=False)
@@ -553,6 +570,7 @@ app.include_router(switches_main_api.router, prefix="/api", tags=["Switches"])
 app.include_router(security_main_api.router, prefix="/api", tags=["Security"])
 app.include_router(tickets_main_api.router, prefix="/api", tags=["Tickets"])
 app.include_router(broadcast_main_api.router, prefix="/api/broadcast", tags=["Broadcast"])
+app.include_router(health_router, prefix="/api", tags=["Health"])
 
 # --- WEBHOOKS PARA BOTS ---
 @app.post("/api/webhooks/{bot_type}/{token}", include_in_schema=False)

@@ -16,6 +16,7 @@ from telegram.ext import (
     filters
 )
 from app.bot.core.auth import check_authorization
+from app.bot.core.middleware import rate_limit
 from app.bot.core.ticket_manager import (
     obtener_tickets,
     obtener_ticket_por_id,
@@ -124,6 +125,7 @@ def _build_change_state_keyboard(ticket_id: str) -> InlineKeyboardMarkup:
     keyboard.append([InlineKeyboardButton("❌ Cancelar", callback_data=f"{CALLBACK_PREFIX}:detail:{ticket_id}")])
     return InlineKeyboardMarkup(keyboard)
 
+@rate_limit(limit=5, window=10)
 async def ver_tickets_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if not await check_authorization(update, context):
         await update.message.reply_text("❌ Acceso denegado."); return ConversationHandler.END

@@ -45,6 +45,36 @@ class HealthWidget(Static):
         
         # Network info (local only)
         lan_ip = server_info.get("network_url", "Unknown")
+        
+        # --- App Status (File IPC) ---
+        app_status = self.service_manager.get_app_status()
+        
+        # Cache
+        c_stats = app_status.get("cache", {})
+        is_redict = c_stats.get("redict_connected", False)
+        cache_status = "[green]REDICT[/]" if is_redict else "[yellow]MEMORY[/]"
+        
+        # Bots
+        b_stats = app_status.get("bots", {})
+        c_bot = b_stats.get("client_bot", {})
+        t_bot = b_stats.get("tech_bot", {})
+        
+        c_run = c_bot.get("running", False)
+        t_run = t_bot.get("running", False)
+        
+        # Logic for "ONLINE" vs "PARTIAL" vs "OFFLINE"
+        if not c_bot.get("enabled") and not t_bot.get("enabled"):
+             bots_status = "[gray]DISABLED[/]"
+        elif c_run and t_run:
+             bots_status = "[green]ONLINE[/]"
+        elif c_run or t_run:
+             bots_status = "[yellow]PARTIAL[/]"
+        else:
+             bots_status = "[red]OFFLINE[/]"
+             
+        # Optional details line if needed, or just keep it clean
+        mode = b_stats.get("mode", "auto").upper()
+        bots_detail = f"({mode})"
 
         lines = [
             f"[b]LAN URL:[/b] {lan_ip}",
@@ -52,6 +82,9 @@ class HealthWidget(Static):
             f"[b]Scheduler:[/b] {scheduler_status}",
             f"[b]Caddy Proxy:[/b] {caddy_status}",
             f"[b]Workers:[/b] Web({web_workers}) / Monitor({monitor_workers})",
-            f"[b]Database:[/b] {db_type} ({db_host})"
+            f"[b]Database:[/b] {db_type} ({db_host})",
+            "",
+            f"[b]Cache:[/b] {cache_status}",
+            f"[b]Bots:[/b] {bots_status} {bots_detail}"
         ]
         self.update("\n".join(lines))

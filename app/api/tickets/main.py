@@ -149,12 +149,22 @@ async def get_ticket_detail(
     current_user: User = Depends(require_technician),
     session: AsyncSession = Depends(get_session)
 ):
-    query = select(Ticket).where(Ticket.id == ticket_id).options(selectinload(Ticket.messages))
+    # Force fresh read from database (important for cross-process updates from bot)
+    # The selectinload ensures messages are fetched in a single query
+    query = (
+        select(Ticket)
+        .where(Ticket.id == ticket_id)
+        .options(selectinload(Ticket.messages))
+        .execution_options(populate_existing=True)  # Force refresh from DB
+    )
     result = await session.exec(query)
     ticket = result.first()
     
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    # Explicitly expire and refresh to ensure we get the latest messages
+    await session.refresh(ticket, attribute_names=["messages"])
         
     client = await session.get(Client, ticket.client_id)
     tech = None

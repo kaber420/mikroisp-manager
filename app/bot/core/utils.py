@@ -62,7 +62,23 @@ def sanitize_input(text: str, max_length: int = 1000) -> str:
     text = html.escape(text)
     
     return text.strip()
-    return text.strip()
+
+
+def escape_markdown_v2(text: str) -> str:
+    """
+    Escapa caracteres especiales para MarkdownV2 de Telegram.
+    Use this when inserting user data into Markdown formatted messages.
+    """
+    if not text:
+        return ""
+    
+    # Characters that need escaping in MarkdownV2
+    special_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+    
+    for char in special_chars:
+        text = text.replace(char, f'\\{char}')
+    
+    return text
 
 def get_bot_setting(key: str, default: str) -> str:
     """
@@ -80,13 +96,17 @@ def get_bot_setting(key: str, default: str) -> str:
         logger.error(f"Error fetching setting {key}: {e}")
         return default
 
-def upsert_bot_user(user, client_id: int = None):
+def upsert_bot_user(user, client_id = None):
     """
     Registra o actualiza la interacción de un usuario con el bot.
     user: telegram.User object
+    client_id: UUID or string of the linked client, or None
     """
     try:
         user_id = str(user.id)
+        # Convert UUID to string if present
+        client_id_str = str(client_id) if client_id is not None else None
+        
         with Session(engine) as session:
             bot_user = session.get(BotUser, user_id)
             if not bot_user:
@@ -94,17 +114,17 @@ def upsert_bot_user(user, client_id: int = None):
                     telegram_id=user_id,
                     first_name=user.first_name,
                     username=user.username,
-                    is_client=bool(client_id),
-                    client_id=client_id,
+                    is_client=bool(client_id_str),
+                    client_id=client_id_str,
                     last_interaction=datetime.utcnow()
                 )
             else:
                 bot_user.first_name = user.first_name
                 bot_user.username = user.username
                 bot_user.last_interaction = datetime.utcnow()
-                if client_id:
+                if client_id_str:
                     bot_user.is_client = True
-                    bot_user.client_id = client_id
+                    bot_user.client_id = client_id_str
             
             session.add(bot_user)
             session.commit()

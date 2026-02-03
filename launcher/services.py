@@ -244,3 +244,27 @@ class ServiceManager:
         r = logging.LogRecord("ServiceMgr", logging.getLevelName(level), "", 0, msg, (), None)
         r.created = time.time()
         self.log_queue.put(r)
+
+    def get_app_status(self):
+        """Lee el archivo de estado generado por la app."""
+        import json
+        status_file = "/tmp/umanager_status.json"
+        
+        default_status = {
+            "cache": {"redict_connected": False},
+            "bots": {"mode": "unknown", "client_bot": {}, "tech_bot": {}},
+            "timestamp": 0
+        }
+
+        if not os.path.exists(status_file):
+            return default_status
+
+        try:
+            mtime = os.path.getmtime(status_file)
+            if time.time() - mtime > 15: # 15s stale
+                return default_status
+
+            with open(status_file, "r") as f:
+                return json.load(f)
+        except Exception:
+            return default_status

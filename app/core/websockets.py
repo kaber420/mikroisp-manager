@@ -28,12 +28,20 @@ class ConnectionManager:
         if data:
             payload.update(data)
 
+        active_count = len(self.active_connections)
+        logger.info(f"📡 Broadcasting '{event_type}' to {active_count} WebSocket clients. Payload: {payload}")
+
         # Iteramos sobre una copia [:] para evitar errores si la lista cambia durante el envío
+        sent_count = 0
         for connection in self.active_connections[:]:
             try:
                 await connection.send_json(payload)
-            except Exception:
+                sent_count += 1
+            except Exception as e:
+                logger.warning(f"Failed to send to WebSocket client: {e}")
                 self.disconnect(connection)
+        
+        logger.info(f"📡 Broadcast complete: {sent_count}/{active_count} clients received the event")
 
     async def start_redict_listener(self):
         """
@@ -62,6 +70,7 @@ class ConnectionManager:
             logger.info("✅ Escuchando canal 'chat:updates' de Redict")
             
             async for message in pubsub.listen():
+                logger.debug(f"📬 Redict raw message: {message}")
                 if message["type"] == "message":
                     try:
                         # Decodificar bytes a string si es necesario
@@ -71,6 +80,7 @@ class ConnectionManager:
                         
                         data = json.loads(raw_data)
                         event_type = data.pop("type", "update")
+                        logger.info(f"📬 Redict received event: {event_type}, broadcasting to WebSockets")
                         await self.broadcast_event(event_type, data)
                     except json.JSONDecodeError as e:
                         logger.warning(f"Invalid JSON from Redict: {e}")

@@ -64,25 +64,31 @@ document.addEventListener('alpine:init', () => {
             const self = this;
             window.addEventListener('data-refresh-needed', (e) => {
                 const data = e.detail || {};
+                console.log('🎫 TicketManager received data-refresh-needed event:', data);
 
-                // Small delay to ensure DB consistency across processes
+                // Delay to ensure DB consistency across processes (bot -> web)
                 setTimeout(() => {
                     if (self.showDetailModal && self.selectedTicket) {
                         // Strip dashes for robust UUID comparison (some clients send without dashes)
                         const currentId = String(self.selectedTicket.id).toLowerCase().replace(/-/g, '');
                         const incomingId = data.ticket_id ? String(data.ticket_id).toLowerCase().replace(/-/g, '') : null;
 
+                        console.log('🎫 Comparing ticket IDs:', { currentId, incomingId, match: (!incomingId || incomingId === currentId) });
+
                         // If no ticket_id is provided, or it matches the active one, refresh chat
                         if (!incomingId || incomingId === currentId) {
+                            console.log('🎫 Refreshing chat for matching ticket');
                             self.openTicket(self.selectedTicket);
                         } else {
                             // Different ticket updated, refresh background list
+                            console.log('🎫 Different ticket updated, refreshing list only');
                             self.loadTickets(true);
                         }
                     } else {
+                        console.log('🎫 No modal open, refreshing ticket list');
                         self.loadTickets(true);
                     }
-                }, 500);
+                }, 1000);  // Increased delay for DB sync
             });
 
         },

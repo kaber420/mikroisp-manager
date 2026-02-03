@@ -15,6 +15,7 @@ from app.models.client import Client
 from app.bot.core.ticket_manager import crear_ticket, obtener_tickets, agregar_respuesta_a_ticket, TicketLimitExceeded
 from app.bot.core.ticket_manager import crear_ticket, obtener_tickets, agregar_respuesta_a_ticket, TicketLimitExceeded
 from app.bot.core.utils import get_client_by_telegram_id, sanitize_input, get_bot_setting, upsert_bot_user
+from app.bot.core.middleware import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ def get_main_keyboard_markup() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 
+@rate_limit(limit=5, window=10)
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.effective_user
     user_id = str(user.id)
@@ -54,23 +56,32 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     if client:
         welcome_msg = get_bot_setting("bot_welcome_msg_client", "¡Hola de nuevo, {name}! 👋\n\n¿En qué podemos ayudarte?")
-        # Simple string formatting for dynamic values
         welcome_msg = welcome_msg.replace("{name}", client.name)
-        
-        await update.message.reply_text(
-            welcome_msg,
-            reply_markup=get_main_keyboard_markup()
-        )
+        try:
+            await update.message.reply_text(
+                welcome_msg,
+                reply_markup=get_main_keyboard_markup()
+            )
+        except Exception as e:
+            logger.warning(f"Could not reply to client {user_id}: {e}")
         return MENU_PRINCIPAL
     else:
         welcome_guest = get_bot_setting("bot_welcome_msg_guest", "Hola, bienvenido. 👋\n\nParece que tu cuenta de Telegram no está vinculada.\nPor favor, comparte este ID con soporte:\n`{user_id}`")
         welcome_guest = welcome_guest.replace("{user_id}", user_id)
         
-        await update.message.reply_text(welcome_guest, parse_mode="Markdown")
+        try:
+            await update.message.reply_text(welcome_guest, parse_mode="Markdown", reply_markup=get_main_keyboard_markup())
+        except Exception as e:
+            logger.warning(f"Could not reply to guest {user_id}: {e}")
+        
+        # RESTORED: Restrict access to linked clients only
         return ConversationHandler.END
 
 async def reportar_falla(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text("Por favor, describe tu problema detalladamente:", reply_markup=ReplyKeyboardRemove())
+    try:
+        await update.message.reply_text("Por favor, describe tu problema detalladamente:", reply_markup=ReplyKeyboardRemove())
+    except Exception as e:
+        logger.warning(f"Could not reply to user {update.effective_user.id}: {e}")
     return AWAITING_FALLA
 
 async def guardar_solicitud(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -98,13 +109,19 @@ async def guardar_solicitud(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         if ticket_id:
             # Visual ID adjustment (last 6 chars?)
             short_id = ticket_id[-6:]
-            await update.message.reply_text(
-                f"✅ Solicitud recibida. Ticket: `{short_id}`.", 
-                parse_mode="Markdown", 
-                reply_markup=get_main_keyboard_markup()
-            )
+            try:
+                await update.message.reply_text(
+                    f"✅ Solicitud recibida. Ticket: `{short_id}`.", 
+                    parse_mode="Markdown", 
+                    reply_markup=get_main_keyboard_markup()
+                )
+            except Exception as e:
+                logger.warning(f"Could not reply success to user: {e}")
         else:
-            await update.message.reply_text("❌ Error al crear ticket.", reply_markup=get_main_keyboard_markup())
+            try:
+                await update.message.reply_text("❌ Error al crear ticket.", reply_markup=get_main_keyboard_markup())
+            except Exception:
+                pass
 
     except TicketLimitExceeded:
         await update.message.reply_text(

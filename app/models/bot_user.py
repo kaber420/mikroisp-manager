@@ -10,4 +10,4 @@ class BotUser(SQLModel, table=True):
     username: Optional[str] = None
     last_interaction: datetime = Field(default_factory=datetime.utcnow)
     is_client: bool = Field(default=False)
-    client_id: Optional[int] = Field(default=None) # Vinculado a tabla clientes si existe
+    client_id: Optional[str] = Field(default=None)  # UUID string vinculado a tabla clientes
