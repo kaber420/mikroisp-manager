@@ -20,6 +20,7 @@ from app.bot.core.middleware import rate_limit
 # Handlers
 from app.bot.commands.ticket_manager import ticket_manager_conversation_handler
 from app.bot.commands.location_cmd import location_conv_handler
+from app.bot.commands.client_search import client_search_conversation_handler
 
 load_dotenv()
 logging.basicConfig(
@@ -44,6 +45,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🤖 **Bot de Técnicos 2.0**\n\n"
         "Comandos disponibles:\n"
         "/tickets - Gestionar tickets de soporte\n"
+        "/cliente - Buscar información de clientes\n"
         "/here - Actualizar ubicación de un cliente\n",
         parse_mode="Markdown"
     )
@@ -60,6 +62,9 @@ def create_application(token):
     
     # 2. Location (/here)
     application.add_handler(location_conv_handler)
+    
+    # 3. Client Search (/cliente)
+    application.add_handler(client_search_conversation_handler)
     
     return application
 
