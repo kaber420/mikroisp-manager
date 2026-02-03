@@ -5,6 +5,7 @@ Refactorizado para usar SQLModel y la base de datos principal inventory.sqlite.
 """
 
 import logging
+import uuid
 try:
     import httpx
     HTTPX_AVAILABLE = True
@@ -29,6 +30,90 @@ class TicketLimitExceeded(Exception):
     pass
 
 MAX_TICKETS_PER_DAY = 3
+
+
+def _send_telegram_message_to_client(telegram_chat_id: str, message: str) -> bool:
+    """
+    Send a message to a client via Telegram API using CLIENT_BOT_TOKEN.
+    Returns True if sent successfully, False otherwise.
+    """
+    import threading
+    
+    token = os.getenv("CLIENT_BOT_TOKEN")
+    if not token:
+        logger.warning("CLIENT_BOT_TOKEN not set, cannot forward message to client")
+        return False
+    
+    if not telegram_chat_id:
+        logger.warning("No telegram_chat_id provided")
+        return False
+    
+    def _do_send():
+        if not HTTPX_AVAILABLE:
+            logger.warning("httpx not available, cannot send Telegram message")
+            return
+        try:
+            url = f"https://api.telegram.org/bot{token}/sendMessage"
+            payload = {
+                "chat_id": telegram_chat_id,
+                "text": f"📨 *Respuesta de Soporte:*\n\n{message}",
+                "parse_mode": "Markdown"
+            }
+            with httpx.Client(timeout=10.0) as client:
+                response = client.post(url, json=payload)
+                if response.status_code == 200:
+                    logger.info(f"✅ Message forwarded to client {telegram_chat_id}")
+                else:
+                    logger.warning(f"Failed to send message: {response.text}")
+        except Exception as e:
+            logger.error(f"Error sending Telegram message: {e}")
+    
+    # Run in background thread
+    thread = threading.Thread(target=_do_send, daemon=True)
+    thread.start()
+    return True
+
+
+def _send_telegram_message_to_tech(telegram_chat_id: str, client_name: str, message: str) -> bool:
+    """
+    Send a message to a tech via Telegram API using TECH_BOT_TOKEN.
+    Returns True if request sent, False otherwise.
+    """
+    import threading
+    
+    token = os.getenv("TECH_BOT_TOKEN")
+    if not token:
+        logger.warning("TECH_BOT_TOKEN not set, cannot forward message to tech")
+        return False
+    
+    if not telegram_chat_id:
+        logger.warning("No tech telegram_chat_id provided")
+        return False
+    
+    def _do_send():
+        if not HTTPX_AVAILABLE:
+            logger.warning("httpx not available, cannot send Telegram message")
+            return
+        try:
+            url = f"https://api.telegram.org/bot{token}/sendMessage"
+            payload = {
+                "chat_id": telegram_chat_id,
+                "text": f"💬 *Mensaje de {client_name}:*\n\n{message}",
+                "parse_mode": "Markdown"
+            }
+            with httpx.Client(timeout=10.0) as client:
+                response = client.post(url, json=payload)
+                if response.status_code == 200:
+                    logger.info(f"✅ Message forwarded to tech {telegram_chat_id}")
+                else:
+                    logger.warning(f"Failed to send message to tech: {response.text}")
+        except Exception as e:
+            logger.error(f"Error sending Telegram message to tech: {e}")
+    
+    # Run in background thread
+    thread = threading.Thread(target=_do_send, daemon=True)
+    thread.start()
+    return True
 
 
 def _publish_ticket_event(event_type: str, data: dict):
@@ -166,7 +251,8 @@ def obtener_ticket_por_id(ticket_id: str) -> Optional[TicketDict]:
     """Obtiene un ticket por su UUID."""
     try:
         with Session(engine) as session:
-            statement = select(Ticket).where(Ticket.id == ticket_id)
+            ticket_uuid = uuid.UUID(ticket_id) if isinstance(ticket_id, str) else ticket_id
+            statement = select(Ticket).where(Ticket.id == ticket_uuid)
             ticket = session.exec(statement).first()
             
             if ticket:
@@ -198,7 +284,8 @@ def agregar_respuesta_a_ticket(ticket_id: str, mensaje: str, autor_tipo: str, au
     """Agrega un mensaje al ticket."""
     try:
         with Session(engine) as session:
-            statement = select(Ticket).where(Ticket.id == ticket_id)
+            ticket_uuid = uuid.UUID(ticket_id) if isinstance(ticket_id, str) else ticket_id
+            statement = select(Ticket).where(Ticket.id == ticket_uuid)
             ticket = session.exec(statement).first()
             if not ticket: return False
             
@@ -223,6 +310,23 @@ def agregar_respuesta_a_ticket(ticket_id: str, mensaje: str, autor_tipo: str, au
             session.add(ticket)
             session.commit()
             
+            # --- FORWARD TO CLIENT IF TECH RESPONDS ---
+            client_telegram_id = None
+            tech_telegram_id = None
+            client_name = "Cliente"
+            
+            # Get client info
+            client = session.get(Client, ticket.client_id)
+            if client:
+                client_telegram_id = client.telegram_contact
+                client_name = client.name or "Cliente"
+            
+            # Get assigned tech info (for forwarding client messages)
+            if ticket.assigned_tech_id:
+                tech = session.get(User, ticket.assigned_tech_id)
+                if tech and tech.telegram_chat_id:
+                    tech_telegram_id = tech.telegram_chat_id
+            
             # --- REAL-TIME NOTIFICATION ---
             # Capture values BEFORE session closes to avoid DetachedInstanceError
             ticket_id_str = str(ticket.id)
@@ -236,6 +340,14 @@ def agregar_respuesta_a_ticket(ticket_id: str, mensaje: str, autor_tipo: str, au
                 notification_data["level"] = "info"
             
             _publish_ticket_event("db_updated", notification_data)
+            
+            # Forward to client via Telegram if tech sent the message
+            if autor_tipo == 'tech' and client_telegram_id:
+                _send_telegram_message_to_client(client_telegram_id, mensaje)
+            
+            # Forward to tech via Telegram if client sent the message
+            if autor_tipo == 'client' and tech_telegram_id:
+                _send_telegram_message_to_tech(tech_telegram_id, client_name, mensaje)
 
             return True
             
@@ -255,13 +367,14 @@ def asignar_ticket_a_tecnico(ticket_id: str, tecnico_telegram_id: str) -> bool:
                 return False
                 
             # 2. Find Ticket
-            ticket_stmt = select(Ticket).where(Ticket.id == ticket_id)
+            ticket_uuid = uuid.UUID(ticket_id) if isinstance(ticket_id, str) else ticket_id
+            ticket_stmt = select(Ticket).where(Ticket.id == ticket_uuid)
             ticket = session.exec(ticket_stmt).first()
             if not ticket: return False
             
             # 3. Assign
             ticket.assigned_tech_id = user.id
-            ticket.status = "en_revision" # or 'in_progress'
+            ticket.status = "pending"
             ticket.updated_at = datetime.utcnow()
             
             session.add(ticket)
@@ -277,7 +390,8 @@ def auto_asignar_ticket_a_tecnico(ticket_id: str, tecnico_telegram_id: str) -> b
 def actualizar_estado_ticket(ticket_id: str, nuevo_estado: str, tecnico_telegram_id: str = None) -> bool:
     try:
         with Session(engine) as session:
-            ticket = session.get(Ticket, ticket_id)
+            ticket_uuid = uuid.UUID(ticket_id) if isinstance(ticket_id, str) else ticket_id
+            ticket = session.get(Ticket, ticket_uuid)
             if not ticket: return False
             
             ticket.status = nuevo_estado

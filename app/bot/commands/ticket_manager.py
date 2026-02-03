@@ -38,6 +38,13 @@ ESTADOS_ESP = {'open': 'Abierto', 'pending': 'Pendiente', 'resolved': 'Resuelto'
 ESTADOS_PARA_FILTRAR = ['todos'] + list(ESTADOS_ESP.keys())
 CALLBACK_PREFIX = "ticketmgr"
 
+def _build_error_keyboard() -> InlineKeyboardMarkup:
+    """Keyboard shown on errors to allow navigation back."""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("⬅️ Volver a Lista", callback_data=f"{CALLBACK_PREFIX}:back_to_list")],
+        [InlineKeyboardButton("❌ Cerrar", callback_data=f"{CALLBACK_PREFIX}:cancel")]
+    ])
+
 def _build_filter_keyboard(current_filters: dict) -> InlineKeyboardMarkup:
     estado_actual = current_filters.get('estado', 'todos')
     dias_actual = current_filters.get('dias', 'todos')
@@ -117,12 +124,15 @@ def _build_ticket_detail_keyboard(ticket_id: str, filters: dict) -> InlineKeyboa
     return InlineKeyboardMarkup(keyboard)
 
 def _build_change_state_keyboard(ticket_id: str) -> InlineKeyboardMarkup:
+    """Build keyboard for state changes. Uses short state names to fit 64-byte limit."""
     keyboard = []; row = []
     for i, estado in enumerate(ESTADOS_PERMITIDOS):
-        row.append(InlineKeyboardButton(estado, callback_data=f"{CALLBACK_PREFIX}:set_state:{ticket_id}:{estado}"))
-        if (i + 1) % 3 == 0: keyboard.append(row); row = []
+        # Use short callback data: prefix + action + state only
+        # ticket_id is stored in context.user_data['current_ticket_id']
+        row.append(InlineKeyboardButton(ESTADOS_ESP.get(estado, estado), callback_data=f"{CALLBACK_PREFIX}:ss:{estado}"))
+        if (i + 1) % 2 == 0: keyboard.append(row); row = []
     if row: keyboard.append(row)
-    keyboard.append([InlineKeyboardButton("❌ Cancelar", callback_data=f"{CALLBACK_PREFIX}:detail:{ticket_id}")])
+    keyboard.append([InlineKeyboardButton("❌ Cancelar", callback_data=f"{CALLBACK_PREFIX}:back_detail")])
     return InlineKeyboardMarkup(keyboard)
 
 @rate_limit(limit=5, window=10)
@@ -204,7 +214,7 @@ async def ticket_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                     parse_mode="Markdown"
                 )
             else:
-                 await query.edit_message_text("❌ Ticket no encontrado.")
+                 await query.edit_message_text("❌ Ticket no encontrado.", reply_markup=_build_error_keyboard())
 
         elif action == "take":
             ticket_id = parts[2]
@@ -218,17 +228,30 @@ async def ticket_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                 
         elif action == "change_state":
             ticket_id = parts[2]
+            context.user_data['current_ticket_id'] = ticket_id  # Store for later
             await query.edit_message_reply_markup(reply_markup=_build_change_state_keyboard(ticket_id))
             
-        elif action == "set_state":
-            ticket_id = parts[2]
-            nuevo_estado = parts[3]
+        elif action == "ss":  # short for set_state
+            ticket_id = context.user_data.get('current_ticket_id')
+            if not ticket_id:
+                await query.answer("Error: ticket no encontrado.", show_alert=True)
+                return MENU
+            nuevo_estado = parts[2]
             if actualizar_estado_ticket(ticket_id, nuevo_estado, tecnico_id_telegram):
-                await query.answer(f"✅ Estado: {nuevo_estado}", show_alert=True)
+                await query.answer(f"✅ Estado: {ESTADOS_ESP.get(nuevo_estado, nuevo_estado)}", show_alert=True)
                 ticket = obtener_ticket_por_id(ticket_id)
                 await query.edit_message_text(_build_ticket_detail_message(ticket), reply_markup=_build_ticket_detail_keyboard(ticket_id, filters), parse_mode="Markdown")
             else:
                 await query.answer("Error al actualizar estado.", show_alert=True)
+        
+        elif action == "back_detail":
+            ticket_id = context.user_data.get('current_ticket_id')
+            if ticket_id:
+                ticket = obtener_ticket_por_id(ticket_id)
+                if ticket:
+                    await query.edit_message_text(_build_ticket_detail_message(ticket), reply_markup=_build_ticket_detail_keyboard(ticket_id, filters), parse_mode="Markdown")
+                    return MENU
+            await _show_ticket_list(update, context, page=1, filters=filters)
                 
         elif action == "respond":
             context.user_data['ticket_id_response'] = parts[2]
@@ -236,8 +259,11 @@ async def ticket_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             return AWAITING_RESPONSE
             
     except Exception as e:
-        logger.error(f"Error handler: {e}")
-        await query.answer("Error inesperado.")
+        logger.error(f"Error handler: {e}", exc_info=True)
+        try:
+            await query.edit_message_text("❌ Error inesperado.", reply_markup=_build_error_keyboard())
+        except Exception:
+            pass  # Message might already be deleted or unchanged
         
     return MENU
 
@@ -250,7 +276,7 @@ async def save_response_handler(update: Update, context: ContextTypes.DEFAULT_TY
     tech_id = str(update.effective_user.id) # Use telegram ID, core converts if needed or stores string
     
     if agregar_respuesta_a_ticket(ticket_id, resp, 'tech', tech_id):
-        await update.message.reply_text("✅ Respuesta guardada.")
+        await update.message.reply_text("✅ Respuesta guardada. 📤 Enviado al cliente.")
         # Return to menu?
         # Ideally show ticket detail again.
         ticket = obtener_ticket_por_id(ticket_id)
