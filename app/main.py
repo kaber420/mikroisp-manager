@@ -37,6 +37,7 @@ from .api.zonas import main as zonas_main_api
 from .api.tickets import main as tickets_main_api
 from .api.broadcast import main as broadcast_main_api
 from .api.health import router as health_router
+from .api.setup import main as setup_api
 
 # Shared Core Modules
 from .core.templates import templates
@@ -527,6 +528,9 @@ async def notify_monitor_update(
 
 
 # --- ROUTERS INCLUSION ---
+
+# 0. Setup Wizard (only active on first run)
+app.include_router(setup_api.router)
 
 # 1. Main Views (Pages & Legacy Auth)
 app.include_router(views_router)

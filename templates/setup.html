@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración Inicial - µMonitor Pro</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', path='/img/favicon.ico') }}">
+    <!-- Compiled Tailwind CSS -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/fonts.css">
+    <!-- Login-specific styles (reused for setup) -->
+    <link rel="stylesheet" href="/static/css/login.css">
+</head>
+
+<body class="dynamic-bg text-text-primary font-sans antialiased relative overflow-hidden">
+
+    <!-- Dynamic glowing elements -->
+    <div class="glow-element glow-1"></div>
+    <div class="glow-element glow-2"></div>
+    <div class="glow-element glow-3"></div>
+
+    <div class="flex min-h-screen items-center justify-center p-4 relative z-10">
+        <div class="w-full max-w-md">
+            <div class="flex justify-center items-center gap-3 mb-6">
+                <div class="p-3 bg-primary/10 rounded-xl border border-primary/20 backdrop-blur-sm">
+                    <span class="material-symbols-outlined text-primary text-4xl">router</span>
+                </div>
+                <h1 class="text-3xl font-bold text-text-primary tracking-tight">µMonitor <span
+                        class="text-primary">Pro</span></h1>
+            </div>
+
+            <div class="glass-card rounded-2xl p-8">
+                <h2 class="text-2xl font-bold text-center mb-1">🎉 ¡Bienvenido!</h2>
+                <p class="text-text-secondary text-center mb-6 text-sm">Crea tu cuenta de administrador para comenzar.</p>
+
+                <div id="error-container"
+                    class="hidden bg-danger/10 border border-danger/20 text-danger text-sm rounded-lg p-3 mb-4 text-center flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-sm">error</span>
+                    <span id="error-message-text"></span>
+                </div>
+
+                <form id="setup-form" class="space-y-4">
+                    <div>
+                        <label for="username"
+                            class="block text-xs font-bold uppercase text-text-secondary mb-2 ml-1">Usuario</label>
+                        <div class="relative">
+                            <span
+                                class="material-symbols-outlined absolute left-3 top-2.5 text-text-secondary text-[20px]">person</span>
+                            <input type="text" id="username" name="username" required placeholder="admin"
+                                class="input-glass w-full border rounded-xl py-2.5 pl-10 pr-4 focus:ring-0 focus:outline-none transition-all placeholder-gray-600 text-text-primary">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="email"
+                            class="block text-xs font-bold uppercase text-text-secondary mb-2 ml-1">Email</label>
+                        <div class="relative">
+                            <span
+                                class="material-symbols-outlined absolute left-3 top-2.5 text-text-secondary text-[20px]">mail</span>
+                            <input type="email" id="email" name="email" required placeholder="admin@example.com"
+                                class="input-glass w-full border rounded-xl py-2.5 pl-10 pr-4 focus:ring-0 focus:outline-none transition-all placeholder-gray-600 text-text-primary">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="password"
+                            class="block text-xs font-bold uppercase text-text-secondary mb-2 ml-1">Contraseña</label>
+                        <div class="relative">
+                            <span
+                                class="material-symbols-outlined absolute left-3 top-2.5 text-text-secondary text-[20px]">lock</span>
+                            <input type="password" id="password" name="password" required placeholder="••••••••" minlength="6"
+                                class="input-glass w-full border rounded-xl py-2.5 pl-10 pr-4 focus:ring-0 focus:outline-none transition-all placeholder-gray-600 text-text-primary">
+                        </div>
+                         <p class="text-xs text-text-secondary mt-1 ml-1">Mínimo 6 caracteres</p>
+                    </div>
+                    <div>
+                        <label for="password_confirm"
+                            class="block text-xs font-bold uppercase text-text-secondary mb-2 ml-1">Confirmar Contraseña</label>
+                        <div class="relative">
+                            <span
+                                class="material-symbols-outlined absolute left-3 top-2.5 text-text-secondary text-[20px]">lock</span>
+                            <input type="password" id="password_confirm" name="password_confirm" required placeholder="••••••••" minlength="6"
+                                class="input-glass w-full border rounded-xl py-2.5 pl-10 pr-4 focus:ring-0 focus:outline-none transition-all placeholder-gray-600 text-text-primary">
+                        </div>
+                    </div>
+                    <div class="pt-2">
+                        <button type="submit" id="submit-btn"
+                            class="w-full h-11 px-4 text-sm font-bold text-white rounded-xl bg-primary hover:bg-primary-hover focus:outline-none focus:ring-4 focus:ring-primary/20 transition-all shadow-lg shadow-primary/20">
+                            Crear Administrador
+                        </button>
+                    </div>
+                </form>
+
+                <script nonce="{{ request.state.csp_nonce }}">
+                    document.getElementById('setup-form').addEventListener('submit', async function (e) {
+                        e.preventDefault();
+
+                        const errorContainer = document.getElementById('error-container');
+                        const errorMessageText = document.getElementById('error-message-text');
+                        const submitBtn = document.getElementById('submit-btn');
+
+                        errorContainer.classList.add('hidden');
+
+                        const username = document.getElementById('username').value.trim();
+                        const email = document.getElementById('email').value.trim();
+                        const password = document.getElementById('password').value;
+                        const passwordConfirm = document.getElementById('password_confirm').value;
+
+                        if (password !== passwordConfirm) {
+                            errorMessageText.textContent = 'Las contraseñas no coinciden.';
+                            errorContainer.classList.remove('hidden');
+                            return;
+                        }
+                        if (password.length < 6) {
+                            errorMessageText.textContent = 'La contraseña debe tener al menos 6 caracteres.';
+                            errorContainer.classList.remove('hidden');
+                            return;
+                        }
+
+                        submitBtn.disabled = true;
+                        submitBtn.textContent = 'Creando...';
+
+                        try {
+                            const response = await fetch('/setup', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ username, email, password }),
+                                credentials: 'same-origin'
+                            });
+
+                            if (response.ok) {
+                                window.location.href = '/login?setup=success';
+                            } else {
+                                let errorMsg = 'No se pudo crear el usuario.';
+                                try {
+                                    const data = await response.json();
+                                    if (data.detail) {
+                                        errorMsg = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+                                    }
+                                } catch (jsonErr) {
+                                    // Use default error message
+                                }
+                                errorMessageText.textContent = errorMsg;
+                                errorContainer.classList.remove('hidden');
+                            }
+                        } catch (error) {
+                            errorMessageText.textContent = 'Error de conexión. Intenta de nuevo.';
+                            errorContainer.classList.remove('hidden');
+                        } finally {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = 'Crear Administrador';
+                        }
+                    });
+                </script>
+            </div>
+
+            <p class="text-center text-text-secondary text-xs mt-8 opacity-60">
+                &copy; 2025 µISP Monitor System
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -27,7 +27,7 @@ class ServiceManager:
     def _init_server_info(self):
         """Prepara la información estática del servidor."""
         load_dotenv(ENV_FILE)
-        check_and_create_first_user()
+        check_and_create_first_user(interactive=False)
 
         self.is_production = os.getenv("APP_ENV") == "production"
         caddy_active = is_caddy_running() # Check initial state

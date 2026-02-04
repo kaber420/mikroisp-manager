@@ -1,4 +1,4 @@
 {
     "headless": false,
-    "web_workers": 3
+    "web_workers": 2
 }

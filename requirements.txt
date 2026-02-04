@@ -24,9 +24,9 @@ google-auth-oauthlib
 slowapi
 python-dateutil
 pydantic-settings
-rich
 textual
 python-telegram-bot>=20.0
 redis[hiredis]>=5.0.0
 asyncpg
 psycopg2-binary
+psutil

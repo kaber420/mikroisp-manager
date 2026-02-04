@@ -45,8 +45,16 @@ def bootstrap_system() -> None:
     """
     try:
         logger.info("🛠️ [Bootstrap] Initializing database schema...")
-        # 1. Create SQLModel tables
-        create_sync_db_and_tables()
+        
+        # 1. Create SQLModel tables with concurrency protection
+        from sqlalchemy.exc import OperationalError
+        try:
+            create_sync_db_and_tables()
+        except OperationalError as e:
+            if "already exists" in str(e):
+                logger.warning(f"⚠️ [Bootstrap] Concurrency: Tables already exist ({e}). Continuing...")
+            else:
+                raise e
 
         # 2. Initialize default data (dialect-aware)
         if _is_sqlite_dialect():

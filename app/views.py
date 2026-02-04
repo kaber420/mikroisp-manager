@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlmodel import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import Session, select
 
 from .core.templates import templates
 from .core.users import (
@@ -9,10 +10,18 @@ from .core.users import (
     require_admin,
     require_technician,
 )
+from .db.engine import get_session
 from .db.engine_sync import get_sync_session
 from .models.user import User
 
 router = APIRouter()
+
+
+# --- Helpers ---
+async def _is_system_setup(session: AsyncSession) -> bool:
+    """Check if any user exists in the database (system is setup)."""
+    result = await session.execute(select(User).limit(1))
+    return result.scalar_one_or_none() is not None
 
 
 # --- Dependency ---
@@ -26,9 +35,10 @@ async def get_current_user_or_redirect(
 
 
 @router.get("/login", response_class=HTMLResponse, tags=["Auth & Pages"])
-async def read_login_form(request: Request):
-    """Login page"""
-    # Rate limit is applied to POST /auth/cookie/login in main.py
+async def read_login_form(request: Request, session: AsyncSession = Depends(get_session)):
+    """Login page - redirects to /setup if no users exist."""
+    if not await _is_system_setup(session):
+        return RedirectResponse(url="/setup", status_code=status.HTTP_303_SEE_OTHER)
     return templates.TemplateResponse("login.html", {"request": request})
 
 
