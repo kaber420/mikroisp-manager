@@ -241,9 +241,11 @@ def run_setup_wizard() -> None:
         print(f"❌ Error guardando .env: {e}")
         sys.exit(1)
 
-    # 12. CREAR USUARIO ADMINISTRADOR (Interactivo)
+    # 12. CREAR USUARIO ADMINISTRADOR (si no existe)
     print("\n🔐 CONFIGURACIÓN DE USUARIO")
     print("-" * 40)
     from .user_setup import check_and_create_first_user
     check_and_create_first_user(interactive=True)
+
+
 
