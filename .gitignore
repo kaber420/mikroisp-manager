@@ -215,15 +215,12 @@ tmp/
 
 # Generated Assets
 static/qr_codes/
-data/qr_codes/bootstrap_8559860c61.png
-scripts/debug_ros6_wireless.py
-scripts/test_full_flow.py
+data/qr_codes/
+scripts/
 Caddyfile
 .git_backup/
 *.bak
 requirements-dev.txt
 pyproject.toml
-
 diagnose_raw.py
 diagnose_telegram.py
-.agent/
