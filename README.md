@@ -1,171 +1,167 @@
 # µMonitor Pro
 
-µMonitor Pro es una solución avanzada para la gestión y monitoreo de redes ISP/WISP. Este sistema permite administrar dispositivos, zonas, clientes y cortes de servicio de manera eficiente.
-
-![Login Page](static/img/login_page.png)
-
-## ✨ Funcionalidades Principales
-
-### 📡 Gestión de Red (MikroTik)
-
-- **Control de Servicio**:
-  - Corte y suspensión automática para **PPPoE** y **Simple Queues**.
-  - Reducción de velocidad a 1k (Drop) o corte total mediante Address List.
-  - Deshabilitación de Secrets en PPPoE.
-- **Planes de Internet**: Creación y gestión de planes para PPPoE y Queues simples.
-
-### 💰 Facturación y Pagos
-
-- **Gestión de Pagos**: Registro de pagos mensuales y opción de **adelantar pagos**.
-- **Impresión de Tickets**: Generación de recibos con datos personalizables desde la configuración (Settings).
-
-### 🛠 Infraestructura
-
-- **Multi-Marca**: Soporte para dispositivos **MikroTik** (Routers/Switches) y Puntos de Acceso **Ubiquiti / MikroTik**.
-- **Gestión de Zonas**: Organización lógica de la red por nodos o torres.
-
-## 📋 Requisitos Previos
-
-Antes de comenzar, asegúrate de tener instalado lo siguiente:
-
-- **Python 3.10+**: Lenguaje base del backend.
-- **Git**: Para clonar el repositorio (Opcional si descargas el ZIP).
-
-### 🖥️ Compatibilidad y Soporte
-
-Actualmente, el sistema está optimizado para funcionar nativamente en **Linux**.
-
-- **Soporte Completo**: Servidores Linux (Ubuntu/Debian), Mini PCs, SBCs ARM64 (Raspberry Pi 4/5, Orange Pi), y dispositivos con Armbian (TV Box).
-- **Windows**: El soporte nativo completo se ha **perdido temporalmente**. Estamos trabajando para restaurar la compatibilidad al 100% y evitar el uso de Docker o Máquinas Virtuales.
-
-## 🚀 Instalación y Configuración
-
-Sigue estos pasos para poner en marcha el proyecto en tu entorno local.
-
-### 1. Obtener el código
-
-Puedes descargar el código de dos formas:
-
-#### Opción A: Clonar con Git (Recomendado)
-
-```bash
-git clone <url-del-repositorio>
-cd umanager6
-```
-
-#### Opción B: Descargar ZIP
-
-Si no deseas usar la terminal, descarga el archivo ZIP desde GitHub, descomprímelo y abre la carpeta resultante.
-
-### 2. Crear y Activar el Entorno Virtual (venv)
-
-Es altamente recomendable usar un entorno virtual para aislar las dependencias del proyecto.
-
-```bash
-# Crear el entorno virtual
-python3 -m venv .venv
-
-# Activar el entorno virtual
-# En Linux/macOS:
-source .venv/bin/activate
-
-# En Windows:
-# .venv\Scripts\activate
-```
-
-### 3. Instalar Dependencias del Backend
-
-Con el entorno virtual activo, instala las librerías necesarias:
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Configuración Inicial (.env)
-
-El sistema incluye un script de lanzamiento (`launcher.py`) que te guiará en la configuración inicial si no existe el archivo `.env`.
-
-Puedes ejecutarlo directamente:
-
-```bash
-python launcher.py
-```
-
-Este asistente te preguntará:
-
-- Puerto de ejecución (Default: 7777).
-- Si deseas habilitar HTTPS (requiere configuración adicional).
-- Creación de un usuario **Administrador** (si la base de datos es nueva).
-
-## ▶️ Ejecución de la Aplicación
-
-Una vez configurado, puedes iniciar la aplicación de dos formas:
-
-### Opción A: Usando el Launcher (Recomendado)
-
-```bash
-python launcher.py
-```
-
-Este script se encargará de levantar el servidor API y el Scheduler de tareas en segundo plano.
-
-### Opción B: Usando Uvicorn directamente
-
-Si prefieres ejecutar solo el servidor web (útil para desarrollo):
-
-```bash
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 7777
-```
-
-*(Asegúrate de cambiar el puerto si configuraste uno diferente en tu .env)*
-
-## 💡 Uso Básico
-
-1. Abre tu navegador y ve a `http://localhost:7777` (o el puerto que hayas configurado).
-2. Inicia sesión con las credenciales de administrador que creaste durante la configuración.
-
-### ⚠️ Requisito Importante: Gestión de Zonas
-
-Para poder agregar dispositivos (Routers, Puntos de Acceso (ubiquiti y microtik), Switches) al sistema, **es obligatorio crear primero una Zona**.
-
-1. Ve al menú **Infraestructura** > **Zonas**.
-2. Haz clic en **"Nueva Zona"**.
-3. Asigna un nombre (ej. "Nodo Central", "Torre Norte") y guarda.
-
-**Nota:** Sin una zona creada, el sistema no te permitirá registrar ningún dispositivo de red, ya que todos los equipos deben estar asociados geográficamente o lógicamente a una zona.
-
-## 🛠 Comandos Útiles
-
-- **Verificar estado**: `curl -I http://localhost:7777`
-
-## 👨‍💻 Guía para Desarrolladores
-
-Si deseas contribuir al proyecto o modificarlo para tus necesidades, ten en cuenta lo siguiente:
-
-### Licencia y Forking
-
-Este proyecto se distribuye bajo la licencia **AGPL v3**.
-> **Recomendación:** Se sugiere realizar un **Fork** del repositorio para trabajar en tus propias modificaciones sin detener el desarrollo de la aplicación principal.
-
-### Desarrollo Frontend
-
-El proyecto utiliza TailwindCSS para los estilos. Si necesitas modificar el diseño:
-
-1. **Instalar dependencias**:
-
-   ```bash
-   npm install
-   ```
-
-2. **Compilar CSS**:
-
-   ```bash
-   # Compilación única
-   npm run build:css
-
-   # Modo escucha (Watch) durante el desarrollo
-   npm run watch:css
-   ```
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
+![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)
+![License](https://img.shields.io/badge/license-AGPL_v3-orange)
+
+**µMonitor Pro** es un sistema avanzado de monitoreo y gestión de redes diseñado para ISPs y WISPs. Combina una arquitectura híbrida que potencia tanto la gestión visual a través de una interfaz web moderna como el control robusto mediante una terminal interactiva (TUI).
+
+## ✨ Características Clave
+
+- **📡 Monitoreo en Tiempo Real**: Supervisión activa de Routers (MikroTik), APs (Ubiquiti/MikroTik) y Switches.
+- **💼 Gestión Comercial Integral**: Administración completa de clientes (PPPoE/IP Estática), planes de servicio y contratos.
+- **🖥️ Launcher TUI**: Nueva interfaz de terminal para gestión del servidor, logs en vivo y diagnósticos.
+- **🚀 API RESTful**: Backend de alto rendimiento construido con FastAPI.
+- **🤖 Integración con Telegram**: Bots para soporte técnico y notificaciones a clientes/empleados.
+- **⚡ Alto Rendimiento**: Soporte de caché con Redict/Redis y actualizaciones vía WebSockets.
 
 ---
-Desarrollado con ❤️ para WISPs.
+
+## 📋 Instalación y Requisitos
+
+### Prerrequisitos
+
+- **Python 3.10+**
+- **Base de Datos**: PostgreSQL (Producción) o SQLite (Desarrollo).
+- **Caché**: Redict (Recomendado) o Redis.
+
+### ⚡ Instalación Rápida
+
+```bash
+# 1. Clonar el repositorio
+git clone https://github.com/tu-usuario/xxxx.git
+cd xxxx
+
+# 2. Crear entorno virtual
+python -m venv .venv
+source .venv/bin/activate  # En Windows: .venv\Scripts\activate
+
+# 3. Instalar dependencias
+pip install -r requirements.txt
+
+# 4. Configuración inicial
+
+  Ejecuta el launcher para configurar interactivamente
+python launcher.py setup
+```
+
+---
+
+## 🎮 El Launcher (Centro de Comando)
+
+El archivo `launcher.py` es el nuevo punto de entrada principal del sistema.
+
+### Modos de Ejecución
+
+- **Modo TUI (Por defecto)**: `python launcher.py`
+  - Interfaz gráfica en terminal con widgets de estado, logs en tiempo real y monitor de recursos.
+  - Presiona `m` para abrir el menú de mantenimiento rápido.
+
+- **Modo Headless (Servidor)**: `python launcher.py --headless`
+  - Ejecución silenciosa ideal para servicios de sistema (systemd) o entornos Docker.
+
+### 🖥️ Referencia de Comandos (CLI)
+
+El sistema se gestiona principalmente a través de `launcher.py`. A continuación, la lista completa de comandos y argumentos disponibles:
+
+#### Comandos Principales
+
+- **`python launcher.py`**  
+  Inicia el sistema. Por defecto abre la TUI, salvo que se haya guardado otra configuración o se use el flag `--headless`.
+
+- **`python launcher.py setup`**  
+  Inicia el asistente interactivo de configuración inicial.
+  - `--network-only`: Configura solo IP y Puerto.
+  - `--ssl-only`: Ejecuta solo el asistente para certificados HTTPS.
+
+- **`python launcher.py diagnose`**  
+  Ejecuta pruebas de diagnóstico rápido del sistema y sale.
+  - Verifica: Archivo .env, Conexión a Base de Datos, Disponibilidad del Puerto Web, Permisos de Logs.
+
+- **`python launcher.py manage`**  
+  Ejecuta tareas de mantenimiento específicas.
+  - `--clean-logs`: Elimina archivos de log con más de 7 días de antigüedad.
+  - `--vacuum-db`: Ejecuta `VACUUM` en la base de datos (SQLite) para optimizar espacio.
+
+#### Argumentos y Flags Globales
+
+Estos argumentos pueden combinarse con el comando principal de inicio:
+
+- **Modo de Ejecución:**
+  - `--headless`: Inicia el servidor sin interfaz gráfica.
+  - `--tui`: Fuerza el inicio con la interfaz gráfica de terminal (ignora configuración guardada).
+  - `--save`: Guarda los flags de modo (`--headless`/`--tui`), `--port` y `--webworkers` en la configuración persistente del launcher.
+  - `--interactive`: Fuerza la creación interactiva del usuario administrador al inicio si no existe.
+
+- **Configuración del Servidor:**
+  - `--port <numero>`: Define el puerto de escucha para el servidor web (ej. `--port 8080`).
+  - `--webworkers <numero>`: Define la cantidad de procesos workers de Uvicorn.
+  
+- **Información:**
+  - `--show`: Muestra la configuración actual cargada (base de datos, variables de entorno) y sale.
+
+---
+
+## ⚙️ Configuración Avanzada
+
+Las variables clave en el archivo `.env`:
+
+### Base de Datos
+
+- **PostgreSQL**: `DATABASE_URL=postgresql+asyncpg://user:pass@host/dbname`
+- **SQLite**: `DATABASE_URL=sqlite+aiosqlite:///data/db/inventory.sqlite`
+
+### Caché (Redict/Redis)
+
+- `CACHE_BACKEND`: `redict` (Recomendado) o `memory`.
+- `REDICT_URL`: URL de conexión (ej. `redis://localhost:6379/0`).
+
+---
+
+## 🧩 Módulos del Sistema
+
+### 1. Gestión de Red
+
+- **Routers**: Soporte nativo y profundo para equipos **MikroTik**. *Integración con Ubiquiti proyectada a futuro.*
+- **APs**: Monitoreo de Puntos de Acceso **MikroTik** y **Ubiquiti**.
+- **Switches**: Gestión de switches **MikroTik**. *Integración con Ubiquiti proyectada a futuro.*
+- **Rack Virtual**: Visualización SVG dinámica de puertos y conexiones físicas.
+
+### 2. Gestión WISP
+
+- **Clientes**: Control de ancho de banda, suspensión automática por falta de pago y notificaciones.
+- **Infraestructura**: Gestión jerárquica de Zonas, Torres y Nodos. Documentación con soporte Markdown y archivos adjuntos.
+
+### 3. Seguridad
+
+- Roles y permisos granulares.
+- Autenticación segura (JWT + Cookies) con protección CSRF.
+
+### 4. Comunicación
+
+- **Difusión**: Envío masivo de avisos segmentados por Nodo o estado del cliente.
+- **Telegram Bot**: Sistema de tickets con respuestas automáticas y forwarding de mensajes a técnicos.
+
+---
+
+## 🛠️ Solución de Problemas (Troubleshooting)
+
+- **Logs**: Revisa la carpeta `logs/` o usa el visor de logs integrado en el Launcher TUI.
+- **Conexión**: Usa `python launcher.py diagnose` para verificar conectividad con la BD y Redis.
+- **Errores Comunes**:
+  - *Redis Connection Refused*: Asegúrate de que el servicio `redict` o `redis-server` esté corriendo.
+
+---
+
+## 👨‍💻 Guía de Desarrollo
+
+Estructura básica del proyecto:
+
+- `app/`: Código fuente del backend (FastAPI).
+- `launcher/`: Lógica del lanzador y la interfaz TUI.
+- `static/` & `templates/`: Frontend (Jinja2 + TailwindCSS).
+
+Para contribuir, por favor revisa `CONTRIBUTING.md`.
+
+---
+Desarrollado con ❤️ para la comunidad WISP.
