@@ -28,6 +28,12 @@
                 <span class="material-symbols-outlined text-lg">smart_toy</span>
                 Bot Config
             </button>
+            <button type="button" @click="$store.settings.setTab('system'); $dispatch('tab-activated', 'system')"
+                :class="$store.settings.activeTab === 'system' ? 'active' : ''"
+                class="tab-button py-3 px-6 text-sm font-semibold flex items-center gap-2">
+                <span class="material-symbols-outlined text-lg">dns</span>
+                Sistema
+            </button>
         </div>
 
         <!-- TAB 1: Configuration -->
@@ -605,7 +611,100 @@
                 </div>
             </form>
         </div>
-        <!-- TAB 4: Broadcast -->
+        <!-- TAB 4: System Settings -->
+        <div x-show="$store.settings.activeTab === 'system'" x-cloak>
+            <form x-data="systemSettings()" @submit.prevent="save()" class="glass-card rounded-2xl border-0">
+                <div class="p-8 space-y-8">
+                    <div>
+                        <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">dns</span>
+                            Configuración del Sistema
+                        </h3>
+                        <p class="text-sm text-text-secondary mt-1">Configura la base de datos y el sistema de caché.
+                            <br><span class="text-warning">⚠️ Cambiar estos ajustes requiere reiniciar el sistema.</span>
+                        </p>
+                    </div>
+
+                    <!-- Database Section -->
+                    <div class="border-t border-white/10 pt-6">
+                        <h4 class="text-md font-bold text-white mb-4">Base de Datos</h4>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2 text-text-secondary">Proveedor de Base de Datos</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" x-model="config.db_provider" value="sqlite" class="text-primary focus:ring-primary">
+                                    <span class="text-white">SQLite (Archivo Local)</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" x-model="config.db_provider" value="postgres" class="text-primary focus:ring-primary">
+                                    <span class="text-white">PostgreSQL (Remoto/Docker)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div x-show="config.db_provider === 'postgres'" x-transition class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-surface-1/30 p-4 rounded-lg border border-white/5">
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium mb-1 text-text-secondary">Host</label>
+                                <input type="text" x-model="config.postgres_host" class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white" placeholder="localhost">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1 text-text-secondary">Puerto</label>
+                                <input type="text" x-model="config.postgres_port" class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white" placeholder="5432">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1 text-text-secondary">Base de Datos</label>
+                                <input type="text" x-model="config.postgres_db" class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white" placeholder="umanager">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1 text-text-secondary">Usuario</label>
+                                <input type="text" x-model="config.postgres_user" class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white" placeholder="postgres">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1 text-text-secondary">Contraseña</label>
+                                <input type="password" x-model="config.postgres_password" class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white" placeholder="••••••">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cache Section -->
+                    <div class="border-t border-white/10 pt-6">
+                        <h4 class="text-md font-bold text-white mb-4">Cache / Cola de Mensajes</h4>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2 text-text-secondary">Backend de Cache</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" x-model="config.cache_provider" value="memory" class="text-primary focus:ring-primary">
+                                    <span class="text-white">Memoria (Solo Dev)</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" x-model="config.cache_provider" value="redict" class="text-primary focus:ring-primary">
+                                    <span class="text-white">Redict / Redis (Producción)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div x-show="config.cache_provider === 'redict'" x-transition class="bg-surface-1/30 p-4 rounded-lg border border-white/5">
+                            <div>
+                                <label class="block text-sm font-medium mb-1 text-text-secondary">URL de Conexión</label>
+                                <input type="text" x-model="config.redict_url" class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white" placeholder="redis://localhost:6379/0">
+                                <p class="text-xs text-text-secondary mt-1">Formato: redis://[:password@]host:port/db</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="p-6 bg-white/5 rounded-b-lg flex justify-end gap-4 items-center">
+                    <button type="submit" :disabled="isSaving"
+                        class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-warning hover:bg-warning-hover flex items-center gap-2 shadow-lg shadow-warning/20 disabled:opacity-50">
+                        <span x-show="isSaving" class="material-symbols-outlined text-base animate-spin">sync</span>
+                        Guardar y Solicitar Reinicio
+                    </button>
+                </div>
+            </form>
+        </div>
 
         {% endblock %}
 
@@ -614,6 +713,8 @@
         <script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/settings/GeneralSettings.js"
             defer></script>
         <script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/settings/BotSettings.js"
+            defer></script>
+        <script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/settings/SystemSettings.js"
             defer></script>
 
         <script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/settings/AuditLogs.js" defer></script>

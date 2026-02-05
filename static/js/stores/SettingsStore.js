@@ -130,6 +130,45 @@ document.addEventListener('alpine:init', () => {
             } catch (e) {
                 window.showToast?.('Backup error: ' + e.message, 'danger');
             }
+        },
+
+        // System Settings API
+        async fetchSystemSettings() {
+            this.isLoading = true;
+            try {
+                const response = await fetch(`${window.location.origin}/api/settings/system`);
+                if (!response.ok) throw new Error('Failed to load system settings');
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching system settings:', error);
+                window.showToast?.('Could not load system settings', 'danger');
+                return {};
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        async updateSystemSettings(config) {
+            this.isLoading = true;
+            try {
+                const response = await fetch(`${window.location.origin}/api/settings/system`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to update system settings');
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('Error updating system settings:', error);
+                throw error;
+            } finally {
+                this.isLoading = false;
+            }
         }
     });
 });
