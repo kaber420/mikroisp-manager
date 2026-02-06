@@ -7,11 +7,12 @@ and server-side key generation as fallback.
 """
 
 import logging
+import os
+import re
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-import os
 
 logger = logging.getLogger("PKIService")
 
@@ -26,6 +27,10 @@ else:
     SYSTEM_CA_PATH = Path("/etc/ssl/umonitor")
 
 PUBLIC_CA_FILE = SYSTEM_CA_PATH / "rootCA.pem"
+
+# Patrón de validación para common_name (IPs o hostnames seguros)
+# Previene inyección de flags (--flag) y caracteres peligrosos
+VALID_CN_PATTERN = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9.\-]{0,253}[a-zA-Z0-9]$|^[a-zA-Z0-9]$')
 
 
 class PKIService:
@@ -147,7 +152,19 @@ class PKIService:
 
         Returns:
             Tuple of (success: bool, key_pem: str, cert_pem: str)
+        
+        Security:
+            common_name is validated against VALID_CN_PATTERN to prevent
+            argument injection attacks via subprocess.
         """
+        # Validación de seguridad: prevenir inyección de argumentos
+        if not common_name or not VALID_CN_PATTERN.match(common_name):
+            logger.warning(f"Rejected invalid common_name: {common_name!r}")
+            return False, "", "Invalid common name format (only alphanumeric, dots, hyphens allowed)"
+        
+        if common_name.startswith('-'):
+            logger.warning(f"Rejected common_name starting with dash: {common_name!r}")
+            return False, "", "Common name cannot start with hyphen"
         with tempfile.TemporaryDirectory() as tmpdir:
             try:
                 cert_path = Path(tmpdir) / f"{common_name}.pem"

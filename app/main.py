@@ -177,7 +177,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -286,8 +286,8 @@ async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
 
     # Prevenir que el sitio sea embebido en iframes (Clickjacking)
-    # AJUSTE: Usamos SAMEORIGIN para permitir modales de impresión (iframe) dentro del mismo sitio
-    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    # DENY es más seguro: si necesitas modales de impresión, usa CSP frame-ancestors 'self'
+    response.headers["X-Frame-Options"] = "DENY"
 
     # Prevenir que el navegador intente adivinar el tipo de contenido (MIME Sniffing)
     response.headers["X-Content-Type-Options"] = "nosniff"

@@ -14,6 +14,9 @@ DB_FILE = os.path.join(BASE_DIR, "data", "db", "inventory.sqlite")
 BACKUP_DIR = os.path.join(BASE_DIR, "data", "backups")
 RETENTION_DAYS = 30
 
+# Allowlist estricto de tipos de backup válidos (prevención de SQL injection)
+VALID_BACKUP_TYPES = frozenset({"auto", "manual"})
+
 def run_db_backup():
     """
     Función helper para ser llamada por el scheduler.
@@ -52,7 +55,15 @@ def clean_old_backups(days_to_keep: int):
 def perform_db_backup(backup_type: str = "manual"):
     """
     Performs a backup using SQLite 'VACUUM INTO' for safe hot backups.
+    
+    Security: backup_type is validated against VALID_BACKUP_TYPES allowlist
+    to prevent SQL injection in VACUUM INTO command.
     """
+    # Validación estricta del tipo de backup (anti-SQL injection)
+    if backup_type not in VALID_BACKUP_TYPES:
+        logger.error(f"Tipo de backup inválido rechazado: {backup_type}")
+        return False
+    
     if not os.path.exists(DB_FILE):
         logger.error(f"Archivo de base de datos no encontrado en: {DB_FILE}")
         return False
@@ -60,8 +71,14 @@ def perform_db_backup(backup_type: str = "manual"):
     os.makedirs(BACKUP_DIR, exist_ok=True)
     
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    # backup_type ya validado, timestamp es seguro (generado internamente)
     backup_filename = f"backup_{backup_type}_{timestamp}.sqlite"
-    backup_path = os.path.abspath(os.path.join(BACKUP_DIR, backup_filename))
+    backup_path = os.path.realpath(os.path.join(BACKUP_DIR, backup_filename))
+    
+    # Prevención de path traversal: verificar que la ruta esté dentro de BACKUP_DIR
+    if not backup_path.startswith(os.path.realpath(BACKUP_DIR) + os.sep):
+        logger.error(f"Path traversal detectado y bloqueado: {backup_path}")
+        return False
 
     logger.info(f"Iniciando respaldo de BD ({backup_type})...")
     

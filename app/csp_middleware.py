@@ -47,7 +47,8 @@ class CSPMiddleware(BaseHTTPMiddleware):
             f"connect-src 'self' ws: wss:; "
             f"font-src 'self' data:; "
             f"object-src 'none'; "
-            f"base-uri 'self';"
+            f"base-uri 'self'; "
+            f"frame-ancestors 'none';"
         )
 
         response.headers["Content-Security-Policy"] = csp_policy
