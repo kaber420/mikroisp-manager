@@ -30,3 +30,4 @@ redis[hiredis]>=5.0.0
 asyncpg
 psycopg2-binary
 psutil
+uvloop; sys_platform != 'win32'

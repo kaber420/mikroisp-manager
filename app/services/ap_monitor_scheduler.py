@@ -56,6 +56,7 @@ class APMonitorScheduler:
                 "last_unsubscribe_time": None,
                 "interval": effective_interval,
                 "last_poll_time": None,  # None = poll immediately on first tick
+                "last_known_status": None,  # Track status to avoid redundant DB writes
             }
 
         info = self._subscribed_aps[host]
@@ -229,14 +230,31 @@ class APMonitorScheduler:
                     if isinstance(result, Exception):
                         logger.error(f"[APMonitorScheduler] Error polling {host}: {result}")
                         stats_cache.set(host, {"error": str(result)})
-                        await self._update_db_status(host, DeviceStatus.OFFLINE)
+                        # Only write to DB if status changed
+                        if host in self._subscribed_aps:
+                            info = self._subscribed_aps[host]
+                            if info.get("last_known_status") != DeviceStatus.OFFLINE:
+                                await self._update_db_status(host, DeviceStatus.OFFLINE)
+                                info["last_known_status"] = DeviceStatus.OFFLINE
+                                logger.info(f"[APMonitorScheduler] Status changed: {host} -> OFFLINE")
                     elif result and "error" not in result:
                         stats_cache.set(host, result)
-                        await self._update_db_status(host, DeviceStatus.ONLINE, result)
+                        # Only write to DB if status changed
+                        if host in self._subscribed_aps:
+                            info = self._subscribed_aps[host]
+                            if info.get("last_known_status") != DeviceStatus.ONLINE:
+                                await self._update_db_status(host, DeviceStatus.ONLINE, result)
+                                info["last_known_status"] = DeviceStatus.ONLINE
+                                logger.info(f"[APMonitorScheduler] Status changed: {host} -> ONLINE")
                         logger.debug(f"[APMonitorScheduler] Polled {host} successfully")
                     elif result:
                         stats_cache.set(host, result)
-                        await self._update_db_status(host, DeviceStatus.OFFLINE)
+                        # Only write to DB if status changed
+                        if host in self._subscribed_aps:
+                            info = self._subscribed_aps[host]
+                            if info.get("last_known_status") != DeviceStatus.OFFLINE:
+                                await self._update_db_status(host, DeviceStatus.OFFLINE)
+                                info["last_known_status"] = DeviceStatus.OFFLINE
 
                 await asyncio.sleep(TICK_INTERVAL)
         finally:

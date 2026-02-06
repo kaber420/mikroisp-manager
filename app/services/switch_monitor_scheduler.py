@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 UNSUBSCRIBE_TIMEOUT = int(os.getenv("SWITCH_MONITOR_UNSUBSCRIBE_TIMEOUT", "30"))
 CLEANUP_CHECK_INTERVAL = 10
 SWITCH_HISTORY_INTERVAL = int(os.getenv("SWITCH_HISTORY_INTERVAL", "300"))
+# Configurable polling interval (default: 5 seconds)
+SWITCH_POLL_INTERVAL = float(os.getenv("SWITCH_POLL_INTERVAL", "5.0"))
 
 
 class SwitchMonitorScheduler:
@@ -34,7 +36,11 @@ class SwitchMonitorScheduler:
     async def subscribe(self, host: str, creds: dict) -> None:
         """Subscribe a switch. Resets cleanup timer if pending."""
         if host not in self._subscribed_switches:
-            self._subscribed_switches[host] = {"ref_count": 0, "last_unsubscribe_time": None}
+            self._subscribed_switches[host] = {
+                "ref_count": 0,
+                "last_unsubscribe_time": None,
+                "last_known_status": None,  # Track status to avoid redundant DB writes
+            }
 
         info = self._subscribed_switches[host]
         was_zero = info["ref_count"] <= 0
@@ -185,10 +191,18 @@ class SwitchMonitorScheduler:
                     if isinstance(result, Exception):
                         logger.error(f"[SwitchMonitorScheduler] Error polling {host}: {result}")
                         stats_cache.set(host, {"error": str(result)})
-                        await self._update_db_status(host, DeviceStatus.OFFLINE)
+                        # Only write to DB if status changed
+                        if info.get("last_known_status") != DeviceStatus.OFFLINE:
+                            await self._update_db_status(host, DeviceStatus.OFFLINE)
+                            info["last_known_status"] = DeviceStatus.OFFLINE
+                            logger.info(f"[SwitchMonitorScheduler] Status changed: {host} -> OFFLINE")
                     elif result:
                         stats_cache.set(host, result)
-                        await self._update_db_status(host, DeviceStatus.ONLINE, result)
+                        # Only write to DB if status changed
+                        if info.get("last_known_status") != DeviceStatus.ONLINE:
+                            await self._update_db_status(host, DeviceStatus.ONLINE, result)
+                            info["last_known_status"] = DeviceStatus.ONLINE
+                            logger.info(f"[SwitchMonitorScheduler] Status changed: {host} -> ONLINE")
 
                 await asyncio.sleep(self.poll_interval)
         finally:
@@ -205,5 +219,5 @@ class SwitchMonitorScheduler:
         return await asyncio.to_thread(switch_connector.fetch_switch_stats, host)
 
 
-# Singleton
-switch_monitor_scheduler = SwitchMonitorScheduler()
+# Singleton - uses configurable poll interval from environment
+switch_monitor_scheduler = SwitchMonitorScheduler(poll_interval=SWITCH_POLL_INTERVAL)

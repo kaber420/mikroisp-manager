@@ -344,18 +344,28 @@
         // Inject help context from backend
         window.currentHelpContext = "{{ active_page }}";
 
-        document.addEventListener('mousemove', (e) => {
-            const glows = document.querySelectorAll('.glow-element');
-            const x = e.clientX;
-            const y = e.clientY;
+        // Optimized glow animation with requestAnimationFrame
+        let animationFrame = null;
+        let mouseX = 0, mouseY = 0;
+        const glows = document.querySelectorAll('.glow-element');
 
+        function updateGlowPositions() {
             glows.forEach(glow => {
                 const speed = parseFloat(glow.getAttribute('data-speed'));
-                const xOffset = (window.innerWidth - x * speed) / 100;
-                const yOffset = (window.innerHeight - y * speed) / 100;
-
+                const xOffset = (window.innerWidth - mouseX * speed) / 100;
+                const yOffset = (window.innerHeight - mouseY * speed) / 100;
                 glow.style.transform = `translate(${xOffset}px, ${yOffset}px)`;
             });
+            animationFrame = null;
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            // Only schedule animation frame if one isn't already pending
+            if (!animationFrame) {
+                animationFrame = requestAnimationFrame(updateGlowPositions);
+            }
         });
     </script>
 </body>

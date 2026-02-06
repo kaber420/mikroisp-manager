@@ -17,6 +17,8 @@ UNSUBSCRIBE_TIMEOUT = int(os.getenv("MONITOR_UNSUBSCRIBE_TIMEOUT", "30"))
 CLEANUP_CHECK_INTERVAL = 10  # Check for expired routers every 10 seconds
 # Interval for saving router stats to history (default: 5 minutes)
 ROUTER_HISTORY_INTERVAL = int(os.getenv("ROUTER_HISTORY_INTERVAL", "300"))
+# Configurable polling interval (default: 5 seconds) - how often to check routers
+MONITOR_POLL_INTERVAL = float(os.getenv("MONITOR_POLL_INTERVAL", "5.0"))
 
 
 class MonitorScheduler:
@@ -40,6 +42,7 @@ class MonitorScheduler:
                 "last_history_save": None,
                 "backoff_until": None,  # Backoff exponencial para errores
                 "consecutive_failures": 0,
+                "last_known_status": None,  # Track status to avoid redundant DB writes
             }
 
         info = self._subscribed_routers[host]
@@ -265,10 +268,18 @@ class MonitorScheduler:
                     if isinstance(result, Exception):
                         logger.error(f"[MonitorScheduler] Error polling {host}: {result}")
                         stats_cache.set(host, {"error": str(result)})
-                        await self._update_db_status(host, DeviceStatus.OFFLINE)
+                        # Only write to DB if status changed
+                        if info.get("last_known_status") != DeviceStatus.OFFLINE:
+                            await self._update_db_status(host, DeviceStatus.OFFLINE)
+                            info["last_known_status"] = DeviceStatus.OFFLINE
+                            logger.info(f"[MonitorScheduler] Status changed: {host} -> OFFLINE")
                     elif result:
                         stats_cache.set(host, result)
-                        await self._update_db_status(host, DeviceStatus.ONLINE, result)
+                        # Only write to DB if status changed
+                        if info.get("last_known_status") != DeviceStatus.ONLINE:
+                            await self._update_db_status(host, DeviceStatus.ONLINE, result)
+                            info["last_known_status"] = DeviceStatus.ONLINE
+                            logger.info(f"[MonitorScheduler] Status changed: {host} -> ONLINE")
 
                         # Save to history if enough time has passed
                         last_save = info.get("last_history_save")
@@ -304,5 +315,5 @@ class MonitorScheduler:
         return await asyncio.to_thread(router_connector.fetch_router_stats, host)
 
 
-# Singleton
-monitor_scheduler = MonitorScheduler()
+# Singleton - uses configurable poll interval from environment
+monitor_scheduler = MonitorScheduler(poll_interval=MONITOR_POLL_INTERVAL)

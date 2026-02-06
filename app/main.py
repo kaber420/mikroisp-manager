@@ -6,11 +6,22 @@ from dotenv import load_dotenv
 # Cargar variables de entorno desde .env ANTES de cualquier otra cosa
 load_dotenv()
 
+# --- PERFORMANCE: Instalar uvloop en Linux/macOS ---
+import sys
+if sys.platform != "win32":
+    try:
+        import uvloop
+        uvloop.install()
+        print("✅ uvloop instalado como event loop")
+    except ImportError:
+        pass  # uvloop no instalado, usamos el loop por defecto
+
 import asyncio
 from typing import Optional, List, Any
 
 from fastapi import Cookie, FastAPI, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -187,6 +198,9 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
 # --- SEGURIDAD: CSP con Nonces ---
 app.add_middleware(CSPMiddleware)
+
+# --- OPTIMIZACIÓN: Compresión Gzip ---
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 # --- SEGURIDAD: ORIGIN SHIELD (Protección CSRF por verificación de origen)
