@@ -271,35 +271,35 @@
         <div x-show="activeTab === 'network'" class="space-y-6">
             <!-- IP Addresses Card -->
             <div class="card">
-                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">lan</span>
-                    Direcciones IP
-                </h2>
                 <div class="flex justify-between items-center mb-4">
-                    <div id="ip-address-list" class="flex-1 overflow-x-auto border border-border-color rounded-md">
-                    </div>
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">lan</span>
+                        Direcciones IP
+                    </h2>
                     <button id="add-ip-btn"
-                        class="ml-4 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-hover flex items-center gap-2">
+                        class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-hover flex items-center gap-2">
                         <span class="material-symbols-outlined text-sm">add</span>
                         Añadir IP
                     </button>
+                </div>
+                <div id="ip-address-list" class="overflow-x-auto border border-border-color rounded-md">
                 </div>
             </div>
 
             <!-- NAT Rules Card -->
             <div class="card">
-                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">swap_horiz</span>
-                    NAT (Masquerade)
-                </h2>
                 <div class="flex justify-between items-center mb-4">
-                    <div id="nat-rules-list" class="flex-1 overflow-x-auto border border-border-color rounded-md"></div>
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">swap_horiz</span>
+                        NAT (Masquerade)
+                    </h2>
                     <button id="add-nat-btn"
-                        class="ml-4 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-hover flex items-center gap-2">
+                        class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-hover flex items-center gap-2">
                         <span class="material-symbols-outlined text-sm">add</span>
                         Activar NAT
                     </button>
                 </div>
+                <div id="nat-rules-list" class="overflow-x-auto border border-border-color rounded-md"></div>
             </div>
         </div>
         <div x-show="activeTab === 'ppp'" class="space-y-6">
@@ -363,23 +363,18 @@
 
         <div x-show="activeTab === 'queues'" class="space-y-6">
             <div class="card">
-                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">queue</span>
-                    Gestión de Colas Padre (Infraestructura)
-                </h2>
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div class="lg:col-span-2">
-                        <div id="parent-queue-list-display"
-                            class="overflow-x-auto border border-border-color rounded-md">
-                        </div>
-                    </div>
-                    <div>
-                        <button id="add-parent-queue-btn"
-                            class="w-full px-4 py-3 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-hover flex items-center justify-center gap-2">
-                            <span class="material-symbols-outlined text-sm">add</span>
-                            Crear Cola Padre
-                        </button>
-                    </div>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">queue</span>
+                        Gestión de Colas Padre (Infraestructura)
+                    </h2>
+                    <button id="add-parent-queue-btn"
+                        class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-hover flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">add</span>
+                        Crear Cola Padre
+                    </button>
+                </div>
+                <div id="parent-queue-list-display" class="overflow-x-auto border border-border-color rounded-md">
                 </div>
             </div>
         </div>
@@ -387,37 +382,30 @@
         <!-- NEW: Plans Tab -->
         <div x-show="activeTab === 'plans'" class="space-y-6">
             <div class="card">
-                <h2 class="text-xl font-bold mb-4 text-primary">Planes de Servicio (Definiciones Locales)</h2>
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-xl font-bold text-primary">Planes de Servicio (Definiciones Locales)</h2>
+                    <button id="add-local-plan-btn"
+                        class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-hover flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">add</span>
+                        Definir Nuevo Plan
+                    </button>
+                </div>
                 <p class="text-sm text-text-secondary mb-4">Estos planes se guardan en la Base de Datos y se usan para
                     asignar velocidad a los clientes de este router.</p>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                        <h4 class="text-base font-semibold mb-2">Planes Disponibles</h4>
-                        <div id="local-plans-table-container"
-                            class="overflow-x-auto border border-border-color rounded-md">
-                            <table class="w-full text-sm text-left">
-                                <thead class="bg-surface-2 text-text-secondary font-semibold">
-                                    <tr>
-                                        <th class="p-2">Nombre</th>
-                                        <th class="p-2">Velocidad</th>
-                                        <th class="p-2">Padre</th>
-                                        <th class="p-2">Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="local-plans-table-body" class="divide-y divide-border-color">
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div>
-                        <button id="add-local-plan-btn"
-                            class="w-full px-4 py-3 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-hover flex items-center justify-center gap-2">
-                            <span class="material-symbols-outlined text-sm">add</span>
-                            Definir Nuevo Plan
-                        </button>
-                    </div>
+                <div id="local-plans-table-container" class="overflow-x-auto border border-border-color rounded-md">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-surface-2 text-text-secondary font-semibold">
+                            <tr>
+                                <th class="p-2">Nombre</th>
+                                <th class="p-2">Velocidad</th>
+                                <th class="p-2">Padre</th>
+                                <th class="p-2">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="local-plans-table-body" class="divide-y divide-border-color">
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
