@@ -434,47 +434,40 @@
 
 
 
-        <div x-show="activeTab === 'backup'" class="card">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">backup</span>
-                    Gestión de Backups
-                </h2>
-                <button id="create-backup-btn"
-                    class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-hover flex items-center gap-2">
-                    <span class="material-symbols-outlined text-sm">add</span>
-                    Crear Backup
-                </button>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <h4 class="text-base font-semibold">Archivos en Router</h4>
-                    <p class="text-xs text-text-secondary mb-2">Archivos almacenados en el dispositivo.</p>
-                    <div id="backup-files-list" class="text-sm space-y-1 font-mono max-h-60 overflow-y-auto"></div>
+        <div x-show="activeTab === 'backup'" class="space-y-6">
+            <!-- Card 1: Backups en Router -->
+            <div class="card">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">backup</span>
+                        Backups en Router
+                    </h2>
+                    <button id="create-backup-btn"
+                        class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-hover flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">add</span>
+                        Crear Backup
+                    </button>
                 </div>
-                <div>
-                    <p class="text-sm text-text-secondary">Use el botón "Crear Backup" para generar un nuevo respaldo
-                        (.backup o .rsc) en el router.</p>
-                </div>
+                <p class="text-xs text-text-secondary mb-3">Archivos almacenados directamente en el dispositivo
+                    MikroTik.</p>
+                <div id="backup-files-list" class="text-sm space-y-1 font-mono max-h-60 overflow-y-auto"></div>
             </div>
 
-            <!-- Sección de Backups Locales (Servidor) -->
-            <div class="mt-6 pt-6 border-t border-border-color">
+            <!-- Card 2: Respaldos en Servidor (Nube) -->
+            <div class="card">
                 <div class="flex items-center justify-between mb-4">
-                    <div>
-                        <h3 class="text-lg font-semibold flex items-center gap-2">
-                            <span class="material-symbols-outlined text-primary">cloud_done</span>
-                            Respaldos en Servidor
-                        </h3>
-                        <p class="text-xs text-text-secondary">Archivos de backup descargados automáticamente al
-                            servidor.</p>
-                    </div>
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">cloud_done</span>
+                        Respaldos en Servidor
+                    </h2>
                     <button id="refresh-local-backups-btn"
                         class="flex items-center gap-1 px-3 py-1 rounded text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors">
                         <span class="material-symbols-outlined text-base">refresh</span>
                         Actualizar
                     </button>
                 </div>
+                <p class="text-xs text-text-secondary mb-3">Archivos de backup descargados automáticamente al servidor.
+                </p>
                 <div id="local-backup-files-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     <p class="text-text-secondary col-span-full">Cargando...</p>
                 </div>
