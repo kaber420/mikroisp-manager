@@ -168,37 +168,73 @@ export function populateInterfaceSelects(interfaces) {
 
 // --- MODAL LOGIC ---
 
+let activeVlanModal = null;
+let activeBridgeModal = null;
+
 function openVlanModal(vlan = null) {
-    DOM_ELEMENTS.vlanForm.reset();
-    const physicalInterfaces = state.allInterfaces.filter(i => ['ether', 'wlan', 'bonding'].includes(i.type));
-    DOM_ELEMENTS.vlanInterfaceSelect.innerHTML = physicalInterfaces.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
-
-    if (vlan) {
-        DOM_ELEMENTS.vlanModalTitle.textContent = 'Edit VLAN';
-        DOM_ELEMENTS.vlanForm.querySelector('#vlan-id').value = vlan['.id'];
-        DOM_ELEMENTS.vlanNameInput.value = vlan.name;
-        DOM_ELEMENTS.vlanIdInput.value = vlan['vlan-id'];
-        DOM_ELEMENTS.vlanInterfaceSelect.value = vlan.interface;
-    } else {
-        DOM_ELEMENTS.vlanModalTitle.textContent = 'Add VLAN';
+    const template = DOM_ELEMENTS.vlanFormTemplate;
+    if (!template) {
+        console.error('VLAN form template not found');
+        return;
     }
-    DOM_ELEMENTS.vlanModal.classList.remove('hidden');
-    DOM_ELEMENTS.vlanModal.classList.add('flex');
-}
 
-function closeVlanModal() {
-    DOM_ELEMENTS.vlanModal.classList.add('hidden');
-    DOM_ELEMENTS.vlanModal.classList.remove('flex');
+    const content = template.content.cloneNode(true);
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(content);
+
+    // Populate interface select
+    const physicalInterfaces = state.allInterfaces.filter(i => ['ether', 'wlan', 'bonding'].includes(i.type));
+    const interfaceSelect = wrapper.querySelector('#vlan-interface');
+    if (interfaceSelect) {
+        interfaceSelect.innerHTML = physicalInterfaces.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
+    }
+
+    // Pre-fill if editing
+    if (vlan) {
+        wrapper.querySelector('#vlan-id').value = vlan['.id'];
+        wrapper.querySelector('#vlan-name').value = vlan.name;
+        wrapper.querySelector('#vlan-id-input').value = vlan['vlan-id'];
+        if (interfaceSelect) interfaceSelect.value = vlan.interface;
+    }
+
+    const title = vlan ? 'Editar VLAN' : 'Agregar VLAN';
+
+    activeVlanModal = window.ModalUtils.showCustomModal({
+        title: title,
+        content: wrapper,
+        modalId: 'vlan-modal',
+        size: 'md',
+        actions: [
+            {
+                text: 'Cancelar',
+                handler: () => { },
+                closeOnClick: true
+            },
+            {
+                text: 'Guardar VLAN',
+                icon: 'save',
+                primary: true,
+                handler: () => handleVlanFormSubmit(activeVlanModal),
+                closeOnClick: false
+            }
+        ]
+    });
 }
 
 function openBridgeModal(bridge = null) {
-    DOM_ELEMENTS.bridgeForm.reset();
+    const template = DOM_ELEMENTS.bridgeFormTemplate;
+    if (!template) {
+        console.error('Bridge form template not found');
+        return;
+    }
 
-    // Include all interface types that can be bridge ports
-    // Types: ether, wlan, wifi, vlan, bonding (exclude bridge itself, loopback, ppp types)
+    const content = template.content.cloneNode(true);
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(content);
+
+    // Build port checkboxes
     const portCapableTypes = ['ether', 'wlan', 'wifi', 'vlan', 'bonding'];
     const physicalInterfaces = state.allInterfaces.filter(i => portCapableTypes.includes(i.type));
-
 
     // Build a map of interface -> bridge name for ports already assigned
     const portToBridgeMap = {};
@@ -206,52 +242,66 @@ function openBridgeModal(bridge = null) {
         portToBridgeMap[p.interface] = p.bridge;
     });
 
-    // Ports assigned to the bridge being edited (if any)
     const currentBridgeName = bridge ? bridge.name : null;
 
-    DOM_ELEMENTS.bridgePortsContainer.innerHTML = physicalInterfaces.map(i => {
-        const assignedTo = portToBridgeMap[i.name];
-        const isAssignedToThis = assignedTo === currentBridgeName;
-        const isAssignedToOther = assignedTo && assignedTo !== currentBridgeName;
+    const portsContainer = wrapper.querySelector('#bridge-ports');
+    if (portsContainer) {
+        portsContainer.innerHTML = physicalInterfaces.map(i => {
+            const assignedTo = portToBridgeMap[i.name];
+            const isAssignedToThis = assignedTo === currentBridgeName;
+            const isAssignedToOther = assignedTo && assignedTo !== currentBridgeName;
 
-        let labelText = i.name;
-        let disabledAttr = '';
-        let checkedAttr = '';
-        let labelClass = 'flex items-center space-x-2';
+            let labelText = i.name;
+            let disabledAttr = '';
+            let checkedAttr = '';
+            let labelClass = 'flex items-center space-x-2';
 
-        if (isAssignedToThis) {
-            checkedAttr = 'checked';
-        } else if (isAssignedToOther) {
-            labelText = `${i.name} <span class="text-xs text-muted">(${assignedTo})</span>`;
-            disabledAttr = 'disabled';
-            labelClass += ' opacity-50 cursor-not-allowed';
-        }
+            if (isAssignedToThis) {
+                checkedAttr = 'checked';
+            } else if (isAssignedToOther) {
+                labelText = `${i.name} <span class="text-xs text-muted">(${assignedTo})</span>`;
+                disabledAttr = 'disabled';
+                labelClass += ' opacity-50 cursor-not-allowed';
+            }
 
-        return `
-            <label class="${labelClass}">
-                <input type="checkbox" name="ports" value="${i.name}" ${checkedAttr} ${disabledAttr} class="rounded bg-background border-border-color text-primary focus:ring-primary">
-                <span>${labelText}</span>
-            </label>
-        `;
-    }).join('');
-
-    if (bridge) {
-        DOM_ELEMENTS.bridgeModalTitle.textContent = 'Editar Bridge';
-        // Handle both .id and id formats from Mikrotik API
-        const bridgeId = bridge['.id'] || bridge.id;
-        DOM_ELEMENTS.bridgeForm.querySelector('#bridge-id').value = bridgeId;
-        DOM_ELEMENTS.bridgeNameInput.value = bridge.name;
-    } else {
-        DOM_ELEMENTS.bridgeModalTitle.textContent = 'Agregar Bridge';
-        DOM_ELEMENTS.bridgeForm.querySelector('#bridge-id').value = '';
+            return `
+                <label class="${labelClass}">
+                    <input type="checkbox" name="ports" value="${i.name}" ${checkedAttr} ${disabledAttr} class="rounded bg-background border-border-color text-primary focus:ring-primary">
+                    <span>${labelText}</span>
+                </label>
+            `;
+        }).join('');
     }
-    DOM_ELEMENTS.bridgeModal.classList.remove('hidden');
-    DOM_ELEMENTS.bridgeModal.classList.add('flex');
-}
 
-function closeBridgeModal() {
-    DOM_ELEMENTS.bridgeModal.classList.add('hidden');
-    DOM_ELEMENTS.bridgeModal.classList.remove('flex');
+    // Pre-fill if editing
+    if (bridge) {
+        const bridgeId = bridge['.id'] || bridge.id;
+        wrapper.querySelector('#bridge-id').value = bridgeId;
+        wrapper.querySelector('#bridge-name').value = bridge.name;
+    }
+
+    const title = bridge ? 'Editar Bridge' : 'Agregar Bridge';
+
+    activeBridgeModal = window.ModalUtils.showCustomModal({
+        title: title,
+        content: wrapper,
+        modalId: 'bridge-modal',
+        size: 'md',
+        actions: [
+            {
+                text: 'Cancelar',
+                handler: () => { },
+                closeOnClick: true
+            },
+            {
+                text: 'Guardar Bridge',
+                icon: 'save',
+                primary: true,
+                handler: () => handleBridgeFormSubmit(activeBridgeModal),
+                closeOnClick: false
+            }
+        ]
+    });
 }
 
 // --- CARGADOR DE DATOS ---
@@ -371,9 +421,11 @@ async function handleInterfaceAction(action, interfaceId, interfaceName = '', in
     }
 }
 
-async function handleVlanFormSubmit(e) {
-    e.preventDefault();
-    const formData = new FormData(e.target);
+async function handleVlanFormSubmit(modalRef) {
+    const form = document.getElementById('vlan-form');
+    if (!form) return;
+
+    const formData = new FormData(form);
     const id = formData.get('id');
     const data = {
         name: formData.get('name'),
@@ -386,8 +438,8 @@ async function handleVlanFormSubmit(e) {
     const method = id ? 'PUT' : 'POST';
 
     try {
-        const result = await ApiClient.request(url, { method, body: JSON.stringify(data) });
-        closeVlanModal();
+        await ApiClient.request(url, { method, body: JSON.stringify(data) });
+        if (modalRef) modalRef.close();
         DomUtils.updateFeedback('Guardado correctamente. Sincronizando...', true);
 
         // Smart Polling: Wait until new VLAN appears
@@ -397,9 +449,11 @@ async function handleVlanFormSubmit(e) {
     }
 }
 
-async function handleBridgeFormSubmit(e) {
-    e.preventDefault();
-    const formData = new FormData(e.target);
+async function handleBridgeFormSubmit(modalRef) {
+    const form = document.getElementById('bridge-form');
+    if (!form) return;
+
+    const formData = new FormData(form);
     const id = formData.get('id');
     const name = formData.get('name');
     const ports = formData.getAll('ports');
@@ -414,8 +468,8 @@ async function handleBridgeFormSubmit(e) {
     const method = id ? 'PUT' : 'POST';
 
     try {
-        const result = await ApiClient.request(url, { method, body: JSON.stringify(data) });
-        closeBridgeModal();
+        await ApiClient.request(url, { method, body: JSON.stringify(data) });
+        if (modalRef) modalRef.close();
         DomUtils.updateFeedback('Guardado correctamente. Sincronizando...', true);
 
         // Smart Polling: Wait until new Bridge appears
@@ -444,15 +498,11 @@ export function initInterfacesModule() {
 
     // Event delegation for table actions is now handled by TableComponent internally.
 
-
-    // New event listeners
-    DOM_ELEMENTS.addVlanBtn.addEventListener('click', () => openVlanModal());
-    DOM_ELEMENTS.cancelVlanBtn.addEventListener('click', closeVlanModal);
-    DOM_ELEMENTS.closeVlanModalBtn.addEventListener('click', closeVlanModal);
-    DOM_ELEMENTS.vlanForm.addEventListener('submit', handleVlanFormSubmit);
-
-    DOM_ELEMENTS.addBridgeBtn.addEventListener('click', () => openBridgeModal());
-    DOM_ELEMENTS.cancelBridgeBtn.addEventListener('click', closeBridgeModal);
-    DOM_ELEMENTS.closeBridgeModalBtn.addEventListener('click', closeBridgeModal);
-    DOM_ELEMENTS.bridgeForm.addEventListener('submit', handleBridgeFormSubmit);
+    // Modal trigger buttons (modals are now dynamically created via ModalUtils)
+    if (DOM_ELEMENTS.addVlanBtn) {
+        DOM_ELEMENTS.addVlanBtn.addEventListener('click', () => openVlanModal());
+    }
+    if (DOM_ELEMENTS.addBridgeBtn) {
+        DOM_ELEMENTS.addBridgeBtn.addEventListener('click', () => openBridgeModal());
+    }
 }

@@ -288,18 +288,9 @@ export function initWanSelector() {
             openWanSelectorModal();
         });
     }
-
-    // Event listeners for modal buttons
-    if (DOM_ELEMENTS.closeWanModalBtn) {
-        DOM_ELEMENTS.closeWanModalBtn.addEventListener('click', closeWanSelectorModal);
-    }
-    if (DOM_ELEMENTS.cancelWanBtn) {
-        DOM_ELEMENTS.cancelWanBtn.addEventListener('click', closeWanSelectorModal);
-    }
-    if (DOM_ELEMENTS.wanForm) {
-        DOM_ELEMENTS.wanForm.addEventListener('submit', handleWanFormSubmit);
-    }
 }
+
+let activeWanModal = null;
 
 function openWanSelectorModal() {
     const interfaces = state.allInterfaces || [];
@@ -311,7 +302,15 @@ function openWanSelectorModal() {
         return;
     }
 
-    // Group interfaces by type
+    // Clone template content
+    const template = DOM_ELEMENTS.wanFormTemplate;
+    if (!template) {
+        console.error('WAN form template not found');
+        return;
+    }
+    const content = template.content.cloneNode(true);
+
+    // Build interface list HTML
     const groupedByType = {};
     wanInterfaces.forEach(iface => {
         const type = iface.type;
@@ -321,7 +320,6 @@ function openWanSelectorModal() {
         groupedByType[type].push(iface);
     });
 
-    // Define a friendly display order and labels
     const typeOrder = ['ether', 'vlan', 'bridge', 'pppoe-out', 'pptp-out', 'l2tp-out'];
     const typeLabels = {
         'ether': 'Ethernet',
@@ -332,7 +330,6 @@ function openWanSelectorModal() {
         'l2tp-out': 'L2TP Client'
     };
 
-    // Build HTML for radio buttons grouped by type
     let html = '';
     for (const type of typeOrder) {
         if (groupedByType[type] && groupedByType[type].length > 0) {
@@ -356,32 +353,52 @@ function openWanSelectorModal() {
         }
     }
 
-    if (DOM_ELEMENTS.wanInterfaceListContainer) {
-        DOM_ELEMENTS.wanInterfaceListContainer.innerHTML = html;
+    // Populate interface list in template clone
+    const interfaceListContainer = content.querySelector('#wan-interface-list');
+    if (interfaceListContainer) {
+        interfaceListContainer.innerHTML = html;
     }
 
-    // Show modal
-    if (DOM_ELEMENTS.wanModal) {
-        DOM_ELEMENTS.wanModal.classList.remove('hidden');
-        DOM_ELEMENTS.wanModal.classList.add('flex');
-    }
+    // Create a wrapper element to hold the cloned content
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(content);
+
+    // Show modal using ModalUtils
+    activeWanModal = window.ModalUtils.showCustomModal({
+        title: 'Seleccionar Interfaz WAN',
+        content: wrapper,
+        modalId: 'wan-modal',
+        size: 'md',
+        actions: [
+            {
+                text: 'Cancelar',
+                handler: () => { },
+                closeOnClick: true
+            },
+            {
+                text: 'Guardar',
+                icon: 'save',
+                primary: true,
+                handler: handleWanFormSubmit,
+                closeOnClick: false
+            }
+        ]
+    });
 }
 
-function closeWanSelectorModal() {
-    if (DOM_ELEMENTS.wanModal) {
-        DOM_ELEMENTS.wanModal.classList.add('hidden');
-        DOM_ELEMENTS.wanModal.classList.remove('flex');
-    }
-}
+function handleWanFormSubmit() {
+    const form = document.getElementById('wan-form');
+    if (!form) return;
 
-function handleWanFormSubmit(e) {
-    e.preventDefault();
-    const formData = new FormData(e.target);
+    const formData = new FormData(form);
     const selectedInterface = formData.get('wan_interface');
 
     if (selectedInterface) {
         saveWanInterface(selectedInterface);
-        closeWanSelectorModal();
+        if (activeWanModal) {
+            activeWanModal.close();
+            activeWanModal = null;
+        }
     } else {
         DomUtils.updateFeedback('Por favor selecciona una interfaz.', false);
     }
