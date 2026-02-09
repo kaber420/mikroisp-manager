@@ -769,160 +769,103 @@
     </div>
 </main>
 
-<!-- VLAN Modal -->
-<div id="vlan-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center">
-    <div class="bg-surface-1 rounded-lg shadow-xl w-full max-w-md">
-        <div class="p-6 border-b border-border-color flex justify-between items-center">
-            <h4 id="vlan-modal-title" class="text-xl font-bold">Add VLAN</h4>
-            <button id="close-vlan-modal-btn" class="text-text-secondary hover:text-text-primary">&times;</button>
-        </div>
-        <div class="p-6">
-            <form id="vlan-form">
-                <input type="hidden" id="vlan-id" name="id">
-                <div class="mb-4">
-                    <label for="vlan-name" class="block text-sm font-medium mb-1">VLAN Name</label>
-                    <input type="text" id="vlan-name" name="name"
-                        class="w-full bg-background border border-border-color rounded-md p-2" required>
-                </div>
-                <div class="mb-4">
-                    <label for="vlan-id-input" class="block text-sm font-medium mb-1">VLAN ID</label>
-                    <input type="number" id="vlan-id-input" name="vlan-id"
-                        class="w-full bg-background border border-border-color rounded-md p-2" required>
-                </div>
-                <div class="mb-4">
-                    <label for="vlan-interface" class="block text-sm font-medium mb-1">Interface</label>
-                    <select id="vlan-interface" name="interface"
-                        class="w-full bg-background border border-border-color rounded-md p-2" required>
-                        <!-- Options will be populated by JavaScript -->
-                    </select>
-                </div>
-                <div class="flex justify-end gap-4">
-                    <button type="button" id="cancel-vlan-btn"
-                        class="px-4 py-2 rounded-md text-sm font-semibold">Cancel</button>
-                    <button type="submit"
-                        class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">Save
-                        VLAN</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Bridge Modal -->
-<div id="bridge-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center">
-    <div class="bg-surface-1 rounded-lg shadow-xl w-full max-w-md">
-        <div class="p-6 border-b border-border-color flex justify-between items-center">
-            <h4 id="bridge-modal-title" class="text-xl font-bold">Add Bridge</h4>
-            <button id="close-bridge-modal-btn" class="text-text-secondary hover:text-text-primary">&times;</button>
-        </div>
-        <div class="p-6">
-            <form id="bridge-form">
-                <input type="hidden" id="bridge-id" name="id">
-                <div class="mb-4">
-                    <label for="bridge-name" class="block text-sm font-medium mb-1">Bridge Name</label>
-                    <input type="text" id="bridge-name" name="name"
-                        class="w-full bg-background border border-border-color rounded-md p-2" required>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-1">Ports</label>
-                    <div id="bridge-ports"
-                        class="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto bg-background p-2 rounded-md border border-border-color">
-                        <!-- Checkboxes will be populated by JavaScript -->
-                    </div>
-                </div>
-                <div class="flex justify-end gap-4">
-                    <button type="button" id="cancel-bridge-btn"
-                        class="px-4 py-2 rounded-md text-sm font-semibold">Cancel</button>
-                    <button type="submit"
-                        class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">Save
-                        Bridge</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Edit Router Modal -->
-<div id="edit-router-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center">
-    <div class="bg-surface-1 rounded-lg shadow-xl w-full max-w-lg border border-border-color">
-        <div class="p-6 border-b border-border-color">
-            <h3 class="text-xl font-bold">Edit Router</h3>
-        </div>
-        <form id="edit-router-form">
-            <div class="p-6 space-y-4">
-                <div>
-                    <label class="block text-sm font-medium mb-1">Host</label>
-                    <input type="text" id="edit-r-host"
-                        class="w-full bg-surface-2 border border-border-color rounded p-2 text-text-secondary cursor-not-allowed"
-                        readonly>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Username</label>
-                    <input type="text" id="edit-r-username" name="username"
-                        class="w-full bg-background border border-border-color rounded p-2" required>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Password</label>
-                    <input type="password" name="password" placeholder="Leave blank to keep current"
-                        class="w-full bg-background border border-border-color rounded p-2">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">API Port</label>
-                    <input type="number" id="edit-r-api-port" name="api_port"
-                        class="w-full bg-background border border-border-color rounded p-2" required>
-                </div>
-
-                <!-- Security Actions -->
-                <div class="pt-4 border-t border-border-color mt-4">
-                    <h4 class="text-sm font-semibold text-text-primary mb-2">Security Actions</h4>
-                    <div
-                        class="bg-surface-2 p-4 rounded-lg flex items-center justify-between border border-border-color">
-                        <div>
-                            <p class="text-sm font-medium text-text-primary">SSL Certificate</p>
-                            <p class="text-xs text-text-secondary">Update or repair the secure connection certificate.
-                            </p>
-                        </div>
-                        <button type="button" id="edit-repair-router-btn"
-                            class="px-3 py-1.5 text-xs font-semibold rounded bg-warning/20 text-warning hover:bg-warning/30 border border-warning/20 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-sm">sync_lock</span>
-                            Update Certificate
-                        </button>
-                    </div>
-                </div>
+<!-- VLAN Form Template -->
+<template id="vlan-form-template">
+    <div class="p-6">
+        <form id="vlan-form">
+            <input type="hidden" id="vlan-id" name="id">
+            <div class="mb-4">
+                <label for="vlan-name" class="block text-sm font-medium mb-1">VLAN Name</label>
+                <input type="text" id="vlan-name" name="name"
+                    class="w-full bg-background border border-border-color rounded-md p-2" required>
             </div>
-            <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end gap-3">
-                <button type="button" id="cancel-edit-router-btn"
-                    class="px-4 py-2 rounded text-sm font-semibold hover:bg-surface-1">Cancel</button>
-                <button type="submit"
-                    class="px-4 py-2 rounded text-sm font-semibold text-white bg-primary hover:bg-primary-hover">Save
-                    Changes</button>
+            <div class="mb-4">
+                <label for="vlan-id-input" class="block text-sm font-medium mb-1">VLAN ID</label>
+                <input type="number" id="vlan-id-input" name="vlan-id"
+                    class="w-full bg-background border border-border-color rounded-md p-2" required>
+            </div>
+            <div class="mb-4">
+                <label for="vlan-interface" class="block text-sm font-medium mb-1">Interface</label>
+                <select id="vlan-interface" name="interface"
+                    class="w-full bg-background border border-border-color rounded-md p-2" required>
+                </select>
             </div>
         </form>
     </div>
-</div>
+</template>
 
-<!-- WAN Selector Modal -->
-<div id="wan-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center">
-    <div class="bg-surface-1 rounded-lg shadow-xl w-full max-w-md border border-border-color">
-        <div class="p-6 border-b border-border-color flex justify-between items-center">
-            <h4 class="text-xl font-bold">Seleccionar Interfaz WAN</h4>
-            <button id="close-wan-modal-btn" class="text-text-secondary hover:text-text-primary text-2xl">&times;</button>
-        </div>
-        <div class="p-6">
-            <form id="wan-form">
-                <div id="wan-interface-list" class="max-h-80 overflow-y-auto space-y-4">
-                    <!-- Radio buttons will be populated by JavaScript -->
+<!-- Bridge Form Template -->
+<template id="bridge-form-template">
+    <div class="p-6">
+        <form id="bridge-form">
+            <input type="hidden" id="bridge-id" name="id">
+            <div class="mb-4">
+                <label for="bridge-name" class="block text-sm font-medium mb-1">Bridge Name</label>
+                <input type="text" id="bridge-name" name="name"
+                    class="w-full bg-background border border-border-color rounded-md p-2" required>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-1">Ports</label>
+                <div id="bridge-ports"
+                    class="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto bg-background p-2 rounded-md border border-border-color">
                 </div>
-                <div class="flex justify-end gap-4 mt-6 pt-4 border-t border-border-color">
-                    <button type="button" id="cancel-wan-btn"
-                        class="px-4 py-2 rounded-md text-sm font-semibold hover:bg-surface-2">Cancel</button>
-                    <button type="submit"
-                        class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">Guardar</button>
-                </div>
-            </form>
-        </div>
+            </div>
+        </form>
     </div>
-</div>
+</template>
+
+<!-- Edit Router Form Template -->
+<template id="edit-router-form-template">
+    <form id="edit-router-form">
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium mb-1">Host</label>
+                <input type="text" id="edit-r-host"
+                    class="w-full bg-surface-2 border border-border-color rounded p-2 text-text-secondary cursor-not-allowed"
+                    readonly>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">Username</label>
+                <input type="text" id="edit-r-username" name="username"
+                    class="w-full bg-background border border-border-color rounded p-2" required>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">Password</label>
+                <input type="password" name="password" placeholder="Leave blank to keep current"
+                    class="w-full bg-background border border-border-color rounded p-2">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">API Port</label>
+                <input type="number" id="edit-r-api-port" name="api_port"
+                    class="w-full bg-background border border-border-color rounded p-2" required>
+            </div>
+            <div class="pt-4 border-t border-border-color mt-4">
+                <h4 class="text-sm font-semibold text-text-primary mb-2">Security Actions</h4>
+                <div class="bg-surface-2 p-4 rounded-lg flex items-center justify-between border border-border-color">
+                    <div>
+                        <p class="text-sm font-medium text-text-primary">SSL Certificate</p>
+                        <p class="text-xs text-text-secondary">Update or repair the secure connection certificate.</p>
+                    </div>
+                    <button type="button" id="edit-repair-router-btn"
+                        class="px-3 py-1.5 text-xs font-semibold rounded bg-warning/20 text-warning hover:bg-warning/30 border border-warning/20 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">sync_lock</span>
+                        Update Certificate
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</template>
+
+<!-- WAN Form Template -->
+<template id="wan-form-template">
+    <div class="p-6">
+        <form id="wan-form">
+            <div id="wan-interface-list" class="max-h-80 overflow-y-auto space-y-4">
+            </div>
+        </form>
+    </div>
+</template>
 
 {% endblock %}
 

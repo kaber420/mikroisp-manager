@@ -93,34 +93,17 @@ export const DOM_ELEMENTS = {
     healthInfo: document.getElementById('health-info'),
     resVoltage: document.getElementById('res-voltage'),
     resTemperature: document.getElementById('res-temperature'),
-    // Modals
-    vlanModal: document.getElementById('vlan-modal'),
-    vlanModalTitle: document.getElementById('vlan-modal-title'),
-    vlanForm: document.getElementById('vlan-form'),
-    vlanIdInput: document.getElementById('vlan-id-input'),
-    vlanNameInput: document.getElementById('vlan-name'),
-    vlanInterfaceSelect: document.getElementById('vlan-interface'),
+    // Modals - Now use templates, elements fetched dynamically
+    // Templates
+    vlanFormTemplate: document.getElementById('vlan-form-template'),
+    bridgeFormTemplate: document.getElementById('bridge-form-template'),
+    editRouterFormTemplate: document.getElementById('edit-router-form-template'),
+    wanFormTemplate: document.getElementById('wan-form-template'),
 
-    bridgeModal: document.getElementById('bridge-modal'),
-    bridgeModalTitle: document.getElementById('bridge-modal-title'),
-    bridgeForm: document.getElementById('bridge-form'),
-    bridgeNameInput: document.getElementById('bridge-name'),
-    bridgePortsContainer: document.getElementById('bridge-ports'),
-
-    // Buttons
+    // Buttons (these still exist in the DOM)
     addVlanBtn: document.getElementById('add-vlan-btn'),
     addBridgeBtn: document.getElementById('add-bridge-btn'),
-    cancelVlanBtn: document.getElementById('cancel-vlan-btn'),
-    closeVlanModalBtn: document.getElementById('close-vlan-modal-btn'),
-    cancelBridgeBtn: document.getElementById('cancel-bridge-btn'),
-    closeBridgeModalBtn: document.getElementById('close-bridge-modal-btn'),
-
-    // WAN Selector Modal
-    wanModal: document.getElementById('wan-modal'),
-    wanForm: document.getElementById('wan-form'),
-    wanInterfaceListContainer: document.getElementById('wan-interface-list'),
-    cancelWanBtn: document.getElementById('cancel-wan-btn'),
-    closeWanModalBtn: document.getElementById('close-wan-modal-btn'),
+    wanInterfaceCard: document.getElementById('wan-interface-card'),
 
     // Iconos
     deleteIcon: `<span class="material-symbols-outlined text-base">delete</span>`
