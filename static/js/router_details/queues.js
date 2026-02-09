@@ -5,6 +5,42 @@ import { TableComponent } from '../components/TableComponent.js';
 
 // --- LOCAL STATE ---
 let parentQueuesTable = null;
+let activeAddParentQueueModal = null;
+
+// --- MODAL FUNCTIONS ---
+
+function openAddParentQueueModal() {
+    const template = DOM_ELEMENTS.addParentQueueFormTemplate;
+    if (!template) {
+        console.error('Add Parent Queue form template not found');
+        return;
+    }
+
+    const content = template.content.cloneNode(true);
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(content);
+
+    activeAddParentQueueModal = window.ModalUtils.showCustomModal({
+        title: 'Crear Cola Padre',
+        content: wrapper,
+        modalId: 'add-parent-queue-modal',
+        size: 'md',
+        actions: [
+            {
+                text: 'Cancelar',
+                handler: () => { },
+                closeOnClick: true
+            },
+            {
+                text: 'Crear Cola',
+                icon: 'add',
+                primary: true,
+                handler: () => handleAddParentQueueSubmit(activeAddParentQueueModal),
+                closeOnClick: false
+            }
+        ]
+    });
+}
 
 // --- RENDERERS ---
 
@@ -54,33 +90,41 @@ function renderParentQueues(queues) {
         parentQueuesTable.render(parentQueues, DOM_ELEMENTS.parentQueueListDisplay);
     }
 
-    // Populate parent queue selects (for PPP tab plan form)
+    // Populate parent queue selects (for PPP tab plan form modal)
     const parentOptions = parentQueues.map(queue =>
         `<option value="${queue.name}">${queue.name} (${queue['max-limit'] || 'N/A'})</option>`
     ).join('');
 
-    const parentSelects = document.querySelectorAll('#add-plan-parent_queue');
+    const parentSelects = document.querySelectorAll('#plan-parent-queue');
     parentSelects.forEach(select => {
         if (select) {
-            const defaultValue = select.querySelector('option[value="none"], option[value=""]') ? select.querySelector('option[value="none"], option[value=""]').outerHTML : '';
-            select.innerHTML = defaultValue + parentOptions;
+            select.innerHTML = '<option value="none">-- Sin Cola Padre --</option>' + parentOptions;
         }
     });
 }
 
 // --- HANDLERS ---
 
-const handleAddParentQueue = async (e) => {
-    e.preventDefault();
-    try {
-        const formData = new FormData(DOM_ELEMENTS.addParentQueueForm);
-        const isParent = formData.get('is_parent') === 'on';
+async function handleAddParentQueueSubmit(modalRef) {
+    const form = document.getElementById('add-parent-queue-form');
+    if (!form) return;
 
+    const formData = new FormData(form);
+    const name = formData.get('name');
+    const maxLimit = formData.get('max_limit');
+    const isParent = formData.get('is_parent') === 'on';
+
+    if (!name || !maxLimit) {
+        DomUtils.updateFeedback('Nombre y Max Limit son requeridos.', false);
+        return;
+    }
+
+    try {
         const payload = {
-            name: formData.get('name'),
-            max_limit: formData.get('max_limit'),
-            target: formData.get('target'),
-            comment: `Managed by µMonitor: ${formData.get('name')}${isParent ? ' [PARENT]' : ''}`,
+            name: name,
+            max_limit: maxLimit,
+            target: formData.get('target') || '',
+            comment: `Managed by µMonitor: ${name}${isParent ? ' [PARENT]' : ''}`,
             is_parent: isParent
         };
 
@@ -89,16 +133,14 @@ const handleAddParentQueue = async (e) => {
             body: JSON.stringify(payload)
         });
 
+        if (modalRef) modalRef.close();
         const feedbackMessage = response?.message || 'Cola Creada con éxito';
         DomUtils.updateFeedback(feedbackMessage, true);
-        DOM_ELEMENTS.addParentQueueForm.reset();
-        document.getElementById('is-parent-checkbox').checked = true;
-
         await window.loadFullDetailsData();
     } catch (err) {
         DomUtils.updateFeedback(err.message, false);
     }
-};
+}
 
 const handleDeleteParentQueue = (queueId) => {
     DomUtils.confirmAndExecute('¿Borrar esta cola?', async () => {
@@ -122,5 +164,6 @@ export async function loadQueuesData(fullDetails) {
 // --- INITIALIZER ---
 
 export function initQueuesModule() {
-    DOM_ELEMENTS.addParentQueueForm?.addEventListener('submit', handleAddParentQueue);
+    // Modal button
+    DOM_ELEMENTS.addParentQueueBtn?.addEventListener('click', openAddParentQueueModal);
 }

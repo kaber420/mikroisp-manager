@@ -1,5 +1,6 @@
 // static/js/router_details/plans.js
 import { ApiClient, DomUtils } from './utils.js';
+// ModalUtils is available globally as window.ModalUtils
 import { CONFIG, DOM_ELEMENTS } from './config.js';
 import { TableComponent } from '../components/TableComponent.js';
 
@@ -150,13 +151,87 @@ async function smartReloadPlans(predicate, maxAttempts = 5, intervalMs = 1000) {
     DomUtils.updateFeedback('Sincronización finalizada.', true);
 }
 
+// --- MODALS ---
+
+/**
+ * Current cached data for modal population
+ */
+let cachedProfiles = [];
+let cachedQueues = [];
+
+/**
+ * Open Add Local Plan Modal
+ */
+let currentModal = null; // Store modal reference for closing
+
+function openAddLocalPlanModal() {
+    const template = document.getElementById('add-local-plan-form-template');
+    if (!template) {
+        console.error('Template add-local-plan-form-template not found');
+        return;
+    }
+
+    const content = template.content.cloneNode(true);
+    const container = document.createElement('div');
+    container.appendChild(content);
+
+    // Populate profile select with cached data
+    const profileSelect = container.querySelector('#modal-lp-profile-name');
+    if (profileSelect && cachedProfiles.length > 0) {
+        const options = cachedProfiles.map(profile =>
+            `<option value="${profile.name}">${profile.name} ${profile['rate-limit'] ? '(' + profile['rate-limit'] + ')' : ''}</option>`
+        ).join('');
+        profileSelect.innerHTML = '<option value="">-- Seleccionar Perfil --</option>' + options;
+    }
+
+    // Populate parent queue select with cached data
+    const parentSelect = container.querySelector('#modal-lp-parent');
+    if (parentSelect && cachedQueues.length > 0) {
+        const parentQueues = cachedQueues.filter(q => q.comment && q.comment.includes('[PARENT]'));
+        const options = parentQueues.map(queue =>
+            `<option value="${queue.name}">${queue.name} (${queue['max-limit'] || 'N/A'})</option>`
+        ).join('');
+        parentSelect.innerHTML = '<option value="">-- Ninguna (Root) --</option>' + options;
+    }
+
+    currentModal = window.ModalUtils.showCustomModal({
+        title: 'Definir Nuevo Plan Local',
+        content: container.innerHTML,
+        size: 'lg',
+        modalId: 'add-local-plan-modal',
+        actions: [
+            {
+                text: 'Cancelar',
+                closeOnClick: true
+            },
+            {
+                text: 'Guardar Plan',
+                icon: 'save',
+                primary: true,
+                closeOnClick: false,
+                handler: handleAddLocalPlanSubmit
+            }
+        ]
+    });
+
+    // Initialize Alpine.js on the new content
+    setTimeout(() => {
+        const modalContent = document.getElementById('add-local-plan-modal-content');
+        if (modalContent && window.Alpine) {
+            window.Alpine.initTree(modalContent);
+        }
+    }, 50);
+}
+
 // --- HANDLERS ---
 
 /**
- * Handle create local plan form submission
+ * Handle add local plan modal form submission
  */
-const handleCreateLocalPlan = async (e) => {
-    e.preventDefault();
+const handleAddLocalPlanSubmit = async () => {
+    const form = document.getElementById('add-local-plan-form');
+    if (!form) return;
+
     DomUtils.updateFeedback("Procesando...", true);
 
     const routerHost = CONFIG.currentHost;
@@ -165,14 +240,14 @@ const handleCreateLocalPlan = async (e) => {
         return;
     }
 
-    const formData = new FormData(DOM_ELEMENTS.createLocalPlanForm);
+    const formData = new FormData(form);
     const planType = formData.get('plan_type') || 'simple_queue';
 
     let suspensionMethod;
     if (planType === 'pppoe') {
-        suspensionMethod = document.getElementById('lp-suspension-method-pppoe')?.value || 'pppoe_secret_disable';
+        suspensionMethod = document.getElementById('modal-lp-suspension-pppoe')?.value || 'pppoe_secret_disable';
     } else {
-        suspensionMethod = document.getElementById('lp-suspension-method-sq')?.value || 'queue_limit';
+        suspensionMethod = document.getElementById('modal-lp-suspension-sq')?.value || 'queue_limit';
     }
 
     const payload = {
@@ -190,13 +265,13 @@ const handleCreateLocalPlan = async (e) => {
     };
 
     try {
-        const result = await ApiClient.request('/api/plans', {
+        await ApiClient.request('/api/plans', {
             method: 'POST',
             body: JSON.stringify(payload)
         });
 
-        DomUtils.updateFeedback("Guardado correctamente. Sincronizando...", true);
-        DOM_ELEMENTS.createLocalPlanForm.reset();
+        DomUtils.updateFeedback("Plan guardado correctamente. Sincronizando...", true);
+        if (currentModal) currentModal.close();
 
         // Smart Polling: Wait until plan appears
         smartReloadPlans(list => list.find(p => p.name === payload.name));
@@ -226,11 +301,11 @@ const handleDeletePlan = (planId) => {
 
 export async function loadPlansData(fullDetails) {
     if (fullDetails) {
-        // Populate PPPoE profiles selector
-        populatePppoeProfilesSelect(fullDetails.ppp_profiles);
+        // Cache PPPoE profiles for modal
+        cachedProfiles = fullDetails.ppp_profiles || [];
 
-        // Populate parent queue selects
-        populateParentQueueSelects(fullDetails.simple_queues);
+        // Cache queues for modal
+        cachedQueues = fullDetails.simple_queues || [];
 
         // Load local plans
         const routerHost = CONFIG.currentHost;
@@ -250,5 +325,6 @@ export async function loadPlansData(fullDetails) {
 // --- INITIALIZER ---
 
 export function initPlansModule() {
-    DOM_ELEMENTS.createLocalPlanForm?.addEventListener('submit', handleCreateLocalPlan);
+    // Modal button
+    document.getElementById('add-local-plan-btn')?.addEventListener('click', openAddLocalPlanModal);
 }

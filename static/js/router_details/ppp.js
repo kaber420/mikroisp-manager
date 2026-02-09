@@ -1,38 +1,156 @@
 // static/js/router_details/ppp.js
 import { ApiClient, DomUtils } from './utils.js';
-import { CONFIG, DOM_ELEMENTS } from './config.js';
+import { CONFIG, DOM_ELEMENTS, state } from './config.js';
 import { TableComponent } from '../components/TableComponent.js';
 
 // --- ESTADO LOCAL ---
 let pppoeTable = null;
+let activeAddPppoeModal = null;
+let activeAddPlanModal = null;
+let cachedIpPools = []; // Cached pools for modal population
+let cachedParentQueues = []; // Cached queues for modal population
+
+// --- MODAL FUNCTIONS ---
+
+function openAddPppoeModal() {
+    const template = DOM_ELEMENTS.addPppoeFormTemplate;
+    if (!template) {
+        console.error('Add PPPoE form template not found');
+        return;
+    }
+
+    const content = template.content.cloneNode(true);
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(content);
+
+    // Populate interface select
+    const interfaceSelect = wrapper.querySelector('#pppoe-interface');
+    if (interfaceSelect && state.allInterfaces?.length) {
+        const validInterfaces = state.allInterfaces.filter(
+            i => ['ether', 'bridge', 'vlan', 'wlan'].includes(i.type)
+        );
+        interfaceSelect.innerHTML = '<option value="">Seleccionar...</option>' +
+            validInterfaces.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
+    }
+
+    activeAddPppoeModal = window.ModalUtils.showCustomModal({
+        title: 'Añadir Servidor PPPoE',
+        content: wrapper,
+        modalId: 'add-pppoe-modal',
+        size: 'md',
+        actions: [
+            {
+                text: 'Cancelar',
+                handler: () => { },
+                closeOnClick: true
+            },
+            {
+                text: 'Añadir Servidor',
+                icon: 'add',
+                primary: true,
+                handler: () => handleAddPppoeSubmit(activeAddPppoeModal),
+                closeOnClick: false
+            }
+        ]
+    });
+}
+
+function openAddPlanModal() {
+    const template = DOM_ELEMENTS.addPlanFormTemplate;
+    if (!template) {
+        console.error('Add Plan form template not found');
+        return;
+    }
+
+    const content = template.content.cloneNode(true);
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(content);
+
+    // Populate parent queue select
+    const parentQueueSelect = wrapper.querySelector('#plan-parent-queue');
+    if (parentQueueSelect && cachedParentQueues?.length) {
+        parentQueueSelect.innerHTML = '<option value="none">-- Sin Cola Padre --</option>' +
+            cachedParentQueues.map(q => `<option value="${q.name}">${q.name}</option>`).join('');
+    }
+
+    // Populate IP pool datalist
+    const poolDatalist = wrapper.querySelector('#plan-pool-datalist');
+    if (poolDatalist && cachedIpPools?.length) {
+        poolDatalist.innerHTML = cachedIpPools
+            .map(pool => `<option value="${pool.name}">${pool.name} (${pool.ranges})</option>`)
+            .join('');
+    }
+
+    activeAddPlanModal = window.ModalUtils.showCustomModal({
+        title: 'Crear Plan PPPoE',
+        content: wrapper,
+        modalId: 'add-plan-modal',
+        size: 'lg',
+        actions: [
+            {
+                text: 'Cancelar',
+                handler: () => { },
+                closeOnClick: true
+            },
+            {
+                text: 'Guardar Plan',
+                icon: 'save',
+                primary: true,
+                handler: () => handleAddPlanSubmit(activeAddPlanModal),
+                closeOnClick: false
+            }
+        ]
+    });
+}
 
 // --- MANEJADORES (HANDLERS) ---
 
-const handleAddPppoe = async (e) => {
-    e.preventDefault();
+async function handleAddPppoeSubmit(modalRef) {
+    const form = document.getElementById('add-pppoe-form');
+    if (!form) return;
+
+    const formData = new FormData(form);
+    const interfaceValue = formData.get('interface');
+    const serviceName = formData.get('service_name');
+
+    if (!interfaceValue || !serviceName) {
+        DomUtils.updateFeedback('Por favor completa todos los campos requeridos.', false);
+        return;
+    }
+
     try {
-        const data = new FormData(DOM_ELEMENTS.addPppoeForm);
         const payload = {
-            service_name: data.get('service_name'),
-            interface: data.get('interface'),
+            service_name: serviceName,
+            interface: interfaceValue,
             default_profile: 'default',
-            one_session_per_host: data.get('one_session_per_host') === 'on',
-            keepalive_timeout: parseInt(data.get('keepalive_timeout'), 10) || 10
+            one_session_per_host: formData.get('one_session_per_host') === 'on',
+            keepalive_timeout: parseInt(formData.get('keepalive_timeout'), 10) || 10
         };
         await ApiClient.request(`/api/routers/${CONFIG.currentHost}/write/add-pppoe-server`, {
             method: 'POST',
             body: JSON.stringify(payload)
         });
+        if (modalRef) modalRef.close();
         DomUtils.updateFeedback('Servidor PPPoE Añadido', true);
-        DOM_ELEMENTS.addPppoeForm.reset();
-        await window.loadFullDetailsData(); // Recargar todo
-    } catch (err) { DomUtils.updateFeedback(err.message, false); }
-};
+        await window.loadFullDetailsData();
+    } catch (err) {
+        DomUtils.updateFeedback(err.message, false);
+    }
+}
 
-const handleAddPlan = async (e) => {
-    e.preventDefault();
+async function handleAddPlanSubmit(modalRef) {
+    const form = document.getElementById('add-plan-form');
+    if (!form) return;
+
+    const formData = new FormData(form);
+    const planName = formData.get('plan_name');
+
+    if (!planName) {
+        DomUtils.updateFeedback('Por favor ingresa un nombre de plan.', false);
+        return;
+    }
+
     try {
-        const formData = new FormData(DOM_ELEMENTS.addPlanForm);
         const data = Object.fromEntries(formData);
         data.comment = "Managed by µMonitor";
         if (data.parent_queue === "none") delete data.parent_queue;
@@ -58,12 +176,17 @@ const handleAddPlan = async (e) => {
             data.remote_address = poolInputValue;
         }
 
-        await ApiClient.request(`/api/routers/${CONFIG.currentHost}/write/create-plan`, { method: 'POST', body: JSON.stringify(data) });
+        await ApiClient.request(`/api/routers/${CONFIG.currentHost}/write/create-plan`, {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        if (modalRef) modalRef.close();
         DomUtils.updateFeedback('Plan Creado', true);
-        DOM_ELEMENTS.addPlanForm.reset();
-        await window.loadFullDetailsData(); // Recargar todo
-    } catch (err) { DomUtils.updateFeedback(err.message, false); }
-};
+        await window.loadFullDetailsData();
+    } catch (err) {
+        DomUtils.updateFeedback(err.message, false);
+    }
+}
 
 /**
  * Convierte notación CIDR a rango de IPs para MikroTik.
@@ -104,7 +227,7 @@ const handleDeletePppoe = (service) => {
         try {
             await ApiClient.request(`/api/routers/${CONFIG.currentHost}/write/delete-pppoe-server?service_name=${encodeURIComponent(service)}`, { method: 'DELETE' });
             DomUtils.updateFeedback('Servidor PPPoE Eliminado', true);
-            await window.loadFullDetailsData(); // Recargar todo
+            await window.loadFullDetailsData();
         } catch (err) { DomUtils.updateFeedback(err.message, false); }
     });
 };
@@ -116,7 +239,7 @@ const handleDeletePlan = (e) => {
             // El API endpoint espera el nombre base, no el "profile-..."
             await ApiClient.request(`/api/routers/${CONFIG.currentHost}/write/delete-plan?plan_name=${encodeURIComponent(planName)}`, { method: 'DELETE' });
             DomUtils.updateFeedback('Plan Eliminado', true);
-            await window.loadFullDetailsData(); // Recargar todo
+            await window.loadFullDetailsData();
         } catch (err) { DomUtils.updateFeedback(err.message, false); }
     });
 };
@@ -184,15 +307,6 @@ function renderPppoeServers(servers) {
     pppoeTable.render(servers, DOM_ELEMENTS.pppoeServerList);
 }
 
-function populateIpPoolSelects(pools) {
-    const datalist = document.getElementById('ip-pool-datalist');
-    if (datalist && pools) {
-        datalist.innerHTML = pools
-            .map(pool => `<option value="${pool.name}">${pool.name} (${pool.ranges})</option>`)
-            .join('');
-    }
-}
-
 // --- CARGADOR DE DATOS ---
 
 export function loadPppData(fullDetails) {
@@ -200,13 +314,16 @@ export function loadPppData(fullDetails) {
         renderPppProfiles(fullDetails.ppp_profiles);
         renderIpPools(fullDetails.ip_pools);
         renderPppoeServers(fullDetails.pppoe_servers);
-        populateIpPoolSelects(fullDetails.ip_pools);
+        // Cache data for modal population
+        cachedIpPools = fullDetails.ip_pools || [];
+        cachedParentQueues = fullDetails.queues?.filter(q => q.comment?.includes('[PARENT]')) || [];
     }
 }
 
 // --- INICIALIZADOR ---
 
 export function initPppModule() {
-    DOM_ELEMENTS.addPppoeForm?.addEventListener('submit', handleAddPppoe);
-    DOM_ELEMENTS.addPlanForm?.addEventListener('submit', handleAddPlan);
+    // Modal buttons
+    DOM_ELEMENTS.addPppoeBtn?.addEventListener('click', openAddPppoeModal);
+    DOM_ELEMENTS.addPlanBtn?.addEventListener('click', openAddPlanModal);
 }

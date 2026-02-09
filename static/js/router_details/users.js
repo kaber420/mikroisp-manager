@@ -5,6 +5,60 @@ import { TableComponent } from '../components/TableComponent.js';
 
 // --- ESTADO LOCAL ---
 let usersTable = null;
+let activeAddUserModal = null;
+let cachedAppUsers = []; // Cached for modal population
+
+// --- MODAL FUNCTIONS ---
+
+function openAddRouterUserModal() {
+    const template = DOM_ELEMENTS.addRouterUserFormTemplate;
+    if (!template) {
+        console.error('Add Router User form template not found');
+        return;
+    }
+
+    const content = template.content.cloneNode(true);
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(content);
+
+    // Populate app users select
+    const appUserSelect = wrapper.querySelector('#modal-app-user-select');
+    if (appUserSelect && cachedAppUsers?.length) {
+        appUserSelect.innerHTML = '<option value="">Copiar de App...</option>' +
+            cachedAppUsers.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
+    }
+
+    // Setup app user select change handler
+    const userNameInput = wrapper.querySelector('#modal-router-user-name');
+    if (appUserSelect && userNameInput) {
+        appUserSelect.addEventListener('change', () => {
+            if (appUserSelect.value) {
+                userNameInput.value = appUserSelect.value;
+            }
+        });
+    }
+
+    activeAddUserModal = window.ModalUtils.showCustomModal({
+        title: 'Añadir Usuario Router',
+        content: wrapper,
+        modalId: 'add-router-user-modal',
+        size: 'md',
+        actions: [
+            {
+                text: 'Cancelar',
+                handler: () => { },
+                closeOnClick: true
+            },
+            {
+                text: 'Añadir Usuario',
+                icon: 'person_add',
+                primary: true,
+                handler: () => handleAddRouterUserSubmit(activeAddUserModal),
+                closeOnClick: false
+            }
+        ]
+    });
+}
 
 // --- RENDERIZADORES ---
 
@@ -50,49 +104,42 @@ function renderRouterUsers(users) {
     usersTable.render(users || [], DOM_ELEMENTS.routerUsersList);
 }
 
-function populateAppUsers(users) {
-    if (!DOM_ELEMENTS.appUserSelect) return;
-    DOM_ELEMENTS.appUserSelect.innerHTML = '<option value="">Copiar de App...</option>' + users.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
-}
-
-
 // --- MANEJADORES (HANDLERS) ---
 
-const handleAddRouterUser = async (e) => {
-    e.preventDefault();
+async function handleAddRouterUserSubmit(modalRef) {
+    const form = document.getElementById('add-router-user-form');
+    if (!form) return;
+
+    const u = document.getElementById('modal-router-user-name').value;
+    const p = document.getElementById('modal-router-user-password').value;
+    const g = document.getElementById('modal-router-user-group').value;
+
+    if (!u || !p || !g) {
+        DomUtils.updateFeedback('Todos los campos son requeridos.', false);
+        return;
+    }
+
     try {
-        const u = document.getElementById('router-user-name').value;
-        const p = document.getElementById('router-user-password').value;
-        const g = document.getElementById('router-user-group').value;
-        if (!u || !p || !g) {
-            DomUtils.updateFeedback('Todos los campos son requeridos.', false);
-            return;
-        }
         await ApiClient.request(`/api/routers/${CONFIG.currentHost}/system/users`, {
             method: 'POST',
             body: JSON.stringify({ username: u, password: p, group: g })
         });
+        if (modalRef) modalRef.close();
         DomUtils.updateFeedback('Usuario creado', true);
-        DOM_ELEMENTS.addRouterUserForm.reset();
-        window.loadFullDetailsData(); // Recargar todo
-    } catch (err) { DomUtils.updateFeedback(err.message, false); }
-};
+        window.loadFullDetailsData();
+    } catch (err) {
+        DomUtils.updateFeedback(err.message, false);
+    }
+}
 
 const handleDeleteRouterUser = (userId) => {
     DomUtils.confirmAndExecute('¿Borrar Usuario del Router?', async () => {
         try {
             await ApiClient.request(`/api/routers/${CONFIG.currentHost}/system/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
             DomUtils.updateFeedback('Usuario Eliminado', true);
-            window.loadFullDetailsData(); // Recargar todo
+            window.loadFullDetailsData();
         } catch (err) { DomUtils.updateFeedback(err.message, false); }
     });
-};
-
-const handleAppUserSelectChange = () => {
-    const userNameInput = document.getElementById('router-user-name');
-    if (DOM_ELEMENTS.appUserSelect.value && userNameInput) {
-        userNameInput.value = DOM_ELEMENTS.appUserSelect.value;
-    }
 };
 
 // --- CARGADOR DE DATOS ---
@@ -103,15 +150,17 @@ export function loadUsersData(fullDetails) {
         renderRouterUsers(fullDetails.users);
     }
 
-    // La carga de usuarios de la app (para el dropdown) es separada y está bien así
+    // La carga de usuarios de la app (para el dropdown) es separada
     ApiClient.request('/api/users')
-        .then(populateAppUsers)
+        .then(users => {
+            cachedAppUsers = users || [];
+        })
         .catch(err => console.error("Error fetching app users:", err));
 }
 
 // --- INICIALIZADOR ---
 
 export function initUsersModule() {
-    DOM_ELEMENTS.addRouterUserForm?.addEventListener('submit', handleAddRouterUser);
-    DOM_ELEMENTS.appUserSelect?.addEventListener('change', handleAppUserSelectChange);
+    // Modal button
+    DOM_ELEMENTS.addRouterUserBtn?.addEventListener('click', openAddRouterUserModal);
 }

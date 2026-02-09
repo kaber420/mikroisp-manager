@@ -1,42 +1,156 @@
 // static/js/router_details/network.js
 import { ApiClient, DomUtils } from './utils.js';
-import { CONFIG, DOM_ELEMENTS } from './config.js';
+import { CONFIG, DOM_ELEMENTS, state } from './config.js';
 import { TableComponent } from '../components/TableComponent.js';
 
 // --- ESTADO LOCAL ---
 let ipTable = null;
 let natTable = null;
+let activeAddIpModal = null;
+let activeAddNatModal = null;
+
+// --- MODAL FUNCTIONS ---
+
+function openAddIpModal() {
+    const template = DOM_ELEMENTS.addIpFormTemplate;
+    if (!template) {
+        console.error('Add IP form template not found');
+        return;
+    }
+
+    const content = template.content.cloneNode(true);
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(content);
+
+    // Populate interface select
+    const interfaceSelect = wrapper.querySelector('#add-ip-interface');
+    if (interfaceSelect && state.allInterfaces?.length) {
+        const validInterfaces = state.allInterfaces.filter(
+            i => ['ether', 'bridge', 'vlan', 'wlan'].includes(i.type)
+        );
+        interfaceSelect.innerHTML = '<option value="">Seleccionar...</option>' +
+            validInterfaces.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
+    }
+
+    activeAddIpModal = window.ModalUtils.showCustomModal({
+        title: 'Añadir Dirección IP',
+        content: wrapper,
+        modalId: 'add-ip-modal',
+        size: 'md',
+        actions: [
+            {
+                text: 'Cancelar',
+                handler: () => { },
+                closeOnClick: true
+            },
+            {
+                text: 'Añadir IP',
+                icon: 'add',
+                primary: true,
+                handler: () => handleAddIpSubmit(activeAddIpModal),
+                closeOnClick: false
+            }
+        ]
+    });
+}
+
+function openAddNatModal() {
+    const template = DOM_ELEMENTS.addNatFormTemplate;
+    if (!template) {
+        console.error('Add NAT form template not found');
+        return;
+    }
+
+    const content = template.content.cloneNode(true);
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(content);
+
+    // Populate interface select
+    const interfaceSelect = wrapper.querySelector('#add-nat-interface');
+    if (interfaceSelect && state.allInterfaces?.length) {
+        const validInterfaces = state.allInterfaces.filter(
+            i => ['ether', 'bridge', 'vlan', 'wlan', 'pppoe-out'].includes(i.type)
+        );
+        interfaceSelect.innerHTML = '<option value="">Seleccionar...</option>' +
+            validInterfaces.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
+    }
+
+    activeAddNatModal = window.ModalUtils.showCustomModal({
+        title: 'Activar NAT (Masquerade)',
+        content: wrapper,
+        modalId: 'add-nat-modal',
+        size: 'md',
+        actions: [
+            {
+                text: 'Cancelar',
+                handler: () => { },
+                closeOnClick: true
+            },
+            {
+                text: 'Activar NAT',
+                icon: 'check',
+                primary: true,
+                handler: () => handleAddNatSubmit(activeAddNatModal),
+                closeOnClick: false
+            }
+        ]
+    });
+}
 
 // --- MANEJADORES (HANDLERS) ---
 
-const handleAddIp = async (e) => {
-    e.preventDefault();
+async function handleAddIpSubmit(modalRef) {
+    const form = document.getElementById('add-ip-form');
+    if (!form) return;
+
+    const formData = new FormData(form);
+    const interfaceValue = formData.get('interface');
+    const address = formData.get('address');
+
+    if (!interfaceValue || !address) {
+        DomUtils.updateFeedback('Por favor completa todos los campos.', false);
+        return;
+    }
+
     try {
-        const data = new FormData(DOM_ELEMENTS.addIpForm);
         const comment = "Managed by µMonitor";
         await ApiClient.request(`/api/routers/${CONFIG.currentHost}/write/add-ip`, {
             method: 'POST',
-            body: JSON.stringify({ interface: data.get('interface'), address: data.get('address'), comment: comment })
+            body: JSON.stringify({ interface: interfaceValue, address: address, comment: comment })
         });
+        if (modalRef) modalRef.close();
         DomUtils.updateFeedback('IP Añadida', true);
-        DOM_ELEMENTS.addIpForm.reset();
-        await window.loadFullDetailsData(); // Recargar todo
-    } catch (err) { DomUtils.updateFeedback(err.message, false); }
-};
+        await window.loadFullDetailsData();
+    } catch (err) {
+        DomUtils.updateFeedback(err.message, false);
+    }
+}
 
-const handleAddNat = async (e) => {
-    e.preventDefault();
+async function handleAddNatSubmit(modalRef) {
+    const form = document.getElementById('add-nat-form');
+    if (!form) return;
+
+    const formData = new FormData(form);
+    const outInterface = formData.get('out-interface');
+    const comment = formData.get('comment');
+
+    if (!outInterface) {
+        DomUtils.updateFeedback('Por favor selecciona una interface.', false);
+        return;
+    }
+
     try {
-        const data = new FormData(DOM_ELEMENTS.addNatForm);
         await ApiClient.request(`/api/routers/${CONFIG.currentHost}/write/add-nat`, {
             method: 'POST',
-            body: JSON.stringify({ out_interface: data.get('out-interface'), comment: data.get('comment') })
+            body: JSON.stringify({ out_interface: outInterface, comment: comment })
         });
+        if (modalRef) modalRef.close();
         DomUtils.updateFeedback('NAT Añadido', true);
-        DOM_ELEMENTS.addNatForm.reset();
-        await window.loadFullDetailsData(); // Recargar todo
-    } catch (err) { DomUtils.updateFeedback(err.message, false); }
-};
+        await window.loadFullDetailsData();
+    } catch (err) {
+        DomUtils.updateFeedback(err.message, false);
+    }
+}
 
 const handleDeleteIp = (address) => {
     DomUtils.confirmAndExecute(`¿Borrar la IP "${address}"?`, async () => {
@@ -90,9 +204,6 @@ function renderIpAddresses(ips = []) {
         });
     }
 
-    // El contenedor original es un div con clases de lista, lo limpiamos y dejamos que la tabla tome control
-    // OJO: Si el CSS espera items flex, la tabla podría verse rara si no quitamos las clases del contenedor padre.
-    // Pero TableComponent reemplaza el innerHTML.
     ipTable.render(ips, DOM_ELEMENTS.ipAddressList);
 }
 
@@ -136,22 +247,13 @@ export function loadNetworkData(fullDetails) {
     if (fullDetails) {
         renderIpAddresses(fullDetails.ip_addresses);
         renderNatRules(fullDetails.nat_rules);
-        populateInterfaceSelects(fullDetails.interfaces);
     }
-}
-
-function populateInterfaceSelects(interfaces) {
-    const selects = document.querySelectorAll('.interface-select');
-    if (!selects.length) return;
-    const options = interfaces.length ? '<option value="">Seleccionar...</option>' + interfaces
-        .filter(i => ['ether', 'bridge', 'vlan'].includes(i.type))
-        .map(i => `<option value="${i.name}">${i.name}</option>`).join('') : '<option value="">Error</option>';
-    selects.forEach(s => s.innerHTML = options);
 }
 
 // --- INICIALIZADOR ---
 
 export function initNetworkModule() {
-    DOM_ELEMENTS.addIpForm?.addEventListener('submit', handleAddIp);
-    DOM_ELEMENTS.addNatForm?.addEventListener('submit', handleAddNat);
+    // Modal buttons
+    DOM_ELEMENTS.addIpBtn?.addEventListener('click', openAddIpModal);
+    DOM_ELEMENTS.addNatBtn?.addEventListener('click', openAddNatModal);
 }

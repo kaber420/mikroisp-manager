@@ -43,24 +43,9 @@ export const DOM_ELEMENTS = {
     // --- NUEVO: Tabla para planes locales ---
     localPlansTableContainer: document.getElementById('local-plans-table-container'),
 
-    // Formularios
-    addIpForm: document.getElementById('add-ip-form'),
-    addNatForm: document.getElementById('add-nat-form'),
-    addPppoeForm: document.getElementById('add-pppoe-form'),
-    addParentQueueForm: document.getElementById('add-parent-queue-form'),
-
-    // Este es el formulario de la pestaña PPP (RouterOS profiles)
-    addPlanForm: document.getElementById('add-plan-form'),
-
+    // Formularios (dinámicos mediante modales - las referencias que aún usan getById son para formularios que siguen inline)
     // --- NUEVO: Formulario de Planes Locales (Pestaña Queues) ---
     createLocalPlanForm: document.getElementById('create-local-plan-form'),
-
-    createBackupForm: document.getElementById('create-backup-form'),
-    addRouterUserForm: document.getElementById('add-router-user-form'),
-    // Inputs
-    backupNameInput: document.getElementById('backup-name'),
-    parentQueueSelect: document.getElementById('add-plan-parent_queue'),
-    appUserSelect: document.getElementById('app-user-select'),
     // Overview Stats
     resUptime: document.getElementById('res-uptime'),
     resCpuLoad: document.getElementById('res-cpu-load'),
@@ -99,11 +84,25 @@ export const DOM_ELEMENTS = {
     bridgeFormTemplate: document.getElementById('bridge-form-template'),
     editRouterFormTemplate: document.getElementById('edit-router-form-template'),
     wanFormTemplate: document.getElementById('wan-form-template'),
+    addIpFormTemplate: document.getElementById('add-ip-form-template'),
+    addNatFormTemplate: document.getElementById('add-nat-form-template'),
+    addPppoeFormTemplate: document.getElementById('add-pppoe-form-template'),
+    addPlanFormTemplate: document.getElementById('add-plan-form-template'),
+    addRouterUserFormTemplate: document.getElementById('add-router-user-form-template'),
+    createBackupFormTemplate: document.getElementById('create-backup-form-template'),
+    addParentQueueFormTemplate: document.getElementById('add-parent-queue-form-template'),
 
     // Buttons (these still exist in the DOM)
     addVlanBtn: document.getElementById('add-vlan-btn'),
     addBridgeBtn: document.getElementById('add-bridge-btn'),
     wanInterfaceCard: document.getElementById('wan-interface-card'),
+    addIpBtn: document.getElementById('add-ip-btn'),
+    addNatBtn: document.getElementById('add-nat-btn'),
+    addPppoeBtn: document.getElementById('add-pppoe-btn'),
+    addPlanBtn: document.getElementById('add-plan-btn'),
+    addRouterUserBtn: document.getElementById('add-router-user-btn'),
+    createBackupBtn: document.getElementById('create-backup-btn'),
+    addParentQueueBtn: document.getElementById('add-parent-queue-btn'),
 
     // Iconos
     deleteIcon: `<span class="material-symbols-outlined text-base">delete</span>`

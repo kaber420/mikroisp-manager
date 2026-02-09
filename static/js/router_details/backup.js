@@ -2,12 +2,46 @@
 import { ApiClient, DomUtils } from './utils.js';
 import { CONFIG, DOM_ELEMENTS } from './config.js';
 
-// --- RENDERIZADOR PARA ARCHIVOS EN ROUTER ---
-
-// --- RENDERIZADOR PARA ARCHIVOS EN ROUTER ---
-
-// State variable for smart name finding
+// --- STATE ---
 let currentFiles = [];
+let activeCreateBackupModal = null;
+
+// --- MODAL FUNCTIONS ---
+
+function openCreateBackupModal() {
+    const template = DOM_ELEMENTS.createBackupFormTemplate;
+    if (!template) {
+        console.error('Create Backup form template not found');
+        return;
+    }
+
+    const content = template.content.cloneNode(true);
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(content);
+
+    activeCreateBackupModal = window.ModalUtils.showCustomModal({
+        title: 'Crear Backup',
+        content: wrapper,
+        modalId: 'create-backup-modal',
+        size: 'md',
+        actions: [
+            {
+                text: 'Cancelar',
+                handler: () => { },
+                closeOnClick: true
+            },
+            {
+                text: 'Crear Backup',
+                icon: 'backup',
+                primary: true,
+                handler: () => handleCreateBackupSubmit(activeCreateBackupModal),
+                closeOnClick: false
+            }
+        ]
+    });
+}
+
+// --- RENDERIZADOR PARA ARCHIVOS EN ROUTER ---
 
 function renderBackupFiles(files) {
     currentFiles = files || [];
@@ -101,6 +135,22 @@ function renderLocalBackupFiles(files) {
 
 // --- MANEJADORES (HANDLERS) ---
 
+async function handleCreateBackupSubmit(modalRef) {
+    const form = document.getElementById('create-backup-form');
+    if (!form) return;
+
+    const backupName = document.getElementById('modal-backup-name')?.value;
+    const backupType = form.querySelector('input[name="backup_type"]:checked')?.value || 'backup';
+
+    if (!backupName) {
+        DomUtils.updateFeedback('El nombre del backup no puede estar vacío.', false);
+        return;
+    }
+
+    if (modalRef) modalRef.close();
+    await handleCreateBackup(backupName, backupType);
+}
+
 const handleCreateBackup = async (name, type, overwrite = false) => {
     try {
         await ApiClient.request(`/api/routers/${CONFIG.currentHost}/system/create-backup`, {
@@ -108,19 +158,16 @@ const handleCreateBackup = async (name, type, overwrite = false) => {
             body: JSON.stringify({ backup_name: name, backup_type: type, overwrite: overwrite })
         });
         DomUtils.updateFeedback('Backup creado', true);
-        setTimeout(window.loadFullDetailsData, 2000); // Recarga todo después de 2 segundos
+        setTimeout(window.loadFullDetailsData, 2000);
     } catch (e) {
         // Handle 409 Conflict (File Exists)
         if (e.message.includes("409") || e.message.includes("ya existe")) {
             window.ModalUtils.showConflictModal(name, type, async (action) => {
                 if (action === 'overwrite') {
-                    // Retry with overwrite=true
                     handleCreateBackup(name, type, true);
                 } else if (action === 'copy') {
-                    // Copia Inteligente: Buscar el siguiente número libre
+                    // Copia Inteligente
                     let baseName = name;
-
-                    // Si el nombre ya era tipo "base(N)", extraemos la base
                     const match = name.match(/^(.*)\((\d+)\)$/);
                     if (match) {
                         baseName = match[1];
@@ -129,19 +176,16 @@ const handleCreateBackup = async (name, type, overwrite = false) => {
                     let counter = 1;
                     let nextCandidate = `${baseName}(${counter})`;
 
-                    // Loop hasta encontrar un nombre que NO esté en la lista
                     if (typeof currentFiles !== 'undefined' && Array.isArray(currentFiles)) {
                         const existingNames = new Set(currentFiles.map(f => f.name));
                         const ext = type === 'backup' ? '.backup' : '.rsc';
 
-                        // Chequear si existe el nombre (con o sin extensión)
                         while (existingNames.has(nextCandidate + ext) || existingNames.has(nextCandidate)) {
                             counter++;
                             nextCandidate = `${baseName}(${counter})`;
-                            if (counter > 100) break; // Evitar loop infinito
+                            if (counter > 100) break;
                         }
                     } else {
-                        // Fallback simple por si falla la lista
                         const matchold = name.match(/^(.*)\((\d+)\)$/);
                         if (matchold) {
                             nextCandidate = `${matchold[1]}(${parseInt(matchold[2]) + 1})`;
@@ -159,25 +203,13 @@ const handleCreateBackup = async (name, type, overwrite = false) => {
     }
 };
 
-
-
-const handleCreateBackupForm = (e) => {
-    e.preventDefault();
-    const backupNameEl = DOM_ELEMENTS.backupNameInput;
-    if (backupNameEl && backupNameEl.value) {
-        handleCreateBackup(backupNameEl.value, e.submitter.dataset.type);
-    } else {
-        DomUtils.updateFeedback('El nombre del backup no puede estar vacío.', false);
-    }
-};
-
 const handleDeleteBackupFile = (e) => {
     const fileId = e.currentTarget.dataset.id;
     DomUtils.confirmAndExecute('¿Borrar este archivo de backup del router?', async () => {
         try {
             await ApiClient.request(`/api/routers/${CONFIG.currentHost}/system/files/${encodeURIComponent(fileId)}`, { method: 'DELETE' });
             DomUtils.updateFeedback('Archivo Eliminado', true);
-            window.loadFullDetailsData(); // Recarga todo
+            window.loadFullDetailsData();
         } catch (err) { DomUtils.updateFeedback(err.message, false); }
     });
 };
@@ -191,7 +223,7 @@ const handleDeleteLocalBackup = (e) => {
                 { method: 'DELETE' }
             );
             DomUtils.updateFeedback('Respaldo eliminado del servidor', true);
-            loadLocalBackupData(); // Recarga solo los backups locales
+            loadLocalBackupData();
         } catch (err) { DomUtils.updateFeedback(err.message, false); }
     });
 };
@@ -200,7 +232,6 @@ const handleSaveToServer = async (e) => {
     const filename = e.currentTarget.dataset.filename;
     const btn = e.currentTarget;
 
-    // Mostrar estado de carga
     const originalContent = btn.innerHTML;
     btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span>';
     btn.disabled = true;
@@ -211,7 +242,7 @@ const handleSaveToServer = async (e) => {
             { method: 'POST' }
         );
         DomUtils.updateFeedback(`"${filename}" guardado en servidor`, true);
-        loadLocalBackupData(); // Actualizar la lista de backups locales
+        loadLocalBackupData();
     } catch (err) {
         DomUtils.updateFeedback(err.message, false);
     } finally {
@@ -224,7 +255,6 @@ const handleSaveToServer = async (e) => {
 
 export function loadBackupData(fullDetails) {
     try {
-        // La data de archivos ahora viene del loader principal
         if (fullDetails && fullDetails.files) {
             renderBackupFiles(fullDetails.files);
         }
@@ -253,7 +283,8 @@ export async function loadLocalBackupData() {
 // --- INICIALIZADOR ---
 
 export function initBackupModule() {
-    DOM_ELEMENTS.createBackupForm?.addEventListener('submit', handleCreateBackupForm);
+    // Modal button
+    DOM_ELEMENTS.createBackupBtn?.addEventListener('click', openCreateBackupModal);
     DOM_ELEMENTS.refreshLocalBackupsBtn?.addEventListener('click', loadLocalBackupData);
 
     // Cargar backups locales al inicio
