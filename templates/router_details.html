@@ -901,6 +901,29 @@
     </div>
 </div>
 
+<!-- WAN Selector Modal -->
+<div id="wan-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center">
+    <div class="bg-surface-1 rounded-lg shadow-xl w-full max-w-md border border-border-color">
+        <div class="p-6 border-b border-border-color flex justify-between items-center">
+            <h4 class="text-xl font-bold">Seleccionar Interfaz WAN</h4>
+            <button id="close-wan-modal-btn" class="text-text-secondary hover:text-text-primary text-2xl">&times;</button>
+        </div>
+        <div class="p-6">
+            <form id="wan-form">
+                <div id="wan-interface-list" class="max-h-80 overflow-y-auto space-y-4">
+                    <!-- Radio buttons will be populated by JavaScript -->
+                </div>
+                <div class="flex justify-end gap-4 mt-6 pt-4 border-t border-border-color">
+                    <button type="button" id="cancel-wan-btn"
+                        class="px-4 py-2 rounded-md text-sm font-semibold hover:bg-surface-2">Cancel</button>
+                    <button type="submit"
+                        class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}

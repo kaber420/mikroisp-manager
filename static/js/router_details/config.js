@@ -114,6 +114,14 @@ export const DOM_ELEMENTS = {
     closeVlanModalBtn: document.getElementById('close-vlan-modal-btn'),
     cancelBridgeBtn: document.getElementById('cancel-bridge-btn'),
     closeBridgeModalBtn: document.getElementById('close-bridge-modal-btn'),
+
+    // WAN Selector Modal
+    wanModal: document.getElementById('wan-modal'),
+    wanForm: document.getElementById('wan-form'),
+    wanInterfaceListContainer: document.getElementById('wan-interface-list'),
+    cancelWanBtn: document.getElementById('cancel-wan-btn'),
+    closeWanModalBtn: document.getElementById('close-wan-modal-btn'),
+
     // Iconos
     deleteIcon: `<span class="material-symbols-outlined text-base">delete</span>`
 };

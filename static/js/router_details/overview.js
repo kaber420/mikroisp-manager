@@ -288,10 +288,20 @@ export function initWanSelector() {
             openWanSelectorModal();
         });
     }
+
+    // Event listeners for modal buttons
+    if (DOM_ELEMENTS.closeWanModalBtn) {
+        DOM_ELEMENTS.closeWanModalBtn.addEventListener('click', closeWanSelectorModal);
+    }
+    if (DOM_ELEMENTS.cancelWanBtn) {
+        DOM_ELEMENTS.cancelWanBtn.addEventListener('click', closeWanSelectorModal);
+    }
+    if (DOM_ELEMENTS.wanForm) {
+        DOM_ELEMENTS.wanForm.addEventListener('submit', handleWanFormSubmit);
+    }
 }
 
 function openWanSelectorModal() {
-    // Simple prompt-based selection using the available interfaces
     const interfaces = state.allInterfaces || [];
     const wanCapableTypes = ['ether', 'pppoe-out', 'pptp-out', 'l2tp-out', 'vlan', 'bridge'];
     const wanInterfaces = interfaces.filter(i => wanCapableTypes.includes(i.type));
@@ -301,12 +311,79 @@ function openWanSelectorModal() {
         return;
     }
 
-    const options = wanInterfaces.map(i => `${i.name} (${i.type})`).join('\n');
-    const selected = prompt(`Selecciona la interfaz WAN:\n\n${options}\n\nEscribe el nombre de la interfaz:`, state.wanInterface || '');
+    // Group interfaces by type
+    const groupedByType = {};
+    wanInterfaces.forEach(iface => {
+        const type = iface.type;
+        if (!groupedByType[type]) {
+            groupedByType[type] = [];
+        }
+        groupedByType[type].push(iface);
+    });
 
-    if (selected && wanInterfaces.find(i => i.name === selected)) {
-        saveWanInterface(selected);
-    } else if (selected) {
-        DomUtils.updateFeedback(`Interfaz "${selected}" no encontrada.`, false);
+    // Define a friendly display order and labels
+    const typeOrder = ['ether', 'vlan', 'bridge', 'pppoe-out', 'pptp-out', 'l2tp-out'];
+    const typeLabels = {
+        'ether': 'Ethernet',
+        'vlan': 'VLAN',
+        'bridge': 'Bridge',
+        'pppoe-out': 'PPPoE Client',
+        'pptp-out': 'PPTP Client',
+        'l2tp-out': 'L2TP Client'
+    };
+
+    // Build HTML for radio buttons grouped by type
+    let html = '';
+    for (const type of typeOrder) {
+        if (groupedByType[type] && groupedByType[type].length > 0) {
+            const label = typeLabels[type] || type;
+            html += `<div class="mb-3">`;
+            html += `<h5 class="text-sm font-semibold text-text-secondary mb-2">${label}</h5>`;
+            html += `<div class="grid grid-cols-2 gap-2">`;
+            groupedByType[type].forEach(iface => {
+                const isChecked = iface.name === state.wanInterface ? 'checked' : '';
+                const isRunning = (iface.running === 'true' || iface.running === true) && (iface.disabled !== 'true' && iface.disabled !== true);
+                const statusDot = isRunning ? 'bg-success' : 'bg-danger';
+                html += `
+                    <label class="flex items-center gap-2 p-2 rounded-md hover:bg-surface-2 cursor-pointer border border-border-color">
+                        <input type="radio" name="wan_interface" value="${iface.name}" ${isChecked} class="rounded-full bg-background border-border-color text-primary focus:ring-primary">
+                        <span class="w-2 h-2 rounded-full ${statusDot}"></span>
+                        <span class="text-sm">${iface.name}</span>
+                    </label>
+                `;
+            });
+            html += `</div></div>`;
+        }
+    }
+
+    if (DOM_ELEMENTS.wanInterfaceListContainer) {
+        DOM_ELEMENTS.wanInterfaceListContainer.innerHTML = html;
+    }
+
+    // Show modal
+    if (DOM_ELEMENTS.wanModal) {
+        DOM_ELEMENTS.wanModal.classList.remove('hidden');
+        DOM_ELEMENTS.wanModal.classList.add('flex');
     }
 }
+
+function closeWanSelectorModal() {
+    if (DOM_ELEMENTS.wanModal) {
+        DOM_ELEMENTS.wanModal.classList.add('hidden');
+        DOM_ELEMENTS.wanModal.classList.remove('flex');
+    }
+}
+
+function handleWanFormSubmit(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const selectedInterface = formData.get('wan_interface');
+
+    if (selectedInterface) {
+        saveWanInterface(selectedInterface);
+        closeWanSelectorModal();
+    } else {
+        DomUtils.updateFeedback('Por favor selecciona una interfaz.', false);
+    }
+}
+
