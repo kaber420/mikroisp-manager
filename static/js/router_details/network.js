@@ -241,12 +241,21 @@ function renderNatRules(rules = []) {
     natTable.render(filteredRules, DOM_ELEMENTS.natRulesList);
 }
 
+function renderIpPools(pools) {
+    if (!DOM_ELEMENTS.ipPoolList) return;
+    DOM_ELEMENTS.ipPoolList.innerHTML = (!pools || pools.length === 0) ? '<p class="text-text-secondary">No hay pools.</p>' : '';
+    pools?.forEach(pool => {
+        DOM_ELEMENTS.ipPoolList.innerHTML += `<div class="flex justify-between items-center text-sm"><span>${pool.name}</span><span class="text-text-secondary font-mono">${pool.ranges}</span></div>`;
+    });
+}
+
 // --- CARGADOR DE DATOS ---
 
 export function loadNetworkData(fullDetails) {
     if (fullDetails) {
         renderIpAddresses(fullDetails.ip_addresses);
         renderNatRules(fullDetails.nat_rules);
+        renderIpPools(fullDetails.ip_pools);
     }
 }
 

@@ -33,7 +33,7 @@
         <div classs="stats-grid mb-6">
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <div class="stat-card">
-                    <div id="res-uptime" class="stat-value">--</div>
+                    <div id="res-uptime" class="stat-value text-sm">--</div>
                     <div class="stat-label">Uptime</div>
                 </div>
                 <div class="stat-card">
@@ -301,6 +301,17 @@
                 </div>
                 <div id="nat-rules-list" class="overflow-x-auto border border-border-color rounded-md"></div>
             </div>
+
+            <!-- IP Pools Card -->
+            <div class="card">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">dns</span>
+                        Pools de IP
+                    </h2>
+                </div>
+                <div id="ip-pool-list" class="text-sm space-y-1 font-mono max-h-60 overflow-y-auto"></div>
+            </div>
         </div>
         <div x-show="activeTab === 'ppp'" class="space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -330,14 +341,10 @@
                         Crear Plan
                     </button>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="grid grid-cols-1 gap-8">
                     <div class="space-y-4">
                         <h4 class="text-base font-semibold">Perfiles (Planes)</h4>
                         <div id="ppp-profile-list" class="space-y-4 max-h-96 overflow-y-auto"></div>
-                    </div>
-                    <div class="space-y-4">
-                        <h4 class="text-base font-semibold">Pools de IP</h4>
-                        <div id="ip-pool-list" class="text-sm space-y-1 font-mono max-h-40 overflow-y-auto"></div>
                     </div>
                 </div>
             </div>

@@ -97,7 +97,40 @@ function updateDashboardUI(data) {
     }
 
     // 4. Uptime
-    if (DOM_ELEMENTS.resUptime) DOM_ELEMENTS.resUptime.textContent = data.uptime;
+    if (DOM_ELEMENTS.resUptime) DOM_ELEMENTS.resUptime.textContent = formatUptime(data.uptime);
+}
+
+/**
+ * Formatea el uptime de MikroTik (ej: "1w2d3h45m12s") a un formato más legible.
+ * Semanas y días conservan su letra: "1w 2d"
+ * Horas, minutos y segundos usan formato con dos puntos: "3:45:12"
+ */
+function formatUptime(raw) {
+    if (!raw || raw === '--') return raw || '--';
+
+    const wMatch = raw.match(/(\d+)w/);
+    const dMatch = raw.match(/(\d+)d/);
+    const hMatch = raw.match(/(\d+)h/);
+    const mMatch = raw.match(/(\d+)m(?!s)/); // avoid matching 'ms'
+    const sMatch = raw.match(/(\d+)s/);
+
+    const weeks = wMatch ? parseInt(wMatch[1]) : 0;
+    const days = dMatch ? parseInt(dMatch[1]) : 0;
+    const hours = hMatch ? parseInt(hMatch[1]) : 0;
+    const mins = mMatch ? parseInt(mMatch[1]) : 0;
+    const secs = sMatch ? parseInt(sMatch[1]) : 0;
+
+    let parts = [];
+    if (weeks) parts.push(`${weeks}w`);
+    if (days) parts.push(`${days}d`);
+
+    // Horas:minutos:segundos con formato HH:MM:SS
+    const hStr = String(hours).padStart(2, '0');
+    const mStr = String(mins).padStart(2, '0');
+    const sStr = String(secs).padStart(2, '0');
+    parts.push(`${hStr}:${mStr}:${sStr}`);
+
+    return parts.join(' ');
 
     // 5. --- CORRECCIÓN: HEALTH (Lógica estricta) ---
     // Verificamos si existe AL MENOS UN valor válido (no null, no undefined)

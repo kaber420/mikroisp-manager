@@ -268,12 +268,7 @@ function renderPppProfiles(profiles) {
     document.querySelectorAll('.delete-plan-btn').forEach(btn => btn.addEventListener('click', handleDeletePlan));
 }
 
-function renderIpPools(pools) {
-    DOM_ELEMENTS.ipPoolList.innerHTML = (!pools || pools.length === 0) ? '<p class="text-text-secondary">No hay pools.</p>' : '';
-    pools?.forEach(pool => {
-        DOM_ELEMENTS.ipPoolList.innerHTML += `<div class="flex justify-between items-center text-sm"><span>${pool.name}</span><span class="text-text-secondary font-mono">${pool.ranges}</span></div>`;
-    });
-}
+
 
 function renderPppoeServers(servers) {
     if (!DOM_ELEMENTS.pppoeServerList) return;
@@ -312,7 +307,6 @@ function renderPppoeServers(servers) {
 export function loadPppData(fullDetails) {
     if (fullDetails) {
         renderPppProfiles(fullDetails.ppp_profiles);
-        renderIpPools(fullDetails.ip_pools);
         renderPppoeServers(fullDetails.pppoe_servers);
         // Cache data for modal population
         cachedIpPools = fullDetails.ip_pools || [];
