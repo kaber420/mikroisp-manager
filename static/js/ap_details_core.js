@@ -787,82 +787,73 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ============================================================================
-    // EDIT CPE MODAL
+    // EDIT CPE MODAL (fallback if cpes.js is not loaded)
     // ============================================================================
-    window.openEditCPEModal = function (mac, currentHostname) {
-        const modal = document.getElementById('edit-cpe-modal');
-        const form = document.getElementById('edit-cpe-form');
-
-        if (!modal || !form) {
-            console.error('Edit CPE modal not found');
-            return;
-        }
-
-        // Populate fields
-        document.getElementById('edit-cpe-mac').value = mac;
-        document.getElementById('edit-cpe-mac-display').value = mac;
-        document.getElementById('edit-cpe-hostname').value = currentHostname;
-        document.getElementById('edit-cpe-error').classList.add('hidden');
-
-        // Show modal
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-    };
-
-    window.closeEditCPEModal = function () {
-        const modal = document.getElementById('edit-cpe-modal');
-        if (modal) {
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
-    };
-
-    // Setup modal listeners
-    const editCPEForm = document.getElementById('edit-cpe-form');
-    if (editCPEForm) {
-        editCPEForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const mac = document.getElementById('edit-cpe-mac').value;
-            const hostname = document.getElementById('edit-cpe-hostname').value;
-            const errorDiv = document.getElementById('edit-cpe-error');
-            const submitBtn = editCPEForm.querySelector('button[type="submit"]');
-
-            try {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="material-symbols-outlined mr-2 animate-spin">sync</span>Saving...';
-
-                const response = await fetch(`${API_BASE_URL}/api/cpes/${mac}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ hostname: hostname })
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Failed to update CPE');
-                }
-
-                // Close and refresh
-                window.closeEditCPEModal();
-                if (typeof showToast === 'function') {
-                    showToast('CPE hostname updated successfully', 'success');
-                }
-
-                // Refresh data
-                window.dispatchEvent(new CustomEvent('data-refresh-needed'));
-
-            } catch (error) {
-                console.error('Error updating CPE:', error);
-                errorDiv.textContent = error.message;
-                errorDiv.classList.remove('hidden');
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = 'Save Changes';
+    if (!window.openEditCPEModal) {
+        window.openEditCPEModal = function (mac, currentHostname) {
+            const template = document.getElementById('edit-cpe-modal-template');
+            if (!template) {
+                console.error('Edit CPE modal template not found');
+                return;
             }
-        });
 
-        document.getElementById('edit-cpe-cancel-button')?.addEventListener('click', window.closeEditCPEModal);
+            const content = template.content.cloneNode(true);
+            const wrapper = content.firstElementChild;
+
+            const { close } = window.ModalUtils.showCustomModal({
+                title: 'Edit Client Device',
+                content: wrapper,
+                modalId: 'edit-cpe-modal',
+                size: 'sm',
+                actions: [
+                    { text: 'Cancel', closeOnClick: true },
+                    {
+                        text: 'Save Changes',
+                        icon: 'save',
+                        primary: true,
+                        closeOnClick: false,
+                        handler: async () => {
+                            const macVal = document.getElementById('edit-cpe-mac').value;
+                            const hostname = document.getElementById('edit-cpe-hostname').value.trim();
+                            const errorDiv = document.getElementById('edit-cpe-error');
+
+                            try {
+                                const response = await fetch(`${API_BASE_URL}/api/cpes/${macVal}`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ hostname: hostname })
+                                });
+
+                                if (!response.ok) {
+                                    const error = await response.json();
+                                    throw new Error(error.detail || 'Failed to update CPE');
+                                }
+
+                                if (typeof showToast === 'function') {
+                                    showToast('CPE hostname updated successfully', 'success');
+                                }
+                                close();
+                                window.dispatchEvent(new CustomEvent('data-refresh-needed'));
+                            } catch (error) {
+                                console.error('Error updating CPE:', error);
+                                if (errorDiv) {
+                                    errorDiv.textContent = error.message;
+                                    errorDiv.classList.remove('hidden');
+                                }
+                            }
+                        }
+                    }
+                ]
+            });
+
+            // Populate fields after modal is in DOM
+            setTimeout(() => {
+                document.getElementById('edit-cpe-mac').value = mac;
+                document.getElementById('edit-cpe-mac-display').value = mac;
+                document.getElementById('edit-cpe-hostname').value = currentHostname || '';
+                document.getElementById('edit-cpe-hostname').focus();
+            }, 50);
+        };
     }
 
 });

@@ -52,7 +52,7 @@ document.addEventListener('alpine:init', () => {
 
         // --- Actions ---
         openSwitchModal(sw = null) {
-            Alpine.store('switches').openModal(sw);
+            window.openSwitchModalViaUtils(sw);
         },
 
         deleteSwitch(host, hostname) {

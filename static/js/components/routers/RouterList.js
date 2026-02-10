@@ -64,7 +64,7 @@ document.addEventListener('alpine:init', () => {
 
         // --- Actions ---
         openRouterModal(router = null) {
-            Alpine.store('routers').openModal(router);
+            window.openRouterModalViaUtils(router);
         },
 
         deleteRouter(host, hostname) {
@@ -84,7 +84,7 @@ document.addEventListener('alpine:init', () => {
 
         // Plans actions (delegates to PlanStore)
         openPlansModal() {
-            Alpine.store('plans').openModal();
+            window.openPlanModalViaUtils();
         }
     }));
 

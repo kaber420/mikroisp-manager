@@ -174,50 +174,58 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     window.editCpeIp = editCpeIp;
 
-    // --- Manual CPE Name Editing (Modal) ---
-    const editCPEModal = document.getElementById('edit-cpe-modal');
-    const editCPEForm = document.getElementById('edit-cpe-form');
-    const editCPECancelBtn = document.getElementById('edit-cpe-cancel-button');
-
+    // --- Manual CPE Name Editing (Modal via ModalUtils) ---
     function openEditCPEModal(mac, currentHostname) {
-        if (!editCPEModal) return;
-        document.getElementById('edit-cpe-mac').value = mac;
-        document.getElementById('edit-cpe-mac-display').value = mac;
-        document.getElementById('edit-cpe-hostname').value = currentHostname;
-        editCPEModal.classList.remove('hidden');
-        editCPEModal.classList.add('flex');
-    }
+        const template = document.getElementById('edit-cpe-modal-template');
+        if (!template) {
+            console.error('Edit CPE modal template not found');
+            return;
+        }
 
-    function closeEditCPEModal() {
-        if (!editCPEModal) return;
-        editCPEModal.classList.add('hidden');
-        editCPEModal.classList.remove('flex');
-        // Optional: editCPEForm.reset();
-    }
+        const content = template.content.cloneNode(true);
+        const wrapper = content.firstElementChild;
 
-    if (editCPECancelBtn) {
-        editCPECancelBtn.addEventListener('click', closeEditCPEModal);
-    }
+        const { close } = window.ModalUtils.showCustomModal({
+            title: 'Edit Client Device',
+            content: wrapper,
+            modalId: 'edit-cpe-modal',
+            size: 'sm',
+            actions: [
+                { text: 'Cancel', closeOnClick: true },
+                {
+                    text: 'Save Changes',
+                    icon: 'save',
+                    primary: true,
+                    closeOnClick: false,
+                    handler: async () => {
+                        const macVal = document.getElementById('edit-cpe-mac').value;
+                        const hostname = document.getElementById('edit-cpe-hostname').value.trim();
+                        const errorDiv = document.getElementById('edit-cpe-error');
 
-    if (editCPEModal) {
-        editCPEModal.addEventListener('click', (e) => {
-            if (e.target === editCPEModal) closeEditCPEModal();
+                        const success = await updateCPE(macVal, { hostname: hostname });
+                        if (success) {
+                            if (typeof showToast === 'function') showToast('Hostname updated', 'success');
+                            close();
+                        } else if (errorDiv) {
+                            errorDiv.textContent = 'Failed to update hostname.';
+                            errorDiv.classList.remove('hidden');
+                        }
+                    }
+                }
+            ]
         });
+
+        // Populate fields after modal is in DOM
+        setTimeout(() => {
+            document.getElementById('edit-cpe-mac').value = mac;
+            document.getElementById('edit-cpe-mac-display').value = mac;
+            document.getElementById('edit-cpe-hostname').value = currentHostname || '';
+            document.getElementById('edit-cpe-hostname').focus();
+        }, 50);
     }
 
-    if (editCPEForm) {
-        editCPEForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const mac = document.getElementById('edit-cpe-mac').value;
-            const hostname = document.getElementById('edit-cpe-hostname').value.trim();
-
-            const success = await updateCPE(mac, { hostname: hostname });
-            if (success) {
-                if (typeof showToast === 'function') showToast('Hostname updated', 'success');
-                closeEditCPEModal();
-            }
-        });
-    }
+    // Expose globally for ap_details_core.js
+    window.openEditCPEModal = openEditCPEModal;
 
     /**
      * Devuelve la clase y el texto para un badge de estado basado en la señal.

@@ -12,12 +12,12 @@ document.addEventListener('alpine:init', () => {
         error: null,
 
         // Filters
-        filterStatus: 'open', // open, pending, resolved, closed, todos
+        filterStatus: 'todos', // open, pending, resolved, closed, todos
         searchQuery: '', // Added search query state
 
         // Pagination
         page: 0,
-        pageSize: 50,
+        pageSize: 20,
         totalTickets: 0,
 
         // Detailed View

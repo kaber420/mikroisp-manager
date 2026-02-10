@@ -194,7 +194,7 @@ window.ModalUtils = {
                         <span class="material-symbols-outlined">close</span>
                     </button>
                 </div>
-                <div class="flex-1 overflow-auto" id="${modalId}-content">
+                <div class="p-6 flex-1 overflow-auto" id="${modalId}-content">
                     ${typeof content === 'string' ? content : ''}
                 </div>
                 ${actionsHtml}

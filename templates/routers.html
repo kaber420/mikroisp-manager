@@ -148,19 +148,11 @@
         </div>
     </div>
 
-    <!-- Router Modal (Add/Edit) -->
-    <div x-data="routerModal()" x-show="isOpen" x-cloak
-        class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 overflow-y-auto z-50">
-        <div @click.away="close()"
-            class="bg-surface-1 rounded-lg shadow-xl w-full max-w-2xl border border-border-color my-auto">
+    <!-- Router Modal Template - Used by ModalUtils.showCustomModal -->
+    <template id="router-modal-template">
+        <div x-data="routerModal()">
             <form @submit.prevent="save()">
-                <div class="p-6 border-b border-border-color flex justify-between items-center">
-                    <h3 x-text="isEditing ? 'Edit Router' : 'Add New Router'" class="text-2xl font-bold"></h3>
-                    <button type="button" @click="close()"
-                        class="text-text-secondary hover:text-text-primary text-3xl font-bold">&times;</button>
-                </div>
-
-                <div class="p-8 max-h-[70vh] overflow-y-auto space-y-6">
+                <div class="max-h-[70vh] overflow-y-auto space-y-6">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label for="router-host" class="block text-sm font-medium mb-1">Host (IP Address)</label>
@@ -234,32 +226,17 @@
                     <div x-show="error" x-text="error" class="text-danger text-sm mt-4"></div>
                 </div>
 
-                <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end gap-4">
-                    <button type="button" @click="close()"
-                        class="px-4 py-2 rounded-md text-sm font-semibold hover:bg-surface-1">Cancel</button>
-                    <button type="submit"
-                        class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover"
-                        x-text="isEditing ? 'Save Changes' : 'Save Router'"></button>
-                </div>
             </form>
         </div>
-    </div>
+    </template>
 
     {# Shared Provisioning Modal #}
     {% include 'partials/provision_modal.html' %}
 
-    <!-- Plans Management Modal -->
-    <div x-data="planModal()" x-show="isOpen" x-cloak
-        class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 overflow-y-auto z-50">
-        <div @click.away="close()"
-            class="bg-surface-1 rounded-lg shadow-xl w-full max-w-4xl border border-border-color my-auto">
-            <div class="p-6 border-b border-border-color flex justify-between items-center">
-                <h3 class="text-2xl font-bold">Manage Plans</h3>
-                <button type="button" @click="close()"
-                    class="text-text-secondary hover:text-text-primary text-3xl font-bold">&times;</button>
-            </div>
-
-            <div class="p-6 max-h-[70vh] overflow-y-auto">
+    <!-- Plans Management Modal Template - Used by ModalUtils.showCustomModal -->
+    <template id="plan-modal-template">
+        <div x-data="planModal()">
+            <div class="max-h-[70vh] overflow-y-auto">
                 <!-- Add New Plan Button -->
                 <div class="flex justify-end mb-4">
                     <button @click="openForm()"
@@ -408,12 +385,8 @@
                 </div>
             </div>
 
-            <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end">
-                <button type="button" @click="close()"
-                    class="px-4 py-2 rounded-md text-sm font-semibold hover:bg-surface-1">Close</button>
-            </div>
         </div>
-    </div>
+    </template>
 </main>
 {% endblock %}
 

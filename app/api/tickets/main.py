@@ -32,7 +32,7 @@ async def list_tickets(
     status_filter: Optional[str] = None,
     client_id: Optional[uuid_pkg.UUID] = None,
     search: Optional[str] = None,
-    limit: int = 50,
+    limit: int = 20,
     offset: int = 0,
     current_user: User = Depends(require_technician),
     session: AsyncSession = Depends(get_session)

@@ -2,13 +2,66 @@
  * Client Modal Component - Alpine.js
  * 
  * Handles Client creation/editing and Service provisioning.
- * Extracted from the monolithic clients.js.
+ * Uses ModalUtils.showCustomModal for modal shell management.
  * 
- * Usage: <div x-data="clientModal">...</div>
+ * Usage: Triggered by 'open-client-modal' event.
  */
+
+// --- Global modal handle (outside Alpine scope) ---
+let activeClientModal = null;
+
+function openClientModalViaUtils(clientData = null) {
+    // Close any existing instance
+    if (activeClientModal) {
+        activeClientModal.close();
+        activeClientModal = null;
+    }
+
+    const template = document.getElementById('client-modal-template');
+    if (!template) {
+        console.error('Client modal template not found');
+        return;
+    }
+
+    const content = template.content.cloneNode(true);
+    const wrapper = content.firstElementChild;
+
+    // Determine title
+    const title = clientData ? 'Edit Client' : 'Add New Client';
+
+    // Open the ModalUtils shell with the cloned template as content
+    activeClientModal = window.ModalUtils.showCustomModal({
+        title: title,
+        content: wrapper,
+        modalId: 'client-modal',
+        size: 'xl',
+        actions: [] // Actions are inside the template's own buttons
+    });
+
+    // Find the actual element in the DOM (ModalUtils inserts it)
+    const modalEl = document.getElementById('client-modal');
+    if (!modalEl) return;
+
+    const alpineRoot = modalEl.querySelector('[x-data="clientModal"]');
+    if (!alpineRoot) return;
+
+    // Store client data on the element so init() can pick it up
+    alpineRoot._pendingClientData = clientData;
+
+    // Initialize Alpine on the dynamically inserted content
+    Alpine.initTree(alpineRoot);
+}
+
+// Register the global event listener at module load
+document.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('open-client-modal', (e) => {
+        openClientModalViaUtils(e.detail?.client || null);
+    });
+});
+
+// --- Alpine Component ---
 document.addEventListener('alpine:init', () => {
     Alpine.data('clientModal', () => ({
-        isModalOpen: false,
         isLoadingData: false,
         currentTab: 'info',
         isEditing: false,
@@ -41,14 +94,14 @@ document.addEventListener('alpine:init', () => {
         },
 
         init() {
-            window.addEventListener('open-client-modal', (e) => {
-                this.openModal(e.detail?.client || null);
-            });
+            // Pick up pending client data set before Alpine.initTree
+            const clientData = this.$el._pendingClientData || null;
+            delete this.$el._pendingClientData;
+            this.openModal(clientData);
         },
 
         async openModal(client = null) {
             this.reset();
-            this.isModalOpen = true;
             this.isLoadingData = true;
 
             if (client) {
@@ -64,8 +117,11 @@ document.addEventListener('alpine:init', () => {
         },
 
         closeModal() {
-            this.isModalOpen = false;
-            this.reset();
+            // Close via ModalUtils handle
+            if (activeClientModal) {
+                activeClientModal.close();
+                activeClientModal = null;
+            }
             // Notify list to refresh
             Alpine.store('clientList').loadClients();
         },
@@ -199,6 +255,11 @@ document.addEventListener('alpine:init', () => {
                     this.service.pppoe_username = data.name.trim().replace(/\s+/g, '.').toLowerCase();
                     await this.loadDependencies(data.id);
                     this.switchTab('service');
+
+                    // Update the modal title dynamically
+                    const modalTitleEl = document.querySelector('#client-modal h3');
+                    if (modalTitleEl) modalTitleEl.textContent = 'Edit Client';
+
                     if (window.showToast) window.showToast('Client created. Now configure service.', 'success');
                 } else {
                     this.closeModal();

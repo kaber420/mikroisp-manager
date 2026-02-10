@@ -2,18 +2,77 @@
  * Router Modal Component - Alpine.js Component
  *
  * Handles the Add/Edit Router modal form.
- * Uses $store.routers for state.
+ * Uses $store.routers for state and ModalUtils for shell.
  *
- * Usage:
- *   <div x-data="routerModal()">...</div>
+ * Usage: Called via openRouterModalViaUtils(router) from RouterList.
  */
+
+// --- Global modal handle ---
+let activeRouterModal = null;
+
+function openRouterModalViaUtils(router = null) {
+    if (activeRouterModal) {
+        activeRouterModal.close();
+        activeRouterModal = null;
+    }
+
+    // Prepare store state first
+    Alpine.store('routers').openModal(router);
+
+    const template = document.getElementById('router-modal-template');
+    if (!template) {
+        console.error('Router modal template not found');
+        return;
+    }
+
+    const content = template.content.cloneNode(true);
+    const wrapper = content.firstElementChild;
+
+    const isEditing = Alpine.store('routers').isEditing;
+    const title = isEditing ? 'Edit Router' : 'Add New Router';
+
+    activeRouterModal = window.ModalUtils.showCustomModal({
+        title: title,
+        content: wrapper,
+        modalId: 'router-modal',
+        size: 'lg',
+        actions: [
+            {
+                text: 'Cancel',
+                handler: () => {
+                    Alpine.store('routers').closeModal();
+                }
+            },
+            {
+                text: isEditing ? 'Save Changes' : 'Save Router',
+                primary: true,
+                icon: 'save',
+                closeOnClick: false,
+                handler: () => {
+                    const modalEl = document.getElementById('router-modal');
+                    if (modalEl) {
+                        const form = modalEl.querySelector('form');
+                        if (form) form.requestSubmit();
+                    }
+                }
+            }
+        ]
+    });
+
+    const modalEl = document.getElementById('router-modal');
+    if (!modalEl) return;
+
+    const alpineRoot = modalEl.querySelector('[x-data="routerModal()"]');
+    if (alpineRoot) {
+        Alpine.initTree(alpineRoot);
+    }
+}
+
+window.openRouterModalViaUtils = openRouterModalViaUtils;
+
+// --- Alpine Component ---
 document.addEventListener('alpine:init', () => {
     Alpine.data('routerModal', () => ({
-        // --- Computed Helpers ---
-        get isOpen() {
-            return Alpine.store('routers').isModalOpen;
-        },
-
         get isEditing() {
             return Alpine.store('routers').isEditing;
         },
@@ -34,13 +93,22 @@ document.addEventListener('alpine:init', () => {
             return Alpine.store('routers').allZones;
         },
 
-        // --- Actions ---
         close() {
             Alpine.store('routers').closeModal();
+            if (activeRouterModal) {
+                activeRouterModal.close();
+                activeRouterModal = null;
+            }
         },
 
         async save() {
             await Alpine.store('routers').save();
+            if (!Alpine.store('routers').error) {
+                if (activeRouterModal) {
+                    activeRouterModal.close();
+                    activeRouterModal = null;
+                }
+            }
         },
 
         async renewSSL() {

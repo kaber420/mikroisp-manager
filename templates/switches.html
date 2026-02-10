@@ -135,19 +135,11 @@
         </div>
     </div>
 
-    <!-- Switch Modal (Add/Edit) -->
-    <div x-data="switchModal()" x-show="isOpen" x-cloak
-        class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 overflow-y-auto z-50">
-        <div @click.away="close()"
-            class="bg-surface-1 rounded-lg shadow-xl w-full max-w-2xl border border-border-color my-auto">
+    <!-- Switch Modal Template - Used by ModalUtils.showCustomModal -->
+    <template id="switch-modal-template">
+        <div x-data="switchModal()">
             <form @submit.prevent="save()">
-                <div class="p-6 border-b border-border-color flex justify-between items-center">
-                    <h3 x-text="isEditing ? 'Edit Switch' : 'Add New Switch'" class="text-2xl font-bold"></h3>
-                    <button type="button" @click="close()"
-                        class="text-text-secondary hover:text-text-primary text-3xl font-bold">&times;</button>
-                </div>
-
-                <div class="p-8 max-h-[70vh] overflow-y-auto space-y-6">
+                <div class="max-h-[70vh] overflow-y-auto space-y-6">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label for="switch-host" class="block text-sm font-medium mb-1">Host (IP Address)</label>
@@ -207,7 +199,7 @@
                 </div>
 
                 <!-- Security Actions -->
-                <div x-show="isEditing" class="pt-4 border-t border-border-color mt-6 px-8 pb-4">
+                <div x-show="isEditing" class="pt-4 border-t border-border-color mt-6">
                     <h4 class="text-md font-semibold text-text-primary mb-2">Security Actions</h4>
                     <div class="bg-surface-2 p-4 rounded-lg flex items-center justify-between">
                         <div>
@@ -230,18 +222,9 @@
                     </div>
                 </div>
 
-                <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end gap-4">
-
-
-                    <button type="button" @click="close()"
-                        class="px-4 py-2 rounded-md text-sm font-semibold hover:bg-surface-1">Cancel</button>
-                    <button type="submit"
-                        class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover"
-                        x-text="isEditing ? 'Save Changes' : 'Save Switch'"></button>
-                </div>
             </form>
         </div>
-    </div>
+    </template>
 </main>
 {% endblock %}
 
