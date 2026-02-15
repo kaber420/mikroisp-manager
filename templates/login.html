@@ -9,16 +9,28 @@
     <!-- Compiled Tailwind CSS -->
     <link rel="stylesheet" href="/static/css/main.css">
     <link rel="stylesheet" href="/static/css/fonts.css">
-    <!-- Login-specific styles (extracted for CSP compliance) -->
+    <!-- Global theme variables -->
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <!-- Login-specific styles -->
     <link rel="stylesheet" href="/static/css/login.css">
 </head>
 
-<body class="dynamic-bg text-text-primary font-sans antialiased relative overflow-hidden">
+<body class="login-bg text-text-primary font-sans antialiased relative overflow-hidden">
+    <script
+        nonce="{{ request.state.csp_nonce }}">(function () { var t = localStorage.getItem('umanager-theme'); if (t === 'modern') document.body.classList.add('theme-modern') })()</script>
+
+    <!-- Lava Lamp Background (solo visible con tema moderno) -->
+    <div id="lava-container" class="lava-bg">
+        <div class="lava-blob lava-blob-1"></div>
+        <div class="lava-blob lava-blob-2"></div>
+        <div class="lava-blob lava-blob-3"></div>
+        <div class="lava-blob lava-blob-4"></div>
+    </div>
 
     <!-- Dynamic glowing elements -->
-    <div class="glow-element glow-1"></div>
-    <div class="glow-element glow-2"></div>
-    <div class="glow-element glow-3"></div>
+    <div class="login-glow login-glow-1"></div>
+    <div class="login-glow login-glow-2"></div>
+    <div class="login-glow login-glow-3"></div>
 
     <div class="flex min-h-screen items-center justify-center p-4 relative z-10">
         <div class="w-full max-w-md">

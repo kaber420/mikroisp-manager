@@ -8,11 +8,11 @@
 
 /* Card component */
 .card {
-    background-color: #1E293B;
+    background-color: var(--color-surface-1);
     border-radius: 0.5rem;
     padding: 1.5rem;
     margin-bottom: 1.5rem;
-    border: 1px solid #334155;
+    border: 1px solid var(--color-border);
 }
 
 /* Status indicators */
@@ -25,11 +25,11 @@
 }
 
 .status-online {
-    background-color: #22C55E;
+    background-color: var(--color-success);
 }
 
 .status-offline {
-    background-color: #EF4444;
+    background-color: var(--color-danger);
 }
 
 /* Tab navigation buttons */
@@ -41,16 +41,16 @@
 }
 
 .tab-button.active {
-    border-bottom: 2px solid #3B82F6;
-    color: #F1F5F9;
+    border-bottom: 2px solid var(--color-primary);
+    color: var(--color-text-primary);
 }
 
 .tab-button:not(.active) {
-    color: #94A3B8;
+    color: var(--color-text-secondary);
 }
 
 .tab-button:hover:not(.active) {
-    border-bottom: 2px solid #334155;
+    border-bottom: 2px solid var(--color-surface-2);
 }
 
 /* Stats Grid */
@@ -61,7 +61,7 @@
 }
 
 .stat-card {
-    background-color: #334155;
+    background-color: var(--color-surface-2);
     border-radius: 0.5rem;
     padding: 1rem;
     text-align: center;
@@ -70,29 +70,29 @@
 .stat-value {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #F1F5F9;
+    color: var(--color-text-primary);
 }
 
 .stat-value-live {
-    color: #3B82F6;
+    color: var(--color-primary);
 }
 
 .stat-label {
     font-size: 0.875rem;
-    color: #94A3B8;
+    color: var(--color-text-secondary);
 }
 
 /* Progress Bars */
 .progress-bar {
     height: 8px;
-    background-color: #334155;
+    background-color: var(--color-surface-2);
     border-radius: 4px;
     overflow: hidden;
 }
 
 .progress-value {
     height: 100%;
-    background-color: #3B82F6;
+    background-color: var(--color-primary);
     border-radius: 4px;
     transition: width 0.3s ease;
 }
@@ -104,26 +104,26 @@
 }
 
 .data-table th {
-    background-color: #334155;
+    background-color: var(--color-surface-2);
     padding: 0.75rem;
     text-align: left;
     font-weight: 600;
-    color: #94A3B8;
+    color: var(--color-text-secondary);
 }
 
 .data-table td {
     padding: 0.75rem;
-    border-top: 1px solid #334155;
+    border-top: 1px solid var(--color-border);
 }
 
 .data-table tr:hover {
-    background-color: #334155;
+    background-color: var(--color-surface-2);
 }
 
 /* Interface filter buttons */
 .interface-filter-btn {
-    background-color: #334155;
-    color: #94A3B8;
+    background-color: var(--color-surface-2);
+    color: var(--color-text-secondary);
     transition: all 0.2s;
     padding: 0.25rem 0.75rem;
     font-size: 0.875rem;
@@ -132,12 +132,12 @@
 }
 
 .interface-filter-btn:hover {
-    background-color: #475569;
+    background-color: var(--color-surface-3, #475569);
 }
 
 .interface-filter-btn.active {
-    background-color: #3B82F6;
-    color: #F1F5F9;
+    background-color: var(--color-primary);
+    color: var(--color-text-primary);
     font-weight: 600;
 }
 
@@ -147,8 +147,8 @@
 
 /* Filter buttons (used in clients list) */
 .filter-button.active {
-    background-color: #3B82F6;
-    color: #F1F5F9;
+    background-color: var(--color-primary);
+    color: var(--color-text-primary);
 }
 
 /* Tab Panels (show/hide) */
@@ -163,15 +163,12 @@
 /* Tab button hover state (for settings page) */
 .tab-button:hover:not(.active) {
     color: #CBD5E1;
-    border-bottom-color: #475569;
+    border-bottom-color: var(--color-surface-3, #475569);
 }
 
 /* ============================================
    Dashboard Card Decorative Icons
    ============================================ */
-/* Override the default 24px font-size from material-symbols-outlined
-   for the large decorative background icons on dashboard cards */
-
 .material-symbols-outlined.text-\[120px\] {
     font-size: 120px !important;
     line-height: 1;
@@ -208,44 +205,44 @@
 
 /* Cancel / Neutral button */
 .modal-btn-cancel {
-    color: #94A3B8;
+    color: var(--color-text-secondary);
     background-color: transparent;
 }
 
 .modal-btn-cancel:hover {
-    background-color: #334155;
-    color: #F1F5F9;
+    background-color: var(--color-surface-2);
+    color: var(--color-text-primary);
 }
 
 /* Primary action button (Soft to Solid) */
 .modal-btn-primary {
-    color: #3B82F6;
-    background-color: rgba(59, 130, 246, 0.1);
+    color: var(--color-primary);
+    background-color: var(--color-primary-soft);
 }
 
 .modal-btn-primary:hover {
     color: #FFFFFF;
-    background-color: #3B82F6;
+    background-color: var(--color-primary);
 }
 
 /* Danger action button (Soft to Solid) */
 .modal-btn-danger {
-    color: #EF4444;
+    color: var(--color-danger);
     background-color: rgba(239, 68, 68, 0.1);
 }
 
 .modal-btn-danger:hover {
     color: #FFFFFF;
-    background-color: #EF4444;
+    background-color: var(--color-danger);
 }
 
 /* Secondary/Info action button (Soft to Solid) */
 .modal-btn-secondary {
-    color: #3B82F6;
-    background-color: rgba(59, 130, 246, 0.1);
+    color: var(--color-primary);
+    background-color: var(--color-primary-soft);
 }
 
 .modal-btn-secondary:hover {
     color: #FFFFFF;
-    background-color: #3B82F6;
+    background-color: var(--color-primary);
 }

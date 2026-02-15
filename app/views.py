@@ -12,6 +12,7 @@ from .core.users import (
 )
 from .db.engine import get_session
 from .db.engine_sync import get_sync_session
+from .models.setting import Setting
 from .models.user import User
 
 router = APIRouter()
@@ -60,11 +61,23 @@ async def logout_and_redirect():
 
 @router.get("/", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_dashboard(
-    request: Request, current_user: User = Depends(get_current_user_or_redirect)
+    request: Request,
+    current_user: User = Depends(get_current_user_or_redirect),
+    session: AsyncSession = Depends(get_session),
 ):
+    # Fetch ISP Name from settings
+    result = await session.execute(select(Setting).where(Setting.key == "company_name"))
+    setting = result.scalar_one_or_none()
+    isp_name = setting.value if setting else None
+
     return templates.TemplateResponse(
-        "dashboard.html",
-        {"request": request, "active_page": "dashboard", "user": current_user},
+        "dashboard_classic.html",
+        {
+            "request": request,
+            "active_page": "dashboard",
+            "user": current_user,
+            "isp_name": isp_name,
+        },
     )
 
 

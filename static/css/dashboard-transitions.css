@@ -8,10 +8,12 @@
 #device-info-card,
 #charts-card,
 #client-list-section {
-    transition: filter 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-                opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    will-change: filter, opacity; /* Ayuda al rendimiento */
-    transform: translateZ(0); /* Promueve la aceleración por hardware */
+    transition: filter 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: filter, opacity;
+    /* Ayuda al rendimiento */
+    transform: translateZ(0);
+    /* Promueve la aceleración por hardware */
     backface-visibility: hidden;
     perspective: 1000px;
 }
@@ -50,11 +52,11 @@
 /* --- ESTILOS GENERALES Y MEJORAS --- */
 
 /* Suaviza el cambio de contenido en las tarjetas de resumen */
-#summary-cards > div {
+#summary-cards>div {
     transition: transform 0.2s ease;
 }
 
-#summary-cards > div:hover {
+#summary-cards>div:hover {
     transform: translateY(-2px);
 }
 
@@ -65,7 +67,7 @@
 
 #search-input:focus {
     outline: none;
-    border-color: var(--primary, #3b82f6);
+    border-color: var(--color-primary, #3b82f6);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -92,5 +94,5 @@
     filter: blur(4px);
     opacity: 0.6;
     transition: filter 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }

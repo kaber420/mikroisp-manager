@@ -34,6 +34,12 @@
                 <span class="material-symbols-outlined text-lg">dns</span>
                 Sistema
             </button>
+            <button type="button" @click="$store.settings.setTab('appearance')"
+                :class="$store.settings.activeTab === 'appearance' ? 'active' : ''"
+                class="tab-button py-3 px-6 text-sm font-semibold flex items-center gap-2">
+                <span class="material-symbols-outlined text-lg">palette</span>
+                Apariencia
+            </button>
         </div>
 
         <!-- TAB 1: Configuration -->
@@ -621,48 +627,63 @@
                             Configuración del Sistema
                         </h3>
                         <p class="text-sm text-text-secondary mt-1">Configura la base de datos y el sistema de caché.
-                            <br><span class="text-warning">⚠️ Cambiar estos ajustes requiere reiniciar el sistema.</span>
+                            <br><span class="text-warning">⚠️ Cambiar estos ajustes requiere reiniciar el
+                                sistema.</span>
                         </p>
                     </div>
 
                     <!-- Database Section -->
                     <div class="border-t border-white/10 pt-6">
                         <h4 class="text-md font-bold text-white mb-4">Base de Datos</h4>
-                        
+
                         <div class="mb-4">
-                            <label class="block text-sm font-medium mb-2 text-text-secondary">Proveedor de Base de Datos</label>
+                            <label class="block text-sm font-medium mb-2 text-text-secondary">Proveedor de Base de
+                                Datos</label>
                             <div class="flex gap-4">
                                 <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" x-model="config.db_provider" value="sqlite" class="text-primary focus:ring-primary">
+                                    <input type="radio" x-model="config.db_provider" value="sqlite"
+                                        class="text-primary focus:ring-primary">
                                     <span class="text-white">SQLite (Archivo Local)</span>
                                 </label>
                                 <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" x-model="config.db_provider" value="postgres" class="text-primary focus:ring-primary">
+                                    <input type="radio" x-model="config.db_provider" value="postgres"
+                                        class="text-primary focus:ring-primary">
                                     <span class="text-white">PostgreSQL (Remoto/Docker)</span>
                                 </label>
                             </div>
                         </div>
 
-                        <div x-show="config.db_provider === 'postgres'" x-transition class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-surface-1/30 p-4 rounded-lg border border-white/5">
+                        <div x-show="config.db_provider === 'postgres'" x-transition
+                            class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-surface-1/30 p-4 rounded-lg border border-white/5">
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-medium mb-1 text-text-secondary">Host</label>
-                                <input type="text" x-model="config.postgres_host" class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white" placeholder="localhost">
+                                <input type="text" x-model="config.postgres_host"
+                                    class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white"
+                                    placeholder="localhost">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1 text-text-secondary">Puerto</label>
-                                <input type="text" x-model="config.postgres_port" class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white" placeholder="5432">
+                                <input type="text" x-model="config.postgres_port"
+                                    class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white"
+                                    placeholder="5432">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1 text-text-secondary">Base de Datos</label>
-                                <input type="text" x-model="config.postgres_db" class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white" placeholder="umanager">
+                                <input type="text" x-model="config.postgres_db"
+                                    class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white"
+                                    placeholder="umanager">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1 text-text-secondary">Usuario</label>
-                                <input type="text" x-model="config.postgres_user" class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white" placeholder="postgres">
+                                <input type="text" x-model="config.postgres_user"
+                                    class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white"
+                                    placeholder="postgres">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1 text-text-secondary">Contraseña</label>
-                                <input type="password" x-model="config.postgres_password" class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white" placeholder="••••••">
+                                <input type="password" x-model="config.postgres_password"
+                                    class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white"
+                                    placeholder="••••••">
                             </div>
                         </div>
                     </div>
@@ -670,26 +691,33 @@
                     <!-- Cache Section -->
                     <div class="border-t border-white/10 pt-6">
                         <h4 class="text-md font-bold text-white mb-4">Cache / Cola de Mensajes</h4>
-                        
+
                         <div class="mb-4">
                             <label class="block text-sm font-medium mb-2 text-text-secondary">Backend de Cache</label>
                             <div class="flex gap-4">
                                 <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" x-model="config.cache_provider" value="memory" class="text-primary focus:ring-primary">
+                                    <input type="radio" x-model="config.cache_provider" value="memory"
+                                        class="text-primary focus:ring-primary">
                                     <span class="text-white">Memoria (Solo Dev)</span>
                                 </label>
                                 <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" x-model="config.cache_provider" value="redict" class="text-primary focus:ring-primary">
+                                    <input type="radio" x-model="config.cache_provider" value="redict"
+                                        class="text-primary focus:ring-primary">
                                     <span class="text-white">Redict / Redis (Producción)</span>
                                 </label>
                             </div>
                         </div>
 
-                        <div x-show="config.cache_provider === 'redict'" x-transition class="bg-surface-1/30 p-4 rounded-lg border border-white/5">
+                        <div x-show="config.cache_provider === 'redict'" x-transition
+                            class="bg-surface-1/30 p-4 rounded-lg border border-white/5">
                             <div>
-                                <label class="block text-sm font-medium mb-1 text-text-secondary">URL de Conexión</label>
-                                <input type="text" x-model="config.redict_url" class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white" placeholder="redis://localhost:6379/0">
-                                <p class="text-xs text-text-secondary mt-1">Formato: redis://[:password@]host:port/db</p>
+                                <label class="block text-sm font-medium mb-1 text-text-secondary">URL de
+                                    Conexión</label>
+                                <input type="text" x-model="config.redict_url"
+                                    class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white"
+                                    placeholder="redis://localhost:6379/0">
+                                <p class="text-xs text-text-secondary mt-1">Formato: redis://[:password@]host:port/db
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -706,6 +734,79 @@
             </form>
         </div>
 
+        <!-- TAB 5: Apariencia -->
+        <div x-show="$store.settings.activeTab === 'appearance'" x-data="appearanceSettings()" x-cloak>
+            <div class="glass-card rounded-2xl p-8 space-y-8">
+                <div>
+                    <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">palette</span>
+                        Tema Visual
+                    </h3>
+                    <p class="text-sm text-text-secondary mt-1">Personaliza la apariencia de la interfaz. El cambio es
+                        inmediato y se guarda en este navegador.</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 border-t border-white/10 pt-6">
+                    <!-- Tarjeta: Tema Clásico -->
+                    <button type="button" @click="setTheme('classic')"
+                        class="group relative rounded-xl border-2 p-6 text-left transition-all duration-300 cursor-pointer"
+                        :class="currentTheme === 'classic'
+                            ? 'border-primary bg-primary/10 shadow-lg shadow-primary/10'
+                            : 'border-white/10 hover:border-white/30 bg-surface-1/30'">
+                        <!-- Preview -->
+                        <div class="rounded-lg overflow-hidden mb-4 h-24 relative"
+                            style="background: radial-gradient(circle at center, #1a1a2e 0%, #0a0a0a 100%)">
+                            <div class="absolute inset-0 flex items-center justify-center gap-2 p-3">
+                                <div class="w-1/3 h-4 rounded bg-white/10"></div>
+                                <div class="w-1/3 h-4 rounded bg-white/10"></div>
+                                <div class="w-1/3 h-4 rounded bg-white/10"></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-2xl"
+                                :class="currentTheme === 'classic' ? 'text-primary' : 'text-text-secondary'">dark_mode</span>
+                            <div>
+                                <h4 class="font-bold text-white">Clásico</h4>
+                                <p class="text-xs text-text-secondary">Oscuro sólido, sin animaciones de fondo</p>
+                            </div>
+                        </div>
+                        <span x-show="currentTheme === 'classic'"
+                            class="absolute top-3 right-3 material-symbols-outlined text-primary text-xl">check_circle</span>
+                    </button>
+
+                    <!-- Tarjeta: Tema Moderno -->
+                    <button type="button" @click="setTheme('modern')"
+                        class="group relative rounded-xl border-2 p-6 text-left transition-all duration-300 cursor-pointer"
+                        :class="currentTheme === 'modern'
+                            ? 'border-primary bg-primary/10 shadow-lg shadow-primary/10'
+                            : 'border-white/10 hover:border-white/30 bg-surface-1/30'">
+                        <!-- Preview -->
+                        <div class="rounded-lg overflow-hidden mb-4 h-24 relative"
+                            style="background: radial-gradient(circle at center, #1a1a2e 0%, #0a0a0a 100%)">
+                            <div class="absolute w-16 h-16 rounded-full bg-violet-500/40 blur-xl top-1 left-2"></div>
+                            <div class="absolute w-12 h-12 rounded-full bg-blue-500/40 blur-xl bottom-1 right-4"></div>
+                            <div class="absolute w-10 h-10 rounded-full bg-cyan-400/40 blur-xl top-4 right-8"></div>
+                            <div class="absolute inset-0 flex items-center justify-center gap-2 p-3">
+                                <div class="w-1/3 h-4 rounded bg-white/15 backdrop-blur"></div>
+                                <div class="w-1/3 h-4 rounded bg-white/15 backdrop-blur"></div>
+                                <div class="w-1/3 h-4 rounded bg-white/15 backdrop-blur"></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-2xl"
+                                :class="currentTheme === 'modern' ? 'text-primary' : 'text-text-secondary'">auto_awesome</span>
+                            <div>
+                                <h4 class="font-bold text-white">Moderno</h4>
+                                <p class="text-xs text-text-secondary">Glassmorphism + fondo animado Lava Lamp</p>
+                            </div>
+                        </div>
+                        <span x-show="currentTheme === 'modern'"
+                            class="absolute top-3 right-3 material-symbols-outlined text-primary text-xl">check_circle</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         {% endblock %}
 
         {% block scripts %}
@@ -718,4 +819,6 @@
             defer></script>
 
         <script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/settings/AuditLogs.js" defer></script>
+        <script nonce="{{ request.state.csp_nonce }}" src="/static/js/components/settings/AppearanceSettings.js"
+            defer></script>
         {% endblock %}

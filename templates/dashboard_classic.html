@@ -12,215 +12,187 @@
 
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-            <h2 class="text-3xl font-bold text-text-primary tracking-tight">Dashboard</h2>
+            <h2 class="text-3xl font-bold text-text-primary tracking-tight">{{ isp_name if isp_name else 'Dashboard' }}
+            </h2>
+            <p class="text-text-secondary text-sm">Resumen general del sistema</p>
         </div>
 
-        <button id="refresh-dashboard-btn" @click="store.loadAll()"
-            class="flex items-center gap-2 px-4 py-2 bg-surface-1 hover:bg-surface-2 border border-border-color rounded-lg text-text-primary text-sm transition-all shadow-lg hover:shadow-primary/20">
-            <span class="material-symbols-outlined text-[20px]">refresh</span>
-            <span>Actualizar</span>
-        </button>
-    </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <!-- Mobile Setup -->
+            <button @click="$dispatch('open-mobile-setup')"
+                class="flex items-center gap-2 px-3 py-2 bg-surface-1 hover:bg-surface-2 border border-border-color rounded-lg text-text-primary text-sm transition-all shadow-sm">
+                <span class="material-symbols-outlined text-[18px]">qr_code_2</span>
+                <span class="hidden sm:inline">Mobile</span>
+            </button>
 
-    <div id="summary-cards" class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        <div
-            class="relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-xl group">
-            <span
-                class="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-primary/5 group-hover:text-primary/10 transition-colors select-none">
-                cell_tower
-            </span>
+            <!-- SSL Setup Trigger (Badge Style) -->
+            <!-- SSL Setup Trigger (Badge Style + Actions) -->
+            <div x-data="sslCertificate" x-init="init()" class="contents">
+                <button @click="downloadCertificate()" x-show="!downloadDisabled" x-cloak
+                    class="flex items-center gap-2 px-3 py-2 bg-surface-1 hover:bg-surface-2 border border-border-color rounded-lg text-text-primary text-sm transition-all shadow-sm"
+                    title="Descargar Certificado CA">
+                    <span class="material-symbols-outlined text-[18px]">download</span>
+                    <span class="hidden sm:inline">CA</span>
+                </button>
 
-            <div class="relative z-10 flex justify-between items-start mb-6">
-                <div>
-                    <div
-                        class="flex items-center gap-2 text-text-secondary text-sm font-medium uppercase tracking-wider mb-2">
-                        <span class="material-symbols-outlined text-primary">cell_tower</span>
-                        Access Points
-                    </div>
-                    <div class="flex items-baseline gap-2">
-                        <span x-text="kpis.aps.total" class="text-4xl font-bold text-text-primary">--</span>
-                        <span class="text-xs text-text-secondary">Total</span>
-                    </div>
-                </div>
+                <button @click="openModal()"
+                    class="flex items-center gap-2 px-3 py-2 bg-surface-1 hover:bg-surface-2 border border-border-color rounded-lg text-text-primary text-sm transition-all shadow-sm group">
+                    <span class="material-symbols-outlined text-[18px]" :class="{
+                        'text-success': status && status.is_trusted,
+                        'text-warning': status && !status.is_trusted && status.ssl_enabled,
+                        'text-danger': !status || !status.ssl_enabled
+                    }">lock</span>
+                    <span class="hidden sm:inline"
+                        x-text="status && status.ssl_enabled ? (status.is_trusted ? 'Seguro' : 'SSL Auto') : 'Inseguro'">SSL</span>
+                </button>
+
+                <!-- Hidden elements for compatibility with existing js if needed, though we use the modal logic directly -->
+                <div id="ssl-security-badge" class="hidden"></div>
             </div>
 
-            <div class="relative z-10 grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
-                <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
-                    <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Online</p>
-                    <div class="flex items-center gap-2">
-                        <span class="size-2 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
-                        <p x-text="kpis.aps.online" class="text-lg font-bold text-success">--</p>
-                    </div>
-                </div>
-                <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
-                    <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Offline</p>
-                    <div class="flex items-center gap-2">
-                        <span class="size-2 rounded-full bg-danger"></span>
-                        <p x-text="kpis.aps.offline" class="text-lg font-bold text-danger">--</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div
-            class="relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-xl group">
-            <span
-                class="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-orange/5 group-hover:text-orange/10 transition-colors select-none">
-                settings_input_antenna
-            </span>
-
-            <div class="relative z-10 flex justify-between items-start mb-6">
-                <div>
-                    <div
-                        class="flex items-center gap-2 text-text-secondary text-sm font-medium uppercase tracking-wider mb-2">
-                        <span class="material-symbols-outlined text-orange">settings_input_antenna</span>
-                        CPEs (Clientes)
-                    </div>
-                    <div class="flex items-baseline gap-2">
-                        <span x-text="kpis.cpes.total" class="text-4xl font-bold text-text-primary">--</span>
-                        <span class="text-xs text-text-secondary">Total</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="relative z-10 grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
-                <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
-                    <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Online</p>
-                    <div class="flex items-center gap-2">
-                        <span class="size-2 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
-                        <p x-text="kpis.cpes.online" class="text-lg font-bold text-success">--</p>
-                    </div>
-                </div>
-                <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
-                    <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Offline</p>
-                    <div class="flex items-center gap-2">
-                        <span class="size-2 rounded-full bg-danger"></span>
-                        <p x-text="kpis.cpes.offline" class="text-lg font-bold text-danger">--</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Router Summary Card -->
-        <div
-            class="relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-xl group">
-            <span
-                class="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-cyan-500/5 group-hover:text-cyan-500/10 transition-colors select-none">
-                dns
-            </span>
-
-            <div class="relative z-10 flex justify-between items-start mb-6">
-                <div>
-                    <div
-                        class="flex items-center gap-2 text-text-secondary text-sm font-medium uppercase tracking-wider mb-2">
-                        <span class="material-symbols-outlined text-cyan-500">dns</span>
-                        Routers (Gateways)
-                    </div>
-                    <div class="flex items-baseline gap-2">
-                        <span x-text="kpis.routers.total" class="text-4xl font-bold text-text-primary">--</span>
-                        <span class="text-xs text-text-secondary">Total</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="relative z-10 grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
-                <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
-                    <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Online</p>
-                    <div class="flex items-center gap-2">
-                        <span class="size-2 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
-                        <p x-text="kpis.routers.online" class="text-lg font-bold text-success">--</p>
-                    </div>
-                </div>
-                <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
-                    <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Offline</p>
-                    <div class="flex items-center gap-2">
-                        <span class="size-2 rounded-full bg-danger"></span>
-                        <p x-text="kpis.routers.offline" class="text-lg font-bold text-danger">--</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Switch Summary Card -->
-        <div
-            class="relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-xl group">
-            <span
-                class="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-purple-500/5 group-hover:text-purple-500/10 transition-colors select-none">
-                lan
-            </span>
-
-            <div class="relative z-10 flex justify-between items-start mb-6">
-                <div>
-                    <div
-                        class="flex items-center gap-2 text-text-secondary text-sm font-medium uppercase tracking-wider mb-2">
-                        <span class="material-symbols-outlined text-purple-500">lan</span>
-                        Switches
-                    </div>
-                    <div class="flex items-baseline gap-2">
-                        <span x-text="kpis.switches.total" class="text-4xl font-bold text-text-primary">--</span>
-                        <span class="text-xs text-text-secondary">Total</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="relative z-10 grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
-                <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
-                    <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Online</p>
-                    <div class="flex items-center gap-2">
-                        <span class="size-2 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
-                        <p x-text="kpis.switches.online" class="text-lg font-bold text-success">--</p>
-                    </div>
-                </div>
-                <div class="bg-surface-2/50 rounded-lg p-3 border border-white/5">
-                    <p class="text-[10px] font-bold text-text-secondary uppercase mb-1">Offline</p>
-                    <div class="flex items-center gap-2">
-                        <span class="size-2 rounded-full bg-danger"></span>
-                        <p x-text="kpis.switches.offline" class="text-lg font-bold text-danger">--</p>
-                    </div>
-                </div>
-            </div>
+            <button id="refresh-dashboard-btn" @click="store.loadAll()"
+                class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm transition-all shadow-lg shadow-primary/20">
+                <span class="material-symbols-outlined text-[20px]">refresh</span>
+                <span>Actualizar</span>
+            </button>
         </div>
     </div>
 
-    <!-- SSL Security Card (Full Width) -->
-    <div
-        class="relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md p-6 shadow-xl group">
-        <span
-            class="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] text-success/5 group-hover:text-success/10 transition-colors select-none">
-            lock
-        </span>
+    <div id="summary-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-        <div x-data="sslCertificate" x-init="init()"
-            class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-                <div
-                    class="flex items-center gap-2 text-text-secondary text-sm font-medium uppercase tracking-wider mb-2">
-                    <span class="material-symbols-outlined text-success">verified_user</span>
-                    Seguridad SSL
-                </div>
-                <p id="ssl-status" x-html="status" class="text-sm text-text-secondary">Verificando estado...</p>
+        <!-- AP Card -->
+        <div
+            class="relative overflow-hidden rounded-2xl bg-white/[0.03] border border-white/[0.08] backdrop-blur-xl p-5 hover:bg-white/[0.06] transition-all duration-300 group shadow-lg">
+            <div
+                class="absolute -right-6 -top-6 w-24 h-24 bg-primary/20 rounded-full blur-2xl group-hover:bg-primary/30 transition-all">
             </div>
 
-            <div class="flex flex-wrap gap-3">
-                <button id="download-ca-btn" :disabled="downloadDisabled" @click="downloadCertificate()"
-                    class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-primary/20 transition-all">
-                    <span class="material-symbols-outlined text-lg">download</span>
-                    Descargar Certificado CA
-                </button>
-                <button @click="$dispatch('open-ssl-modal')"
-                    class="px-4 py-2 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface-2 flex items-center gap-2 transition-all border border-white/10">
-                    <span class="material-symbols-outlined text-lg">help</span>
-                    Instrucciones
-                </button>
-                <button @click="$dispatch('open-mobile-setup')"
-                    class="px-4 py-2 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface-2 flex items-center gap-2 transition-all border border-white/10">
-                    <span class="material-symbols-outlined text-lg">qr_code_2</span>
-                    Mobile Setup
-                </button>
+            <div class="relative z-10 flex flex-col h-full justify-between gap-4">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm font-medium text-text-secondary">Access Points</span>
+                    <span class="material-symbols-outlined text-primary text-xl">cell_tower</span>
+                </div>
+
+                <div class="flex items-end justify-between">
+                    <span x-text="kpis.aps.total" class="text-4xl font-bold text-white tracking-tight">--</span>
+                    <div class="flex -space-x-1.5 items-end">
+                        <!-- Simplified visual indicators -->
+                        <div class="flex flex-col items-end text-[10px] font-bold">
+                            <span class="text-success" x-show="kpis.aps.online > 0"
+                                x-text="kpis.aps.online + ' ON'"></span>
+                            <span class="text-danger" x-show="kpis.aps.offline > 0"
+                                x-text="kpis.aps.offline + ' OFF'"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="w-full bg-white/10 h-1 rounded-full overflow-hidden mt-1">
+                    <div class="bg-primary h-full rounded-full transition-all duration-500"
+                        :style="'width:' + (kpis.aps.total > 0 ? (kpis.aps.online / kpis.aps.total * 100) : 0) + '%'">
+                    </div>
+                </div>
             </div>
         </div>
+
+        <!-- CPE Card -->
+        <div
+            class="relative overflow-hidden rounded-2xl bg-white/[0.03] border border-white/[0.08] backdrop-blur-xl p-5 hover:bg-white/[0.06] transition-all duration-300 group shadow-lg">
+            <div
+                class="absolute -right-6 -top-6 w-24 h-24 bg-orange/20 rounded-full blur-2xl group-hover:bg-orange/30 transition-all">
+            </div>
+
+            <div class="relative z-10 flex flex-col h-full justify-between gap-4">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm font-medium text-text-secondary">CPEs</span>
+                    <span class="material-symbols-outlined text-orange text-xl">settings_input_antenna</span>
+                </div>
+
+                <div class="flex items-end justify-between">
+                    <span x-text="kpis.cpes.total" class="text-4xl font-bold text-white tracking-tight">--</span>
+                    <div class="flex -space-x-1.5 items-end">
+                        <div class="flex flex-col items-end text-[10px] font-bold">
+                            <span class="text-success" x-show="kpis.cpes.online > 0"
+                                x-text="kpis.cpes.online + ' ON'"></span>
+                            <span class="text-danger" x-show="kpis.cpes.offline > 0"
+                                x-text="kpis.cpes.offline + ' OFF'"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="w-full bg-white/10 h-1 rounded-full overflow-hidden mt-1">
+                    <div class="bg-orange h-full rounded-full transition-all duration-500"
+                        :style="'width:' + (kpis.cpes.total > 0 ? (kpis.cpes.online / kpis.cpes.total * 100) : 0) + '%'">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Router Card -->
+        <div
+            class="relative overflow-hidden rounded-2xl bg-white/[0.03] border border-white/[0.08] backdrop-blur-xl p-5 hover:bg-white/[0.06] transition-all duration-300 group shadow-lg">
+            <div
+                class="absolute -right-6 -top-6 w-24 h-24 bg-cyan-500/20 rounded-full blur-2xl group-hover:bg-cyan-500/30 transition-all">
+            </div>
+
+            <div class="relative z-10 flex flex-col h-full justify-between gap-4">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm font-medium text-text-secondary">Routers</span>
+                    <span class="material-symbols-outlined text-cyan-500 text-xl">dns</span>
+                </div>
+
+                <div class="flex items-end justify-between">
+                    <span x-text="kpis.routers.total" class="text-4xl font-bold text-white tracking-tight">--</span>
+                    <div class="flex -space-x-1.5 items-end">
+                        <div class="flex flex-col items-end text-[10px] font-bold">
+                            <span class="text-success" x-show="kpis.routers.online > 0"
+                                x-text="kpis.routers.online + ' ON'"></span>
+                            <span class="text-danger" x-show="kpis.routers.offline > 0"
+                                x-text="kpis.routers.offline + ' OFF'"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="w-full bg-white/10 h-1 rounded-full overflow-hidden mt-1">
+                    <div class="bg-cyan-500 h-full rounded-full transition-all duration-500"
+                        :style="'width:' + (kpis.routers.total > 0 ? (kpis.routers.online / kpis.routers.total * 100) : 0) + '%'">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Switch Card -->
+        <div
+            class="relative overflow-hidden rounded-2xl bg-white/[0.03] border border-white/[0.08] backdrop-blur-xl p-5 hover:bg-white/[0.06] transition-all duration-300 group shadow-lg">
+            <div
+                class="absolute -right-6 -top-6 w-24 h-24 bg-purple-500/20 rounded-full blur-2xl group-hover:bg-purple-500/30 transition-all">
+            </div>
+
+            <div class="relative z-10 flex flex-col h-full justify-between gap-4">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm font-medium text-text-secondary">Switches</span>
+                    <span class="material-symbols-outlined text-purple-500 text-xl">lan</span>
+                </div>
+
+                <div class="flex items-end justify-between">
+                    <span x-text="kpis.switches.total" class="text-4xl font-bold text-white tracking-tight">--</span>
+                    <div class="flex -space-x-1.5 items-end">
+                        <div class="flex flex-col items-end text-[10px] font-bold">
+                            <span class="text-success" x-show="kpis.switches.online > 0"
+                                x-text="kpis.switches.online + ' ON'"></span>
+                            <span class="text-danger" x-show="kpis.switches.offline > 0"
+                                x-text="kpis.switches.offline + ' OFF'"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="w-full bg-white/10 h-1 rounded-full overflow-hidden mt-1">
+                    <div class="bg-purple-500 h-full rounded-full transition-all duration-500"
+                        :style="'width:' + (kpis.switches.total > 0 ? (kpis.switches.online / kpis.switches.total * 100) : 0) + '%'">
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
+
+    <!-- SSL Card Removed / Integrated into Toolbar -->
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
@@ -383,9 +355,17 @@
                     <span class="material-symbols-outlined text-primary">security</span>
                     Instalar Certificado CA
                 </h3>
-                <button @click="closeModal()" class="p-2 hover:bg-surface-2 rounded-lg transition-colors">
-                    <span class="material-symbols-outlined text-text-secondary">close</span>
-                </button>
+
+                <div class="flex gap-2">
+                    <button id="download-ca-btn-modal" @click="downloadCertificate()"
+                        class="px-3 py-1 rounded-lg text-xs font-bold text-white bg-primary hover:bg-primary-hover flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">download</span>
+                        Descargar CA
+                    </button>
+                    <button @click="closeModal()" class="p-2 hover:bg-surface-2 rounded-lg transition-colors">
+                        <span class="material-symbols-outlined text-text-secondary">close</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Tabs -->
@@ -404,8 +384,7 @@
             <div class="p-6 overflow-y-auto flex-1">
                 <div x-show="isActiveTab('windows')">
                     <ol class="space-y-3 text-sm text-text-secondary list-decimal list-inside">
-                        <li>Descarga el certificado usando el botón <strong class="text-white">"Descargar Certificado
-                                CA"</strong></li>
+                        <li>Descarga el certificado usando el botón superior <strong>"Descargar CA"</strong></li>
                         <li>Haz doble clic en el archivo <code class="bg-surface-2 px-1 rounded">umonitor-ca.crt</code>
                         </li>
                         <li>Clic en <strong class="text-white">"Instalar certificado..."</strong></li>

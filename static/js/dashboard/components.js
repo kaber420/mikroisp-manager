@@ -98,19 +98,22 @@ document.addEventListener('alpine:init', () => {
 
         get status() {
             const data = this.store.caStatus.data;
-            if (this.store.caStatus.loading && !data) return 'Verificando estado...';
-            if (this.store.caStatus.error) return 'Error verificando estado SSL';
+            // Return null or pseudo-object while loading/error to prevent UI errors
+            if (this.store.caStatus.loading && !data) return null;
+            if (this.store.caStatus.error) return null;
 
             if (data) {
-                if (data.https_active) {
-                    return '✅ HTTPS activo - Descarga el certificado para evitar advertencias en otros dispositivos.';
-                } else if (data.ca_available) {
-                    return '⚠️ Certificado disponible - HTTPS no está configurado en modo producción.';
-                } else {
-                    return 'HTTPS no configurado. Ejecuta <code class="bg-surface-2 px-1 rounded">sudo bash scripts/install_proxy.sh</code>';
-                }
+                return {
+                    ssl_enabled: data.https_active,
+                    is_trusted: data.https_active, // Simplified: if HTTPS is active, we treat as secure/trusted for the badge
+                    original_data: data
+                };
             }
-            return 'Verificando estado...';
+            return null;
+        },
+
+        openModal() {
+            this.$dispatch('open-ssl-modal');
         },
 
         get downloadDisabled() {

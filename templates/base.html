@@ -26,6 +26,16 @@
 </head>
 
 <body class="dynamic-bg text-text-primary font-sans antialiased relative overflow-x-hidden">
+    <script
+        nonce="{{ request.state.csp_nonce }}">(function () { var t = localStorage.getItem('umanager-theme'); if (t === 'modern') document.body.classList.add('theme-modern') })()</script>
+
+    <!-- Lava Lamp Background (solo visible con tema moderno) -->
+    <div id="lava-container" class="lava-bg">
+        <div class="lava-blob lava-blob-1"></div>
+        <div class="lava-blob lava-blob-2"></div>
+        <div class="lava-blob lava-blob-3"></div>
+        <div class="lava-blob lava-blob-4"></div>
+    </div>
 
     <div class="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <div class="glow-element glow-1" data-speed="2"></div>

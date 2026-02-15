@@ -38,19 +38,21 @@ def _get_ca_fingerprint() -> str | None:
 
 
 @router.get("/security/ca-status")
-def get_ca_status(current_user: User = Depends(current_active_user)):
+def get_ca_status(request: Request, current_user: User = Depends(current_active_user)):
     """
     Returns the status of the CA certificate and HTTPS configuration.
     """
     ca_exists = os.path.isfile(CA_CERT_PATH)
-    is_production = os.getenv("APP_ENV") == "production"
+    
+    # Check if connection is secure based on headers or scheme
+    is_secure = request.url.scheme == "https"
+    if "x-forwarded-proto" in request.headers:
+        is_secure = request.headers["x-forwarded-proto"] == "https"
 
     return {
         "ca_available": ca_exists,
-        "https_active": is_production and ca_exists,
-        "message": "Certificado CA disponible para descarga"
-        if ca_exists
-        else "HTTPS no configurado",
+        "https_active": is_secure,
+        "message": "Conexión segura (HTTPS) activa" if is_secure else "Conexión no segura (HTTP)",
     }
 
 

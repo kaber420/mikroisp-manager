@@ -8,17 +8,20 @@ module.exports = {
     theme: {
         extend: {
             colors: {
-                primary: { DEFAULT: '#3B82F6', hover: '#2563EB' },
-                background: '#0A0A0A',
-                'surface-1': '#1E293B',
-                'surface-2': '#334155',
-                'text-primary': '#F1F5F9',
-                'text-secondary': '#94A3B8',
-                'border-color': '#334155',
-                success: '#22C55E',
-                danger: '#EF4444',
-                warning: '#EAB308',
-                orange: '#F97316',
+                primary: {
+                    DEFAULT: 'var(--color-primary)',
+                    hover: 'var(--color-primary-hover)',
+                },
+                background: 'var(--color-background)',
+                'surface-1': 'var(--color-surface-1)',
+                'surface-2': 'var(--color-surface-2)',
+                'text-primary': 'var(--color-text-primary)',
+                'text-secondary': 'var(--color-text-secondary)',
+                'border-color': 'var(--color-border)',
+                success: 'var(--color-success)',
+                danger: 'var(--color-danger)',
+                warning: 'var(--color-warning)',
+                orange: 'var(--color-orange)',
             },
             fontFamily: {
                 sans: ["Inter", "sans-serif"],

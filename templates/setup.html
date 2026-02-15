@@ -9,16 +9,28 @@
     <!-- Compiled Tailwind CSS -->
     <link rel="stylesheet" href="/static/css/main.css">
     <link rel="stylesheet" href="/static/css/fonts.css">
+    <!-- Global theme variables -->
+    <link rel="stylesheet" href="/static/css/theme.css">
     <!-- Login-specific styles (reused for setup) -->
     <link rel="stylesheet" href="/static/css/login.css">
 </head>
 
-<body class="dynamic-bg text-text-primary font-sans antialiased relative overflow-hidden">
+<body class="login-bg text-text-primary font-sans antialiased relative overflow-hidden">
+    <script
+        nonce="{{ request.state.csp_nonce }}">(function () { var t = localStorage.getItem('umanager-theme'); if (t === 'modern') document.body.classList.add('theme-modern') })()</script>
+
+    <!-- Lava Lamp Background (solo visible con tema moderno) -->
+    <div id="lava-container" class="lava-bg">
+        <div class="lava-blob lava-blob-1"></div>
+        <div class="lava-blob lava-blob-2"></div>
+        <div class="lava-blob lava-blob-3"></div>
+        <div class="lava-blob lava-blob-4"></div>
+    </div>
 
     <!-- Dynamic glowing elements -->
-    <div class="glow-element glow-1"></div>
-    <div class="glow-element glow-2"></div>
-    <div class="glow-element glow-3"></div>
+    <div class="login-glow login-glow-1"></div>
+    <div class="login-glow login-glow-2"></div>
+    <div class="login-glow login-glow-3"></div>
 
     <div class="flex min-h-screen items-center justify-center p-4 relative z-10">
         <div class="w-full max-w-md">
@@ -32,7 +44,8 @@
 
             <div class="glass-card rounded-2xl p-8">
                 <h2 class="text-2xl font-bold text-center mb-1">🎉 ¡Bienvenido!</h2>
-                <p class="text-text-secondary text-center mb-6 text-sm">Crea tu cuenta de administrador para comenzar.</p>
+                <p class="text-text-secondary text-center mb-6 text-sm">Crea tu cuenta de administrador para comenzar.
+                </p>
 
                 <div id="error-container"
                     class="hidden bg-danger/10 border border-danger/20 text-danger text-sm rounded-lg p-3 mb-4 text-center flex items-center justify-center gap-2">
@@ -67,18 +80,21 @@
                         <div class="relative">
                             <span
                                 class="material-symbols-outlined absolute left-3 top-2.5 text-text-secondary text-[20px]">lock</span>
-                            <input type="password" id="password" name="password" required placeholder="••••••••" minlength="6"
+                            <input type="password" id="password" name="password" required placeholder="••••••••"
+                                minlength="6"
                                 class="input-glass w-full border rounded-xl py-2.5 pl-10 pr-4 focus:ring-0 focus:outline-none transition-all placeholder-gray-600 text-text-primary">
                         </div>
-                         <p class="text-xs text-text-secondary mt-1 ml-1">Mínimo 6 caracteres</p>
+                        <p class="text-xs text-text-secondary mt-1 ml-1">Mínimo 6 caracteres</p>
                     </div>
                     <div>
                         <label for="password_confirm"
-                            class="block text-xs font-bold uppercase text-text-secondary mb-2 ml-1">Confirmar Contraseña</label>
+                            class="block text-xs font-bold uppercase text-text-secondary mb-2 ml-1">Confirmar
+                            Contraseña</label>
                         <div class="relative">
                             <span
                                 class="material-symbols-outlined absolute left-3 top-2.5 text-text-secondary text-[20px]">lock</span>
-                            <input type="password" id="password_confirm" name="password_confirm" required placeholder="••••••••" minlength="6"
+                            <input type="password" id="password_confirm" name="password_confirm" required
+                                placeholder="••••••••" minlength="6"
                                 class="input-glass w-full border rounded-xl py-2.5 pl-10 pr-4 focus:ring-0 focus:outline-none transition-all placeholder-gray-600 text-text-primary">
                         </div>
                     </div>
