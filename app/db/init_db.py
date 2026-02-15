@@ -108,10 +108,7 @@ def _setup_inventory_db():
         cursor.execute("ALTER TABLE zonas ADD COLUMN direccion TEXT;")
     if "coordenadas_gps" not in zona_columns:
         cursor.execute("ALTER TABLE zonas ADD COLUMN coordenadas_gps TEXT;")
-    if "notas_generales" not in zona_columns:
-        cursor.execute("ALTER TABLE zonas ADD COLUMN notas_generales TEXT;")
-    if "notas_sensibles" not in zona_columns:
-        cursor.execute("ALTER TABLE zonas ADD COLUMN notas_sensibles TEXT;")
+
 
     cursor.execute(
         """

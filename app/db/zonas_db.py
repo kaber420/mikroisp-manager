@@ -50,10 +50,6 @@ async def update_zona_details(
         if not zona:
             return None
 
-        # Encrypt sensitive notes if present
-        if "notas_sensibles" in updates and updates["notas_sensibles"] is not None:
-            updates["notas_sensibles"] = encrypt_data(updates["notas_sensibles"])
-
         for key, value in updates.items():
             if hasattr(zona, key):
                 setattr(zona, key, value)
@@ -93,15 +89,7 @@ async def get_zona_by_id(session: AsyncSession, zona_id: int) -> Zona | None:
     zona = await session.get(Zona, zona_id)
     if not zona:
         return None
-
-    # Decrypt sensitive notes
-    zona_out = zona.model_copy()
-    if zona_out.notas_sensibles:
-        try:
-            zona_out.notas_sensibles = decrypt_data(zona_out.notas_sensibles)
-        except Exception as e:
-            logger.error(f"Error decrypting notas_sensibles for zona {zona_id}: {e}")
-    return zona_out
+    return zona
 
 
 # --- Funciones de Infraestructura ---

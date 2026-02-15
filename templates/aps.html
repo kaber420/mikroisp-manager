@@ -22,7 +22,7 @@
 
             <div class="flex items-center gap-4">
                 <select x-model="selectedZone"
-                    class="w-full sm:w-48 bg-surface-1/50 backdrop-blur-sm border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-sm text-text-primary">
+                    class="w-full sm:w-48 input-glass rounded-lg p-2 text-sm">
                     <option value="" class="bg-surface-1">Zones</option>
                     <template x-for="zone in allZones" :key="zone.id">
                         <option :value="zone.id" x-text="zone.nombre" class="bg-surface-1"></option>
@@ -45,7 +45,7 @@
                     <span
                         class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">search</span>
                     <input type="text" x-model="searchQuery" placeholder="Search..."
-                        class="w-full sm:w-64 bg-surface-1/50 backdrop-blur-sm border border-white/10 rounded-lg pl-10 pr-4 py-2 focus:ring-primary focus:border-primary text-white placeholder-text-secondary">
+                        class="w-full sm:w-64 input-glass rounded-lg pl-10 pr-4 py-2">
                 </div>
             </div>
         </div>
@@ -169,12 +169,12 @@
                             Hostname)</label>
                         <input type="text" id="host" x-model="currentAp.host" :disabled="isEditing"
                             :class="{'opacity-50 cursor-not-allowed': isEditing}" required
-                            class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                            class="w-full input-glass rounded-lg p-2">
                     </div>
                     <div>
                         <label for="zona_id" class="block text-sm font-medium mb-1 text-text-secondary">Zone</label>
                         <select id="zona_id" x-model="currentAp.zona_id" required
-                            class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                            class="w-full input-glass rounded-lg p-2">
                             <option value="" disabled class="bg-surface-1">Select a zone...</option>
                             <template x-for="zone in allZones" :key="zone.id">
                                 <option :value="zone.id" x-text="zone.nombre" class="bg-surface-1"></option>
@@ -187,14 +187,14 @@
                         <label for="username"
                             class="block text-sm font-medium mb-1 text-text-secondary">Username</label>
                         <input type="text" id="username" x-model="currentAp.username" required
-                            class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                            class="w-full input-glass rounded-lg p-2">
                     </div>
                     <div>
                         <label for="password"
                             class="block text-sm font-medium mb-1 text-text-secondary">Password</label>
                         <input type="password" id="password" x-model="currentAp.password" :required="!isEditing"
                             :placeholder="isEditing ? 'Leave blank to keep current' : 'Required'"
-                            class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                            class="w-full input-glass rounded-lg p-2">
                     </div>
                 </div>
 
@@ -204,7 +204,7 @@
                         <label for="vendor" class="block text-sm font-medium mb-1 text-text-secondary">Device
                             Vendor</label>
                         <select id="vendor" x-model="currentAp.vendor" @change="onVendorChange()"
-                            class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                            class="w-full input-glass rounded-lg p-2">
                             <option value="ubiquiti" class="bg-surface-1">Ubiquiti (AirMAX)</option>
                             <option value="mikrotik" class="bg-surface-1">MikroTik (RouterOS)</option>
                         </select>
@@ -213,7 +213,7 @@
                         <label for="api_port" class="block text-sm font-medium mb-1 text-text-secondary">API
                             Port</label>
                         <input type="number" id="api_port" x-model="currentAp.api_port" :placeholder="getDefaultPort()"
-                            class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                            class="w-full input-glass rounded-lg p-2">
                         <p class="text-xs text-text-secondary mt-1" x-text="getPortHint()"></p>
                     </div>
                 </div>
@@ -223,7 +223,7 @@
                         Interval (seconds)</label>
                     <input type="number" id="monitor_interval" x-model="currentAp.monitor_interval"
                         placeholder="Default (Global)"
-                        class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                        class="w-full input-glass rounded-lg p-2">
                 </div>
 
                 <!-- Security Actions (MikroTik only, when editing) -->

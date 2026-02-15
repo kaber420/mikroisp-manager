@@ -12,8 +12,6 @@ class Zona(SQLModel, table=True):
     nombre: str = Field(unique=True, index=True)
     direccion: str | None = None
     coordenadas_gps: str | None = None
-    notas_generales: str | None = None
-    notas_sensibles: str | None = None
     rack_layout: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
 
     # Relaciones

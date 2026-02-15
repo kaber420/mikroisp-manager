@@ -45,6 +45,7 @@
     --input-bg: rgba(15, 23, 42, 0.6);
     --input-bg-focus: rgba(15, 23, 42, 0.8);
     --input-border: rgba(255, 255, 255, 0.15);
+    --autofill-bg: #1E293B;
 
     /* --- Sidebar --- */
     --sidebar-bg: rgba(30, 41, 59, 0.7);
@@ -78,6 +79,7 @@ body.theme-modern {
     /* Input más translúcido */
     --input-bg: rgba(15, 23, 42, 0.4);
     --input-bg-focus: rgba(15, 23, 42, 0.6);
+    --autofill-bg: #0F172A;
 
     /* Surface más translúcido */
     --color-surface-1: rgba(30, 41, 59, 0.5);
@@ -263,12 +265,47 @@ body.theme-modern {
 }
 
 /* ================================================================
+   5.1 AUTOFILL OVERRIDES
+   Fixes white-on-white text when browser autofills dark-themed inputs
+   ================================================================ */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px var(--autofill-bg) inset !important;
+    -webkit-text-fill-color: var(--color-text-primary) !important;
+    transition: background-color 5000s ease-in-out 0s;
+    caret-color: var(--color-text-primary);
+}
+
+/* ================================================================
    6. SIDEBAR
    ================================================================ */
 aside.bg-surface-1 {
     background-color: var(--sidebar-bg) !important;
     backdrop-filter: blur(var(--sidebar-blur));
     border-right: 1px solid var(--sidebar-border);
+}
+
+/* ================================================================
+   6.1 FORM ELEMENT RESETS
+   Browsers apply default colors to form elements that override
+   CSS inheritance; this ensures theme colors are used everywhere.
+   ================================================================ */
+input,
+select,
+textarea {
+    color: var(--color-text-primary);
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: var(--color-text-muted);
+}
+
+select option {
+    background-color: var(--color-surface-1);
+    color: var(--color-text-primary);
 }
 
 /* ================================================================

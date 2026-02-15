@@ -56,8 +56,7 @@
                             <label for="company_name" class="block text-sm font-medium mb-2 text-text-secondary">Company
                                 Name</label>
                             <input type="text" id="company_name" x-model="company_name" name="company_name"
-                                placeholder="My ISP Name"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white placeholder-gray-500">
+                                placeholder="My ISP Name" class="w-full input-glass rounded-lg p-2">
                         </div>
                         <div>
                             <label for="notification_email"
@@ -65,15 +64,14 @@
                                 Email</label>
                             <input type="email" id="notification_email" x-model="notification_email"
                                 name="notification_email" placeholder="admin@example.com"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white placeholder-gray-500">
+                                class="w-full input-glass rounded-lg p-2">
                         </div>
                         <div>
                             <label for="currency_symbol"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Currency
                                 Symbol</label>
                             <input type="text" id="currency_symbol" x-model="currency_symbol" name="currency_symbol"
-                                placeholder="$"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white placeholder-gray-500">
+                                placeholder="$" class="w-full input-glass rounded-lg p-2">
                         </div>
                     </div>
 
@@ -87,7 +85,7 @@
                                 Logo</label>
                             <input type="text" id="company_logo_url" x-model="company_logo_url" name="company_logo_url"
                                 placeholder="/static/img/logo.png o https://imgur.com/..."
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 text-white">
+                                class="w-full input-glass rounded-lg p-2">
                             <p class="text-xs text-text-secondary mt-1">Recomendado: Sube tu logo a la carpeta static y
                                 usa
                                 "/static/logo.png"</p>
@@ -97,7 +95,7 @@
                                 class="block text-sm font-medium mb-2 text-text-secondary">Dirección Fiscal
                                 Completa</label>
                             <textarea id="billing_address" x-model="billing_address" name="billing_address" rows="2"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 text-white"></textarea>
+                                class="w-full input-glass rounded-lg p-2"></textarea>
                         </div>
                         <div>
                             <label for="ticket_footer_message"
@@ -105,7 +103,7 @@
                                 Ticket</label>
                             <textarea id="ticket_footer_message" x-model="ticket_footer_message"
                                 name="ticket_footer_message" rows="3" placeholder="Gracias por su preferencia..."
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 text-white"></textarea>
+                                class="w-full input-glass rounded-lg p-2"></textarea>
                         </div>
                     </div>
 
@@ -120,15 +118,13 @@
                                 class="block text-sm font-medium mb-2 text-text-secondary">Monitor Interval
                                 (seg)</label>
                             <input type="number" id="default_monitor_interval" x-model="default_monitor_interval"
-                                name="default_monitor_interval"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                                name="default_monitor_interval" class="w-full input-glass rounded-lg p-2">
                         </div>
                         <div>
                             <label for="dashboard_refresh_interval"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Live Interval (seg)</label>
                             <input type="number" id="dashboard_refresh_interval" x-model="dashboard_refresh_interval"
-                                name="dashboard_refresh_interval"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                                name="dashboard_refresh_interval" class="w-full input-glass rounded-lg p-2">
                         </div>
                         <div>
                             <label for="monitor_max_workers"
@@ -136,7 +132,7 @@
                                 Monitoreo</label>
                             <input type="number" id="monitor_max_workers" x-model="monitor_max_workers"
                                 name="monitor_max_workers" min="1" max="50" placeholder="10"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                                class="w-full input-glass rounded-lg p-2">
                             <p class="text-xs text-text-secondary mt-1">Dispositivos a verificar en paralelo (default:
                                 10)</p>
                         </div>
@@ -154,7 +150,7 @@
                                 <label for="backup_frequency"
                                     class="block text-sm font-medium mb-2 text-text-secondary">Frecuencia</label>
                                 <select id="backup_frequency" x-model="backup_frequency" name="backup_frequency"
-                                    class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white cursor-pointer">
+                                    class="w-full input-glass rounded-lg p-2 cursor-pointer">
                                     <option value="daily">Diario</option>
                                     <option value="weekly">Semanal</option>
                                 </select>
@@ -163,7 +159,7 @@
                                 <label for="backup_day_of_week"
                                     class="block text-sm font-medium mb-2 text-text-secondary">Día de la Semana</label>
                                 <select id="backup_day_of_week" x-model="backup_day_of_week" name="backup_day_of_week"
-                                    class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white cursor-pointer">
+                                    class="w-full input-glass rounded-lg p-2 cursor-pointer">
                                     <option value="mon">Lunes</option>
                                     <option value="tue">Martes</option>
                                     <option value="wed">Miércoles</option>
@@ -178,7 +174,7 @@
                                     class="block text-sm font-medium mb-2 text-text-secondary">Hora
                                     de Ejecución</label>
                                 <input type="time" id="backup_run_hour" x-model="backup_run_hour" name="backup_run_hour"
-                                    class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                                    class="w-full input-glass rounded-lg p-2">
                             </div>
                         </div>
                     </div>
@@ -201,8 +197,7 @@
                                     class="block text-sm font-medium mb-2 text-text-secondary">Hora
                                     de Ejecución</label>
                                 <input type="time" id="db_backup_run_hour" x-model="db_backup_run_hour"
-                                    name="db_backup_run_hour"
-                                    class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                                    name="db_backup_run_hour" class="w-full input-glass rounded-lg p-2">
                             </div>
                         </div>
                     </div>
@@ -215,22 +210,20 @@
                             <label for="days_before_due" class="block text-sm font-medium mb-2 text-text-secondary">Days
                                 Before Due</label>
                             <input type="number" id="days_before_due" x-model="days_before_due" name="days_before_due"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                                class="w-full input-glass rounded-lg p-2">
                         </div>
                         <div>
                             <label for="billing_alert_days"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Alert
                                 Days</label>
                             <input type="number" id="billing_alert_days" x-model="billing_alert_days"
-                                name="billing_alert_days"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                                name="billing_alert_days" class="w-full input-glass rounded-lg p-2">
                         </div>
                         <div>
                             <label for="suspension_run_hour"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Suspension Time</label>
                             <input type="time" id="suspension_run_hour" x-model="suspension_run_hour"
-                                name="suspension_run_hour"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                                name="suspension_run_hour" class="w-full input-glass rounded-lg p-2">
                         </div>
                     </div>
                 </div>
@@ -447,7 +440,7 @@
                             <label for="bot_execution_mode"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Modo de Ejecución</label>
                             <select id="bot_execution_mode" x-model="bot_execution_mode"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white cursor-pointer">
+                                class="w-full input-glass rounded-lg p-2 cursor-pointer">
                                 <option value="auto">⚡ Auto (Recomendado)</option>
                                 <option value="polling">🔄 Polling (Interno)</option>
                                 <option value="webhook">🌐 Webhook (Dominio/Túnel)</option>
@@ -465,8 +458,7 @@
                             <label for="bot_external_url" class="block text-sm font-medium mb-2 text-text-secondary">URL
                                 Externa (Túnel/Dominio)</label>
                             <input type="text" id="bot_external_url" x-model="bot_external_url"
-                                placeholder="https://mi-dominio.com"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                                placeholder="https://mi-dominio.com" class="w-full input-glass rounded-lg p-2">
                             <p class="text-xs text-text-secondary mt-1">Necesario para Webhooks. Telegram enviará los
                                 datos aquí.</p>
                         </div>
@@ -478,8 +470,7 @@
                                 class="block text-sm font-medium mb-2 text-text-secondary">Bot Técnicos /
                                 Alertas</label>
                             <input type="password" id="telegram_bot_token" x-model="telegram_bot_token"
-                                name="telegram_bot_token"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white"
+                                name="telegram_bot_token" class="w-full input-glass rounded-lg p-2"
                                 placeholder="123456:ABC-DEF...">
                             <p class="text-xs text-text-secondary mt-1">Token del bot de técnicos y alertas internas.
                             </p>
@@ -488,8 +479,7 @@
                             <label for="client_bot_token" class="block text-sm font-medium mb-2 text-text-secondary">Bot
                                 Clientes</label>
                             <input type="password" id="client_bot_token" x-model="client_bot_token"
-                                name="client_bot_token"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white"
+                                name="client_bot_token" class="w-full input-glass rounded-lg p-2"
                                 placeholder="123456:ABC-DEF...">
                             <p class="text-xs text-text-secondary mt-1">Token del bot público para clientes.</p>
                         </div>
@@ -497,8 +487,7 @@
                             <label for="telegram_chat_id"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Chat ID Alertas</label>
                             <input type="text" id="telegram_chat_id" x-model="telegram_chat_id" name="telegram_chat_id"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white"
-                                placeholder="-123456789">
+                                class="w-full input-glass rounded-lg p-2" placeholder="-123456789">
                             <p class="text-xs text-text-secondary mt-1">ID del grupo/canal para alertas del sistema.</p>
                         </div>
                     </div>
@@ -519,7 +508,7 @@
                             </div>
                             <textarea id="bot_welcome_msg_client" x-model="bot_welcome_msg_client"
                                 name="bot_welcome_msg_client" rows="3"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 text-white font-mono text-sm"></textarea>
+                                class="w-full input-glass rounded-lg p-2 font-mono text-sm"></textarea>
                             <p class="text-xs text-text-secondary mt-1">Se muestra cuando el usuario YA está vinculado.
                             </p>
                         </div>
@@ -534,7 +523,7 @@
                             </div>
                             <textarea id="bot_welcome_msg_guest" x-model="bot_welcome_msg_guest"
                                 name="bot_welcome_msg_guest" rows="4"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 text-white font-mono text-sm"></textarea>
+                                class="w-full input-glass rounded-lg p-2 font-mono text-sm"></textarea>
                             <p class="text-xs text-text-secondary mt-1">Se muestra a usuarios desconocidos. Debe incluir
                                 {user_id} para que puedan reportarlo.</p>
                         </div>
@@ -551,25 +540,25 @@
                             <label for="bot_val_btn_report"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Botón: Reportar Falla</label>
                             <input type="text" id="bot_val_btn_report" x-model="bot_val_btn_report"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                                class="w-full input-glass rounded-lg p-2">
                         </div>
                         <div>
                             <label for="bot_val_btn_status"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Botón: Ver Tickets</label>
                             <input type="text" id="bot_val_btn_status" x-model="bot_val_btn_status"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                                class="w-full input-glass rounded-lg p-2">
                         </div>
                         <div>
                             <label for="bot_val_btn_wifi"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Botón: Clave WiFi</label>
                             <input type="text" id="bot_val_btn_wifi" x-model="bot_val_btn_wifi"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                                class="w-full input-glass rounded-lg p-2">
                         </div>
                         <div>
                             <label for="bot_val_btn_agent"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Botón: Agente Humano</label>
                             <input type="text" id="bot_val_btn_agent" x-model="bot_val_btn_agent"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                                class="w-full input-glass rounded-lg p-2">
                         </div>
                     </div>
 
@@ -584,8 +573,7 @@
                             <label for="bot_auto_reply_msg"
                                 class="block text-sm font-medium mb-2 text-text-secondary">Mensaje Automático</label>
                             <textarea id="bot_auto_reply_msg" x-model="bot_auto_reply_msg" name="bot_auto_reply_msg"
-                                rows="4"
-                                class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 text-white font-mono text-sm"></textarea>
+                                rows="4" class="w-full input-glass rounded-lg p-2 font-mono text-sm"></textarea>
                             <p class="text-xs text-text-secondary mt-1">Recuerda al usuario que es un bot y que puede
                                 solicitar un agente humano.</p>
                         </div>
@@ -658,32 +646,27 @@
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-medium mb-1 text-text-secondary">Host</label>
                                 <input type="text" x-model="config.postgres_host"
-                                    class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white"
-                                    placeholder="localhost">
+                                    class="w-full input-glass rounded px-2 py-1" placeholder="localhost">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1 text-text-secondary">Puerto</label>
                                 <input type="text" x-model="config.postgres_port"
-                                    class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white"
-                                    placeholder="5432">
+                                    class="w-full input-glass rounded px-2 py-1" placeholder="5432">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1 text-text-secondary">Base de Datos</label>
                                 <input type="text" x-model="config.postgres_db"
-                                    class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white"
-                                    placeholder="umanager">
+                                    class="w-full input-glass rounded px-2 py-1" placeholder="umanager">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1 text-text-secondary">Usuario</label>
                                 <input type="text" x-model="config.postgres_user"
-                                    class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white"
-                                    placeholder="postgres">
+                                    class="w-full input-glass rounded px-2 py-1" placeholder="postgres">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1 text-text-secondary">Contraseña</label>
                                 <input type="password" x-model="config.postgres_password"
-                                    class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white"
-                                    placeholder="••••••">
+                                    class="w-full input-glass rounded px-2 py-1" placeholder="••••••">
                             </div>
                         </div>
                     </div>
@@ -714,8 +697,7 @@
                                 <label class="block text-sm font-medium mb-1 text-text-secondary">URL de
                                     Conexión</label>
                                 <input type="text" x-model="config.redict_url"
-                                    class="w-full bg-surface-1/50 border border-white/10 rounded px-2 py-1 text-white"
-                                    placeholder="redis://localhost:6379/0">
+                                    class="w-full input-glass rounded px-2 py-1" placeholder="redis://localhost:6379/0">
                                 <p class="text-xs text-text-secondary mt-1">Formato: redis://[:password@]host:port/db
                                 </p>
                             </div>

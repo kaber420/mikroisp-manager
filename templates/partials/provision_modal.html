@@ -28,7 +28,7 @@ Requires parent Alpine component to have provisionMixin (from provision.js)
                     <label for="provision-new-user" class="block text-sm font-medium mb-1 text-text-secondary">New API
                         Username</label>
                     <input type="text" id="provision-new-user" x-model="currentProvisionTarget.newUser" required
-                        class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                        class="w-full input-glass rounded-lg p-2">
                 </div>
 
                 <div>
@@ -36,7 +36,7 @@ Requires parent Alpine component to have provisionMixin (from provision.js)
                         Password</label>
                     <div class="flex gap-2">
                         <input type="password" id="provision-new-pass" x-model="currentProvisionTarget.newPass" required
-                            class="flex-1 bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                            class="flex-1 input-glass rounded-lg p-2">
                         <button type="button" @click="generatePassword()"
                             class="px-3 py-2 rounded-lg text-sm font-semibold text-white bg-white/10 hover:bg-white/20 transition-colors"
                             title="Generate secure password">
@@ -49,7 +49,7 @@ Requires parent Alpine component to have provisionMixin (from provision.js)
                     <label for="provision-method"
                         class="block text-sm font-medium mb-1 text-text-secondary">Provisioning Method</label>
                     <select id="provision-method" x-model="currentProvisionTarget.method"
-                        class="w-full bg-surface-1/50 border border-white/10 rounded-lg p-2 focus:ring-primary focus:border-primary text-white">
+                        class="w-full input-glass rounded-lg p-2">
                         <option value="ssh" class="bg-surface-1">SSH (Recommended - most secure)</option>
                         <option value="api" class="bg-surface-1">API (requires API port open)</option>
                     </select>

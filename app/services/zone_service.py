@@ -55,7 +55,7 @@ class ZoneService(BaseCRUDService[Zona]):
 
     def get_zona(self, zona_id: int) -> Zona:
         """
-        Get zone by ID with decryption of sensitive notes.
+        Get zone by ID.
         Raises FileNotFoundError for backward compatibility with controllers.
         """
         try:
@@ -63,23 +63,16 @@ class ZoneService(BaseCRUDService[Zona]):
         except HTTPException:
             # Re-raise as FileNotFoundError for backward compatibility
             raise FileNotFoundError("Zona no encontrada.")
-
-        # Decrypt sensitive notes if present
-        if zona.notas_sensibles:
-            zona.notas_sensibles = decrypt_data(zona.notas_sensibles)
         return zona
 
     def update_zona(self, zona_id: int, update_data: dict[str, Any]) -> Zona:
         """
-        Update zone with encryption of sensitive notes.
+        Update zone details.
         Raises FileNotFoundError for backward compatibility.
         """
         zona = self.session.get(Zona, zona_id)
         if not zona:
             raise FileNotFoundError("Zona no encontrada.")
-
-        if "notas_sensibles" in update_data and update_data["notas_sensibles"]:
-            update_data["notas_sensibles"] = encrypt_data(update_data["notas_sensibles"])
 
         for key, value in update_data.items():
             setattr(zona, key, value)
@@ -91,9 +84,6 @@ class ZoneService(BaseCRUDService[Zona]):
         except IntegrityError:
             self.session.rollback()
             raise ValueError("El nombre de la zona ya existe.")
-
-        if zona.notas_sensibles:
-            zona.notas_sensibles = decrypt_data(zona.notas_sensibles)
         return zona
 
     def delete_zona(self, zona_id: int):
@@ -132,9 +122,6 @@ class ZoneService(BaseCRUDService[Zona]):
         zona = self.session.get(Zona, zona_id)
         if not zona:
             raise FileNotFoundError("Zona no encontrada.")
-
-        if zona.notas_sensibles:
-            zona.notas_sensibles = decrypt_data(zona.notas_sensibles)
 
         # Decrypt note content for encrypted notes
         for note in zona.notes:
