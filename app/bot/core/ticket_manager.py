@@ -176,7 +176,10 @@ def crear_ticket(
     cliente_nombre: str,
     cliente_ip_cpe: str,
     tipo_solicitud: str,
-    descripcion: str
+    descripcion: str,
+    ticket_type: str = "support",
+    scheduled_at: Optional[datetime] = None,
+    coordinates: Optional[str] = None
 ) -> Optional[str]:
     """Crea un nuevo ticket en la base de datos principal."""
     logger.info(f"Creando nuevo ticket: {tipo_solicitud} para {cliente_external_id}@{cliente_plataforma}")
@@ -219,7 +222,10 @@ def crear_ticket(
                 subject=tipo_solicitud,
                 description=descripcion,
                 status="open",
-                priority="normal"
+                priority="normal",
+                ticket_type=ticket_type,
+                scheduled_at=scheduled_at,
+                coordinates=coordinates
             )
             session.add(new_ticket)
             session.commit()
@@ -266,13 +272,17 @@ def obtener_ticket_por_id(ticket_id: str) -> Optional[TicketDict]:
                     "cliente_nombre": client.name if client else "Desconocido",
                     "cliente_external_id": client.telegram_contact if client else "N/A",
                     "cliente_plataforma": "Telegram" if client and client.telegram_contact else "Unknown", 
-                    "cliente_ip_cpe": "N/A", # Not stored on Ticket anymore, maybe on Client?
+                    "cliente_ip_cpe": "N/A", 
                     "tipo_solicitud": ticket.subject,
                     "estado": ticket.status,
                     "tecnico_asignado": tech.username if tech else None,
                     "fecha_creacion": ticket.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                     "fecha_actualizacion": ticket.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
-                    "descripcion": ticket.description
+                    "descripcion": ticket.description,
+                    "ticket_type": ticket.ticket_type,
+                    "scheduled_at": ticket.scheduled_at.strftime('%Y-%m-%d %H:%M') if ticket.scheduled_at else None,
+                    "coordinates": ticket.coordinates,
+                    "client_coordinates": client.coordinates if client else None
                 }
             else:
                 return None
@@ -438,7 +448,8 @@ def obtener_tickets(
                     "cliente_nombre": client.name if client else "Unknown",
                     "estado": t.status,
                     "fecha_creacion": t.created_at.strftime('%Y-%m-%d'),
-                    # Add other fields needed for UI lists
+                    "ticket_type": t.ticket_type,
+                    "scheduled_at": t.scheduled_at.strftime('%Y-%m-%d %H:%M') if t.scheduled_at else None,
                 })
                 
             return tickets_list, total_count

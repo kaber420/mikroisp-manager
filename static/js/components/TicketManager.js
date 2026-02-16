@@ -13,6 +13,7 @@ document.addEventListener('alpine:init', () => {
 
         // Filters
         filterStatus: 'todos', // open, pending, resolved, closed, todos
+        filterType: 'support', // support, installation
         searchQuery: '', // Added search query state
 
         // Pagination
@@ -26,8 +27,31 @@ document.addEventListener('alpine:init', () => {
         replyContent: '',
         sendingReply: false,
 
+        // Creation
+        showCreateModal: false,
+        newTicket: {
+            client_id: '',
+            subject: '',
+            description: '',
+            priority: 'normal',
+            ticket_type: 'support',
+            scheduled_at: '',
+            coordinates: '',
+            address_notes: ''
+        },
+        searchClientQuery: '',
+        clientSearchResults: [],
+        creatingTicket: false,
+
         // Status Update
         updatingStatus: false,
+
+        // Stats Modal
+        showStatsModal: false,
+        statsLoading: false,
+        stats: {},
+        _typeChart: null,
+        _statusChart: null,
 
         // User Context
         currentUserId: null,
@@ -41,6 +65,15 @@ document.addEventListener('alpine:init', () => {
             this.$watch('searchQuery', () => {
                 this.page = 0;
                 this.loadTickets();
+            });
+
+            // Watch for client search in create modal
+            this.$watch('searchClientQuery', (value) => {
+                if (value && value.length >= 2) {
+                    this.searchClients(value);
+                } else {
+                    this.clientSearchResults = [];
+                }
             });
 
             // 1. Initialize User from injected config
@@ -93,14 +126,87 @@ document.addEventListener('alpine:init', () => {
 
         },
 
+        // --- Creation ---
+        openCreateModal(type = 'support') {
+            this.newTicket = {
+                client_id: '',
+                subject: '',
+                description: '',
+                priority: 'normal',
+                ticket_type: type,
+                scheduled_at: '',
+                coordinates: '',
+                address_notes: ''
+            };
+            this.searchClientQuery = '';
+            this.clientSearchResults = [];
+            this.showCreateModal = true;
+        },
+
+        closeCreateModal() {
+            this.showCreateModal = false;
+        },
+
+        async searchClients(query) {
+            try {
+                // Assuming an endpoint for client search exists or using general search
+                // Current `clients` endpoint usually supports search
+                const response = await ApiService.fetchJSON(`/api/clients/?search=${query}&limit=5`);
+                this.clientSearchResults = response.items || [];
+            } catch (e) {
+                console.error('Client search error', e);
+            }
+        },
+
+        selectClient(client) {
+            this.newTicket.client_id = client.id;
+            this.searchClientQuery = client.name;
+            this.clientSearchResults = []; // Hide dropdown
+            // Auto-fill coordinates if available
+            if (client.coordinates) {
+                this.newTicket.coordinates = client.coordinates;
+            }
+        },
+
+        async createTicket() {
+            if (!this.newTicket.client_id || !this.newTicket.subject || !this.newTicket.description) {
+                showToast('Please fill in all required fields', 'warning');
+                return;
+            }
+
+            this.creatingTicket = true;
+            try {
+                // Clean empty strings to null for optional fields
+                const payload = { ...this.newTicket };
+                if (!payload.scheduled_at) payload.scheduled_at = null;
+                if (!payload.coordinates) payload.coordinates = null;
+                if (!payload.address_notes) payload.address_notes = null;
+
+                await ApiService.fetchJSON('/api/tickets/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                showToast('Ticket created successfully', 'success');
+                this.closeCreateModal();
+                this.loadTickets(); // Refresh list
+            } catch (e) {
+                showToast(`Error creating ticket: ${e.message}`, 'danger');
+            } finally {
+                this.creatingTicket = false;
+            }
+        },
+
         // --- Data Loading ---
         async loadTickets(silent = false) {
             if (!silent) this.loading = true;
             try {
                 const params = new URLSearchParams({
                     status_filter: this.filterStatus,
+                    ticket_type: this.filterType,
                     limit: this.pageSize,
-                    offset: this.page * this.pageSize
+                    offset: this.page * this.pageSize,
                 });
 
                 if (this.searchQuery) {
@@ -313,10 +419,97 @@ document.addEventListener('alpine:init', () => {
 
         getDisplayId(ticket) {
             if (!ticket) return '';
-            // If ticket_id is present and not 0, use it (though backend sends 0 mostly)
             if (ticket.ticket_id && ticket.ticket_id > 0) return '#' + ticket.ticket_id;
-            // Otherwise use last 6 of UUID
             return '#' + (ticket.id ? ticket.id.slice(-6) : '??????');
+        },
+
+        // --- Stats ---
+        async openStatsModal() {
+            this.showStatsModal = true;
+            await this.loadStats();
+        },
+
+        async loadStats() {
+            this.statsLoading = true;
+            try {
+                const data = await ApiService.fetchJSON('/api/stats/tickets');
+                this.stats = data;
+                // Wait for DOM to update, then render charts
+                this.$nextTick(() => {
+                    this.renderTypeChart(data);
+                    this.renderStatusChart(data);
+                });
+            } catch (e) {
+                console.error('Error loading stats:', e);
+                showToast('Error loading stats', 'danger');
+            } finally {
+                this.statsLoading = false;
+            }
+        },
+
+        renderTypeChart(data) {
+            const canvas = document.getElementById('statsChartTypes');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            if (this._typeChart) this._typeChart.destroy();
+            this._typeChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Support', 'Installation'],
+                    datasets: [{
+                        data: [data.support_tickets || 0, data.installation_tickets || 0],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(16, 185, 129, 0.8)'
+                        ],
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#9ca3af', font: { family: 'Inter' } }
+                        }
+                    }
+                }
+            });
+        },
+
+        renderStatusChart(data) {
+            const canvas = document.getElementById('statsChartStatus');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            if (this._statusChart) this._statusChart.destroy();
+            this._statusChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Open', 'Pending', 'Resolved'],
+                    datasets: [{
+                        data: [data.open_tickets || 0, data.pending_tickets || 0, data.resolved_tickets || 0],
+                        backgroundColor: [
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(245, 158, 11, 0.8)',
+                            'rgba(59, 130, 246, 0.8)'
+                        ],
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#9ca3af', font: { family: 'Inter' } }
+                        }
+                    }
+                }
+            });
         }
     }));
 });

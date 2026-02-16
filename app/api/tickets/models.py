@@ -9,6 +9,10 @@ class TicketCreate(BaseModel):
     subject: str
     description: str
     priority: str = "normal"
+    ticket_type: str = "support"
+    scheduled_at: Optional[datetime] = None
+    coordinates: Optional[str] = None
+    address_notes: Optional[str] = None
 
 class TicketUpdateStatus(BaseModel):
     status: str
@@ -37,6 +41,10 @@ class TicketRead(BaseModel):
     assigned_tech_username: Optional[str]
     created_at: datetime
     updated_at: datetime
+    ticket_type: str
+    scheduled_at: Optional[datetime]
+    coordinates: Optional[str]
+    address_notes: Optional[str]
     messages: List[TicketMessageRead] = []
 
 class TicketListResponse(BaseModel):

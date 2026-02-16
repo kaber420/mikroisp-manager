@@ -12,10 +12,11 @@ from ...core.constants import DeviceStatus
 from ...models.switch import Switch
 from ...models.stats import APStats, CPEStats, RouterStats
 from ...models.user import User
+from ...models.ticket import Ticket
 from ...core.constants import CPEStatus
 
 # Models specifically for response
-from .models import CPECount, SwitchCount, TopAP, TopCPE
+from .models import CPECount, SwitchCount, TopAP, TopCPE, TicketStats
 
 from ...db.logs_db import (
     count_event_logs,
@@ -157,6 +158,39 @@ async def get_switch_total_count(
             "offline": offline,
         }
     except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+
+
+@router.get("/stats/tickets", response_model=TicketStats)
+async def get_ticket_stats(
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(current_active_user),
+):
+    try:
+        # Total
+        total = await session.exec(select(func.count()).select_from(Ticket))
+        total = total.one()
+
+        # By Status
+        open_t = await session.exec(select(func.count()).select_from(Ticket).where(Ticket.status == "open"))
+        resolved_t = await session.exec(select(func.count()).select_from(Ticket).where(Ticket.status == "resolved"))
+        pending_t = await session.exec(select(func.count()).select_from(Ticket).where(Ticket.status == "pending"))
+
+        # By Type (assuming default 'support' if null, but model has default)
+        support = await session.exec(select(func.count()).select_from(Ticket).where(Ticket.ticket_type == "support"))
+        installation = await session.exec(select(func.count()).select_from(Ticket).where(Ticket.ticket_type == "installation"))
+
+        return {
+            "total_tickets": total,
+            "open_tickets": open_t.one(),
+            "resolved_tickets": resolved_t.one(),
+            "pending_tickets": pending_t.one(),
+            "support_tickets": support.one(),
+            "installation_tickets": installation.one(),
+        }
+    except Exception as e:
+        # Check if Ticket model is imported, if not, import it inside or top
+        # It is NOT imported at top! I need to add import.
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
 

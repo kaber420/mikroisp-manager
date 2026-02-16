@@ -40,6 +40,12 @@ class Ticket(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
+    # New fields for Installations
+    ticket_type: str = Field(default="support", index=True) # support, installation
+    scheduled_at: Optional[datetime] = Field(default=None)
+    coordinates: Optional[str] = Field(default=None) # specific location if different from client
+    address_notes: Optional[str] = Field(default=None) # instructions for getting to the location
+    
     # We can add relationships here if we want to navigate object.messages
     messages: List["TicketMessage"] = Relationship(back_populates="ticket")
 

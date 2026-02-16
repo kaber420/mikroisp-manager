@@ -86,9 +86,11 @@ def _build_ticket_list_keyboard(tickets: list, filters: dict) -> InlineKeyboardM
     emojis = {'open': '🟢', 'pending': '🟡', 'resolved': '🔵', 'closed': '⚫️'}
     for ticket in tickets:
         estado_emoji = emojis.get(ticket['estado'], '⚪️')
+        type_emoji = "🛠️" if ticket.get('ticket_type') == 'installation' else "🎫"
+        
         # Use short ID logic if possible, but we rely on UUID. Truncate visual ID?
         visual_id = ticket['id'][:8]
-        button_text = f"{estado_emoji} {visual_id} | {ticket.get('cliente_nombre', 'N/A')[:10]}"
+        button_text = f"{estado_emoji} {type_emoji} {visual_id} | {ticket.get('cliente_nombre', 'N/A')[:10]}"
         # Ensure callback data is short enough. UUID=36. Prefix=16. Total 52. Safe.
         callback_data = f"{CALLBACK_PREFIX}:detail:{ticket['id']}" 
         keyboard.append([InlineKeyboardButton(button_text, callback_data=callback_data)])
@@ -102,15 +104,28 @@ def _build_ticket_list_message(page: int, total_pages: int, total_count: int, fi
     return mensaje
 
 def _build_ticket_detail_message(ticket: dict) -> str:
-    return (
+    msg = (
         f"🎫 *Ticket* `{ticket['id']}`\n\n"
         f"👤 *Cliente:* {ticket.get('cliente_nombre')}\n"
         f"🛠️ *Asunto:* `{ticket.get('tipo_solicitud')}`\n"
         f"📊 *Estado:* `{ticket.get('estado')}`\n"
+        f"🏷️ *Tipo:* `{ticket.get('ticket_type', 'support')}`\n"
+    )
+    
+    if ticket.get('scheduled_at'):
+        msg += f"📅 *Programado:* `{ticket.get('scheduled_at')}`\n"
+        
+    coords = ticket.get('coordinates') or ticket.get('client_coordinates')
+    if coords:
+        # Google Maps link
+        msg += f"📍 *Ubicación:* [Ver en Maps](https://www.google.com/maps/search/?api=1&query={coords})\n"
+
+    msg += (
         f"🧑‍🔧 *Técnico:* `{ticket.get('tecnico_asignado') or 'Nadie'}`\n"
         f"📅 *Creado:* `{ticket.get('fecha_creacion')}`\n\n"
         f"📝 *Descripción:*\n`{ticket.get('descripcion')}`\n"
     )
+    return msg
 
 def _build_ticket_detail_keyboard(ticket_id: str, filters: dict) -> InlineKeyboardMarkup:
     keyboard = [

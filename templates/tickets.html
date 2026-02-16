@@ -17,6 +17,16 @@
             <p class="text-text-secondary text-sm mt-1">Manage customer support requests</p>
         </div>
         <div class="flex gap-3">
+            <button @click="openCreateModal(filterType)"
+                class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover transition-colors shadow-lg shadow-primary/20">
+                <span class="material-symbols-outlined mr-2">add</span>
+                <span x-text="filterType === 'installation' ? 'New Installation' : 'New Ticket'"></span>
+            </button>
+            <button @click="openStatsModal()"
+                class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-surface-2 hover:bg-surface-3 transition-colors border border-white/10">
+                <span class="material-symbols-outlined mr-2">bar_chart</span>
+                <span>Stats</span>
+            </button>
             <button @click="loadTickets()"
                 class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-surface-2 hover:bg-surface-3 transition-colors border border-white/10">
                 <span class="material-symbols-outlined mr-2">refresh</span>
@@ -29,7 +39,22 @@
     <div class="glass-card rounded-2xl border-0">
         <!-- Card Header: Filters & Search -->
         <div class="px-6 py-4 border-b border-white/10 flex flex-wrap gap-4 items-center justify-between bg-white/5">
-            <h2 class="text-xl font-bold text-white">Tickets</h2>
+            <div class="flex items-center gap-4">
+                <h2 class="text-xl font-bold text-white">Tickets</h2>
+                <!-- Type Tabs -->
+                <div class="flex bg-surface-1 rounded-lg p-1 border border-white/10">
+                    <button @click="filterType = 'support'; page=0; loadTickets()"
+                        class="px-3 py-1 text-xs font-bold rounded-md transition-all"
+                        :class="filterType === 'support' ? 'bg-primary text-white shadow' : 'text-text-secondary hover:text-white'">
+                        Support
+                    </button>
+                    <button @click="filterType = 'installation'; page=0; loadTickets()"
+                        class="px-3 py-1 text-xs font-bold rounded-md transition-all"
+                        :class="filterType === 'installation' ? 'bg-primary text-white shadow' : 'text-text-secondary hover:text-white'">
+                        Installations
+                    </button>
+                </div>
+            </div>
 
             <div class="flex flex-wrap items-center gap-4">
                 <!-- Status Filters -->
@@ -84,7 +109,10 @@
                         <th
                             class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
                             Assigned</th>
-                        <th
+                        <th x-show="filterType === 'installation'"
+                            class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                            Scheduled</th>
+                        <th x-show="filterType === 'support'"
                             class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
                             Created</th>
                         <th
@@ -114,7 +142,18 @@
                                     class="text-sm"
                                     :class="ticket.assigned_tech_username ? 'text-primary font-medium' : 'text-text-secondary opacity-50'"></span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-text-secondary"
+                            <td x-show="filterType === 'installation'"
+                                class="px-6 py-4 whitespace-nowrap text-text-secondary">
+                                <span x-text="ticket.scheduled_at ? formatDate(ticket.scheduled_at) : '-'"></span>
+                                <div x-show="ticket.coordinates"
+                                    class="text-xs text-primary mt-1 flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[10px]">location_on</span>
+                                    <a :href="'https://www.google.com/maps/search/?api=1&query=' + ticket.coordinates"
+                                        target="_blank" @click.stop class="hover:underline">View Map</a>
+                                </div>
+                            </td>
+                            <td x-show="filterType === 'support'"
+                                class="px-6 py-4 whitespace-nowrap text-text-secondary"
                                 x-text="formatDate(ticket.created_at)"></td>
                             <td class="px-6 py-4 whitespace-nowrap text-right">
                                 <span
@@ -320,5 +359,239 @@
         </div>
     </div>
 
+    <!-- Create Ticket Modal -->
+    <div x-show="showCreateModal" style="display: none;"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+        x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-100"
+        x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+
+        <div class="bg-surface-1 border border-border-color rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden"
+            @click.away="closeCreateModal()">
+
+            <div class="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-surface-2/30">
+                <h2 class="text-xl font-bold text-white">
+                    New <span
+                        x-text="newTicket.ticket_type === 'installation' ? 'Installation' : 'Support Ticket'"></span>
+                </h2>
+                <button @click="closeCreateModal()" class="text-text-secondary hover:text-white transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <!-- Client Search -->
+                <div class="relative">
+                    <label class="block text-xs font-bold text-text-secondary uppercase mb-1">Client</label>
+                    <input type="text" x-model="searchClientQuery" placeholder="Search client by name or ID..."
+                        class="w-full input-glass p-3 rounded-lg bg-surface-2 border border-white/10 text-white focus:border-primary outline-none">
+
+                    <!-- Dropdown -->
+                    <div x-show="clientSearchResults.length > 0"
+                        class="absolute z-10 w-full mt-1 bg-surface-2 border border-border-color rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                        <template x-for="client in clientSearchResults" :key="client.id">
+                            <button @click="selectClient(client)"
+                                class="w-full text-left px-4 py-3 hover:bg-white/5 border-b border-white/5 last:border-0 transition-colors">
+                                <p class="font-bold text-white" x-text="client.name"></p>
+                                <p class="text-xs text-text-secondary"
+                                    x-text="client.telegram_contact || 'No contact info'"></p>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Type Selector (Toggle) -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-text-secondary uppercase mb-1">Type</label>
+                        <select x-model="newTicket.ticket_type"
+                            class="w-full input-glass p-3 rounded-lg bg-surface-2 border border-white/10 text-white outline-none">
+                            <option value="support">Support</option>
+                            <option value="installation">Installation</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-text-secondary uppercase mb-1">Priority</label>
+                        <select x-model="newTicket.priority"
+                            class="w-full input-glass p-3 rounded-lg bg-surface-2 border border-white/10 text-white outline-none">
+                            <option value="low">Low</option>
+                            <option value="normal">Normal</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Installation Specific Fields -->
+                <div x-show="newTicket.ticket_type === 'installation'"
+                    class="space-y-4 p-4 bg-surface-2/30 rounded-lg border border-white/5">
+                    <div>
+                        <label class="block text-xs font-bold text-text-secondary uppercase mb-1">Scheduled Date &
+                            Time</label>
+                        <input type="datetime-local" x-model="newTicket.scheduled_at"
+                            class="w-full input-glass p-3 rounded-lg bg-surface-2 border border-white/10 text-white outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-text-secondary uppercase mb-1">Coordinates (Lat,
+                            Lon)</label>
+                        <div class="flex gap-2">
+                            <input type="text" x-model="newTicket.coordinates" placeholder="-34.6037, -58.3816"
+                                class="flex-1 input-glass p-3 rounded-lg bg-surface-2 border border-white/10 text-white outline-none">
+                            <a x-show="newTicket.coordinates"
+                                :href="'https://www.google.com/maps/search/?api=1&query=' + newTicket.coordinates"
+                                target="_blank"
+                                class="p-3 bg-surface-2 hover:bg-surface-3 rounded-lg border border-white/10 flex items-center justify-center text-primary transition-colors">
+                                <span class="material-symbols-outlined">map</span>
+                            </a>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-text-secondary uppercase mb-1">Address Notes</label>
+                        <input type="text" x-model="newTicket.address_notes"
+                            placeholder="e.g., Red gate, call upon arrival"
+                            class="w-full input-glass p-3 rounded-lg bg-surface-2 border border-white/10 text-white outline-none">
+                    </div>
+                </div>
+
+                <!-- Common Fields -->
+                <div>
+                    <label class="block text-xs font-bold text-text-secondary uppercase mb-1">Subject</label>
+                    <input type="text" x-model="newTicket.subject" placeholder="Brief summary..."
+                        class="w-full input-glass p-3 rounded-lg bg-surface-2 border border-white/10 text-white outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-text-secondary uppercase mb-1">Description</label>
+                    <textarea x-model="newTicket.description" rows="4" placeholder="Detailed description..."
+                        class="w-full input-glass p-3 rounded-lg bg-surface-2 border border-white/10 text-white outline-none resize-none"></textarea>
+                </div>
+
+            </div>
+
+            <div class="px-6 py-4 border-t border-white/10 bg-surface-2/30 flex justify-end gap-3">
+                <button @click="closeCreateModal()"
+                    class="px-4 py-2 hover:bg-white/5 text-text-secondary hover:text-white rounded-lg transition-colors font-medium">
+                    Cancel
+                </button>
+                <button @click="createTicket()" :disabled="creatingTicket"
+                    class="px-6 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-colors font-bold shadow-lg shadow-primary/20 flex items-center gap-2">
+                    <span x-show="creatingTicket"
+                        class="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                    <span>Create Ticket</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Modal -->
+    <div x-show="showStatsModal" style="display: none;"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+        x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-100"
+        x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+
+        <div class="bg-surface-1 border border-border-color rounded-xl w-full max-w-4xl max-h-[85vh] overflow-y-auto shadow-2xl"
+            @click.away="showStatsModal = false">
+
+            <!-- Modal Header -->
+            <div
+                class="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-surface-2/30 sticky top-0 z-10">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary text-2xl">bar_chart</span>
+                    <h2 class="text-xl font-bold text-white">Ticket Statistics</h2>
+                </div>
+                <button @click="showStatsModal = false" class="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <div class="p-6">
+                <!-- Loading -->
+                <div x-show="statsLoading" class="p-12 text-center text-text-secondary">
+                    <span class="material-symbols-outlined animate-spin text-3xl mb-2">progress_activity</span>
+                    <p>Loading statistics...</p>
+                </div>
+
+                <div x-show="!statsLoading">
+                    <!-- KPI Cards -->
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div
+                            class="glass-card p-4 rounded-xl relative overflow-hidden group hover:scale-[1.02] transition-transform">
+                            <div
+                                class="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <span class="material-symbols-outlined text-6xl">confirmation_number</span>
+                            </div>
+                            <h3 class="text-text-secondary text-xs font-bold uppercase mb-1">Total</h3>
+                            <p class="text-3xl font-bold text-white" x-text="stats.total_tickets || 0"></p>
+                        </div>
+                        <div
+                            class="glass-card p-4 rounded-xl relative overflow-hidden group hover:scale-[1.02] transition-transform">
+                            <div
+                                class="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <span class="material-symbols-outlined text-6xl text-success">pending_actions</span>
+                            </div>
+                            <h3 class="text-text-secondary text-xs font-bold uppercase mb-1">Open</h3>
+                            <p class="text-3xl font-bold text-success" x-text="stats.open_tickets || 0"></p>
+                        </div>
+                        <div
+                            class="glass-card p-4 rounded-xl relative overflow-hidden group hover:scale-[1.02] transition-transform">
+                            <div
+                                class="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <span class="material-symbols-outlined text-6xl text-warning">schedule</span>
+                            </div>
+                            <h3 class="text-text-secondary text-xs font-bold uppercase mb-1">Pending</h3>
+                            <p class="text-3xl font-bold text-warning" x-text="stats.pending_tickets || 0"></p>
+                        </div>
+                        <div
+                            class="glass-card p-4 rounded-xl relative overflow-hidden group hover:scale-[1.02] transition-transform">
+                            <div
+                                class="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <span class="material-symbols-outlined text-6xl text-primary">check_circle</span>
+                            </div>
+                            <h3 class="text-text-secondary text-xs font-bold uppercase mb-1">Resolved</h3>
+                            <p class="text-3xl font-bold text-primary" x-text="stats.resolved_tickets || 0"></p>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Type Distribution -->
+                        <div class="glass-card p-5 rounded-xl">
+                            <h3 class="text-base font-bold text-white mb-4 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-primary">pie_chart</span>
+                                By Type
+                            </h3>
+                            <div class="relative h-48 w-full flex items-center justify-center">
+                                <canvas id="statsChartTypes"></canvas>
+                            </div>
+                            <div class="mt-3 grid grid-cols-2 gap-3 text-center">
+                                <div class="p-2 bg-surface-2 rounded-lg">
+                                    <span class="block text-xs text-text-secondary uppercase">Support</span>
+                                    <span class="text-lg font-bold text-white"
+                                        x-text="stats.support_tickets || 0"></span>
+                                </div>
+                                <div class="p-2 bg-surface-2 rounded-lg">
+                                    <span class="block text-xs text-text-secondary uppercase">Installations</span>
+                                    <span class="text-lg font-bold text-white"
+                                        x-text="stats.installation_tickets || 0"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Status Distribution -->
+                        <div class="glass-card p-5 rounded-xl">
+                            <h3 class="text-base font-bold text-white mb-4 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-primary">donut_large</span>
+                                By Status
+                            </h3>
+                            <div class="relative h-48 w-full flex items-center justify-center">
+                                <canvas id="statsChartStatus"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

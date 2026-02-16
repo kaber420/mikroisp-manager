@@ -32,6 +32,7 @@ async def list_tickets(
     status_filter: Optional[str] = None,
     client_id: Optional[uuid_pkg.UUID] = None,
     search: Optional[str] = None,
+    ticket_type: Optional[str] = None,
     limit: int = 20,
     offset: int = 0,
     current_user: User = Depends(require_technician),
@@ -41,6 +42,9 @@ async def list_tickets(
     
     if status_filter and status_filter != 'todos':
         query = query.where(Ticket.status == status_filter)
+
+    if ticket_type and ticket_type != 'all':
+        query = query.where(Ticket.ticket_type == ticket_type)
     
     if client_id:
         query = query.where(Ticket.client_id == client_id)
@@ -73,6 +77,9 @@ async def list_tickets(
     # Apply same filters to count_query
     if status_filter and status_filter != 'todos':
         count_query = count_query.where(Ticket.status == status_filter)
+
+    if ticket_type and ticket_type != 'all':
+        count_query = count_query.where(Ticket.ticket_type == ticket_type)
     
     if client_id:
         count_query = count_query.where(Ticket.client_id == client_id)
@@ -135,6 +142,10 @@ async def list_tickets(
             assigned_tech_username=techs.get(t.assigned_tech_id),
             created_at=t.created_at,
             updated_at=t.updated_at,
+            ticket_type=t.ticket_type,
+            scheduled_at=t.scheduled_at,
+            coordinates=t.coordinates,
+            address_notes=t.address_notes,
             messages=msgs
         ))
         
@@ -194,6 +205,10 @@ async def get_ticket_detail(
         assigned_tech_username=tech.username if tech else None,
         created_at=ticket.created_at,
         updated_at=ticket.updated_at,
+        ticket_type=ticket.ticket_type,
+        scheduled_at=ticket.scheduled_at,
+        coordinates=ticket.coordinates,
+        address_notes=ticket.address_notes,
         messages=msgs
     )
 
@@ -213,6 +228,10 @@ async def create_ticket(
         subject=ticket_in.subject,
         description=ticket_in.description,
         priority=ticket_in.priority,
+        ticket_type=ticket_in.ticket_type,
+        scheduled_at=ticket_in.scheduled_at,
+        coordinates=ticket_in.coordinates,
+        address_notes=ticket_in.address_notes,
         status="open",
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow()
@@ -234,6 +253,10 @@ async def create_ticket(
         assigned_tech_username=None,
         created_at=new_ticket.created_at,
         updated_at=new_ticket.updated_at,
+        ticket_type=new_ticket.ticket_type,
+        scheduled_at=new_ticket.scheduled_at,
+        coordinates=new_ticket.coordinates,
+        address_notes=new_ticket.address_notes,
         messages=[]
     )
 

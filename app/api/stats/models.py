@@ -30,3 +30,12 @@ class SwitchCount(BaseModel):
     total_switches: int
     online: int
     offline: int
+
+
+class TicketStats(BaseModel):
+    total_tickets: int
+    open_tickets: int
+    resolved_tickets: int
+    pending_tickets: int
+    support_tickets: int
+    installation_tickets: int
