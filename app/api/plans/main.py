@@ -88,12 +88,9 @@ def create_plan(
     service: PlanService = Depends(get_plan_service),
     current_user: User = Depends(require_admin),
 ):
-    try:
-        new_plan = service.create_plan(plan.model_dump())
-        # Devolvemos el modelo, router_name será null por defecto en la respuesta inmediata
-        return {**new_plan.model_dump(), "router_name": None}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    new_plan = service.create_plan(plan.model_dump())
+    # Devolvemos el modelo, router_name será null por defecto en la respuesta inmediata
+    return {**new_plan.model_dump(), "router_name": None}
 
 
 @router.delete("/plans/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)

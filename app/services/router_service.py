@@ -394,7 +394,7 @@ async def get_router_service(host: str, session: AsyncSession = Depends(get_sess
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
         logger.error(f"Error en get_router_service para {host}: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno de conexión con el router")
     finally:
         # CRÍTICO: Cerrar la conexión SIEMPRE después de que el endpoint termine
         if service:
@@ -453,7 +453,7 @@ async def get_router_service_for_provisioning(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
         logger.error(f"Error en get_router_service_for_provisioning para {host}: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno de conexión con el router")
     finally:
         # Cerrar la conexión
         if adapter:

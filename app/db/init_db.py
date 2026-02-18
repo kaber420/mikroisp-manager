@@ -195,6 +195,14 @@ def _setup_inventory_db():
         cursor.execute("UPDATE switches SET is_provisioned = TRUE WHERE api_port = api_ssl_port;")
         print("  -> Switches con api_port == api_ssl_port marcados como aprovisionados.")
 
+    # --- Migration: Add master credentials to switches table ---
+    if "master_username" not in switch_columns:
+        print("Migrando switches: Agregando master_username...")
+        cursor.execute("ALTER TABLE switches ADD COLUMN master_username TEXT;")
+    if "master_password" not in switch_columns:
+        print("Migrando switches: Agregando master_password...")
+        cursor.execute("ALTER TABLE switches ADD COLUMN master_password TEXT;")
+
     cursor.execute(
         """
     CREATE TABLE IF NOT EXISTS plans (
@@ -306,6 +314,14 @@ def _setup_inventory_db():
         cursor.execute("UPDATE routers SET is_provisioned = TRUE WHERE api_port = api_ssl_port;")
         print("  -> Routers con api_port == api_ssl_port marcados como aprovisionados.")
 
+    # --- Migration: Add master credentials to routers table ---
+    if "master_username" not in router_columns:
+        print("Migrando routers: Agregando master_username...")
+        cursor.execute("ALTER TABLE routers ADD COLUMN master_username TEXT;")
+    if "master_password" not in router_columns:
+        print("Migrando routers: Agregando master_password...")
+        cursor.execute("ALTER TABLE routers ADD COLUMN master_password TEXT;")
+
     # --- Migration: Add provisioning fields to aps table ---
     ap_columns = [col[1] for col in cursor.execute("PRAGMA table_info(aps)").fetchall()]
 
@@ -324,6 +340,14 @@ def _setup_inventory_db():
     if "last_provision_error" not in ap_columns:
         print("Migrando aps: Agregando last_provision_error...")
         cursor.execute("ALTER TABLE aps ADD COLUMN last_provision_error TEXT;")
+
+    # --- Migration: Add master credentials to aps table ---
+    if "master_username" not in ap_columns:
+        print("Migrando aps: Agregando master_username...")
+        cursor.execute("ALTER TABLE aps ADD COLUMN master_username TEXT;")
+    if "master_password" not in ap_columns:
+        print("Migrando aps: Agregando master_password...")
+        cursor.execute("ALTER TABLE aps ADD COLUMN master_password TEXT;")
 
     # Smart default: Mark MikroTik APs already using SSL port (8729) as provisioned
     cursor.execute("""

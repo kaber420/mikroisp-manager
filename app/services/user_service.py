@@ -1,10 +1,12 @@
 # app/services/user_service.py
 
 from fastapi_users.password import PasswordHelper
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 # Importamos los modelos y esquemas modernos
 from ..models.user import User
+from ..core.exceptions import DuplicateError, UserNotFoundError, ValidationError
 from ..schemas.user import UserCreate, UserUpdate
 
 
@@ -23,7 +25,7 @@ class UserService:
             select(User).where(User.username == user_create.username)
         ).first()
         if existing_user:
-            raise ValueError("El nombre de usuario ya existe.")
+            raise DuplicateError("El nombre de usuario ya existe.")
 
         hashed_password = PasswordHelper().hash(user_create.password)
 
@@ -41,8 +43,15 @@ class UserService:
 
         # Guardar
         self.session.add(db_user)
-        self.session.commit()
-        self.session.refresh(db_user)
+        try:
+            self.session.commit()
+            self.session.refresh(db_user)
+        except IntegrityError:
+            self.session.rollback()
+            raise DuplicateError("El nombre de usuario o email ya existe.")
+        except Exception:
+            self.session.rollback()
+            raise ValidationError("Error inesperado al crear el usuario")
         return db_user
 
     def update_user(self, username: str, user_update: UserUpdate) -> User:
@@ -50,7 +59,7 @@ class UserService:
         db_user = self.session.exec(select(User).where(User.username == username)).first()
 
         if not db_user:
-            raise FileNotFoundError("Usuario no encontrado.")
+            raise UserNotFoundError("Usuario no encontrado.")
 
         # Aplicar cambios solo si se enviaron
         update_data = user_update.model_dump(exclude_unset=True)
@@ -67,15 +76,22 @@ class UserService:
             setattr(db_user, key, value)
 
         self.session.add(db_user)
-        self.session.commit()
-        self.session.refresh(db_user)
+        try:
+            self.session.commit()
+            self.session.refresh(db_user)
+        except IntegrityError:
+            self.session.rollback()
+            raise DuplicateError("El nombre de usuario o email ya existe.")
+        except Exception:
+            self.session.rollback()
+            raise ValidationError("Error inesperado al actualizar el usuario")
         return db_user
 
     def delete_user(self, username: str):
         db_user = self.session.exec(select(User).where(User.username == username)).first()
 
         if not db_user:
-            raise FileNotFoundError("Usuario no encontrado.")
+            raise UserNotFoundError("Usuario no encontrado.")
 
         self.session.delete(db_user)
         self.session.commit()

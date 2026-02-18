@@ -52,6 +52,8 @@ class APCreate(BaseModel):
     host: str
     username: str
     password: str
+    master_username: str | None = None
+    master_password: str | None = None
     zona_id: int
     is_enabled: bool = True
     monitor_interval: int | None = None
@@ -64,6 +66,8 @@ class APCreate(BaseModel):
 class APUpdate(BaseModel):
     username: str | None = None
     password: str | None = None
+    master_username: str | None = None
+    master_password: str | None = None
     zona_id: int | None = None
     is_enabled: bool | None = None
     monitor_interval: int | None = None

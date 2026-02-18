@@ -90,7 +90,13 @@ async def provision_ap(
             await session.commit()
             raise HTTPException(status_code=500, detail=result["message"])
 
-        # 7. Update AP in database
+        # 7. Guardar credenciales maestras ANTES de sobrescribir (solo si no existen)
+        if not ap.master_username:
+            ap.master_username = ap.username
+        if not ap.master_password:
+            ap.master_password = ap.password  # Ya está encriptado en DB
+
+        # 8. Update AP in database with new API credentials
         ap.username = data.new_api_user
         ap.password = encrypt_data(data.new_api_password)
         ap.api_port = ssl_port  # Now use SSL port for connections
@@ -221,6 +227,12 @@ async def repair_ap_connection(
                 ap_monitor_scheduler.reset_connection(host)
         except Exception as e:
             logger.warning(f"Error resetting scheduler for {host}: {e}")
+
+        # Restaurar credenciales maestras al desprovisionar
+        if ap.master_username:
+            ap.username = ap.master_username
+        if ap.master_password:
+            ap.password = ap.master_password  # Ya está encriptado
 
         # Mark as not provisioned
         ap.is_provisioned = False

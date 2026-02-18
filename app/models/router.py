@@ -33,5 +33,9 @@ class Router(SQLModel, table=True):
     # Provisioning status (True after successful secure provisioning)
     is_provisioned: bool = Field(default=False)
 
+    # Master credentials (administrative access, separate from API credentials)
+    master_username: str | None = Field(default=None)
+    master_password: str | None = Field(default=None)  # Encriptado con encrypt_data()
+
     # Relationship
     # zona: Optional["Zona"] = Relationship(back_populates="routers")

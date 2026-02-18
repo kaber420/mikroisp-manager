@@ -18,12 +18,11 @@ from ..utils.security import decrypt_data, encrypt_data
 logger = logging.getLogger(__name__)
 
 
-class SwitchConnectionError(Exception):
-    pass
+from ..core.exceptions import ServiceUnavailableError, DeviceCommandError, DuplicateError
 
-
-class SwitchCommandError(Exception):
-    pass
+# --- Alias de Excepciones del Servicio (heredan de AppError) ---
+SwitchConnectionError = ServiceUnavailableError
+SwitchCommandError = DeviceCommandError
 
 
 class SwitchService:
@@ -265,15 +264,18 @@ async def create_switch(session: AsyncSession, switch_data: dict[str, Any]) -> d
     data = switch_data.copy()
     if "password" in data:
         data["password"] = encrypt_data(data["password"])
+    if "master_password" in data and data["master_password"]:
+        data["master_password"] = encrypt_data(data["master_password"])
 
     switch = Switch(**data)
     session.add(switch)
     try:
         await session.commit()
         await session.refresh(switch)
-    except Exception as e:
+    except Exception:
         await session.rollback()
-        raise ValueError(f"Switch host (IP) '{switch_data.get('host')}' ya existe o error: {e}")
+        raise DuplicateError(f"Ya existe un switch con el host '{switch_data.get('host')}'")
+
 
     return await get_switch_by_host(session, switch.host)
 
@@ -287,6 +289,8 @@ async def update_switch(session: AsyncSession, host: str, switch_data: dict[str,
     clean_updates = switch_data.copy()
     if "password" in clean_updates and clean_updates["password"]:
         clean_updates["password"] = encrypt_data(clean_updates["password"])
+    if "master_password" in clean_updates and clean_updates["master_password"]:
+        clean_updates["master_password"] = encrypt_data(clean_updates["master_password"])
 
     for key, value in clean_updates.items():
         if hasattr(switch, key):

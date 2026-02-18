@@ -171,8 +171,12 @@
                     </div>
 
                     <div>
-                        <h4 class="text-md font-semibold text-text-primary">API Credentials</h4>
-                        <p class="text-xs text-text-secondary mb-2">Credentials used to connect to the switch API.</p>
+                        <h4 class="text-md font-semibold text-text-primary"
+                            x-text="isEditing && currentSwitch.is_provisioned ? 'Credenciales API (Actuales)' : 'Credenciales del Dispositivo'">
+                        </h4>
+                        <p class="text-xs text-text-secondary mb-2"
+                            x-text="isEditing && currentSwitch.is_provisioned ? 'Credenciales usadas para la conexión API segura.' : 'Credenciales actuales del dispositivo.'">
+                        </p>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
                             <div>
                                 <label for="switch-username" class="block text-sm font-medium mb-1">Username</label>
@@ -183,6 +187,28 @@
                                 <label for="switch-password" class="block text-sm font-medium mb-1">Password</label>
                                 <input type="password" id="switch-password" x-model="currentSwitch.password"
                                     :placeholder="isEditing ? 'Leave blank to keep current' : ''" :required="!isEditing"
+                                    class="w-full bg-background border border-border-color rounded-md p-2">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Master Credentials - only visible for provisioned devices -->
+                    <div x-show="isEditing && currentSwitch.is_provisioned" x-transition>
+                        <h4 class="text-md font-semibold text-text-primary">Credenciales Master (Originales)</h4>
+                        <p class="text-xs text-text-secondary mb-2">Credenciales originales guardadas durante el
+                            aprovisionamiento.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                            <div>
+                                <label for="switch-master_username" class="block text-sm font-medium mb-1">Master
+                                    Username</label>
+                                <input type="text" id="switch-master_username" x-model="currentSwitch.master_username"
+                                    class="w-full bg-background border border-border-color rounded-md p-2">
+                            </div>
+                            <div>
+                                <label for="switch-master_password" class="block text-sm font-medium mb-1">Master
+                                    Password</label>
+                                <input type="password" id="switch-master_password"
+                                    x-model="currentSwitch.master_password" placeholder="Leave blank to keep current"
                                     class="w-full bg-background border border-border-color rounded-md p-2">
                             </div>
                         </div>

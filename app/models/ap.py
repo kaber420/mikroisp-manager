@@ -35,5 +35,9 @@ class AP(SQLModel, table=True):
     last_provision_attempt: datetime | None = Field(default=None)
     last_provision_error: str | None = Field(default=None)
 
+    # Master credentials (administrative access, separate from API credentials)
+    master_username: str | None = Field(default=None)
+    master_password: str | None = Field(default=None)  # Encriptado con encrypt_data()
+
     # Relationship
     # zona: Optional["Zona"] = Relationship(back_populates="aps")

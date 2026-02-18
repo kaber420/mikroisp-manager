@@ -34,12 +34,7 @@ def api_assign_cpe_to_client(
     service: CPEService = Depends(get_cpe_service),
     current_user: User = Depends(require_technician),
 ):
-    try:
-        return service.assign_cpe_to_client(mac, client_id)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return service.assign_cpe_to_client(mac, client_id)
 
 
 @router.post("/cpes/{mac}/unassign", response_model=AssignedCPE)
@@ -48,12 +43,7 @@ def api_unassign_cpe(
     service: CPEService = Depends(get_cpe_service),
     current_user: User = Depends(require_technician),
 ):
-    try:
-        return service.unassign_cpe(mac)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return service.unassign_cpe(mac)
 
 
 @router.post("/cpes/{mac}/disable", status_code=status.HTTP_200_OK)
@@ -63,13 +53,8 @@ def api_disable_cpe(
     current_user: User = Depends(require_technician),
 ):
     """Deshabilita un CPE (soft-delete)."""
-    try:
-        service.disable_cpe(mac)
-        return {"message": "CPE disabled successfully"}
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    service.disable_cpe(mac)
+    return {"message": "CPE disabled successfully"}
 
 
 @router.delete("/cpes/{mac}", status_code=status.HTTP_204_NO_CONTENT)
@@ -82,15 +67,8 @@ def api_delete_cpe(
     
     El CPE debe estar deshabilitado antes de poder eliminarlo.
     """
-    try:
-        service.hard_delete_cpe(mac)
-        return None
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    service.hard_delete_cpe(mac)
+    return None
 
 
 @router.put("/cpes/{mac}", response_model=AssignedCPE)
@@ -101,12 +79,7 @@ def api_update_cpe(
     current_user: User = Depends(require_technician),
 ):
     """Update CPE properties (IP address, hostname, model)."""
-    try:
-        return service.update_cpe(mac, update_data.model_dump(exclude_none=True))
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return service.update_cpe(mac, update_data.model_dump(exclude_none=True))
 
 
 @router.get("/cpes/all", response_model=list[CPEGlobalInfo])
@@ -118,7 +91,4 @@ def api_get_all_cpes_globally(
     current_user: User = Depends(require_technician),
 ):
     """Get all CPEs globally with status (active/fallen/disabled)."""
-    try:
-        return service.get_all_cpes_globally(status_filter=status_filter)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return service.get_all_cpes_globally(status_filter=status_filter)

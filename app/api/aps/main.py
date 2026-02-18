@@ -57,13 +57,8 @@ async def create_ap(
     Registra un nuevo Access Point en el sistema.
     Valida que la IP/Host no esté duplicada.
     """
-    try:
-        new_ap_data = await service.create_ap(ap)
-        return AP(**new_ap_data)
-    except APCreateError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno: {e}")
+    new_ap_data = await service.create_ap(ap)
+    return AP(**new_ap_data)
 
 
 @router.get("/aps", response_model=list[AP])
@@ -87,11 +82,8 @@ async def get_ap(
     """
     Obtiene detalles de un AP específico por su Host/IP.
     """
-    try:
-        ap_data = await service.get_ap_by_host(host)
-        return AP(**ap_data)
-    except APNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    ap_data = await service.get_ap_by_host(host)
+    return AP(**ap_data)
 
 
 @router.put("/aps/{host}", response_model=AP)
@@ -105,13 +97,8 @@ async def update_ap(
     Actualiza la configuración de un AP existente.
     Si se cambia la IP, se actualizan también sus referencias.
     """
-    try:
-        updated_ap_data = await service.update_ap(host, ap_update)
-        return AP(**updated_ap_data)
-    except APNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except APDataError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    updated_ap_data = await service.update_ap(host, ap_update)
+    return AP(**updated_ap_data)
 
 
 @router.delete("/aps/{host}", status_code=status.HTTP_204_NO_CONTENT)
@@ -124,12 +111,9 @@ async def delete_ap(
     """
     Elimina un AP del sistema y registra la acción en auditoría.
     """
-    try:
-        await service.delete_ap(host)
-        log_action("DELETE", "ap", host, user=current_user, request=request)
-        return
-    except APNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    await service.delete_ap(host)
+    log_action("DELETE", "ap", host, user=current_user, request=request)
+    return
 
 
 # --- Specialized Endpoints ---
@@ -148,13 +132,8 @@ async def sync_cpe_names(
     This is a 'heavy' operation intended to be triggered manually via a button,
     not during every live poll.
     """
-    try:
-        result = await service.sync_cpe_names(host)
-        return result
-    except APNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except APUnreachableError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+    result = await service.sync_cpe_names(host)
+    return result
 
 
 @router.get("/aps/{host}/cpes", response_model=list[CPEDetail])
@@ -179,12 +158,7 @@ async def get_ap_live_data(
     """
     Obtiene métricas en tiempo real (CPU, RAM, uso de frecuencias) conectando directamente al dispositivo.
     """
-    try:
-        return await service.get_live_data(host)
-    except APNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except APUnreachableError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+    return await service.get_live_data(host)
 
 
 @router.get("/aps/{host}/history", response_model=APHistoryResponse)
@@ -198,12 +172,7 @@ async def get_ap_history(
     Obtiene historial de métricas (tráfico, señal, clientes conectados) para gráficos.
     Periodos soportados: '24h', '7d', '30d'.
     """
-    try:
-        return await service.get_ap_history(host, period)
-    except APNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except APDataError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.get_ap_history(host, period)
 
 
 @router.get("/aps/{host}/ssl/status")
@@ -275,13 +244,8 @@ async def get_wireless_interfaces(
     Obtiene las interfaces inalámbricas disponibles en un AP MikroTik.
     Para usar con Spectral Scan.
     """
-    try:
-        interfaces = await service.get_wireless_interfaces(host)
-        return {"interfaces": interfaces}
-    except APNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except APUnreachableError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+    interfaces = await service.get_wireless_interfaces(host)
+    return {"interfaces": interfaces}
 
 
 @router.post("/aps/validate", status_code=200)

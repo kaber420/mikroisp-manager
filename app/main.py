@@ -424,6 +424,38 @@ async def fastapi_http_exception_handler(request: Request, exc: FastAPIHTTPExcep
     return await _handle_http_exception(request, exc.status_code, exc.detail)
 
 
+# Handler for domain exceptions (AppError hierarchy)
+from .core.exceptions import AppError
+
+
+@app.exception_handler(AppError)
+async def app_error_handler(request: Request, exc: AppError):
+    """
+    Maneja todas las excepciones de dominio automáticamente.
+    Cada subclase de AppError define su propio status_code.
+    """
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+
+# Handler de seguridad: captura IntegrityError no manejados por servicios
+from sqlalchemy.exc import IntegrityError
+
+
+@app.exception_handler(IntegrityError)
+async def integrity_error_handler(request: Request, exc: IntegrityError):
+    """Red de seguridad: captura cualquier IntegrityError que se escape de los servicios."""
+    import logging
+    logging.getLogger("app.errors").error(f"IntegrityError no capturado por servicio: {exc}")
+    return JSONResponse(
+        status_code=409,
+        content={"detail": "El recurso ya existe o viola una restricción de unicidad"},
+    )
+
+
+
 async def _handle_http_exception(request: Request, status_code: int, detail: str):
     """Common handler for both Starlette and FastAPI HTTP exceptions."""
     is_web = _is_web_request(request)

@@ -10,6 +10,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from app.models import Payment
+from app.core.exceptions import ValidationError, DuplicateError
 
 
 class PaymentService:
@@ -69,7 +70,7 @@ class PaymentService:
             return new_payment.model_dump()
         except Exception as e:
             self.session.rollback()
-            raise ValueError(f"Database error: {e}")
+            raise ValidationError(f"Database error: {e}")
 
     def update_payment_notes(self, payment_id: int, notas: str) -> int:
         """
@@ -96,7 +97,7 @@ class PaymentService:
             print(f"Error actualizando notas de pago: {e}")
             return 0
 
-    def check_payment_exists(self, client_id: uuid.UUID, billing_cycle: str) -> bool:
+    def check_payment_exists(self, client_id: uuid.UUID, billing_cycle: str) -> None:
         """
         Check if a payment already exists for a client and billing cycle.
 
@@ -104,8 +105,8 @@ class PaymentService:
             client_id: ID of the client
             billing_cycle: Billing cycle in format 'YYYY-MM'
 
-        Returns:
-            True if payment exists, False otherwise
+        Raises:
+            DuplicateError: If payment exists
         """
         statement = (
             select(Payment)
@@ -114,4 +115,5 @@ class PaymentService:
         )
 
         payment = self.session.exec(statement).first()
-        return payment is not None
+        if payment:
+            raise DuplicateError(f"Pago ya registrado para el ciclo {billing_cycle}")

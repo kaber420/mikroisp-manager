@@ -13,6 +13,7 @@ const provisionMixin = {
     isProvisioning: false,
     provisionError: '',
     provisionSuccess: '',
+    showPass: false,
     provisionDeviceType: 'Device',  // 'Router' or 'AP'
     provisionApiPath: '/api/routers',  // or '/api/aps'
     currentProvisionTarget: {
@@ -44,6 +45,7 @@ const provisionMixin = {
         this.provisionError = '';
         this.provisionSuccess = '';
         this.isProvisioning = false;
+        this.showPass = false;
         this.isProvisionModalOpen = true;
     },
 

@@ -1,8 +1,11 @@
+import logging
 import uuid
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session
+
+logger = logging.getLogger(__name__)
 
 from ...core.users import require_billing
 from ...db.engine_sync import get_sync_session
@@ -14,8 +17,9 @@ from ...services.client_service import ClientService as ClientManagerService
 from ...services.payment_service import PaymentService
 from .models import (
     AssignedCPE,
-    Client,
     ClientCreate,
+    ClientPagination,
+    ClientRead,
     ClientService,
     ClientServiceCreate,
     ClientUpdate,
@@ -42,7 +46,7 @@ def get_billing_service(session: Session = Depends(get_sync_session)) -> Billing
 # --- Client Endpoints ---
 
 
-@router.get("/clients")
+@router.get("/clients", response_model=ClientPagination)
 def api_get_all_clients(
     page: int = 1,
     page_size: int = 10,
@@ -50,36 +54,30 @@ def api_get_all_clients(
     status: Optional[str] = None,
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
-) -> dict[str, Any]:
+) -> ClientPagination:
     return service.get_clients_paginated(page, page_size, search, status)
 
 
-@router.get("/clients/{client_id}", response_model=Client)
+@router.get("/clients/{client_id}", response_model=ClientRead)
 def api_get_client(
     client_id: uuid.UUID,
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
 ):
-    try:
-        return service.get_client_by_id(client_id)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return service.get_client_by_id(client_id)
 
 
-@router.post("/clients", response_model=Client, status_code=status.HTTP_201_CREATED)
+@router.post("/clients", response_model=ClientRead, status_code=status.HTTP_201_CREATED)
 def api_create_client(
     client: ClientCreate,
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
 ):
-    try:
-        new_client = service.create_client(client.model_dump())
-        return new_client
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    new_client = service.create_client(client.model_dump())
+    return new_client
 
 
-@router.put("/clients/{client_id}", response_model=Client)
+@router.put("/clients/{client_id}", response_model=ClientRead)
 def api_update_client(
     client_id: uuid.UUID,
     client_update: ClientUpdate,
@@ -87,13 +85,8 @@ def api_update_client(
     current_user: User = Depends(require_billing),
 ):
     update_fields = client_update.model_dump(exclude_unset=True)
-    try:
-        updated_client = service.update_client(client_id, update_fields)
-        return updated_client
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    updated_client = service.update_client(client_id, update_fields)
+    return updated_client
 
 
 @router.delete("/clients/{client_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -105,12 +98,9 @@ def api_delete_client(
 ):
     from ...core.audit import log_action
 
-    try:
-        service.delete_client(client_id)
-        log_action("DELETE", "client", str(client_id), user=current_user, request=request)
-        return
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    service.delete_client(client_id)
+    log_action("DELETE", "client", str(client_id), user=current_user, request=request)
+    return
 
 
 @router.get("/clients/{client_id}/cpes", response_model=list[AssignedCPE])
@@ -136,13 +126,8 @@ def api_create_client_service(
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
 ):
-    try:
-        new_service = service.create_client_service(client_id, service_data.model_dump())
-        return new_service
-    except ValueError as e:
-        if "ya existe" in str(e):
-            raise HTTPException(status_code=409, detail=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
+    new_service = service.create_client_service(client_id, service_data.model_dump())
+    return new_service
 
 
 @router.get("/clients/{client_id}/services", response_model=list[ClientService])
@@ -170,16 +155,8 @@ def api_change_service_plan(
     - For Simple Queue: Updates the queue limit on the router
     - Kills active PPPoE connection to force re-auth with new settings
     """
-    try:
-        result = service.change_client_service_plan(service_id, new_plan_id)
-        return result
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        print(f"Error changing plan: {e}")
-        raise HTTPException(status_code=500, detail=f"Error changing plan: {e}")
+    result = service.change_client_service_plan(service_id, new_plan_id)
+    return result
 
 
 @router.put("/services/{service_id}", response_model=ClientService)
@@ -190,14 +167,9 @@ def api_update_client_service(
     current_user: User = Depends(require_billing),
 ):
     """Update an existing client service."""
-    try:
-        return service.update_client_service(
-            service_id, service_update.model_dump(exclude_unset=True)
-        )
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return service.update_client_service(
+        service_id, service_update.model_dump(exclude_unset=True)
+    )
 
 
 @router.delete("/services/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -207,11 +179,8 @@ def api_delete_client_service(
     current_user: User = Depends(require_billing),
 ):
     """Delete a client service."""
-    try:
-        service.delete_client_service(service_id)
-        return
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    service.delete_client_service(service_id)
+    return
 
 
 @router.put("/services/{service_id}/pppoe-profile")
@@ -227,16 +196,8 @@ def api_change_pppoe_profile(
     This endpoint is used for PPPoE services where the profile is selected
     from the router's available profiles rather than from the local plans database.
     """
-    try:
-        result = service.change_pppoe_service_profile(service_id, new_profile)
-        return result
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        print(f"Error changing PPPoE profile: {e}")
-        raise HTTPException(status_code=500, detail=f"Error changing profile: {e}")
+    result = service.change_pppoe_service_profile(service_id, new_profile)
+    return result
 
 
 @router.post("/services/{service_id}/sync")
@@ -252,16 +213,8 @@ def api_sync_service_to_router(
     useful when the original provisioning failed or was incomplete.
     Creates/updates Simple Queue or PPPoE secret as needed.
     """
-    try:
-        result = service.sync_client_service_to_router(service_id)
-        return result
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        print(f"Error syncing service to router: {e}")
-        raise HTTPException(status_code=500, detail=f"Error syncing service: {e}")
+    result = service.sync_client_service_to_router(service_id)
+    return result
 
 
 # --- Payment Endpoints ---
@@ -283,11 +236,8 @@ def api_register_payment_and_reactivate(
     Register a payment and execute reactivation logic (if applicable).
     """
     # 1. Check for duplicate payments
-    if payment_service.check_payment_exists(client_id, payment.mes_correspondiente):
-        raise HTTPException(
-            status_code=409,  # Conflict
-            detail=f"El pago para el mes {payment.mes_correspondiente} ya está registrado.",
-        )
+    # 1. Check for duplicate payments (raises DuplicateError if found)
+    payment_service.check_payment_exists(client_id, payment.mes_correspondiente)
 
     try:
         # Register payment and reactivate service
@@ -298,9 +248,8 @@ def api_register_payment_and_reactivate(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        # Log the real error to server console
-        print(f"Error crítico en pagos: {e}")
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {e}")
+        logger.error(f"Error crítico en pagos: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error interno procesando el pago")
 
 
 @router.get("/clients/{client_id}/payments", response_model=list[Payment])

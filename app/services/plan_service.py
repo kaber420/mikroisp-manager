@@ -5,6 +5,7 @@ from sqlmodel import Session, select
 
 from ..models.plan import Plan
 from ..models.router import Router
+from ..core.exceptions import DuplicateError
 from .base_service import BaseCRUDService
 
 
@@ -92,7 +93,7 @@ class PlanService(BaseCRUDService[Plan]):
                 )
             ).first()
             if existing:
-                raise ValueError(f"El plan universal '{plan_name}' ya existe.")
+                raise DuplicateError(f"El plan universal '{plan_name}' ya existe.")
         else:
             # Router-specific plan: check uniqueness for this router
             existing = self.session.exec(
@@ -101,7 +102,7 @@ class PlanService(BaseCRUDService[Plan]):
                 )
             ).first()
             if existing:
-                raise ValueError(f"El plan '{plan_name}' ya existe en este router.")
+                raise DuplicateError(f"El plan '{plan_name}' ya existe en este router.")
 
         # Use base class create for the actual DB operation
         return super().create(plan_data)

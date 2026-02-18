@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlmodel import Session, func, select
 
 from ..core.constants import CPEStatus
+from ..core.exceptions import InvalidOperationError, DeviceNotFoundError
 from ..models.cpe import CPE
 from ..models.stats import CPEStats, APStats # Import stats models
 from ..models.ap import AP
@@ -30,7 +31,7 @@ class CPEService:
         """Asigna un CPE a un cliente."""
         cpe = self.session.get(CPE, mac)
         if not cpe:
-            raise FileNotFoundError("CPE not found.")
+            raise DeviceNotFoundError("CPE not found.")
 
         cpe.client_id = client_id
         self.session.add(cpe)
@@ -42,7 +43,7 @@ class CPEService:
         """Desasigna un CPE de cualquier cliente."""
         cpe = self.session.get(CPE, mac)
         if not cpe:
-            raise FileNotFoundError("CPE not found.")
+            raise DeviceNotFoundError("CPE not found.")
 
         cpe.client_id = None
         self.session.add(cpe)
@@ -54,7 +55,7 @@ class CPEService:
         """Deshabilita un CPE (soft-delete) en la base de datos."""
         cpe = self.session.get(CPE, mac)
         if not cpe:
-            raise FileNotFoundError("CPE not found.")
+            raise DeviceNotFoundError("CPE not found.")
 
         cpe.is_enabled = False
         self.session.add(cpe)
@@ -65,10 +66,10 @@ class CPEService:
         """Elimina permanentemente un CPE de la base de datos."""
         cpe = self.session.get(CPE, mac)
         if not cpe:
-            raise FileNotFoundError("CPE not found.")
+            raise DeviceNotFoundError("CPE not found.")
         
         if cpe.is_enabled:
-            raise ValueError("CPE must be disabled before it can be permanently deleted.")
+            raise InvalidOperationError("CPE must be disabled before it can be permanently deleted.")
         
         self.session.delete(cpe)
         self.session.commit()
@@ -88,7 +89,7 @@ class CPEService:
         """Actualiza campos de un CPE existente."""
         cpe = self.session.get(CPE, mac)
         if not cpe:
-            raise FileNotFoundError("CPE not found.")
+            raise DeviceNotFoundError("CPE not found.")
 
         allowed_fields = {"ip_address", "hostname", "model"}
         for key, value in update_data.items():

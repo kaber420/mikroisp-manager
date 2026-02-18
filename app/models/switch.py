@@ -23,3 +23,7 @@ class Switch(SQLModel, table=True):
     notes: str | None = Field(default=None)
     last_status: str | None = Field(default=None)
     last_checked: datetime | None = Field(default=None)
+
+    # Master credentials (administrative access, separate from API credentials)
+    master_username: str | None = Field(default=None)
+    master_password: str | None = Field(default=None)  # Encriptado con encrypt_data()

@@ -10,7 +10,15 @@ from datetime import datetime
 from typing import Any
 
 import aiofiles
-from fastapi import HTTPException, UploadFile
+from fastapi import UploadFile
+
+from ..core.exceptions import (
+    DeletionBlockedError,
+    DuplicateError,
+    NotFoundError,
+    ValidationError,
+    ZoneNotFoundError,
+)
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -37,7 +45,7 @@ class ZoneService(BaseCRUDService[Zona]):
         """Create a new zone with uniqueness validation."""
         existing = self.session.exec(select(Zona).where(Zona.nombre == nombre)).first()
         if existing:
-            raise ValueError(f"El nombre de la zona '{nombre}' ya existe.")
+            raise DuplicateError(f"El nombre de la zona '{nombre}' ya existe.")
 
         new_zona = Zona(nombre=nombre)
         self.session.add(new_zona)
@@ -47,7 +55,7 @@ class ZoneService(BaseCRUDService[Zona]):
             return new_zona
         except IntegrityError:
             self.session.rollback()
-            raise ValueError(f"El nombre de la zona '{nombre}' ya existe.")
+            raise DuplicateError(f"El nombre de la zona '{nombre}' ya existe.")
 
     def get_all_zonas(self) -> list[Zona]:
         """Get all zones ordered by name. Uses inherited get_all with custom ordering."""
@@ -58,11 +66,7 @@ class ZoneService(BaseCRUDService[Zona]):
         Get zone by ID.
         Raises FileNotFoundError for backward compatibility with controllers.
         """
-        try:
-            zona = super().get_by_id(zona_id)
-        except HTTPException:
-            # Re-raise as FileNotFoundError for backward compatibility
-            raise FileNotFoundError("Zona no encontrada.")
+        zona = super().get_by_id(zona_id)
         return zona
 
     def update_zona(self, zona_id: int, update_data: dict[str, Any]) -> Zona:
@@ -72,7 +76,7 @@ class ZoneService(BaseCRUDService[Zona]):
         """
         zona = self.session.get(Zona, zona_id)
         if not zona:
-            raise FileNotFoundError("Zona no encontrada.")
+            raise ZoneNotFoundError("Zona no encontrada.")
 
         for key, value in update_data.items():
             setattr(zona, key, value)
@@ -83,7 +87,7 @@ class ZoneService(BaseCRUDService[Zona]):
             self.session.refresh(zona)
         except IntegrityError:
             self.session.rollback()
-            raise ValueError("El nombre de la zona ya existe.")
+            raise DuplicateError("El nombre de la zona ya existe.")
         return zona
 
     def delete_zona(self, zona_id: int):
@@ -99,18 +103,18 @@ class ZoneService(BaseCRUDService[Zona]):
             select(AP).where(AP.zona_id == zona_id).limit(1)
         ).first()
         if res_aps:
-            raise ValueError("No se puede eliminar la zona porque contiene APs.")
+            raise DeletionBlockedError("No se puede eliminar la zona porque contiene APs.")
 
         # Check for Routers in zone
         res_routers = self.session.exec(
             select(Router).where(Router.zona_id == zona_id).limit(1)
         ).first()
         if res_routers:
-            raise ValueError("No se puede eliminar la zona porque contiene Routers.")
+            raise DeletionBlockedError("No se puede eliminar la zona porque contiene Routers.")
 
         zona = self.session.get(Zona, zona_id)
         if not zona:
-            raise FileNotFoundError("Zona no encontrada para eliminar.")
+            raise ZoneNotFoundError("Zona no encontrada para eliminar.")
 
         self.session.delete(zona)
         self.session.commit()
@@ -121,7 +125,7 @@ class ZoneService(BaseCRUDService[Zona]):
         """Get zone with all details and decrypted notes."""
         zona = self.session.get(Zona, zona_id)
         if not zona:
-            raise FileNotFoundError("Zona no encontrada.")
+            raise ZoneNotFoundError("Zona no encontrada.")
 
         # Decrypt note content for encrypted notes
         for note in zona.notes:
@@ -160,9 +164,8 @@ class ZoneService(BaseCRUDService[Zona]):
         # Security: Validate file extension against whitelist
         if file_extension not in self.ALLOWED_EXTENSIONS:
             allowed_list = ", ".join(sorted(self.ALLOWED_EXTENSIONS))
-            raise HTTPException(
-                status_code=400,
-                detail=f"Tipo de archivo no permitido. Extensiones permitidas: {allowed_list}",
+            raise ValidationError(
+                f"Tipo de archivo no permitido. Extensiones permitidas: {allowed_list}"
             )
 
         file_type = "image" if file_extension in self.ALLOWED_IMAGE_EXTENSIONS else "document"
@@ -177,7 +180,7 @@ class ZoneService(BaseCRUDService[Zona]):
                 content = await file.read()
                 await out_file.write(content)
         except Exception as e:
-            raise Exception(f"No se pudo guardar el archivo: {e}")
+            raise ValidationError(f"No se pudo guardar el archivo: {e}")
 
         new_doc = ZonaDocumento(
             zona_id=zona_id,
@@ -195,7 +198,7 @@ class ZoneService(BaseCRUDService[Zona]):
         """Delete a document and its file."""
         doc = self.session.get(ZonaDocumento, doc_id)
         if not doc:
-            raise FileNotFoundError("Documento no encontrado.")
+            raise NotFoundError("Documento no encontrado.")
 
         file_path = os.path.join("data", "uploads", "zonas", str(doc.zona_id), doc.nombre_guardado)
         if os.path.exists(file_path):
@@ -228,7 +231,7 @@ class ZoneService(BaseCRUDService[Zona]):
         """Get a note by ID with decryption."""
         note = self.session.get(ZonaNote, note_id)
         if not note:
-            raise FileNotFoundError("Nota no encontrada.")
+            raise NotFoundError("Nota no encontrada.")
 
         if note.is_encrypted and note.content:
             note.content = decrypt_data(note.content)
@@ -238,7 +241,7 @@ class ZoneService(BaseCRUDService[Zona]):
         """Update a note with optional encryption."""
         note = self.session.get(ZonaNote, note_id)
         if not note:
-            raise FileNotFoundError("Nota no encontrada para actualizar.")
+            raise NotFoundError("Nota no encontrada para actualizar.")
 
         final_content = encrypt_data(content) if is_encrypted else content
 
@@ -259,7 +262,7 @@ class ZoneService(BaseCRUDService[Zona]):
         """Delete a note by ID."""
         note = self.session.get(ZonaNote, note_id)
         if not note:
-            raise FileNotFoundError("Nota no encontrada para eliminar.")
+            raise NotFoundError("Nota no encontrada para eliminar.")
 
         self.session.delete(note)
         self.session.commit()

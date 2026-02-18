@@ -9,7 +9,9 @@ from sqlmodel import select
 from ..core.constants import DeviceStatus
 from ..models.router import Router
 from ..models.zona import Zona
+from ..models.zona import Zona
 from ..utils.security import decrypt_data, encrypt_data
+from ..core.exceptions import DuplicateError
 
 
 async def get_router_by_host(session: AsyncSession, host: str) -> Router | None:
@@ -60,15 +62,18 @@ async def create_router_in_db(session: AsyncSession, router_data: dict[str, Any]
     data = router_data.copy()
     if "password" in data:
         data["password"] = encrypt_data(data["password"])
+    if "master_password" in data and data["master_password"]:
+        data["master_password"] = encrypt_data(data["master_password"])
 
     router = Router(**data)
     session.add(router)
     try:
         await session.commit()
         await session.refresh(router)
-    except Exception as e:
+    except Exception:
         await session.rollback()
-        raise ValueError(f"Router host (IP) '{router_data.get('host')}' ya existe o error: {e}")
+        raise DuplicateError(f"Ya existe un router con el host '{router_data.get('host')}'")
+
 
     # Return fetched version (decrypted)
     created = await get_router_by_host(session, router.host)
@@ -94,6 +99,8 @@ async def update_router_in_db(session: AsyncSession, host: str, updates: dict[st
         # Cifrar la contraseña si se está actualizando
         if "password" in clean_updates and clean_updates["password"]:
             clean_updates["password"] = encrypt_data(clean_updates["password"])
+        if "master_password" in clean_updates and clean_updates["master_password"]:
+            clean_updates["master_password"] = encrypt_data(clean_updates["master_password"])
 
         # Update attributes
         for key, value in clean_updates.items():

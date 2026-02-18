@@ -75,6 +75,7 @@ document.addEventListener('alpine:init', () => {
                 this.currentSwitch = {
                     ...sw,
                     password: '', // Clear password for security
+                    master_password: '' // Clear for security
                 };
             } else {
                 this.isEditing = false;
@@ -86,6 +87,8 @@ document.addEventListener('alpine:init', () => {
                     password: '',
                     location: '',
                     notes: '',
+                    master_username: '',
+                    master_password: ''
                 };
             }
             this.isModalOpen = true;
@@ -118,6 +121,9 @@ document.addEventListener('alpine:init', () => {
             const body = { ...this.currentSwitch };
             if (this.isEditing && !body.password) {
                 delete body.password;
+            }
+            if (this.isEditing && !body.master_password) {
+                delete body.master_password;
             }
 
             // Convert empty zona_id to null

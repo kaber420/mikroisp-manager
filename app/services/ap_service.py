@@ -23,21 +23,21 @@ from ..utils.device_clients.mikrotik import wireless as mikrotik_wireless
 from ..utils.security import decrypt_data, encrypt_data
 
 
-# --- Excepciones personalizadas del Servicio ---
-class APNotFoundError(Exception):
-    pass
+from sqlalchemy.exc import IntegrityError
 
+from ..core.exceptions import (
+    DeviceNotFoundError,
+    DuplicateError,
+    ServiceUnavailableError,
+    DeviceError,
+    ValidationError,
+)
 
-class APUnreachableError(Exception):
-    pass
-
-
-class APDataError(Exception):
-    pass
-
-
-class APCreateError(Exception):
-    pass
+# --- Alias de Excepciones del Servicio (heredan de AppError) ---
+APNotFoundError = DeviceNotFoundError
+APUnreachableError = ServiceUnavailableError
+APDataError = DeviceError
+APCreateError = ValidationError
 
 
 class APService:
@@ -93,6 +93,8 @@ class APService:
             # Encrypt password
             if "password" in ap_dict:
                 ap_dict["password"] = encrypt_data(ap_dict["password"])
+            if "master_password" in ap_dict and ap_dict["master_password"]:
+                ap_dict["master_password"] = encrypt_data(ap_dict["master_password"])
 
             new_ap = AP(**ap_dict)
             self.session.add(new_ap)
@@ -100,8 +102,12 @@ class APService:
             await self.session.refresh(new_ap)
 
             return await self.get_ap_by_host(new_ap.host)
-        except Exception as e:
-            raise APCreateError(str(e))
+        except IntegrityError:
+            await self.session.rollback()
+            raise DuplicateError(f"Ya existe un AP con el host '{ap_data.host}'")
+        except Exception:
+            await self.session.rollback()
+            raise APCreateError("Error inesperado al crear el AP")
 
     async def update_ap(self, host: str, ap_update: APUpdate) -> dict[str, Any]:
         """Actualiza un AP existente."""
@@ -118,6 +124,12 @@ class APService:
                 del update_fields["password"]
             else:
                 update_fields["password"] = encrypt_data(update_fields["password"])
+
+        if "master_password" in update_fields:
+            if not update_fields["master_password"]:
+                del update_fields["master_password"]
+            else:
+                update_fields["master_password"] = encrypt_data(update_fields["master_password"])
 
         for key, value in update_fields.items():
             setattr(ap, key, value)

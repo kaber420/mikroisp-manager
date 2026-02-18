@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -25,6 +25,8 @@ class RouterCreate(BaseModel):
     host: str
     username: str
     password: str
+    master_username: str | None = None
+    master_password: str | None = None
     zona_id: int | None = None
     api_port: int
     is_enabled: bool = True
@@ -33,24 +35,13 @@ class RouterCreate(BaseModel):
 class RouterUpdate(BaseModel):
     username: str | None = None
     password: str | None = None
+    master_username: str | None = None
+    master_password: str | None = None
     zona_id: int | None = None
     api_port: int | None = None
     is_enabled: bool | None = None
     wan_interface: str | None = None
 
-
-class ProvisionRequest(BaseModel):
-    new_api_user: str
-    new_api_password: str
-    method: Literal["api", "ssh"] = (
-        "api"  # 'api' uses existing API method, 'ssh' uses pure SSH method
-    )
-
-
-class ProvisionResponse(BaseModel):
-    status: str
-    message: str
-    method_used: str | None = None
 
 
 class GenericActionResponse(BaseModel):

@@ -1,5 +1,8 @@
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException
+
+logger = logging.getLogger(__name__)
 from sqlalchemy import func, text
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -61,17 +64,7 @@ async def get_top_aps_by_airtime(
         return rows
         
     except Exception as e:
-        # In case of table name mismatch (SQLModel defaults to lower case usually? 
-        # Actually standard sqlmodel is class name lower cased if not specified? 
-        # I didn't specify __tablename__ in stats.py for APStats/CPEStats, so it defaults to classname "apstats".
-        # But wait, original code used "ap_stats_history".
-        # I should check stats.py class definition. 
-        # I defined: class APStats(SQLModel, table=True) -> default table name "apstats"
-        # I should double check if I want to enforce legacy names.
-        # But since I am creating new tables via create_db_and_tables, "apstats" is fine.
-        # However, data migration (NOT done automatically) means these tables start empty. 
-        # That is acceptable per plan ("This plan focuses on NEW data").
-        print(f"Error getting top APs: {e}")
+        logger.error(f"Error getting top APs: {e}", exc_info=True)
         return []
 
 
@@ -101,7 +94,7 @@ async def get_top_cpes_by_weak_signal(
         rows = [dict(row) for row in result.mappings()]
         return rows
     except Exception as e:
-        print(f"Error getting top CPEs: {e}")
+        logger.error(f"Error getting top CPEs: {e}", exc_info=True)
         return []
 
 
@@ -134,7 +127,8 @@ async def get_cpe_total_count(
             "disabled": disabled,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+        logger.error(f"Error obteniendo conteo de CPEs: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error obteniendo estadísticas de CPEs")
 
 
 @router.get("/stats/switch-count", response_model=SwitchCount)
@@ -158,7 +152,8 @@ async def get_switch_total_count(
             "offline": offline,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+        logger.error(f"Error obteniendo conteo de switches: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error obteniendo estadísticas de switches")
 
 
 @router.get("/stats/tickets", response_model=TicketStats)
@@ -189,9 +184,8 @@ async def get_ticket_stats(
             "installation_tickets": installation.one(),
         }
     except Exception as e:
-        # Check if Ticket model is imported, if not, import it inside or top
-        # It is NOT imported at top! I need to add import.
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+        logger.error(f"Error obteniendo estadísticas de tickets: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error obteniendo estadísticas de tickets")
 
 
 @router.get("/stats/events")

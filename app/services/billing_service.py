@@ -18,6 +18,7 @@ from ..models.client import Client
 from ..models.payment import Payment
 from ..models.router import Router
 from ..models.setting import Setting
+from ..core.exceptions import ClientNotFoundError, PaymentNotFoundError, RouterNotFoundError, DuplicateError
 from .client_service import ClientService
 from .payment_service import PaymentService
 from .router_service import RouterService
@@ -49,7 +50,7 @@ class BillingService:
         """Helper to get router credentials from database."""
         router = self.session.get(Router, host)
         if not router:
-            raise ValueError(f"Router {host} not found in database")
+            raise RouterNotFoundError(f"Router {host} no encontrado en base de datos")
         return router
 
     def reactivate_client_services(
@@ -61,9 +62,9 @@ class BillingService:
         # 1. Get current client status
         client = self.client_service.get_client_by_id(client_id)
         if not client:
-            raise ValueError(f"Cliente {client_id} no encontrado.")
+            raise ClientNotFoundError(f"Cliente {client_id} no encontrado.")
 
-        previous_status = client.get("service_status")
+        previous_status = client.service_status
 
         # 2. Register payment (always done)
         new_payment = self.payment_service.create_payment(client_id, payment_data)
@@ -183,11 +184,11 @@ class BillingService:
         stats = {"active": 0, "pendiente": 0, "suspended": 0, "processed": 0}
 
         for client in all_clients:
-            if client["service_status"] == "cancelled":
+            if client.service_status == "cancelled":
                 continue
 
-            cid = client["id"]
-            billing_day = client["billing_day"]
+            cid = client.id
+            billing_day = client.billing_day
 
             if not billing_day:
                 continue
@@ -199,9 +200,13 @@ class BillingService:
 
             # Billing cycle is usually "current month" for recurring services
             cycle_str = due_date.strftime("%Y-%m")
-            has_paid = self.payment_service.check_payment_exists(cid, cycle_str)
+            try:
+                self.payment_service.check_payment_exists(cid, cycle_str)
+                has_paid = False
+            except DuplicateError:
+                has_paid = True
 
-            new_status = client["service_status"]
+            new_status = client.service_status
             should_suspend_technically = False
 
             if has_paid:
@@ -229,7 +234,7 @@ class BillingService:
                     if new_status == "pendiente":
                         new_status = "active"
 
-            if new_status != client["service_status"]:
+            if new_status != client.service_status:
                 self.client_service.update_client(cid, {"service_status": new_status})
                 if should_suspend_technically:
                     self._suspend_technically(cid)
@@ -355,17 +360,18 @@ class BillingService:
             Dictionary with payment, client, settings, and billing cycle info
             
         Raises:
-            ValueError: If payment or client not found
+            PaymentNotFoundError: If payment not found
+            ClientNotFoundError: If client not found
         """
         # Fetch payment
         payment = self.session.get(Payment, payment_id)
         if not payment:
-            raise ValueError(f"Pago no encontrado: {payment_id}")
+            raise PaymentNotFoundError(f"Pago no encontrado: {payment_id}")
 
         # Fetch client
         client = self.session.get(Client, payment.client_id)
         if not client:
-            raise ValueError(f"Cliente no encontrado para el pago: {payment_id}")
+            raise ClientNotFoundError(f"Cliente no encontrado para el pago: {payment_id}")
 
         # Fetch all settings synchronously
         all_settings = self.session.query(Setting).all()

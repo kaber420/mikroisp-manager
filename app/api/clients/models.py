@@ -6,7 +6,9 @@ from pydantic import BaseModel, ConfigDict
 
 
 # --- Modelos Pydantic (Cliente) ---
-class Client(BaseModel):
+class ClientRead(BaseModel):
+    """DTO de lectura para clientes. Usado como response_model en endpoints."""
+
     id: uuid.UUID
     name: str
     address: str | None = None
@@ -15,11 +17,22 @@ class Client(BaseModel):
     email: str | None = None
     telegram_contact: str | None = None
     coordinates: str | None = None
+    notes: str | None = None
     service_status: str
     billing_day: int | None = None
     created_at: datetime
     cpe_count: int | None = 0
     model_config = ConfigDict(from_attributes=True)
+
+
+class ClientPagination(BaseModel):
+    """DTO para respuestas paginadas de clientes."""
+
+    items: list[ClientRead]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
 
 
 class ClientCreate(BaseModel):

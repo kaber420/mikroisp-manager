@@ -128,7 +128,8 @@ document.addEventListener('alpine:init', () => {
                 this.originalHost = ap.host;
                 this.currentAp = {
                     ...ap,
-                    password: '' // Clear for security
+                    password: '', // Clear for security
+                    master_password: '' // Clear for security
                 };
             } else {
                 this.isEditing = false;
@@ -140,7 +141,9 @@ document.addEventListener('alpine:init', () => {
                     password: '',
                     monitor_interval: '',
                     vendor: 'ubiquiti',
-                    api_port: ''
+                    api_port: '',
+                    master_username: '',
+                    master_password: ''
                 };
             }
             this.isModalOpen = true;
@@ -236,6 +239,7 @@ document.addEventListener('alpine:init', () => {
             if (this.isEditing) {
                 delete payload.host;
                 if (!payload.password) delete payload.password;
+                if (!payload.master_password) delete payload.master_password;
             }
 
             try {

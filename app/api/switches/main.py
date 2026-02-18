@@ -8,15 +8,19 @@ import asyncio
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...core.audit import log_action
 from ...core.constants import DeviceStatus
 from ...core.users import require_admin, require_technician
 from ...db.engine import get_session
 from ...models.user import User
 from ...services import switch_service
+from ...services.provisioning import MikrotikProvisioningService
+from ...services.provisioning.models import ProvisionRequest, ProvisionResponse
+from ...utils.security import encrypt_data
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +46,8 @@ class SwitchCreate(SwitchBase):
     """Model for creating a new switch."""
 
     password: str = Field(..., description="API password")
+    master_username: str | None = None
+    master_password: str | None = None
 
 
 class SwitchUpdate(BaseModel):
@@ -49,6 +55,8 @@ class SwitchUpdate(BaseModel):
 
     username: str | None = None
     password: str | None = None
+    master_username: str | None = None
+    master_password: str | None = None
     zona_id: int | None = None
     api_port: int | None = None
     is_enabled: bool | None = None
@@ -180,15 +188,9 @@ async def create_switch(
     """
     Register a new Switch in the system.
     """
-    try:
-        switch_data = switch.model_dump()
-        new_switch = await switch_service.create_switch(session, switch_data)
-        return SwitchResponse(**new_switch)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error creating switch: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    switch_data = switch.model_dump()
+    new_switch = await switch_service.create_switch(session, switch_data)
+    return SwitchResponse(**new_switch)
 
 
 @router.get("/switches", response_model=list[SwitchResponse])
@@ -298,16 +300,10 @@ async def get_switch_live_status(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
         )
 
-    try:
-        service = await switch_service.get_switch_service(session, host)
-        status_data = service.get_status()
-        service.disconnect()
-        return status_data
-    except switch_service.SwitchConnectionError as e:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error getting live status for switch {host}: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    service = await switch_service.get_switch_service(session, host)
+    status_data = service.get_status()
+    service.disconnect()
+    return status_data
 
 
 @router.post("/switches/validate")
@@ -441,16 +437,10 @@ async def get_switch_interfaces(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
         )
 
-    try:
-        service = await switch_service.get_switch_service(session, host)
-        interfaces = service.get_interfaces()
-        service.disconnect()
-        return interfaces
-    except switch_service.SwitchConnectionError as e:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error getting interfaces for switch {host}: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    service = await switch_service.get_switch_service(session, host)
+    interfaces = service.get_interfaces()
+    service.disconnect()
+    return interfaces
 
 
 @router.get("/switches/{host}/bridges")
@@ -468,16 +458,10 @@ async def get_switch_bridges(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
         )
 
-    try:
-        service = await switch_service.get_switch_service(session, host)
-        bridges = service.get_bridges()
-        service.disconnect()
-        return bridges
-    except switch_service.SwitchConnectionError as e:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error getting bridges for switch {host}: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    service = await switch_service.get_switch_service(session, host)
+    bridges = service.get_bridges()
+    service.disconnect()
+    return bridges
 
 
 @router.get("/switches/{host}/vlans")
@@ -495,16 +479,10 @@ async def get_switch_vlans(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
         )
 
-    try:
-        service = await switch_service.get_switch_service(session, host)
-        vlans = service.get_vlans()
-        service.disconnect()
-        return vlans
-    except switch_service.SwitchConnectionError as e:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error getting VLANs for switch {host}: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    service = await switch_service.get_switch_service(session, host)
+    vlans = service.get_vlans()
+    service.disconnect()
+    return vlans
 
 
 @router.get("/switches/{host}/backups")
@@ -522,16 +500,10 @@ async def get_switch_backups(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
         )
 
-    try:
-        service = await switch_service.get_switch_service(session, host)
-        backups = service.get_backup_files()
-        service.disconnect()
-        return backups
-    except switch_service.SwitchConnectionError as e:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error getting backups for switch {host}: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    service = await switch_service.get_switch_service(session, host)
+    backups = service.get_backup_files()
+    service.disconnect()
+    return backups
 
 
 @router.get("/switches/{host}/port-stats")
@@ -549,16 +521,10 @@ async def get_switch_port_stats(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
         )
 
-    try:
-        service = await switch_service.get_switch_service(session, host)
-        port_stats = service.get_port_stats()
-        service.disconnect()
-        return port_stats
-    except switch_service.SwitchConnectionError as e:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error getting port stats for switch {host}: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    service = await switch_service.get_switch_service(session, host)
+    port_stats = service.get_port_stats()
+    service.disconnect()
+    return port_stats
 
 
 @router.get("/switches/{host}/ssl/status")
@@ -579,20 +545,94 @@ async def get_switch_ssl_status(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} not found"
         )
 
+    service = await switch_service.get_switch_service(session, host)
+
+    # MikrotikSwitchAdapter inherits get_ssl_status from MikrotikRouterAdapter
+    status_data = service.get_ssl_status()
+    service.disconnect()
+
+    return status_data
+
+
+@router.post("/switches/{host}/provision", response_model=ProvisionResponse)
+async def provision_switch(
+    host: str,
+    data: ProvisionRequest,
+    request: Request,
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Provisiona un Switch MikroTik con acceso API-SSL seguro.
+    Crea un usuario API dedicado e instala certificados SSL.
+    Usa el servicio compartido MikrotikProvisioningService.
+    """
+    switch_data = await switch_service.get_switch_by_host(session, host)
+    if not switch_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Switch {host} no encontrado"
+        )
+
+    if switch_data.get("is_provisioned"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El switch ya está aprovisionado. Use 'repair' para renovar SSL.",
+        )
+
+    current_password = switch_data.get("password", "")
+    ssl_port = switch_data.get("api_ssl_port") or 8729
+
     try:
-        service = await switch_service.get_switch_service(session, host)
+        result = await MikrotikProvisioningService.provision_device(
+            host=host,
+            current_username=switch_data.get("username", ""),
+            current_password=current_password,
+            new_user=data.new_api_user,
+            new_password=data.new_api_password,
+            ssl_port=ssl_port,
+            method=data.method,
+            device_type="switch",
+            current_api_port=switch_data.get("api_port", 8728),
+        )
 
-        # MikrotikSwitchAdapter inherits get_ssl_status from MikrotikRouterAdapter
-        status_data = service.get_ssl_status()
-        service.disconnect()
+        if result.get("status") == "error":
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result.get("message", "Provisioning failed"),
+            )
 
-        return status_data
+        # Guardar credenciales maestras ANTES de sobrescribir (solo si no existen)
+        if not switch_data.get("master_username"):
+            master_update = {
+                "master_username": switch_data.get("username"),
+                "master_password": switch_data.get("password"),  # Desencriptado; update_switch re-encripta
+            }
+            await switch_service.update_switch(session, host, master_update)
 
-    except switch_service.SwitchConnectionError as e:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
+        # Update switch credentials in DB with new API credentials
+        update_data = {
+            "username": data.new_api_user,
+            "password": data.new_api_password,  # switch_service encrypts internally
+            "api_port": ssl_port,  # Now use SSL port
+            "is_provisioned": True,
+        }
+        await switch_service.update_switch(session, host, update_data)
+
+        log_action("PROVISION", "switch", host, user=current_user, request=request)
+
+        return ProvisionResponse(
+            status="success",
+            message=result.get("message", "Switch aprovisionado con API-SSL seguro."),
+            method_used=result.get("method_used", data.method),
+        )
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting SSL status for switch {host}: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        logger.error(f"Provisioning failed for switch {host}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
 
 
 class SwitchRepairRequest(BaseModel):
@@ -623,8 +663,13 @@ async def repair_switch_ssl(
     action = body.action if body else "renew"
 
     if action == "unprovision":
-        # Mark switch as needing re-provisioning
-        await switch_service.update_switch(session, host, {"is_provisioned": False})
+        # Restaurar credenciales maestras al desprovisionar
+        update_data = {"is_provisioned": False}
+        if switch_data.get("master_username"):
+            update_data["username"] = switch_data.get("master_username")
+        if switch_data.get("master_password"):
+            update_data["password"] = switch_data.get("master_password")  # Desencriptado; update_switch re-encripta
+        await switch_service.update_switch(session, host, update_data)
         return {
             "status": "success",
             "message": "Switch desvinculado. Listo para re-aprovisionar.",
@@ -633,8 +678,6 @@ async def repair_switch_ssl(
 
     elif action == "renew":
         # Use MikrotikProvisioningService.renew_ssl for consistency
-        from ...services.provisioning import MikrotikProvisioningService
-
         result = await MikrotikProvisioningService.renew_ssl(
             host=host,
             username=switch_data.get("username", ""),

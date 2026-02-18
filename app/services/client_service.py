@@ -2,16 +2,29 @@
 """
 Client service layer using SQLModel ORM.
 Refactored to use SQLModel instead of raw SQL from clients_db.
+Returns Pydantic DTOs (ClientRead, ClientPagination) instead of dicts.
 """
 
 import logging
 import uuid
 from typing import Any
 
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select, or_
 
 from app.models import Client
+from ..core.exceptions import (
+    ClientNotFoundError,
+    DeviceCommandError,
+    DuplicateError,
+    InvalidOperationError,
+    MissingFieldError,
+    RouterNotFoundError,
+    ServiceNotFoundError,
+    ValidationError,
+)
 
+from ..api.clients.models import ClientPagination, ClientRead
 from ..models.cpe import CPE
 from ..models.router import Router
 from ..models.service import ClientService as ClientServiceModel
@@ -46,9 +59,10 @@ class ClientService:
         page_size: int = 10,
         search: str | None = None,
         status_filter: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> ClientPagination:
         """
         Get paginated clients with filtering.
+        Returns a ClientPagination DTO.
         """
         # Build filters
         filters = []
@@ -79,16 +93,15 @@ class ClientService:
         statement = statement.offset((page - 1) * page_size).limit(page_size)
         clients = self.session.exec(statement).all()
 
-        # Enhance with extra data
-        clients_dict_list = []
+        # Build ClientRead list with extra data
+        client_reads: list[ClientRead] = []
         for client in clients:
-            client_dict = client.model_dump()
-            
             # CPE Count
             cpe_count_stmt = select(func.count()).select_from(CPE).where(CPE.client_id == client.id)
-            client_dict["cpe_count"] = self.session.exec(cpe_count_stmt).one()
+            cpe_count = self.session.exec(cpe_count_stmt).one()
 
             # Billing Day from latest service
+            billing_day = client.billing_day
             service_stmt = (
                 select(ClientServiceModel)
                 .where(ClientServiceModel.client_id == client.id)
@@ -97,35 +110,37 @@ class ClientService:
             )
             latest_service = self.session.exec(service_stmt).first()
             if latest_service and latest_service.billing_day:
-                client_dict["billing_day"] = latest_service.billing_day
+                billing_day = latest_service.billing_day
 
-            clients_dict_list.append(client_dict)
+            client_reads.append(
+                ClientRead.model_validate({**client.model_dump(), "cpe_count": cpe_count, "billing_day": billing_day})
+            )
 
         total_pages = (total_items + page_size - 1) // page_size if page_size > 0 else 1
 
-        return {
-            "items": clients_dict_list,
-            "total": total_items,
-            "page": page,
-            "page_size": page_size,
-            "total_pages": total_pages,
-        }
+        return ClientPagination(
+            items=client_reads,
+            total=total_items,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
+        )
 
-    def get_all_clients(self) -> list[dict[str, Any]]:
+    def get_all_clients(self) -> list[ClientRead]:
         """
         Get all clients with their CPE count.
+        Returns a list of ClientRead DTOs.
         """
         statement = select(Client).order_by(Client.name)
         clients = self.session.exec(statement).all()
 
-        # Convert to dict format for compatibility
-        clients_dict = []
+        result: list[ClientRead] = []
         for client in clients:
-            client_dict = client.model_dump()
             cpe_count_stmt = select(func.count()).select_from(CPE).where(CPE.client_id == client.id)
-            client_dict["cpe_count"] = self.session.exec(cpe_count_stmt).one()
+            cpe_count = self.session.exec(cpe_count_stmt).one()
 
             # Fetch billing_day from latest service
+            billing_day = client.billing_day
             service_stmt = (
                 select(ClientServiceModel)
                 .where(ClientServiceModel.client_id == client.id)
@@ -134,21 +149,27 @@ class ClientService:
             )
             latest_service = self.session.exec(service_stmt).first()
             if latest_service and latest_service.billing_day:
-                client_dict["billing_day"] = latest_service.billing_day
+                billing_day = latest_service.billing_day
 
-            clients_dict.append(client_dict)
+            result.append(
+                ClientRead.model_validate({**client.model_dump(), "cpe_count": cpe_count, "billing_day": billing_day})
+            )
 
-        return clients_dict
+        return result
 
-    def get_client_by_id(self, client_id: uuid.UUID) -> dict[str, Any]:
-        """Get a single client by ID."""
+    def get_client_by_id(self, client_id: uuid.UUID) -> ClientRead:
+        """Get a single client by ID. Returns a ClientRead DTO."""
         client = self.session.get(Client, client_id)
         if not client:
-            raise FileNotFoundError(f"Client {client_id} not found.")
-        return client.model_dump()
+            raise ClientNotFoundError(f"Client {client_id} not found.")
 
-    def create_client(self, client_data: dict[str, Any]) -> dict[str, Any]:
-        """Create a new client."""
+        cpe_count_stmt = select(func.count()).select_from(CPE).where(CPE.client_id == client.id)
+        cpe_count = self.session.exec(cpe_count_stmt).one()
+
+        return ClientRead.model_validate({**client.model_dump(), "cpe_count": cpe_count})
+
+    def create_client(self, client_data: dict[str, Any]) -> ClientRead:
+        """Create a new client. Returns a ClientRead DTO."""
         try:
             client_data_clean = {k: v for k, v in client_data.items() if k != "id"}
 
@@ -157,21 +178,22 @@ class ClientService:
             self.session.commit()
             self.session.refresh(new_client)
 
-            result = new_client.model_dump()
-            result["cpe_count"] = 0
-            return result
-        except Exception as e:
+            return ClientRead.model_validate({**new_client.model_dump(), "cpe_count": 0})
+        except IntegrityError:
             self.session.rollback()
-            raise ValueError(f"Database error: {e}")
+            raise DuplicateError("Ya existe un cliente con estos datos")
+        except Exception:
+            self.session.rollback()
+            raise ValidationError("Error inesperado al crear el cliente")
 
-    def update_client(self, client_id: uuid.UUID, client_update: dict[str, Any]) -> dict[str, Any]:
-        """Update an existing client."""
+    def update_client(self, client_id: uuid.UUID, client_update: dict[str, Any]) -> ClientRead:
+        """Update an existing client. Returns a ClientRead DTO."""
         if not client_update:
-            raise ValueError("No fields to update provided.")
+            raise MissingFieldError("No fields to update provided.")
 
         client = self.session.get(Client, client_id)
         if not client:
-            raise FileNotFoundError("Client not found.")
+            raise ClientNotFoundError("Client not found.")
 
         # Update fields
         for key, value in client_update.items():
@@ -182,15 +204,16 @@ class ClientService:
         self.session.commit()
         self.session.refresh(client)
 
-        result = client.model_dump()
-        result["cpe_count"] = 0
-        return result
+        cpe_count_stmt = select(func.count()).select_from(CPE).where(CPE.client_id == client.id)
+        cpe_count = self.session.exec(cpe_count_stmt).one()
+
+        return ClientRead.model_validate({**client.model_dump(), "cpe_count": cpe_count})
 
     def delete_client(self, client_id: uuid.UUID):
         """Delete a client."""
         client = self.session.get(Client, client_id)
         if not client:
-            raise FileNotFoundError("Client not found to delete.")
+            raise ClientNotFoundError("Client not found to delete.")
 
         self.session.delete(client)
         self.session.commit()
@@ -234,15 +257,15 @@ class ClientService:
             if service_data.get("service_type") == "pppoe":
                 router_host = service_data.get("router_host")
                 if not router_host:
-                    raise ValueError("router_host es requerido para PPPoE")
+                    raise MissingFieldError("router_host es requerido para PPPoE")
 
                 username = service_data.get("pppoe_username")
                 if not username:
-                    raise ValueError("pppoe_username es requerido para PPPoE")
+                    raise MissingFieldError("pppoe_username es requerido para PPPoE")
 
                 router_obj: Router = self.session.get(Router, router_host)
                 if not router_obj:
-                    raise ValueError(f"Router {router_host} no encontrado en BD")
+                    raise RouterNotFoundError(f"Router {router_host} no encontrado en BD")
 
                 secret_id = None
                 with RouterService(router_host, router_obj) as rs:
@@ -266,7 +289,7 @@ class ClientService:
                             secret_id = secret.get("id")
 
                         if not secret_id:
-                            raise RuntimeError(
+                            raise DeviceCommandError(
                                 f"No se obtuvo 'id' del secret PPPoE creado. Respuesta del router: {secret}"
                             )
                         logger.info(
@@ -286,10 +309,10 @@ class ClientService:
             self.session.rollback()
             self.session.rollback()
             if "UNIQUE constraint failed: client_services.pppoe_username" in str(e):
-                raise ValueError(
+                raise DuplicateError(
                     f"El nombre de usuario PPPoE '{service_data.get('pppoe_username')}' ya existe en la base de datos local."
                 )
-            raise ValueError(f"Error al crear servicio: {e}")
+            raise ValidationError(f"Error al crear servicio: {e}")
 
     def _get_queue_type_for_router(self, plan: dict[str, Any], router: Router) -> str:
         """
@@ -324,7 +347,7 @@ class ClientService:
         """Apply simple queue configuration on router."""
         plan_id = service_input.get("plan_id")
         if not plan_id:
-            raise ValueError("Se requiere un plan_id para servicios de cola simple")
+            raise MissingFieldError("Se requiere un plan_id para servicios de cola simple")
 
         plan_obj = self.plan_service.get_by_id(plan_id)
         # Convert to dict for compatibility with existing code
@@ -332,13 +355,13 @@ class ClientService:
 
         target_ip = service_input.get("ip_address")
         if not target_ip:
-            raise ValueError("Se requiere una dirección IP (target) para servicios de cola simple")
+            raise MissingFieldError("Se requiere una dirección IP (target) para servicios de cola simple")
 
         router_host = service_input["router_host"]
 
         router_obj: Router = self.session.get(Router, router_host)
         if not router_obj:
-            raise ValueError(f"Router {router_host} no encontrado en BD")
+            raise RouterNotFoundError(f"Router {router_host} no encontrado en BD")
 
         # Determine queue type based on router version (for Universal Plans)
         queue_type = self._get_queue_type_for_router(plan, router_obj)
@@ -347,7 +370,7 @@ class ClientService:
         # Fetch Client to get the name
         client = self.session.get(Client, service_db_obj['client_id'])
         if not client:
-             raise ValueError(f"Client {service_db_obj['client_id']} not found")
+             raise ClientNotFoundError(f"Client {service_db_obj['client_id']} not found")
 
         queue_name = client.name
         # Sanitize queue name? Mikrotik accepts spaces but let's be safe if it's empty
@@ -435,7 +458,7 @@ class ClientService:
         # Get the service
         service = self.session.get(ClientServiceModel, service_id)
         if not service:
-            raise FileNotFoundError(f"Service {service_id} not found")
+            raise ServiceNotFoundError(f"Service {service_id} not found")
 
         # Get the new plan
         new_plan_obj = self.plan_service.get_by_id(new_plan_id)
@@ -447,7 +470,7 @@ class ClientService:
         # Get router credentials
         router = self.session.get(Router, router_host)
         if not router:
-            raise ValueError(f"Router {router_host} not found")
+            raise RouterNotFoundError(f"Router {router_host} not found")
 
         results = {
             "service_id": service_id,
@@ -514,20 +537,20 @@ class ClientService:
         # Get the service
         service = self.session.get(ClientServiceModel, service_id)
         if not service:
-            raise FileNotFoundError(f"Service {service_id} not found")
+            raise ServiceNotFoundError(f"Service {service_id} not found")
 
         if service.service_type != "pppoe":
-            raise ValueError("This method is only for PPPoE services")
+            raise InvalidOperationError("This method is only for PPPoE services")
 
         if not service.pppoe_username:
-            raise ValueError("Service does not have a PPPoE username")
+            raise MissingFieldError("Service does not have a PPPoE username")
 
         router_host = service.router_host
 
         # Get router credentials
         router = self.session.get(Router, router_host)
         if not router:
-            raise ValueError(f"Router {router_host} not found")
+            raise RouterNotFoundError(f"Router {router_host} not found")
 
         old_profile = service.profile_name
 
@@ -575,7 +598,7 @@ class ClientService:
         """
         service = self.session.get(ClientServiceModel, service_id)
         if not service:
-            raise FileNotFoundError(f"Service {service_id} not found")
+            raise ServiceNotFoundError(f"Service {service_id} not found")
 
         # Fields that cannot be updated
         protected_fields = {"id", "client_id", "created_at"}
@@ -603,7 +626,7 @@ class ClientService:
         """
         service = self.session.get(ClientServiceModel, service_id)
         if not service:
-            raise FileNotFoundError(f"Service {service_id} not found")
+            raise ServiceNotFoundError(f"Service {service_id} not found")
 
         # If it's a PPPoE service with a router secret, try to remove it
         if service.service_type == "pppoe" and service.router_secret_id and service.router_host:
@@ -639,15 +662,15 @@ class ClientService:
         """
         service = self.session.get(ClientServiceModel, service_id)
         if not service:
-            raise FileNotFoundError(f"Service {service_id} not found")
+            raise ServiceNotFoundError(f"Service {service_id} not found")
         
         router_host = service.router_host
         if not router_host:
-            raise ValueError("Service has no router_host configured")
+            raise MissingFieldError("Service has no router_host configured")
         
         router = self.session.get(Router, router_host)
         if not router:
-            raise ValueError(f"Router {router_host} not found")
+            raise RouterNotFoundError(f"Router {router_host} not found")
         
         results = {
             "service_id": service_id,
@@ -659,20 +682,20 @@ class ClientService:
         if service.service_type == "simple_queue":
             # Sync Simple Queue
             if not service.plan_id:
-                raise ValueError("Service has no plan_id configured")
+                raise MissingFieldError("Service has no plan_id configured")
             
             plan_obj = self.plan_service.get_by_id(service.plan_id)
             plan = plan_obj.model_dump()
             
             if not service.ip_address:
-                raise ValueError("Service has no IP address configured")
+                raise MissingFieldError("Service has no IP address configured")
             
             queue_type = self._get_queue_type_for_router(plan, router)
 
             # Fetch Client to get the name
             client = self.session.get(Client, service.client_id)
             if not client:
-                 raise ValueError(f"Client {service.client_id} not found")
+                 raise ClientNotFoundError(f"Client {service.client_id} not found")
 
             queue_name = client.name
             if not queue_name:
@@ -714,7 +737,7 @@ class ClientService:
             # Sync PPPoE secret
             username = service.pppoe_username
             if not username:
-                raise ValueError("PPPoE service has no username configured")
+                raise MissingFieldError("PPPoE service has no username configured")
             
             with RouterService(router_host, router) as rs:
                 # Check if secret exists

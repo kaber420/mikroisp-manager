@@ -87,6 +87,7 @@ document.addEventListener('alpine:init', () => {
                 this.currentRouter = {
                     ...router,
                     password: '', // Clear password for security
+                    master_password: '' // Clear for security
                 };
             } else {
                 this.isEditing = false;
@@ -96,6 +97,8 @@ document.addEventListener('alpine:init', () => {
                     api_port: 8728,
                     username: 'admin',
                     password: '',
+                    master_username: '',
+                    master_password: ''
                 };
             }
             this.isModalOpen = true;
@@ -126,6 +129,9 @@ document.addEventListener('alpine:init', () => {
             const body = { ...this.currentRouter };
             if (this.isEditing && !body.password) {
                 delete body.password;
+            }
+            if (this.isEditing && !body.master_password) {
+                delete body.master_password;
             }
 
             try {

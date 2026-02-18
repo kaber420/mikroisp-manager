@@ -35,8 +35,17 @@ Requires parent Alpine component to have provisionMixin (from provision.js)
                     <label for="provision-new-pass" class="block text-sm font-medium mb-1 text-text-secondary">New API
                         Password</label>
                     <div class="flex gap-2">
-                        <input type="password" id="provision-new-pass" x-model="currentProvisionTarget.newPass" required
-                            class="flex-1 input-glass rounded-lg p-2">
+                        <div class="relative flex-1">
+                            <input :type="showPass ? 'text' : 'password'" id="provision-new-pass"
+                                x-model="currentProvisionTarget.newPass" required
+                                class="w-full input-glass rounded-lg p-2 pr-10">
+                            <button type="button" @click="showPass = !showPass"
+                                class="absolute right-2 top-1/2 -translate-y-1/2 text-text-secondary hover:text-white p-1 rounded-md transition-colors"
+                                :title="showPass ? 'Hide password' : 'Show password'">
+                                <span class="material-symbols-outlined text-sm"
+                                    x-text="showPass ? 'visibility_off' : 'visibility'"></span>
+                            </button>
+                        </div>
                         <button type="button" @click="generatePassword()"
                             class="px-3 py-2 rounded-lg text-sm font-semibold text-white bg-white/10 hover:bg-white/20 transition-colors"
                             title="Generate secure password">

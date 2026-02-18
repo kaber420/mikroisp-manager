@@ -32,10 +32,7 @@ def api_create_user(
     service: UserService = Depends(get_user_service),
     current_user: User = Depends(require_admin),
 ):
-    try:
-        return service.create_user(user_data)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return service.create_user(user_data)
 
 
 @router.put("/users/{username}", response_model=UserRead)
@@ -45,10 +42,7 @@ def api_update_user(
     service: UserService = Depends(get_user_service),
     current_user: User = Depends(require_admin),
 ):
-    try:
-        return service.update_user(username, user_data)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return service.update_user(username, user_data)
 
 
 @router.delete("/users/{username}", status_code=status.HTTP_204_NO_CONTENT)
@@ -62,8 +56,5 @@ def api_delete_user(
 
     if username == current_user.username:
         raise HTTPException(status_code=403, detail="No puedes eliminar tu propia cuenta.")
-    try:
-        service.delete_user(username)
-        log_action("DELETE", "user", username, user=current_user, request=request)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    service.delete_user(username)
+    log_action("DELETE", "user", username, user=current_user, request=request)

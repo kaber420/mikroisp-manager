@@ -5,6 +5,7 @@ from datetime import datetime
 from ..core.constants import CredentialKeys, DeviceVendor
 from ..utils.device_clients.adapter_factory import get_device_adapter
 from ..utils.device_clients.adapters.base import BaseDeviceAdapter, DeviceStatus
+from ..core.exceptions import DeviceNotSubscribedError
 from .base_connector import BaseDeviceConnector
 
 logger = logging.getLogger(__name__)
@@ -63,7 +64,7 @@ class APConnector(BaseDeviceConnector):
         Fetch monitoring statistics from an AP.
         """
         if host not in self._adapters:
-            raise ValueError(f"AP {host} is not subscribed")
+            raise DeviceNotSubscribedError(f"AP {host} is not subscribed")
 
         adapter = self._adapters[host]
 

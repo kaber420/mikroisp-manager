@@ -21,6 +21,7 @@ from ...db.engine import get_session
 from ...models.user import User
 from ...services.monitor_scheduler import monitor_scheduler
 from ...services.provisioning import MikrotikProvisioningService
+from ...services.provisioning.models import ProvisionRequest, ProvisionResponse
 from ...services.router_service import RouterService
 
 # --- UPDATE: Import directly from router_db ---
@@ -33,8 +34,6 @@ from ...db.router_db import update_router_in_db as update_router_service
 from ...utils.cache import cache_manager
 from . import config, interfaces, pppoe, system, ssl as ssl_router
 from .models import (
-    ProvisionRequest,
-    ProvisionResponse,
     RouterCreate,
     RouterResponse,
     RouterUpdate,
@@ -180,19 +179,14 @@ async def create_router(
     current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    try:
-        # router_data.model_dump() -> dict
-        new_router = await create_router_service(session, router_data.model_dump())
+    # router_data.model_dump() -> dict
+    new_router = await create_router_service(session, router_data.model_dump())
 
-        # --- AUTO-PROVISION SSL (Zero Trust) ---
-        # DISABLE AUTO-PROVISION per user request (point of failure)
-        # await ProvisioningService.auto_provision_ssl(session, new_router)
+    # --- AUTO-PROVISION SSL (Zero Trust) ---
+    # DISABLE AUTO-PROVISION per user request (point of failure)
+    # await ProvisioningService.auto_provision_ssl(session, new_router)
 
-        return new_router
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return new_router
 
 
 @router.put("/routers/{host}", response_model=RouterResponse)
@@ -280,7 +274,15 @@ async def provision_router_endpoint(
                 status_code=500, detail=result.get("message", "Provisioning failed")
             )
 
-        # 4. Update router in database with new credentials
+        # 4. Guardar credenciales maestras ANTES de sobrescribir (solo si no existen)
+        if not creds.master_username:
+            master_update = {
+                "master_username": creds.username,
+                "master_password": creds.password,  # Desencriptado; update_router_service re-encripta
+            }
+            await update_router_service(session, host, master_update)
+
+        # 5. Update router in database with new API credentials
         update_data = {
             "username": data.new_api_user,
             "password": data.new_api_password,
@@ -487,8 +489,12 @@ async def repair_router_connection(
         # Reset connection state
         reset_result = monitor_scheduler.reset_connection(host)
 
-        # Mark as not provisioned
+        # Restaurar credenciales maestras al desprovisionar
         update_data = {"is_provisioned": False}
+        if creds.master_username:
+            update_data["username"] = creds.master_username
+        if creds.master_password:
+            update_data["password"] = creds.master_password  # Desencriptado; update_router_service re-encripta
         await update_router_service(session, host, update_data)
 
         log_action("UNPROVISION", "router", host, user=current_user)

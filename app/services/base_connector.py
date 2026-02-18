@@ -1,6 +1,8 @@
 import abc
 import logging
 
+from ..core.exceptions import DeviceNotSubscribedError
+
 # Create specific logger for this module if needed, or use a shared one
 logger = logging.getLogger(__name__)
 
@@ -63,7 +65,7 @@ class BaseDeviceConnector(abc.ABC):
         Helper to get credentials for a host. Raises ValueError if not found.
         """
         if host not in self._credentials:
-            raise ValueError(f"Device {host} is not subscribed")
+            raise DeviceNotSubscribedError(f"Device {host} is not subscribed")
         return self._credentials[host]
 
     @abc.abstractmethod

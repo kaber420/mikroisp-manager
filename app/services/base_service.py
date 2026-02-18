@@ -6,7 +6,9 @@ Reduces code duplication across domain-specific services.
 
 from typing import Any, Generic, TypeVar
 
-from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
+
+from ..core.exceptions import DuplicateError, NotFoundError, ValidationError
 from sqlmodel import Session, select
 
 # Generic type for SQLModel models
@@ -54,7 +56,7 @@ class BaseCRUDService(Generic[ModelType]):
         """
         record = self.session.get(self.model, id)
         if not record:
-            raise HTTPException(status_code=404, detail=f"{self.model.__name__} no encontrado")
+            raise NotFoundError(f"{self.model.__name__} no encontrado")
         return record
 
     def create(self, data: dict[str, Any]) -> ModelType:
@@ -73,9 +75,12 @@ class BaseCRUDService(Generic[ModelType]):
             self.session.commit()
             self.session.refresh(new_record)
             return new_record
-        except Exception as e:
+        except IntegrityError:
             self.session.rollback()
-            raise ValueError(f"Error creando {self.model.__name__}: {str(e)}")
+            raise DuplicateError(f"{self.model.__name__} duplicado o viola restricción de unicidad")
+        except Exception:
+            self.session.rollback()
+            raise ValidationError(f"Error creando {self.model.__name__}")
 
     def update(self, id: int, data: dict[str, Any]) -> ModelType:
         """
@@ -101,9 +106,12 @@ class BaseCRUDService(Generic[ModelType]):
             self.session.commit()
             self.session.refresh(record)
             return record
-        except Exception as e:
+        except IntegrityError:
             self.session.rollback()
-            raise ValueError(f"Error actualizando {self.model.__name__}: {str(e)}")
+            raise DuplicateError(f"{self.model.__name__} viola restricción de unicidad")
+        except Exception:
+            self.session.rollback()
+            raise ValidationError(f"Error actualizando {self.model.__name__}")
 
     def delete(self, id: int) -> None:
         """

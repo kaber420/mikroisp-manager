@@ -34,11 +34,8 @@ def create_zona(
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
 ):
-    try:
-        new_zona = service.create_zona(zona.nombre)
-        return new_zona
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    new_zona = service.create_zona(zona.nombre)
+    return new_zona
 
 
 @router.get("/zonas", response_model=list[Zona])
@@ -55,11 +52,8 @@ def get_zona(
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
 ):
-    try:
-        zona = service.get_zona(zona_id)
-        return zona
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    zona = service.get_zona(zona_id)
+    return zona
 
 
 @router.put("/zonas/{zona_id}", response_model=Zona)
@@ -70,13 +64,8 @@ def update_zona(
     current_user: User = Depends(require_technician),
 ):
     updates = zona_update.model_dump(exclude_unset=True)
-    try:
-        updated_zona = service.update_zona(zona_id, updates)
-        return updated_zona
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    updated_zona = service.update_zona(zona_id, updates)
+    return updated_zona
 
 
 @router.delete("/zonas/{zona_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -88,14 +77,9 @@ def delete_zona(
 ):
     from ...core.audit import log_action
 
-    try:
-        service.delete_zona(zona_id)
-        log_action("DELETE", "zona", str(zona_id), user=current_user, request=request)
-        return
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    service.delete_zona(zona_id)
+    log_action("DELETE", "zona", str(zona_id), user=current_user, request=request)
+    return
 
 
 # --- Endpoints de Detalles y Documentación ---
@@ -105,10 +89,7 @@ def get_zona_details(
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
 ):
-    try:
-        return service.get_zona_details(zona_id)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return service.get_zona_details(zona_id)
 
 
 @router.put("/zonas/{zona_id}/infraestructura", response_model=ZonaInfra)
@@ -135,11 +116,8 @@ async def upload_documento(
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
 ):
-    try:
-        new_doc = await service.upload_documento(zona_id, file, descripcion)
-        return new_doc
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    new_doc = await service.upload_documento(zona_id, file, descripcion)
+    return new_doc
 
 
 # --- Endpoints de Notas ---
@@ -154,13 +132,10 @@ def create_note(
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
 ):
-    try:
-        new_note = service.create_note_for_zona(
-            zona_id, note.title, note.content, note.is_encrypted
-        )
-        return new_note
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    new_note = service.create_note_for_zona(
+        zona_id, note.title, note.content, note.is_encrypted
+    )
+    return new_note
 
 
 @router.put("/zonas/notes/{note_id}", response_model=ZonaNote)
@@ -170,13 +145,8 @@ def update_note(
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
 ):
-    try:
-        updated_note = service.update_note(note_id, note.title, note.content, note.is_encrypted)
-        return updated_note
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    updated_note = service.update_note(note_id, note.title, note.content, note.is_encrypted)
+    return updated_note
 
 
 @router.delete("/zonas/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -188,14 +158,9 @@ def delete_note(
 ):
     from ...core.audit import log_action
 
-    try:
-        service.delete_note(note_id)
-        log_action("DELETE", "zona_note", str(note_id), user=current_user, request=request)
-        return
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    service.delete_note(note_id)
+    log_action("DELETE", "zona_note", str(note_id), user=current_user, request=request)
+    return
 
 
 @router.delete("/documentos/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -207,9 +172,6 @@ def delete_documento(
 ):
     from ...core.audit import log_action
 
-    try:
-        service.delete_documento(doc_id)
-        log_action("DELETE", "documento", str(doc_id), user=current_user, request=request)
-        return
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    service.delete_documento(doc_id)
+    log_action("DELETE", "documento", str(doc_id), user=current_user, request=request)
+    return
