@@ -23,7 +23,9 @@ class CSPMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         # Skip CSP for API and auth endpoints (they return JSON, not HTML)
-        if request.url.path.startswith(("/api/", "/auth/")):
+        # Also skip for documentation endpoints (Swagger UI requires external scripts/styles)
+        SKIP_CSP_PATHS = ("/api/", "/auth/", "/docs", "/redoc", "/openapi.json")
+        if request.url.path.startswith(SKIP_CSP_PATHS):
             return await call_next(request)
 
         # Generate a cryptographically secure random nonce (16 bytes = 128 bits)
