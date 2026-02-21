@@ -13,6 +13,7 @@ class CPE(SQLModel, table=True):
     model: str | None = Field(default=None)
     firmware: str | None = Field(default=None)
     ip_address: str | None = Field(default=None)
+    ssh_port: int = Field(default=22)
     is_enabled: bool = Field(default=True)
     status: str = Field(default="offline")  # 'active', 'offline', 'disabled'
     client_id: uuid.UUID | None = Field(default=None, foreign_key="clients.id")

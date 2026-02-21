@@ -62,6 +62,7 @@ def process_router_backup(router_data: dict):
     host = router_data["host"]
     username = router_data["username"]
     password = router_data["password"]
+    ssh_port = router_data.get("ssh_port", 22)
 
     # Estructura de carpetas: data/{Zona}/{NombreRouter}/
     zona_name = router_data.get("zona_nombre", "Sin_Zona").replace(" ", "_").replace("/", "-")
@@ -81,7 +82,7 @@ def process_router_backup(router_data: dict):
     temp_name = "umanager_auto"
 
     ssh_client = MikrotikSSHClient(
-        host=host, username=username, password=password, port=22, connect_timeout=20
+        host=host, username=username, password=password, port=ssh_port, connect_timeout=20
     )
 
     try:
@@ -155,7 +156,7 @@ def process_router_backup(router_data: dict):
 
 
 def save_file_to_server(
-    host: str, username: str, password: str, remote_filename: str, zona_name: str, hostname: str
+    host: str, username: str, password: str, remote_filename: str, zona_name: str, hostname: str, ssh_port: int = 22
 ) -> dict:
     """
     Descarga un archivo específico del router al servidor local.
@@ -172,7 +173,7 @@ def save_file_to_server(
     local_filepath = os.path.join(save_path, remote_filename)
 
     ssh_client = MikrotikSSHClient(
-        host=host, username=username, password=password, port=22, connect_timeout=20
+        host=host, username=username, password=password, port=ssh_port, connect_timeout=20
     )
 
     try:

@@ -175,7 +175,12 @@
                                 (Insecure)</label>
                             <input type="number" id="router-api_port" x-model.number="currentRouter.api_port" required
                                 class="w-full bg-background border border-border-color rounded-md p-2">
-                            <p class="text-xs text-text-secondary mt-1">Initial provisioning API port (no SSL).</p>
+                        </div>
+                        <div>
+                            <label for="router-ssh_port" class="block text-sm font-medium mb-1">SSH Port</label>
+                            <input type="number" id="router-ssh_port" x-model.number="currentRouter.ssh_port" required
+                                class="w-full bg-background border border-border-color rounded-md p-2">
+                            <p class="text-xs text-text-secondary mt-1">Default is 22 for secure provisioning.</p>
                         </div>
                     </div>
 

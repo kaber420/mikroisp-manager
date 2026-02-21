@@ -264,6 +264,7 @@ async def provision_router_endpoint(
             new_user=data.new_api_user,
             new_password=data.new_api_password,
             ssl_port=ssl_port,
+            ssh_port=creds.ssh_port or 22,
             method=data.method,
             device_type="router",
             current_api_port=creds.api_port or 8728,
@@ -472,6 +473,7 @@ async def repair_router_connection(
             username=creds.username,
             password=creds.password,
             ssl_port=creds.api_ssl_port or 8729,
+            ssh_port=creds.ssh_port or 22,
         )
 
         if result.get("status") == "error":

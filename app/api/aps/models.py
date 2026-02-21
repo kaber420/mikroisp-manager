@@ -41,6 +41,7 @@ class AP(BaseModel):
     vendor: str | None = "ubiquiti"  # "ubiquiti" or "mikrotik"
     role: str | None = "access_point"  # "access_point" or "switch"
     api_port: int | None = 443
+    ssh_port: int | None = 22
     # Provisioning fields
     api_ssl_port: int | None = 8729
     is_provisioned: bool = False
@@ -58,6 +59,7 @@ class APCreate(BaseModel):
     is_enabled: bool = True
     monitor_interval: int | None = None
     api_port: int = 443
+    ssh_port: int = 22
     api_ssl_port: int = 8729  # SSL API port for MikroTik
     vendor: str = "ubiquiti"  # "ubiquiti" or "mikrotik"
     role: str = "access_point"  # "access_point" or "switch"
@@ -72,6 +74,7 @@ class APUpdate(BaseModel):
     is_enabled: bool | None = None
     monitor_interval: int | None = None
     api_port: int | None = None
+    ssh_port: int | None = None
     api_ssl_port: int | None = None
     is_provisioned: bool | None = None
     vendor: str | None = None

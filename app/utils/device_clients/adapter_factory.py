@@ -59,7 +59,8 @@ def get_device_adapter(
         )
 
     elif vendor_normalized == DeviceVendor.MIKROTIK:
-        return MikrotikWirelessAdapter(host=host, username=username, password=password, port=port)
+        ssh_port = kwargs.get("ssh_port", 22)
+        return MikrotikWirelessAdapter(host=host, username=username, password=password, port=port, ssh_port=ssh_port)
 
     else:
         raise ValueError(

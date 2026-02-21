@@ -34,10 +34,11 @@ class SpectralScanManager:
     Uses (reusable) MikrotikSSHClient and a background thread to read SSH output.
     """
 
-    def __init__(self, host: str, username: str, password: str):
+    def __init__(self, host: str, username: str, password: str, ssh_port: int = 22):
         self.host = host
         self.username = username
         self.password = password
+        self.ssh_port = ssh_port
         self._ssh_client: MikrotikSSHClient | None = None
         self.channel = None
         self._running = False
@@ -52,7 +53,7 @@ class SpectralScanManager:
             host=self.host,
             username=self.username,
             password=self.password,
-            port=22,
+            port=self.ssh_port,
             connect_timeout=5,
             banner_timeout=5,
         )
@@ -320,7 +321,7 @@ async def spectral_scan_websocket(
         await websocket.close()
         return
 
-    scanner = SpectralScanManager(host, creds["username"], creds["password"])
+    scanner = SpectralScanManager(host, creds["username"], creds["password"], creds.get("ssh_port", 22))
     data_count = 0  # Define here for finally block
 
     try:

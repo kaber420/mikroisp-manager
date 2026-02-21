@@ -47,3 +47,4 @@ class CPEUpdate(BaseModel):
     ip_address: str | None = None
     hostname: str | None = None
     model: str | None = None
+    ssh_port: int | None = None

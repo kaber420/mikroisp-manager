@@ -80,6 +80,7 @@ async def provision_ap(
             new_user=data.new_api_user,
             new_password=data.new_api_password,
             ssl_port=ssl_port,
+            ssh_port=ap.ssh_port or 22,
             method=data.method,
             device_type="ap",
         )
@@ -207,6 +208,7 @@ async def repair_ap_connection(
             username=ap.username,
             password=current_password,
             ssl_port=ssl_port,
+            ssh_port=ap.ssh_port or 22,
         )
 
         if result.get("status") == "error":

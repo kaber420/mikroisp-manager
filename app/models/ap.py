@@ -9,6 +9,7 @@ class AP(SQLModel, table=True):
     host: str = Field(primary_key=True, nullable=False)
     username: str = Field(nullable=False)
     password: str = Field(nullable=False)
+    ssh_port: int = Field(default=22)
     zona_id: int | None = Field(default=None, foreign_key="zonas.id")
     is_enabled: bool = Field(default=True)
     monitor_interval: int | None = Field(default=None)

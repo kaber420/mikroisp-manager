@@ -173,6 +173,7 @@ def generate_csr(
     password: str,
     common_name: str,
     organization: str = "uManager",
+    ssh_port: int = 22,
 ) -> str:
     """
     Generate a CSR on the router (Router-Side generation).
@@ -219,7 +220,7 @@ def generate_csr(
     time.sleep(2)
 
     # Download CSR via SFTP
-    ssh_client = MikrotikSSHClient(host=host, username=username, password=password)
+    ssh_client = MikrotikSSHClient(host=host, username=username, password=password, port=ssh_port)
 
     try:
         if not ssh_client.connect():
@@ -259,6 +260,7 @@ def import_certificate(
     cert_pem: str,
     key_pem: str = None,
     cert_name: str = "umanager_ssl",
+    ssh_port: int = 22,
 ) -> dict[str, Any]:
     """
     Import a signed certificate and identify it by FINGERPRINT.
@@ -283,7 +285,7 @@ def import_certificate(
     cert_filename = f"{unique_base_name}.crt"
     key_filename = f"{unique_base_name}.key"
 
-    ssh_client = MikrotikSSHClient(host=host, username=username, password=password)
+    ssh_client = MikrotikSSHClient(host=host, username=username, password=password, port=ssh_port)
 
     try:
         # === STEP 1: Upload files via SFTP ===
@@ -412,11 +414,12 @@ def install_ca_certificate(
     password: str,
     ca_pem: str,
     ca_name: str = "umanager_ca",
+    ssh_port: int = 22,
 ) -> dict[str, Any]:
     """
     Install the Root CA certificate so the router trusts the server.
     """
-    ssh_client = MikrotikSSHClient(host=host, username=username, password=password)
+    ssh_client = MikrotikSSHClient(host=host, username=username, password=password, port=ssh_port)
 
     try:
         if not ssh_client.connect():

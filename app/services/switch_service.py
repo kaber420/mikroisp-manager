@@ -49,9 +49,14 @@ class SwitchService:
         # Initialize the adapter
         password = switch_data.get("password", "")
         port = switch_data.get("api_ssl_port") or switch_data.get("api_port", 8728)
+        ssh_port = switch_data.get("ssh_port", 22)
 
         self.adapter = MikrotikSwitchAdapter(
-            host=self.host, username=switch_data.get("username", ""), password=password, port=port
+            host=self.host,
+            username=switch_data.get("username", ""),
+            password=password,
+            port=port,
+            ssh_port=ssh_port,
         )
 
     def disconnect(self):

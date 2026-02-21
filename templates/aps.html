@@ -241,9 +241,15 @@
                     <div>
                         <label for="api_port" class="block text-sm font-medium mb-1 text-text-secondary">API
                             Port</label>
-                        <input type="number" id="api_port" x-model="currentAp.api_port" :placeholder="getDefaultPort()"
-                            class="w-full input-glass rounded-lg p-2">
+                        <input type="number" id="api_port" x-model.number="currentAp.api_port"
+                            :placeholder="getDefaultPort()" class="w-full input-glass rounded-lg p-2">
                         <p class="text-xs text-text-secondary mt-1" x-text="getPortHint()"></p>
+                    </div>
+                    <div>
+                        <label for="ssh_port" class="block text-sm font-medium mb-1 text-text-secondary">SSH
+                            Port</label>
+                        <input type="number" id="ssh_port" x-model.number="currentAp.ssh_port" placeholder="22"
+                            class="w-full input-glass rounded-lg p-2">
                     </div>
                 </div>
 

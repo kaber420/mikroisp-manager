@@ -7,6 +7,7 @@ class Router(SQLModel, table=True):
     __tablename__ = "routers"
 
     host: str = Field(primary_key=True, nullable=False)
+    ssh_port: int = Field(default=22)
     api_port: int = Field(default=8728)
     api_ssl_port: int = Field(default=8729)
     username: str = Field(nullable=False)

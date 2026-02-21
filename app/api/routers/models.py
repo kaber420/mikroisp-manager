@@ -10,6 +10,7 @@ class RouterResponse(BaseModel):
     username: str
     zona_id: int | None = None
     api_port: int
+    ssh_port: int = 22
     api_ssl_port: int
     is_enabled: bool
     is_provisioned: bool = False
@@ -29,6 +30,7 @@ class RouterCreate(BaseModel):
     master_password: str | None = None
     zona_id: int | None = None
     api_port: int
+    ssh_port: int = 22
     is_enabled: bool = True
 
 
@@ -39,6 +41,7 @@ class RouterUpdate(BaseModel):
     master_password: str | None = None
     zona_id: int | None = None
     api_port: int | None = None
+    ssh_port: int | None = None
     is_enabled: bool | None = None
     wan_interface: str | None = None
 

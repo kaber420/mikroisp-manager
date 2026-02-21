@@ -83,6 +83,7 @@ document.addEventListener('alpine:init', () => {
                     host: '',
                     zona_id: '',
                     api_port: 8728,
+                    ssh_port: 22,
                     username: 'admin',
                     password: '',
                     location: '',

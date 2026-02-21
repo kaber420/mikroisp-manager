@@ -37,6 +37,7 @@ class SwitchBase(BaseModel):
     username: str = Field(..., description="API username")
     zona_id: int | None = Field(None, description="Zone ID")
     api_port: int = Field(8728, description="API port")
+    ssh_port: int = Field(22, description="SSH port")
     is_enabled: bool = Field(True, description="Whether the switch is enabled for monitoring")
     location: str | None = Field(None, description="Physical location")
     notes: str | None = Field(None, description="Additional notes")
@@ -59,6 +60,7 @@ class SwitchUpdate(BaseModel):
     master_password: str | None = None
     zona_id: int | None = None
     api_port: int | None = None
+    ssh_port: int | None = None
     is_enabled: bool | None = None
     location: str | None = None
     notes: str | None = None
@@ -71,6 +73,7 @@ class SwitchResponse(BaseModel):
     username: str
     zona_id: int | None = None
     api_port: int | None = None
+    ssh_port: int | None = None
     api_ssl_port: int | None = None
     is_enabled: bool | None = None
     hostname: str | None = None
@@ -319,6 +322,7 @@ async def validate_switch_connection(switch_data: SwitchCreate):
             username=switch_data.username,
             password=switch_data.password,
             port=switch_data.api_port,
+            ssh_port=getattr(switch_data, "ssh_port", 22),
         )
 
         success = adapter.test_connection()
@@ -590,6 +594,7 @@ async def provision_switch(
             new_user=data.new_api_user,
             new_password=data.new_api_password,
             ssl_port=ssl_port,
+            ssh_port=switch_data.get("ssh_port") or 22,
             method=data.method,
             device_type="switch",
             current_api_port=switch_data.get("api_port", 8728),
@@ -683,6 +688,7 @@ async def repair_switch_ssl(
             username=switch_data.get("username", ""),
             password=switch_data.get("password", ""),
             ssl_port=switch_data.get("api_ssl_port") or 8729,
+            ssh_port=switch_data.get("ssh_port") or 22,
         )
 
         if result.get("status") == "error":

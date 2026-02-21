@@ -49,6 +49,7 @@ class MikrotikProvisioningService:
         new_user: str,
         new_password: str,
         ssl_port: int = 8729,
+        ssh_port: int = 22,
         method: str = "ssh",
         device_type: str = "router",
         current_api_port: int = 8728,
@@ -63,6 +64,7 @@ class MikrotikProvisioningService:
             new_user: New API user to create
             new_password: Password for new user
             ssl_port: Target API-SSL port (default 8729)
+            ssh_port: Target SSH port (default 22)
             method: "ssh" (recommended) or "api"
             device_type: For logging context ("router", "ap", "switch")
             current_api_port: Current API port for API method (default 8728)
@@ -84,6 +86,7 @@ class MikrotikProvisioningService:
                     new_user,
                     new_password,
                     ssl_port,
+                    ssh_port,
                 )
             else:
                 result = await asyncio.to_thread(
@@ -128,6 +131,7 @@ class MikrotikProvisioningService:
         new_user: str,
         new_password: str,
         ssl_port: int = 8729,
+        ssh_port: int = 22,
         new_group: str = "api_full_access",
     ) -> dict[str, Any]:
         """
@@ -146,7 +150,7 @@ class MikrotikProvisioningService:
         from ...utils.device_clients.mikrotik.ssh_client import MikrotikSSHClient
         from ..pki_service import PKIService
 
-        ssh_client = MikrotikSSHClient(host=host, username=ssh_username, password=ssh_password)
+        ssh_client = MikrotikSSHClient(host=host, username=ssh_username, password=ssh_password, port=ssh_port)
 
         try:
             # 1. Connect via SSH
@@ -413,6 +417,7 @@ class MikrotikProvisioningService:
         username: str,
         password: str,
         ssl_port: int = 8729,
+        ssh_port: int = 22,
     ) -> dict[str, Any]:
         """
         Renew SSL certificates on a MikroTik device without full re-provisioning.
@@ -433,7 +438,7 @@ class MikrotikProvisioningService:
 
         logger.info(f"[SSL Renew] Starting SSL renewal for {host}")
 
-        ssh_client = MikrotikSSHClient(host=host, username=username, password=password)
+        ssh_client = MikrotikSSHClient(host=host, username=username, password=password, port=ssh_port)
 
         try:
             if not await asyncio.to_thread(ssh_client.connect):

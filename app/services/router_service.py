@@ -63,6 +63,7 @@ class RouterService:
             username=self.creds.username,
             password=password,
             port=self.creds.api_ssl_port,
+            ssh_port=getattr(self.creds, "ssh_port", 22),
         )
 
     def disconnect(self):
@@ -438,6 +439,7 @@ async def get_router_service_for_provisioning(
             username=router.username,
             password=password,
             port=router.api_ssl_port,  # Intentar SSL primero
+            ssh_port=getattr(router, "ssh_port", 22),
         )
 
         # Return a simple object with the adapter and host

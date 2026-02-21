@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.editCpeIp = editCpeIp;
 
     // --- Manual CPE Name Editing (Modal via ModalUtils) ---
-    function openEditCPEModal(mac, currentHostname) {
+    function openEditCPEModal(mac, currentHostname, currentSshPort) {
         const template = document.getElementById('edit-cpe-modal-template');
         if (!template) {
             console.error('Edit CPE modal template not found');
@@ -200,9 +200,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     handler: async () => {
                         const macVal = document.getElementById('edit-cpe-mac').value;
                         const hostname = document.getElementById('edit-cpe-hostname').value.trim();
+                        const sshPort = document.getElementById('edit-cpe-ssh-port').value;
                         const errorDiv = document.getElementById('edit-cpe-error');
 
-                        const success = await updateCPE(macVal, { hostname: hostname });
+                        const success = await updateCPE(macVal, { hostname: hostname, ssh_port: parseInt(sshPort) || 22 });
                         if (success) {
                             if (typeof showToast === 'function') showToast('Hostname updated', 'success');
                             close();
@@ -220,6 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('edit-cpe-mac').value = mac;
             document.getElementById('edit-cpe-mac-display').value = mac;
             document.getElementById('edit-cpe-hostname').value = currentHostname || '';
+            document.getElementById('edit-cpe-ssh-port').value = currentSshPort || 22;
             document.getElementById('edit-cpe-hostname').focus();
         }, 50);
     }
@@ -305,7 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="px-6 py-4 whitespace-nowrap font-semibold text-text-primary">
                         <div class="flex items-center gap-2">
                             <span>${cpe.cpe_hostname || "Unnamed Device"}</span>
-                            <button data-action="edit-hostname" data-mac="${cpe.cpe_mac}" data-hostname="${cpe.cpe_hostname ? cpe.cpe_hostname.replace(/"/g, '&quot;') : ''}" 
+                            <button data-action="edit-hostname" data-mac="${cpe.cpe_mac}" data-hostname="${cpe.cpe_hostname ? cpe.cpe_hostname.replace(/"/g, '&quot;') : ''}" data-ssh-port="${cpe.ssh_port || 22}"
                                 class="text-text-secondary hover:text-primary transition-colors opacity-50 hover:opacity-100" title="Edit Hostname">
                                 <span class="material-symbols-outlined text-sm">edit</span>
                             </button>
@@ -344,7 +346,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 switch (action) {
                     case 'edit-hostname':
-                        openEditCPEModal(mac, button.dataset.hostname);
+                        openEditCPEModal(mac, button.dataset.hostname, button.dataset.sshPort);
                         break;
                     case 'edit-ip':
                         editCpeIp(mac, ip);

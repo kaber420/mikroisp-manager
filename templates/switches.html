@@ -163,6 +163,11 @@
                                 class="w-full bg-background border border-border-color rounded-md p-2">
                         </div>
                         <div>
+                            <label for="switch-ssh_port" class="block text-sm font-medium mb-1">SSH Port</label>
+                            <input type="number" id="switch-ssh_port" x-model.number="currentSwitch.ssh_port" required
+                                class="w-full bg-background border border-border-color rounded-md p-2">
+                        </div>
+                        <div>
                             <label for="switch-location" class="block text-sm font-medium mb-1">Location</label>
                             <input type="text" id="switch-location" x-model="currentSwitch.location"
                                 placeholder="e.g., Server Room, Building A"

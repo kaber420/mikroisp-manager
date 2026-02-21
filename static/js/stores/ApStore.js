@@ -142,6 +142,7 @@ document.addEventListener('alpine:init', () => {
                     monitor_interval: '',
                     vendor: 'ubiquiti',
                     api_port: '',
+                    ssh_port: 22,
                     master_username: '',
                     master_password: ''
                 };
