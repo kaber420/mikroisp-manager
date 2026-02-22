@@ -3,7 +3,7 @@ import json
 import os
 import aiofiles
 from app.utils.cache.manager import cache_manager
-from app.services.bot_manager import bot_manager
+from app.services.core.bot_manager import bot_manager
 
 STATUS_FILE = "/tmp/umanager_status.json"
 

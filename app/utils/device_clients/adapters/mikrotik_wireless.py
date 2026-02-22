@@ -33,10 +33,16 @@ class MikrotikWirelessAdapter(MikrotikRouterAdapter):
     """
 
     def __init__(
-        self, host: str, username: str, password: str, port: int = 8729, api: RouterOsApi = None
+        self,
+        host: str,
+        username: str,
+        password: str,
+        port: int = 8729,
+        ssh_port: int = 22,
+        api: RouterOsApi = None,
     ):
         # Initialize the Router adapter (which handles connection pooling)
-        super().__init__(host, username, password, port, api)
+        super().__init__(host, username, password, port, ssh_port=ssh_port, api=api)
 
     @property
     def vendor(self) -> str:

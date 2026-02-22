@@ -11,8 +11,8 @@ from pydantic import BaseModel
 
 from ...core.users import require_admin, require_technician
 from ...models.user import User
-from ...services.pki_service import PKIService
-from ...services.router_service import get_router_service_for_provisioning
+from ...services.business.pki_service import PKIService
+from ...services.network.router_service import get_router_service_for_provisioning
 
 router = APIRouter(tags=["SSL/TLS"])
 

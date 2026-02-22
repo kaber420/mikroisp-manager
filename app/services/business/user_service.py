@@ -5,9 +5,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 # Importamos los modelos y esquemas modernos
-from ..models.user import User
-from ..core.exceptions import DuplicateError, UserNotFoundError, ValidationError
-from ..schemas.user import UserCreate, UserUpdate
+from ...models.user import User
+from ...core.exceptions import DuplicateError, UserNotFoundError, ValidationError
+from ...schemas.user import UserCreate, UserUpdate
 
 
 class UserService:

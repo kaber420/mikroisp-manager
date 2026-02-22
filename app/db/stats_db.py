@@ -8,7 +8,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from ..models.stats import APStats, CPEStats, DisconnectionEvent, RouterStats
-from ..services.cpe_service import CPEService
+from ..services.network.cpe_service import CPEService
 from ..db.engine import get_session
 
 logger = logging.getLogger(__name__)

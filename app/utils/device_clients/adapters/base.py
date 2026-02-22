@@ -104,11 +104,12 @@ class BaseDeviceAdapter(ABC):
     Each vendor (Ubiquiti, MikroTik, etc.) must implement this interface.
     """
 
-    def __init__(self, host: str, username: str, password: str, port: int = 443):
+    def __init__(self, host: str, username: str, password: str, port: int = 443, ssh_port: int = 22):
         self.host = host
         self.username = username
         self.password = password
         self.port = port
+        self.ssh_port = ssh_port
 
     @property
     @abstractmethod

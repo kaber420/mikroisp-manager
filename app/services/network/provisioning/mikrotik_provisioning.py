@@ -147,8 +147,8 @@ class MikrotikProvisioningService:
         5. Configure and enable api-ssl service.
         """
         # Import here to avoid circular imports
-        from ...utils.device_clients.mikrotik.ssh_client import MikrotikSSHClient
-        from ..pki_service import PKIService
+        from app.utils.device_clients.mikrotik.ssh_client import MikrotikSSHClient
+        from app.services.business.pki_service import PKIService
 
         ssh_client = MikrotikSSHClient(host=host, username=ssh_username, password=ssh_password, port=ssh_port)
 
@@ -300,7 +300,7 @@ class MikrotikProvisioningService:
         2. Generate, upload, and import device certificate.
         3. Configure and enable api-ssl service.
         """
-        from ..pki_service import PKIService
+        from app.services.business.pki_service import PKIService
 
         pki = PKIService()
         if not pki.verify_mkcert_available():
@@ -434,7 +434,7 @@ class MikrotikProvisioningService:
         Returns:
             Dict with status and message
         """
-        from ...utils.device_clients.mikrotik.ssh_client import MikrotikSSHClient
+        from app.utils.device_clients.mikrotik.ssh_client import MikrotikSSHClient
 
         logger.info(f"[SSL Renew] Starting SSL renewal for {host}")
 
@@ -496,9 +496,9 @@ class MikrotikProvisioningService:
         # Import here to avoid circular imports
         from routeros_api import RouterOsApiPool
 
-        from ...utils.device_clients.mikrotik import ssl as ssl_module
-        from ...utils.device_clients.mikrotik.base import get_id
-        from ..pki_service import PKIService
+        from app.utils.device_clients.mikrotik import ssl as ssl_module
+        from app.utils.device_clients.mikrotik.base import get_id
+        from app.services.business.pki_service import PKIService
 
         pool = RouterOsApiPool(
             host,
@@ -607,7 +607,7 @@ class MikrotikProvisioningService:
         Returns:
             Tuple of (success: bool, message: str)
         """
-        from ...utils.device_clients.mikrotik.base import MikrotikApiClient
+        from app.utils.device_clients.mikrotik.base import MikrotikApiClient
 
         for attempt in range(max_attempts):
             try:

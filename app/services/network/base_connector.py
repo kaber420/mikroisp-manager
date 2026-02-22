@@ -1,7 +1,7 @@
 import abc
 import logging
 
-from ..core.exceptions import DeviceNotSubscribedError
+from ...core.exceptions import DeviceNotSubscribedError
 
 # Create specific logger for this module if needed, or use a shared one
 logger = logging.getLogger(__name__)

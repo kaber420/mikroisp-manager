@@ -7,7 +7,7 @@ from sqlmodel import Session
 from ...core.users import require_technician
 from ...db.engine_sync import get_sync_session
 from ...models.user import User
-from ...services.cpe_service import CPEService
+from ...services.network.cpe_service import CPEService
 from .models import AssignedCPE, CPEGlobalInfo, CPEUpdate
 
 router = APIRouter()

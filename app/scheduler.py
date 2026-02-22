@@ -42,8 +42,8 @@ def run_scheduler(log_queue=None):
         )
 
     # Importaciones tardías para evitar problemas de circularidad
-    from .services.billing_job import run_billing_check
-    from .services.monitor_job import run_monitor_cycle
+    from .services.business.billing_job import run_billing_check
+    from .services.monitoring.monitor_job import run_monitor_cycle
 
     logger.info("Inicializando BackgroundScheduler...")
 
@@ -96,7 +96,7 @@ def run_scheduler(log_queue=None):
     )
 
     # --- Job 3: Respaldo de Routers (Diario/Semanal) ---
-    from .services.backup_service import run_backup_cycle
+    from .services.core.backup_service import run_backup_cycle
 
     # Obtener configuración de respaldo
     backup_frequency = get_setting_sync("backup_frequency") or "daily"
@@ -134,7 +134,7 @@ def run_scheduler(log_queue=None):
     )
 
     # --- Job 4: Respaldo de Base de Datos (Diario) ---
-    from .services.db_backup_service import run_db_backup
+    from .services.core.db_backup_service import run_db_backup
     
     db_backup_hour = get_setting_sync("db_backup_run_hour") or "04:00"
     try:

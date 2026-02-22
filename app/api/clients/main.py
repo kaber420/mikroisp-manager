@@ -12,9 +12,9 @@ from ...db.engine_sync import get_sync_session
 from ...models.user import User
 
 # Import service classes
-from ...services.billing_service import BillingService
-from ...services.client_service import ClientService as ClientManagerService
-from ...services.payment_service import PaymentService
+from ...services.business.billing_service import BillingService
+from ...services.business.client_service import ClientService as ClientManagerService
+from ...services.business.payment_service import PaymentService
 from .models import (
     AssignedCPE,
     ClientCreate,

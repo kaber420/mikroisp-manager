@@ -19,10 +19,10 @@ from ...core.users import require_admin, require_technician
 
 from ...db.engine import get_session
 from ...models.user import User
-from ...services.monitor_scheduler import monitor_scheduler
-from ...services.provisioning import MikrotikProvisioningService
-from ...services.provisioning.models import ProvisionRequest, ProvisionResponse
-from ...services.router_service import RouterService
+from ...services.monitoring.monitor_scheduler import monitor_scheduler
+from ...services.network.provisioning import MikrotikProvisioningService
+from ...services.network.provisioning.models import ProvisionRequest, ProvisionResponse
+from ...services.network.router_service import RouterService
 
 # --- UPDATE: Import directly from router_db ---
 from ...db.router_db import create_router_in_db as create_router_service
@@ -102,7 +102,7 @@ async def router_resources_stream(websocket: WebSocket, host: str):
             try:
                 # Use async session to get setting
                 async with async_session_maker() as session:
-                    from ...services.settings_service import SettingsService
+                    from ...services.core.settings_service import SettingsService
                     svc = SettingsService(session)
                     interval_setting = await svc.get_setting_value("dashboard_refresh_interval")
                 

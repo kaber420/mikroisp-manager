@@ -6,7 +6,7 @@ from sqlmodel import Session
 from ...core.users import require_technician
 from ...db.engine_sync import get_sync_session
 from ...models.user import User
-from ...services.zone_service import ZoneService
+from ...services.network.zone_service import ZoneService
 from .models import (
     Zona,
     ZonaCreate,

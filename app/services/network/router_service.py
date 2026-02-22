@@ -6,9 +6,9 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from ..db.router_db import get_router_by_host
-from ..models.router import Router
-from ..utils.security import decrypt_data, encrypt_data
+from ...db.router_db import get_router_by_host
+from ...models.router import Router
+from ...utils.security import decrypt_data, encrypt_data
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ class RouterService:
                 # If decrypt fails, assume it's already plain text (refactored db returns decrypted)
                 password = self.creds.password
 
-        from ..utils.device_clients.adapters.mikrotik_router import MikrotikRouterAdapter
+        from ...utils.device_clients.adapters.mikrotik_router import MikrotikRouterAdapter
 
         self.adapter = MikrotikRouterAdapter(
             host=self.host,
@@ -317,7 +317,7 @@ class RouterService:
             )
 
             # 2. Generate Certs
-            from .pki_service import PKIService
+            from ..business.pki_service import PKIService
 
             pki = PKIService()
             success, key_pem, cert_pem = pki.generate_full_cert_pair(self.host)
@@ -369,7 +369,7 @@ def get_enabled_routers_sync(session) -> list[Router]:
 # --- Dependency Injection ---
 from fastapi import Depends
 
-from ..db.engine import get_session
+from ...db.engine import get_session
 
 
 async def get_router_service(host: str, session: AsyncSession = Depends(get_session)):
@@ -432,7 +432,7 @@ async def get_router_service_for_provisioning(
             pass
             
         # Create adapter directly (bypassing is_provisioned check)
-        from ..utils.device_clients.adapters.mikrotik_router import MikrotikRouterAdapter
+        from ...utils.device_clients.adapters.mikrotik_router import MikrotikRouterAdapter
 
         adapter = MikrotikRouterAdapter(
             host=host,

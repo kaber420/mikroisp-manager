@@ -17,7 +17,7 @@ from ...models.service import ClientService
 from ...models.router import Router
 from ...models.user import User
 from ...models.zona import Zona
-from ...services.settings_service import SettingsService
+from ...services.core.settings_service import SettingsService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

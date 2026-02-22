@@ -99,14 +99,14 @@ async def on_startup():
     # --- Cache V2: Iniciar MonitorScheduler ---
     # Este scheduler consulta routers suscritos y llena el cache
     # Los WebSockets leen del cache en lugar de conectar directamente
-    from .services.monitor_scheduler import monitor_scheduler
+    from .services.monitoring.monitor_scheduler import monitor_scheduler
 
     asyncio.create_task(monitor_scheduler.run())
     print("✅ MonitorScheduler iniciado (Cache V2)")
 
     # --- Cache V2: Iniciar APMonitorScheduler ---
     # Mismo patrón para APs
-    from .services.ap_monitor_scheduler import ap_monitor_scheduler
+    from .services.monitoring.ap_monitor_scheduler import ap_monitor_scheduler
 
     asyncio.create_task(ap_monitor_scheduler.run())
     print("✅ APMonitorScheduler iniciado (Cache V2)")
@@ -114,17 +114,17 @@ async def on_startup():
 
     # --- Cache V2: Iniciar SwitchMonitorScheduler ---
     # Mismo patrón para Switches
-    from .services.switch_monitor_scheduler import switch_monitor_scheduler
+    from .services.monitoring.switch_monitor_scheduler import switch_monitor_scheduler
 
     asyncio.create_task(switch_monitor_scheduler.run())
     print("✅ SwitchMonitorScheduler iniciado (Cache V2)")
 
     # --- BOT MANAGER (Hybrid Architecture) ---
-    from .services.bot_manager import bot_manager
+    from .services.core.bot_manager import bot_manager
     asyncio.create_task(bot_manager.start())
     
     # --- STATUS REPORTER (File-Based for TUI) ---
-    from .services.status_reporter import status_reporter_loop
+    from .services.monitoring.status_reporter import status_reporter_loop
     asyncio.create_task(status_reporter_loop())
 
 
@@ -142,7 +142,7 @@ async def on_shutdown():
             print("✅ Redict desconectado")
 
     # Detener Bots
-    from .services.bot_manager import bot_manager
+    from .services.core.bot_manager import bot_manager
     await bot_manager.stop()
 
 
@@ -629,7 +629,7 @@ async def bot_webhook(bot_type: str, token: str, request: Request):
     Endpoint único para recibir updates de Telegram.
     bot_type: 'client' o 'tech'
     """
-    from .services.bot_manager import bot_manager
+    from .services.core.bot_manager import bot_manager
     
     try:
         data = await request.json()

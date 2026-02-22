@@ -6,8 +6,8 @@ import time
 from datetime import datetime
 
 from app.db.engine import async_session_maker
-from ..db.router_db import get_routers_for_backup
-from ..utils.device_clients.mikrotik.ssh_client import MikrotikSSHClient
+from ...db.router_db import get_routers_for_backup
+from ...utils.device_clients.mikrotik.ssh_client import MikrotikSSHClient
 
 # Configura logger local
 logger = logging.getLogger("BackupService")

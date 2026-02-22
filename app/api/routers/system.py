@@ -14,7 +14,7 @@ from ...db import router_db
 from ...db.engine import get_session
 from ...models.user import User
 from ...models.zona import Zona
-from ...services.router_service import (
+from ...services.network.router_service import (
     RouterCommandError,
     RouterService,
     get_router_service,
@@ -375,7 +375,7 @@ async def api_save_backup_to_server(
     """
     Descarga un archivo de backup del router y lo guarda en el servidor local.
     """
-    from ...services.backup_service import save_file_to_server
+    from ...services.core.backup_service import save_file_to_server
 
     router_info = await router_db.get_router_by_host(session, host)
     if not router_info:

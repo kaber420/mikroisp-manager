@@ -14,9 +14,9 @@ from ...core.users import require_admin, require_technician
 from ...db.engine import get_session
 from ...models.ap import AP as APModel
 from ...models.user import User
-from ...services.ap_monitor_scheduler import ap_monitor_scheduler
-from ...services.provisioning import MikrotikProvisioningService
-from ...services.provisioning.models import ProvisionRequest, ProvisionResponse, ProvisionStatus
+from ...services.monitoring.ap_monitor_scheduler import ap_monitor_scheduler
+from ...services.network.provisioning import MikrotikProvisioningService
+from ...services.network.provisioning.models import ProvisionRequest, ProvisionResponse, ProvisionStatus
 from ...utils.security import decrypt_data, encrypt_data
 
 router = APIRouter()

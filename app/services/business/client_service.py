@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select, or_
 
 from app.models import Client
-from ..core.exceptions import (
+from ...core.exceptions import (
     ClientNotFoundError,
     DeviceCommandError,
     DuplicateError,
@@ -24,11 +24,11 @@ from ..core.exceptions import (
     ValidationError,
 )
 
-from ..api.clients.models import ClientPagination, ClientRead
-from ..models.cpe import CPE
-from ..models.router import Router
-from ..models.service import ClientService as ClientServiceModel
-from ..services.router_service import RouterService
+from ...api.clients.models import ClientPagination, ClientRead
+from ...models.cpe import CPE
+from ...models.router import Router
+from ...models.service import ClientService as ClientServiceModel
+from ..network.router_service import RouterService
 from .payment_service import PaymentService
 
 logger = logging.getLogger(__name__)

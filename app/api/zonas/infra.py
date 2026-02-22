@@ -14,8 +14,8 @@ from ...db import switches_db
 from ...db.engine_sync import get_sync_session
 from ...models.router import Router
 from ...models.user import User
-from ...services import switch_service
-from ...services.router_service import (
+from ...services.network import switch_service
+from ...services.network.router_service import (
     RouterConnectionError,
     RouterNotProvisionedError,
     RouterService,
@@ -85,7 +85,7 @@ def get_router_ports(
             api = service.get_api_client()
 
             # Use shared infrastructure service to get data
-            from ...services.infrastructure_service import get_device_infrastructure_data
+            from ...services.network.infrastructure_service import get_device_infrastructure_data
 
             return get_device_infrastructure_data(
                 api=api, host=host, hostname=router_creds.hostname, model=router_creds.model
@@ -158,7 +158,7 @@ async def get_switch_ports(
             api = service.get_api_client()
 
             # Use shared infrastructure service to get data
-            from ...services.infrastructure_service import get_device_infrastructure_data
+            from ...services.network.infrastructure_service import get_device_infrastructure_data
 
             hostname = switch_data.hostname or host
             model = switch_data.model or "Unknown Switch"

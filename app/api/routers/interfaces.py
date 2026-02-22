@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from ...services.router_service import RouterService, get_router_service
+from ...services.network.router_service import RouterService, get_router_service
 from .models import BridgeCreate, BridgeUpdate, VlanCreate, VlanUpdate
 
 router = APIRouter()

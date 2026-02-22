@@ -7,11 +7,11 @@ from typing import Any
 from sqlalchemy import text
 from sqlmodel import Session, func, select
 
-from ..core.constants import CPEStatus
-from ..core.exceptions import InvalidOperationError, DeviceNotFoundError
-from ..models.cpe import CPE
-from ..models.stats import CPEStats, APStats # Import stats models
-from ..models.ap import AP
+from ...core.constants import CPEStatus
+from ...core.exceptions import InvalidOperationError, DeviceNotFoundError
+from ...models.cpe import CPE
+from ...models.stats import CPEStats, APStats # Import stats models
+from ...models.ap import AP
 
 
 class CPEService:
@@ -254,7 +254,7 @@ class CPEService:
         Marks CPEs as 'offline' if they haven't been seen for configured threshold.
         """
         from datetime import timedelta
-        from ..models.setting import Setting
+        from ...models.setting import Setting
         
         # Get settings via session
         monitor_interval_setting = self.session.get(Setting, "default_monitor_interval")

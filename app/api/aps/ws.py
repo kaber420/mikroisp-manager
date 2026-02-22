@@ -7,7 +7,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from ...db.engine import async_session_maker
 from ...models.ap import AP as APModel
-from ...services.ap_monitor_scheduler import ap_monitor_scheduler
+from ...services.monitoring.ap_monitor_scheduler import ap_monitor_scheduler
 from ...utils.cache import cache_manager
 from ...utils.security import decrypt_data
 
@@ -61,7 +61,7 @@ async def ap_resources_stream(websocket: WebSocket, host: str):
             else:
                 try:
                     async with async_session_maker() as session:
-                        from ...services.settings_service import SettingsService
+                        from ...services.core.settings_service import SettingsService
                         svc = SettingsService(session)
                         val = await svc.get_setting_value("dashboard_refresh_interval")
                         interval_setting = val

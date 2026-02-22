@@ -5,33 +5,33 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.constants import DeviceStatus, DeviceVendor
-from ..db.aps_db import (
+from ...core.constants import DeviceStatus, DeviceVendor
+from ...db.aps_db import (
     get_ap_by_host_with_stats,
     get_ap_status,
     get_enabled_aps_for_monitor,
     update_ap_status,
 )
-from ..db.logs_db import add_event_log
-from ..db.router_db import (
+from ...db.logs_db import add_event_log
+from ...db.router_db import (
     get_enabled_routers_from_db,
     get_router_by_host,
     get_router_status,
     update_router_status,
 )
-from ..db.stats_db import save_device_stats, save_router_monitor_stats
-from ..models.ap import AP
-from ..models.router import Router
-from ..services.router_service import (
+from ...db.stats_db import save_device_stats, save_router_monitor_stats
+from ...models.ap import AP
+from ...models.router import Router
+from ..network.router_service import (
     RouterCommandError,
     RouterConnectionError,
     RouterNotProvisionedError,
     RouterService,
 )
-from ..utils.alerter import send_telegram_alert
-from ..utils.device_clients.adapter_factory import get_device_adapter
+from ...utils.alerter import send_telegram_alert
+from ...utils.device_clients.adapter_factory import get_device_adapter
 
-from ..services.router_connector import router_connector
+from ..network.router_connector import router_connector
 
 logger = logging.getLogger(__name__)
 

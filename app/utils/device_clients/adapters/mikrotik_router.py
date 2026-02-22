@@ -28,9 +28,10 @@ class MikrotikRouterAdapter(BaseDeviceAdapter):
         username: str,
         password: str,
         port: int = 8729,
+        ssh_port: int = 22,
         api: RouterOsApi | None = None,
     ):
-        super().__init__(host, username, password, port)
+        super().__init__(host, username, password, port, ssh_port=ssh_port)
         self._external_api = api
         self._pool_ref = None
         self._internal_api = None  # Cache for local connection reuse

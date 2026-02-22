@@ -83,7 +83,7 @@ def run_setup_wizard() -> None:
     )
     if use_ssl_input in ["s", "si", "y", "yes"]:
         try:
-            from app.services.pki_service import PKIService
+            from app.services.business.pki_service import PKIService
 
             if PKIService.verify_mkcert_available():
                 print("⚙️  Configurando PKI...")

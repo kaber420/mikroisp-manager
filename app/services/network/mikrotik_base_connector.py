@@ -1,8 +1,8 @@
 import asyncio
 import contextlib
 
-from ..core.constants import CredentialKeys
-from ..utils.device_clients.mikrotik.channels import readonly_channels
+from ...core.constants import CredentialKeys
+from ...utils.device_clients.mikrotik.channels import readonly_channels
 from .base_connector import BaseDeviceConnector
 
 

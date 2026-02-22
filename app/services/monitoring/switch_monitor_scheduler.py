@@ -5,11 +5,11 @@ from datetime import datetime
 
 from sqlmodel import select
 
-from ..core.constants import DeviceStatus
-from ..db.engine import async_session_maker
-from ..models.switch import Switch
-from ..utils.cache import cache_manager
-from .switch_connector import switch_connector
+from ...core.constants import DeviceStatus
+from ...db.engine import async_session_maker
+from ...models.switch import Switch
+from ...utils.cache import cache_manager
+from ..network.switch_connector import switch_connector
 
 logger = logging.getLogger(__name__)
 

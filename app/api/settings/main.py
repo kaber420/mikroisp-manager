@@ -6,8 +6,8 @@ from ...core.users import require_admin
 from ...db.engine import get_session
 from ...db.engine_sync import get_sync_session
 from ...models.user import User
-from ...services.billing_service import BillingService
-from ...services.settings_service import SettingsService
+from ...services.business.billing_service import BillingService
+from ...services.core.settings_service import SettingsService
 from ...utils.env_manager import update_env_file, get_env_context
 from .models import SystemSettingsRequest
 
@@ -124,7 +124,7 @@ async def restart_bots(current_user: User = Depends(require_admin)):
     Reinicia el subsistema de bots (BotManager).
     Útil después de cambiar tokens o modo de ejecución (Polling/Webhook).
     """
-    from ...services.bot_manager import bot_manager
+    from ...services.core.bot_manager import bot_manager
     await bot_manager.stop()
     await bot_manager.start()
     return {"message": "Bots reiniciados correctamente."}
@@ -137,7 +137,7 @@ async def restart_bots(current_user: User = Depends(require_admin)):
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...db.engine import get_session
-from ...services.audit_service import AuditService
+from ...services.core.audit_service import AuditService
 
 
 async def get_audit_service(

@@ -17,9 +17,9 @@ from ...core.constants import DeviceStatus
 from ...core.users import require_admin, require_technician
 from ...db.engine import get_session
 from ...models.user import User
-from ...services import switch_service
-from ...services.provisioning import MikrotikProvisioningService
-from ...services.provisioning.models import ProvisionRequest, ProvisionResponse
+from ...services.network import switch_service
+from ...services.network.provisioning import MikrotikProvisioningService
+from ...services.network.provisioning.models import ProvisionRequest, ProvisionResponse
 from ...utils.security import encrypt_data
 
 logger = logging.getLogger(__name__)
@@ -110,7 +110,7 @@ async def switch_resources_stream(websocket: WebSocket, host: str):
         await websocket.close()
         return
 
-    from ...services.switch_monitor_scheduler import switch_monitor_scheduler
+    from ...services.monitoring.switch_monitor_scheduler import switch_monitor_scheduler
     from ...utils.cache import cache_manager
 
     # Prepare credentials

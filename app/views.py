@@ -192,7 +192,7 @@ async def read_payment_receipt(
     session: Session = Depends(get_sync_session),
     current_user: User = Depends(get_current_user_or_redirect),
 ):
-    from .services.billing_service import BillingService
+    from .services.business.billing_service import BillingService
 
     billing_service = BillingService(session)
     

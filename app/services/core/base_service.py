@@ -8,7 +8,7 @@ from typing import Any, Generic, TypeVar
 
 from sqlalchemy.exc import IntegrityError
 
-from ..core.exceptions import DuplicateError, NotFoundError, ValidationError
+from ...core.exceptions import DuplicateError, NotFoundError, ValidationError
 from sqlmodel import Session, select
 
 # Generic type for SQLModel models

@@ -14,14 +14,14 @@ from sqlmodel import Session
 
 from dateutil.relativedelta import relativedelta
 
-from ..models.client import Client
-from ..models.payment import Payment
-from ..models.router import Router
-from ..models.setting import Setting
-from ..core.exceptions import ClientNotFoundError, PaymentNotFoundError, RouterNotFoundError, DuplicateError
+from ...models.client import Client
+from ...models.payment import Payment
+from ...models.router import Router
+from ...models.setting import Setting
+from ...core.exceptions import ClientNotFoundError, PaymentNotFoundError, RouterNotFoundError, DuplicateError
 from .client_service import ClientService
 from .payment_service import PaymentService
-from .router_service import RouterService
+from ..network.router_service import RouterService
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +171,7 @@ class BillingService:
         logger.info("Iniciando auditoría de estados de facturación...")
 
         try:
-            from ..models.setting import Setting
+            from ...models.setting import Setting
             
             # Use self.session (sync)
             setting_obj = self.session.get(Setting, "days_before_due")

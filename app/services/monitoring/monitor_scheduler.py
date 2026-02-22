@@ -3,12 +3,12 @@ import logging
 import os
 from datetime import datetime, timedelta
 
-from ..core.constants import DeviceStatus
-from ..db import router_db
-from ..db.stats_db import save_router_monitor_stats
-from ..db.engine import get_session
-from ..utils.cache import cache_manager
-from .router_connector import router_connector
+from ...core.constants import DeviceStatus
+from ...db import router_db
+from ...db.stats_db import save_router_monitor_stats
+from ...db.engine import get_session
+from ...utils.cache import cache_manager
+from ..network.router_connector import router_connector
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +199,7 @@ class MonitorScheduler:
 
         # 3. Limpiar pool de conexiones del router
         try:
-            from ..utils.device_clients.mikrotik import connection as mikrotik_conn
+            from ...utils.device_clients.mikrotik import connection as mikrotik_conn
 
             mikrotik_conn.remove_pool(host)
             logger.info(f"[MonitorScheduler] Cleared connection pool for {host}")

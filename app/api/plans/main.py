@@ -7,7 +7,7 @@ from sqlmodel import Session
 from ...core.users import require_admin, require_technician
 from ...db.engine_sync import get_sync_session
 from ...models.user import User
-from ...services.plan_service import PlanService
+from ...services.business.plan_service import PlanService
 
 router = APIRouter()
 

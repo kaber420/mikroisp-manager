@@ -6,7 +6,7 @@ from sqlalchemy import func
 from sqlmodel import select, col
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from ..api.aps.models import (
+from ...api.aps.models import (
     APCreate,
     APHistoryResponse,
     APLiveDetail,
@@ -14,18 +14,18 @@ from ..api.aps.models import (
     CPEDetail,
     HistoryDataPoint,
 )
-from ..core.constants import DeviceStatus, DeviceVendor
-from ..db import stats_db, aps_db
-from ..models.ap import AP
-from ..models.stats import APStats
-from ..utils.device_clients.adapter_factory import get_device_adapter
-from ..utils.device_clients.mikrotik import wireless as mikrotik_wireless
-from ..utils.security import decrypt_data, encrypt_data
+from ...core.constants import DeviceStatus, DeviceVendor
+from ...db import stats_db, aps_db
+from ...models.ap import AP
+from ...models.stats import APStats
+from ...utils.device_clients.adapter_factory import get_device_adapter
+from ...utils.device_clients.mikrotik import wireless as mikrotik_wireless
+from ...utils.security import decrypt_data, encrypt_data
 
 
 from sqlalchemy.exc import IntegrityError
 
-from ..core.exceptions import (
+from ...core.exceptions import (
     DeviceNotFoundError,
     DuplicateError,
     ServiceUnavailableError,
@@ -78,7 +78,7 @@ class APService:
         ap_dict = ap_data.model_dump()
 
         if ap_dict.get("monitor_interval") is None:
-            from ..models.setting import Setting
+            from ...models.setting import Setting
             
             setting = await self.session.get(Setting, "default_monitor_interval")
             default_interval_str = setting.value if setting else None
@@ -153,7 +153,7 @@ class APService:
         """
         Synchronizes CPE hostnames by fetching ARP table from the AP.
         """
-        from ..models.cpe import CPE
+        from ...models.cpe import CPE
         
         ap = await self.session.get(AP, host)
         if not ap:

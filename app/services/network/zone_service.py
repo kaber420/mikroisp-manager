@@ -12,7 +12,7 @@ from typing import Any
 import aiofiles
 from fastapi import UploadFile
 
-from ..core.exceptions import (
+from ...core.exceptions import (
     DeletionBlockedError,
     DuplicateError,
     NotFoundError,
@@ -22,9 +22,9 @@ from ..core.exceptions import (
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from ..models.zona import Zona, ZonaDocumento, ZonaInfra, ZonaNote
-from ..utils.security import decrypt_data, encrypt_data
-from .base_service import BaseCRUDService
+from ...models.zona import Zona, ZonaDocumento, ZonaInfra, ZonaNote
+from ...utils.security import decrypt_data, encrypt_data
+from ..core.base_service import BaseCRUDService
 
 
 class ZoneService(BaseCRUDService[Zona]):
@@ -95,8 +95,8 @@ class ZoneService(BaseCRUDService[Zona]):
         Delete zone with dependency checks (APs, Routers).
         Raises FileNotFoundError for backward compatibility.
         """
-        from ..models.ap import AP
-        from ..models.router import Router
+        from ...models.ap import AP
+        from ...models.router import Router
 
         # Check for APs in zone
         res_aps = self.session.exec(

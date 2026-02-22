@@ -3,9 +3,9 @@ import logging
 
 from sqlmodel import Session
 
-from ..db.engine_sync import sync_engine
+from ...db.engine_sync import sync_engine
 from .billing_service import BillingService
-from .router_service import RouterConnectionError, RouterService, get_enabled_routers_sync
+from ..network.router_service import RouterConnectionError, RouterService, get_enabled_routers_sync
 
 # Configuración del Logger
 logger = logging.getLogger("BillingJob")

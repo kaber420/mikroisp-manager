@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from ..models.setting import Setting
+from ...models.setting import Setting
 
 
 class SettingsService:

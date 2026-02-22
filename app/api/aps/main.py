@@ -15,7 +15,7 @@ from ...core.audit import log_action
 from ...core.users import require_admin, require_technician
 from ...db.engine import async_session_maker, get_session
 from ...models.user import User
-from ...services.ap_service import (
+from ...services.network.ap_service import (
     APCreateError,
     APDataError,
     APNotFoundError,

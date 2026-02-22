@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from ...core.users import current_active_user as get_current_active_user
 from ...models.user import User
-from ...services.router_service import (
+from ...services.network.router_service import (
     RouterCommandError,
     RouterService,
     get_router_service,

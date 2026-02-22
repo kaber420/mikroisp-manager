@@ -11,14 +11,14 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from ..models.switch import Switch
-from ..utils.device_clients.adapters.mikrotik_switch import MikrotikSwitchAdapter
-from ..utils.security import decrypt_data, encrypt_data
+from ...models.switch import Switch
+from ...utils.device_clients.adapters.mikrotik_switch import MikrotikSwitchAdapter
+from ...utils.security import decrypt_data, encrypt_data
 
 logger = logging.getLogger(__name__)
 
 
-from ..core.exceptions import ServiceUnavailableError, DeviceCommandError, DuplicateError
+from ...core.exceptions import ServiceUnavailableError, DeviceCommandError, DuplicateError
 
 # --- Alias de Excepciones del Servicio (heredan de AppError) ---
 SwitchConnectionError = ServiceUnavailableError
@@ -181,7 +181,7 @@ class SwitchService:
         If not, automatically provisions one using PKIService.
         Returns True if provisioned (or already valid), False if failed.
         """
-        from .pki_service import PKIService
+        from ..business.pki_service import PKIService
 
         try:
             # 1. Check current Status
