@@ -3,17 +3,25 @@
 @tailwind utilities;
 
 /* ============================================
+   Componentes base reutilizables
+   .data-table y .progress-bar están en el plugin
+   de tailwind.config.js (addComponents)
+   ============================================ */
+@layer components {
+
+    /* Card — extiende el .card de DaisyUI con fondo, padding y borde */
+    .card {
+        background-color: oklch(var(--b2));
+        padding: 1.5rem;
+        border-radius: var(--rounded-box, 1rem);
+        border: 1px solid oklch(var(--bc) / 0.1);
+        margin-bottom: 1.5rem;
+    }
+}
+
+/* ============================================
    Router Details Page Custom Styles
    ============================================ */
-
-/* Card component */
-.card {
-    background-color: var(--color-surface-1);
-    border-radius: 0.5rem;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-    border: 1px solid var(--color-border);
-}
 
 /* Status indicators */
 .status-indicator {
@@ -25,11 +33,11 @@
 }
 
 .status-online {
-    background-color: var(--color-success);
+    background-color: oklch(var(--su));
 }
 
 .status-offline {
-    background-color: var(--color-danger);
+    background-color: oklch(var(--er));
 }
 
 /* Tab navigation buttons */
@@ -41,16 +49,16 @@
 }
 
 .tab-button.active {
-    border-bottom: 2px solid var(--color-primary);
-    color: var(--color-text-primary);
+    border-bottom: 2px solid oklch(var(--p));
+    color: oklch(var(--bc));
 }
 
 .tab-button:not(.active) {
-    color: var(--color-text-secondary);
+    color: oklch(var(--bc) / 0.6);
 }
 
 .tab-button:hover:not(.active) {
-    border-bottom: 2px solid var(--color-surface-2);
+    border-bottom: 2px solid oklch(var(--b2));
 }
 
 /* Stats Grid */
@@ -61,7 +69,7 @@
 }
 
 .stat-card {
-    background-color: var(--color-surface-2);
+    background-color: oklch(var(--b2));
     border-radius: 0.5rem;
     padding: 1rem;
     text-align: center;
@@ -70,60 +78,24 @@
 .stat-value {
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--color-text-primary);
+    color: oklch(var(--bc));
 }
 
 .stat-value-live {
-    color: var(--color-primary);
+    color: oklch(var(--p));
 }
 
 .stat-label {
     font-size: 0.875rem;
-    color: var(--color-text-secondary);
+    color: oklch(var(--bc) / 0.6);
 }
 
-/* Progress Bars */
-.progress-bar {
-    height: 8px;
-    background-color: var(--color-surface-2);
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.progress-value {
-    height: 100%;
-    background-color: var(--color-primary);
-    border-radius: 4px;
-    transition: width 0.3s ease;
-}
-
-/* Data Tables */
-.data-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.data-table th {
-    background-color: var(--color-surface-2);
-    padding: 0.75rem;
-    text-align: left;
-    font-weight: 600;
-    color: var(--color-text-secondary);
-}
-
-.data-table td {
-    padding: 0.75rem;
-    border-top: 1px solid var(--color-border);
-}
-
-.data-table tr:hover {
-    background-color: var(--color-surface-2);
-}
+/* Tables and progresses have been handled by DaisyUI components */
 
 /* Interface filter buttons */
 .interface-filter-btn {
-    background-color: var(--color-surface-2);
-    color: var(--color-text-secondary);
+    background-color: oklch(var(--b2));
+    color: oklch(var(--bc) / 0.6);
     transition: all 0.2s;
     padding: 0.25rem 0.75rem;
     font-size: 0.875rem;
@@ -132,12 +104,12 @@
 }
 
 .interface-filter-btn:hover {
-    background-color: var(--color-surface-3, #475569);
+    background-color: oklch(var(--b3));
 }
 
 .interface-filter-btn.active {
-    background-color: var(--color-primary);
-    color: var(--color-text-primary);
+    background-color: oklch(var(--p));
+    color: oklch(var(--bc));
     font-weight: 600;
 }
 
@@ -147,8 +119,8 @@
 
 /* Filter buttons (used in clients list) */
 .filter-button.active {
-    background-color: var(--color-primary);
-    color: var(--color-text-primary);
+    background-color: oklch(var(--p));
+    color: oklch(var(--bc));
 }
 
 /* Tab Panels (show/hide) */
@@ -162,8 +134,8 @@
 
 /* Tab button hover state (for settings page) */
 .tab-button:hover:not(.active) {
-    color: #CBD5E1;
-    border-bottom-color: var(--color-surface-3, #475569);
+    color: oklch(var(--bc) / 0.7);
+    border-bottom-color: oklch(var(--b3));
 }
 
 /* ============================================
@@ -184,65 +156,4 @@
     color: rgba(168, 85, 247, 0.05);
 }
 
-/* ============================================
-   Modal Button Component Classes (OOP Style)
-   ============================================ */
-
-/* Base button - shared styles */
-.modal-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.25rem;
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    cursor: pointer;
-    border: none;
-}
-
-/* Cancel / Neutral button */
-.modal-btn-cancel {
-    color: var(--color-text-secondary);
-    background-color: transparent;
-}
-
-.modal-btn-cancel:hover {
-    background-color: var(--color-surface-2);
-    color: var(--color-text-primary);
-}
-
-/* Primary action button (Soft to Solid) */
-.modal-btn-primary {
-    color: var(--color-primary);
-    background-color: var(--color-primary-soft);
-}
-
-.modal-btn-primary:hover {
-    color: #FFFFFF;
-    background-color: var(--color-primary);
-}
-
-/* Danger action button (Soft to Solid) */
-.modal-btn-danger {
-    color: var(--color-danger);
-    background-color: rgba(239, 68, 68, 0.1);
-}
-
-.modal-btn-danger:hover {
-    color: #FFFFFF;
-    background-color: var(--color-danger);
-}
-
-/* Secondary/Info action button (Soft to Solid) */
-.modal-btn-secondary {
-    color: var(--color-primary);
-    background-color: var(--color-primary-soft);
-}
-
-.modal-btn-secondary:hover {
-    color: #FFFFFF;
-    background-color: var(--color-primary);
-}
+/* Button Modals removed in favor of standard DaisyUI Buttons */

@@ -261,7 +261,7 @@
 
     <!-- Edit Modal -->
     <div x-show="$store.switchDetails.isEditModalOpen" x-cloak
-        class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 overflow-y-auto z-50">
+        class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 overflow-y-auto z-50">
         <div @click.away="$store.switchDetails.closeEditModal()"
             class="bg-surface-1 rounded-lg shadow-xl w-full max-w-2xl border border-border-color my-auto">
             <form @submit.prevent="$store.switchDetails.saveSwitch()">

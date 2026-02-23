@@ -27,6 +27,10 @@ document.addEventListener('alpine:init', () => {
             return Alpine.store('users').error;
         },
 
+        get errors() {
+            return Alpine.store('users').errors || {};
+        },
+
         // --- Actions ---
         openAddModal() {
             Alpine.store('users').openModal();

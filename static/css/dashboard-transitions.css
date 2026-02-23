@@ -36,7 +36,7 @@
 
 /* Efecto hover mejorado */
 #ap-table-body tr:hover {
-    background-color: var(--surface-2, rgba(255, 255, 255, 0.05));
+    background-color: oklch(var(--b2) / 0.3);
 }
 
 /* Mejora la visualización de los badges de estado */
@@ -67,8 +67,8 @@
 
 #search-input:focus {
     outline: none;
-    border-color: var(--color-primary, #3b82f6);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: oklch(var(--p));
+    box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
 }
 
 /* Asegura que el contenido de la tabla esté bien posicionado */

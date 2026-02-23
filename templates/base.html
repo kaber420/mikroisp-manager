@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" data-theme="dark">
 
 <head>
     <meta charset="UTF-8">
@@ -25,9 +25,9 @@
     {% block styles %}{% endblock %}
 </head>
 
-<body class="dynamic-bg text-text-primary font-sans antialiased relative overflow-x-hidden">
+<body class="dynamic-bg text-base-content font-sans antialiased relative overflow-x-hidden">
     <script
-        nonce="{{ request.state.csp_nonce }}">(function () { var t = localStorage.getItem('umanager-theme'); if (t === 'modern') document.body.classList.add('theme-modern') })()</script>
+        nonce="{{ request.state.csp_nonce }}">(function () { var t = localStorage.getItem('umanager-theme'); if (t === 'modern') document.body.classList.add('theme-modern'); var c = localStorage.getItem('umanager-color-theme'); if (c) document.documentElement.setAttribute('data-theme', c); })()</script>
 
     <!-- Lava Lamp Background (solo visible con tema moderno) -->
     <div id="lava-container" class="lava-bg">
@@ -47,11 +47,11 @@
         x-init="$watch('collapsed', val => localStorage.setItem('sidebarCollapsed', val))"
         class="flex h-screen overflow-hidden relative z-10">
 
-        <aside class="bg-surface-1 flex-shrink-0 flex flex-col transition-all duration-300 ease-in-out relative"
+        <aside class="bg-base-200 flex-shrink-0 flex flex-col transition-all duration-300 ease-in-out relative"
             :class="collapsed ? 'w-20' : 'w-64'">
 
             <button @click="collapsed = !collapsed"
-                class="absolute -right-3 top-24 bg-surface-1 border border-border-color text-text-secondary rounded-full p-1 hover:text-primary transition-transform shadow-sm z-10">
+                class="btn btn-circle btn-xs absolute -right-3 top-24 bg-base-200 border-base-content/20 text-base-content/70 hover:text-primary z-10 transition-transform">
                 <span class="material-symbols-outlined text-sm"
                     :class="collapsed ? 'rotate-180' : ''">chevron_left</span>
             </button>
@@ -63,8 +63,8 @@
                     <h1 x-show="!collapsed" x-transition:enter="transition ease-out duration-200"
                         x-transition:enter-start="opacity-0 transform -translate-x-2"
                         x-transition:enter-end="opacity-100 transform translate-x-0"
-                        class="text-xl font-bold text-text-primary origin-left">
-                        µMonitor <span class="text-sm font-medium text-text-secondary">Pro</span>
+                        class="text-xl font-bold text-base-content origin-left">
+                        µMonitor <span class="text-sm font-medium text-base-content/70">Pro</span>
                     </h1>
                 </a>
                 <div class="d-flex align-items-center ms-3" x-show="!collapsed">
@@ -277,12 +277,10 @@
                 <p id="session-countdown" class="text-4xl font-bold text-warning">3:00</p>
             </div>
             <div class="flex gap-3">
-                <button id="session-stay-btn"
-                    class="flex-1 bg-primary hover:bg-primary-hover text-white font-semibold py-3 px-4 rounded-lg transition-colors">
+                <button id="session-stay-btn" class="btn btn-primary flex-1">
                     Continuar Sesión
                 </button>
-                <a href="/logout"
-                    class="flex-1 bg-surface-2 hover:bg-surface-2/80 text-text-primary font-semibold py-3 px-4 rounded-lg transition-colors text-center">
+                <a href="/logout" class="btn flex-1">
                     Cerrar Sesión
                 </a>
             </div>

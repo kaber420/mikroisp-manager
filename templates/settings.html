@@ -786,6 +786,52 @@
                             class="absolute top-3 right-3 material-symbols-outlined text-primary text-xl">check_circle</span>
                     </button>
                 </div>
+
+                <!-- Esquema de Color -->
+                <div class="mt-8 border-t border-white/10 pt-6">
+                    <h3 class="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+                        <span class="material-symbols-outlined text-primary">contrast</span>
+                        Esquema de Color
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <!-- Dark Mode -->
+                        <button type="button" @click="setColorTheme('dark')"
+                            class="group relative rounded-xl border-2 p-6 text-left transition-all duration-300 cursor-pointer"
+                            :class="colorTheme === 'dark'
+                                ? 'border-primary bg-primary/10 shadow-lg shadow-primary/10'
+                                : 'border-white/10 hover:border-white/30 bg-surface-1/30'">
+                            <div class="flex items-center gap-3">
+                                <span class="material-symbols-outlined text-2xl"
+                                    :class="colorTheme === 'dark' ? 'text-primary' : 'text-text-secondary'">dark_mode</span>
+                                <div>
+                                    <h4 class="font-bold text-white">Oscuro</h4>
+                                    <p class="text-xs text-text-secondary">Esquema de color oscuro (DaisyUI dark)</p>
+                                </div>
+                            </div>
+                            <span x-show="colorTheme === 'dark'"
+                                class="absolute top-3 right-3 material-symbols-outlined text-primary text-xl">check_circle</span>
+                        </button>
+
+                        <!-- Light Mode -->
+                        <button type="button" @click="setColorTheme('light')"
+                            class="group relative rounded-xl border-2 p-6 text-left transition-all duration-300 cursor-pointer"
+                            :class="colorTheme === 'light'
+                                ? 'border-primary bg-primary/10 shadow-lg shadow-primary/10'
+                                : 'border-white/10 hover:border-white/30 bg-surface-1/30'">
+                            <div class="flex items-center gap-3">
+                                <span class="material-symbols-outlined text-2xl"
+                                    :class="colorTheme === 'light' ? 'text-primary' : 'text-text-secondary'">light_mode</span>
+                                <div>
+                                    <h4 class="font-bold text-white">Claro</h4>
+                                    <p class="text-xs text-text-secondary">Esquema de color claro (DaisyUI light)</p>
+                                </div>
+                            </div>
+                            <span x-show="colorTheme === 'light'"
+                                class="absolute top-3 right-3 material-symbols-outlined text-primary text-xl">check_circle</span>
+                        </button>
+                    </div>
+                </div>
+
             </div>
         </div>
 

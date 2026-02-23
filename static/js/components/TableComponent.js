@@ -10,7 +10,7 @@ export class TableComponent {
         this.columns = config.columns || [];
         this.renderRow = config.renderRow;
         this.emptyMessage = config.emptyMessage || 'No data available';
-        this.tableClass = config.tableClass || 'std-table';
+        this.tableClass = config.tableClass || 'data-table';
         this.onAction = config.onAction || (() => { }); // Callback for actions
     }
 
@@ -39,7 +39,7 @@ export class TableComponent {
         const thead = document.createElement('thead');
         thead.innerHTML = `
             <tr>
-                ${this.columns.map(col => `<th class="std-th">${col}</th>`).join('')}
+                ${this.columns.map(col => `<th>${col}</th>`).join('')}
             </tr>
         `;
         table.appendChild(thead);

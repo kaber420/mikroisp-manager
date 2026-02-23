@@ -69,7 +69,7 @@
     </div>
 
     <div x-data="userModal()" x-show="isOpen" x-cloak
-        class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4">
+        class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
 
         <div @click.away="close()" class="bg-surface-1 rounded-lg shadow-xl w-full max-w-lg border border-border-color">
             <form @submit.prevent="save()">

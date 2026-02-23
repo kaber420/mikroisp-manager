@@ -6,6 +6,7 @@
 document.addEventListener('alpine:init', () => {
     Alpine.data('appearanceSettings', () => ({
         currentTheme: localStorage.getItem('umanager-theme') || 'classic',
+        colorTheme: localStorage.getItem('umanager-color-theme') || 'dark',
 
         setTheme(theme) {
             const allowed = ['classic', 'modern'];
@@ -19,6 +20,12 @@ document.addEventListener('alpine:init', () => {
             } else {
                 document.body.classList.remove('theme-modern');
             }
+        },
+
+        setColorTheme(theme) {
+            this.colorTheme = theme;
+            localStorage.setItem('umanager-color-theme', theme);
+            document.documentElement.setAttribute('data-theme', theme);
         }
     }));
 });
