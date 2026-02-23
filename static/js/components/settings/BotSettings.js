@@ -15,6 +15,12 @@ document.addEventListener('alpine:init', () => {
         bot_external_url: '',
         isRestarting: false,
 
+        // Button Enablers
+        bot_enable_btn_report: true,
+        bot_enable_btn_status: true,
+        bot_enable_btn_agent: true,
+        bot_enable_btn_wifi: true,
+
         // Form fields with default values
         bot_welcome_msg_client: '',
         bot_welcome_msg_guest: '',
@@ -37,6 +43,12 @@ document.addEventListener('alpine:init', () => {
 
                 this.bot_execution_mode = settings.bot_execution_mode || 'auto';
                 this.bot_external_url = settings.bot_external_url || '';
+
+                // Populate button enablers (default to true if undefined or "true", false otherwise)
+                this.bot_enable_btn_report = settings.bot_enable_btn_report !== 'false';
+                this.bot_enable_btn_status = settings.bot_enable_btn_status !== 'false';
+                this.bot_enable_btn_agent = settings.bot_enable_btn_agent !== 'false';
+                this.bot_enable_btn_wifi = settings.bot_enable_btn_wifi !== 'false';
 
                 // Populate message fields
                 this.bot_welcome_msg_client = settings.bot_welcome_msg_client || "¡Hola de nuevo, {name}! 👋\n\n¿En qué podemos ayudarte?";
@@ -61,6 +73,11 @@ document.addEventListener('alpine:init', () => {
                 telegram_chat_id: this.telegram_chat_id,
                 bot_execution_mode: this.bot_execution_mode,
                 bot_external_url: this.bot_external_url,
+                // Button enablers
+                bot_enable_btn_report: this.bot_enable_btn_report ? 'true' : 'false',
+                bot_enable_btn_status: this.bot_enable_btn_status ? 'true' : 'false',
+                bot_enable_btn_agent: this.bot_enable_btn_agent ? 'true' : 'false',
+                bot_enable_btn_wifi: this.bot_enable_btn_wifi ? 'true' : 'false',
                 // Message settings
                 bot_welcome_msg_client: this.bot_welcome_msg_client,
                 bot_welcome_msg_guest: this.bot_welcome_msg_guest,

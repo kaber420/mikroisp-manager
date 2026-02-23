@@ -537,28 +537,60 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/10 pt-6">
                         <div>
-                            <label for="bot_val_btn_report"
-                                class="block text-sm font-medium mb-2 text-text-secondary">Botón: Reportar Falla</label>
+                            <div class="flex justify-between items-center mb-2">
+                                <label for="bot_val_btn_report"
+                                    class="block text-sm font-medium text-text-secondary">Botón: Reportar Falla</label>
+                                <label class="cursor-pointer label p-0 gap-2">
+                                    <span class="text-xs text-text-secondary">Activo</span>
+                                    <input type="checkbox" class="toggle toggle-primary toggle-sm"
+                                        x-model="bot_enable_btn_report" />
+                                </label>
+                            </div>
                             <input type="text" id="bot_val_btn_report" x-model="bot_val_btn_report"
-                                class="w-full input-glass rounded-lg p-2">
+                                class="w-full input-glass rounded-lg p-2" :disabled="!bot_enable_btn_report"
+                                :class="!bot_enable_btn_report ? 'opacity-50 cursor-not-allowed' : ''" />
                         </div>
                         <div>
-                            <label for="bot_val_btn_status"
-                                class="block text-sm font-medium mb-2 text-text-secondary">Botón: Ver Tickets</label>
+                            <div class="flex justify-between items-center mb-2">
+                                <label for="bot_val_btn_status"
+                                    class="block text-sm font-medium text-text-secondary">Botón: Ver Tickets</label>
+                                <label class="cursor-pointer label p-0 gap-2">
+                                    <span class="text-xs text-text-secondary">Activo</span>
+                                    <input type="checkbox" class="toggle toggle-primary toggle-sm"
+                                        x-model="bot_enable_btn_status" />
+                                </label>
+                            </div>
                             <input type="text" id="bot_val_btn_status" x-model="bot_val_btn_status"
-                                class="w-full input-glass rounded-lg p-2">
+                                class="w-full input-glass rounded-lg p-2" :disabled="!bot_enable_btn_status"
+                                :class="!bot_enable_btn_status ? 'opacity-50 cursor-not-allowed' : ''" />
                         </div>
                         <div>
-                            <label for="bot_val_btn_wifi"
-                                class="block text-sm font-medium mb-2 text-text-secondary">Botón: Clave WiFi</label>
+                            <div class="flex justify-between items-center mb-2">
+                                <label for="bot_val_btn_wifi"
+                                    class="block text-sm font-medium text-text-secondary">Botón: Clave WiFi</label>
+                                <label class="cursor-pointer label p-0 gap-2">
+                                    <span class="text-xs text-text-secondary">Activo</span>
+                                    <input type="checkbox" class="toggle toggle-primary toggle-sm"
+                                        x-model="bot_enable_btn_wifi" />
+                                </label>
+                            </div>
                             <input type="text" id="bot_val_btn_wifi" x-model="bot_val_btn_wifi"
-                                class="w-full input-glass rounded-lg p-2">
+                                class="w-full input-glass rounded-lg p-2" :disabled="!bot_enable_btn_wifi"
+                                :class="!bot_enable_btn_wifi ? 'opacity-50 cursor-not-allowed' : ''" />
                         </div>
                         <div>
-                            <label for="bot_val_btn_agent"
-                                class="block text-sm font-medium mb-2 text-text-secondary">Botón: Agente Humano</label>
+                            <div class="flex justify-between items-center mb-2">
+                                <label for="bot_val_btn_agent"
+                                    class="block text-sm font-medium text-text-secondary">Botón: Agente Humano</label>
+                                <label class="cursor-pointer label p-0 gap-2">
+                                    <span class="text-xs text-text-secondary">Activo</span>
+                                    <input type="checkbox" class="toggle toggle-primary toggle-sm"
+                                        x-model="bot_enable_btn_agent" />
+                                </label>
+                            </div>
                             <input type="text" id="bot_val_btn_agent" x-model="bot_val_btn_agent"
-                                class="w-full input-glass rounded-lg p-2">
+                                class="w-full input-glass rounded-lg p-2" :disabled="!bot_enable_btn_agent"
+                                :class="!bot_enable_btn_agent ? 'opacity-50 cursor-not-allowed' : ''" />
                         </div>
                     </div>
 

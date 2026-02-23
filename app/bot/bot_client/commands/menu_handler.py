@@ -14,7 +14,7 @@ from app.models.client import Client
 
 from app.bot.core.ticket_manager import crear_ticket, obtener_tickets, agregar_respuesta_a_ticket, TicketLimitExceeded
 from app.bot.core.ticket_manager import crear_ticket, obtener_tickets, agregar_respuesta_a_ticket, TicketLimitExceeded
-from app.bot.core.utils import get_client_by_telegram_id, sanitize_input, get_bot_setting, upsert_bot_user
+from app.bot.core.utils import get_client_by_telegram_id, sanitize_input, get_bot_setting, upsert_bot_user, get_bot_setting_bool
 from app.bot.core.middleware import rate_limit
 
 logger = logging.getLogger(__name__)
@@ -36,12 +36,15 @@ def get_main_keyboard_markup() -> ReplyKeyboardMarkup:
     btn_wifi = get_bot_setting("bot_val_btn_wifi", BTN_CAMBIAR_CLAVE_DEFAULT)
     btn_agent = get_bot_setting("bot_val_btn_agent", BTN_SOLICITAR_AGENTE_DEFAULT)
 
-    keyboard = [
-        [btn_report], 
-        [btn_status], 
-        [btn_wifi],
-        [btn_agent]
-    ]
+    keyboard = []
+    if get_bot_setting_bool("bot_enable_btn_report", True):
+        keyboard.append([btn_report])
+    if get_bot_setting_bool("bot_enable_btn_status", True):
+        keyboard.append([btn_status])
+    if get_bot_setting_bool("bot_enable_btn_wifi", True):
+        keyboard.append([btn_wifi])
+    if get_bot_setting_bool("bot_enable_btn_agent", True):
+        keyboard.append([btn_agent])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 
@@ -352,13 +355,13 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
     btn_agent = get_bot_setting("bot_val_btn_agent", BTN_SOLICITAR_AGENTE_DEFAULT)
     btn_wifi = get_bot_setting("bot_val_btn_wifi", BTN_CAMBIAR_CLAVE_DEFAULT)
     
-    if text == btn_report:
+    if text == btn_report and get_bot_setting_bool("bot_enable_btn_report", True):
         return await reportar_falla(update, context)
-    elif text == btn_status:
+    elif text == btn_status and get_bot_setting_bool("bot_enable_btn_status", True):
         return await ver_estado(update, context)
-    elif text == btn_agent:
+    elif text == btn_agent and get_bot_setting_bool("bot_enable_btn_agent", True):
         return await solicitar_agente(update, context)
-    elif text == btn_wifi:
+    elif text == btn_wifi and get_bot_setting_bool("bot_enable_btn_wifi", True):
         return await solicitar_cambio_clave(update, context)
     else:
         # Si no es ningún botón, asumir que es chat

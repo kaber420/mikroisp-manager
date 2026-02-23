@@ -96,6 +96,15 @@ def get_bot_setting(key: str, default: str) -> str:
         logger.error(f"Error fetching setting {key}: {e}")
         return default
 
+def get_bot_setting_bool(key: str, default: bool = True) -> bool:
+    """
+    Obtiene un valor de configuración del bot interpretado como booleano.
+    """
+    val = get_bot_setting(key, str(default))
+    if isinstance(val, bool):
+        return val
+    return str(val).lower() in ("true", "1", "yes", "y", "t")
+
 def upsert_bot_user(user, client_id = None):
     """
     Registra o actualiza la interacción de un usuario con el bot.
