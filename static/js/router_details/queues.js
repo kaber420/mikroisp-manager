@@ -21,7 +21,7 @@ function openAddParentQueueModal() {
     wrapper.appendChild(content);
 
     activeAddParentQueueModal = window.ModalUtils.showCustomModal({
-        title: 'Crear Cola Padre',
+        title: 'Crear Cola',
         content: wrapper,
         modalId: 'add-parent-queue-modal',
         size: 'md',
@@ -54,25 +54,39 @@ function renderQueueTargetOptions(interfaces) {
 }
 
 function renderParentQueues(queues) {
-    // Filter parent queues
-    const parentQueues = queues?.filter(q => q.comment && q.comment.includes('[PARENT]')) || [];
+    const parentQueuesList = queues || []; // Mostrar todas las colas de MikroTik
 
-    // Render parent queues table
     if (DOM_ELEMENTS.parentQueueListDisplay) {
         if (!parentQueuesTable) {
             parentQueuesTable = new TableComponent({
-                columns: ['Name', 'Max Limit', 'Action'],
-                emptyMessage: 'No hay colas de infraestructura.',
+                columns: ['Tipo', 'Name', 'Target', 'Max Limit', 'Action'],
+                emptyMessage: 'No hay colas configuradas.',
                 tableClass: 'data-table w-full',
                 onAction: (action, payload) => {
                     if (action === 'delete') handleDeleteParentQueue(payload.id);
                 },
                 renderRow: (queue) => {
                     const bw = queue['max-limit'] || '0/0';
+                    const target = queue.target || 'N/A';
                     const queueId = queue['.id'] || queue.id;
+                    const comment = queue.comment || '';
+
+                    let badgeClass = 'badge badge-ghost badge-sm';
+                    let badgeText = 'Ordinaria';
+
+                    if (comment.includes('[PARENT]')) {
+                        badgeClass = 'badge badge-primary badge-sm';
+                        badgeText = 'Infraestructura';
+                    } else if (comment.includes('Managed by µMonitor')) {
+                        badgeClass = 'badge badge-success badge-sm';
+                        badgeText = 'Cliente µMonitor';
+                    }
+
                     return `
                         <tr>
+                            <td><span class="${badgeClass}">${badgeText}</span></td>
                             <td>${queue.name}</td>
+                            <td class="font-mono text-xs">${target}</td>
                             <td class="font-mono text-warning text-xs">${bw}</td>
                             <td>
                                 <button class="btn-action-icon text-danger hover:text-red-400" 
@@ -87,18 +101,20 @@ function renderParentQueues(queues) {
                 }
             });
         }
-        parentQueuesTable.render(parentQueues, DOM_ELEMENTS.parentQueueListDisplay);
+        parentQueuesTable.render(parentQueuesList, DOM_ELEMENTS.parentQueueListDisplay);
     }
 
     // Populate parent queue selects (for PPP tab plan form modal)
-    const parentOptions = parentQueues.map(queue =>
+    // Only select queues marked as [PARENT] for the modal drop down
+    const parentQueuesOptions = queues?.filter(q => q.comment && q.comment.includes('[PARENT]')) || [];
+    const parentOptionsHtml = parentQueuesOptions.map(queue =>
         `<option value="${queue.name}">${queue.name} (${queue['max-limit'] || 'N/A'})</option>`
     ).join('');
 
     const parentSelects = document.querySelectorAll('#plan-parent-queue');
     parentSelects.forEach(select => {
         if (select) {
-            select.innerHTML = '<option value="none">-- Sin Cola Padre --</option>' + parentOptions;
+            select.innerHTML = '<option value="none">-- Sin Cola Padre --</option>' + parentOptionsHtml;
         }
     });
 }

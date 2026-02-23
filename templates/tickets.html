@@ -14,7 +14,6 @@
     <div class="flex items-center justify-between mb-8">
         <div>
             <h1 class="text-4xl font-bold">Manage Support Tickets</h1>
-            <p class="text-text-secondary text-sm mt-1">Manage customer support requests</p>
         </div>
         <div class="flex gap-3">
             <button @click="openCreateModal(filterType)"
@@ -374,7 +373,8 @@
                     New <span
                         x-text="newTicket.ticket_type === 'installation' ? 'Installation' : 'Support Ticket'"></span>
                 </h2>
-                <button @click="closeCreateModal()" class="text-text-secondary hover:text-base-content transition-colors">
+                <button @click="closeCreateModal()"
+                    class="text-text-secondary hover:text-base-content transition-colors">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             </div>

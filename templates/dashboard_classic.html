@@ -49,7 +49,6 @@
         <div>
             <h2 class="text-3xl font-bold text-text-primary tracking-tight">{{ isp_name if isp_name else 'Dashboard' }}
             </h2>
-            <p class="text-text-secondary text-sm">Resumen general del sistema</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -84,6 +83,42 @@
 
                 <!-- Hidden elements for compatibility with existing js if needed, though we use the modal logic directly -->
                 <div id="ssl-security-badge" class="hidden"></div>
+            </div>
+
+            <!-- Config Dashboard -->
+            <div class="relative" x-data="{ open: false }">
+                <button @click="open = !open" @click.away="open = false" title="Configurar Vistas"
+                    class="flex items-center justify-center p-2 bg-surface-1 hover:bg-surface-2 border border-border-color rounded-lg text-text-primary transition-all shadow-sm group">
+                    <span class="material-symbols-outlined text-[20px]">settings</span>
+                </button>
+                <div x-show="open" x-cloak
+                    class="absolute right-0 mt-2 w-56 bg-surface-1 border border-border-color rounded-xl shadow-xl z-50 overflow-hidden"
+                    x-transition:enter="transition ease-out duration-100"
+                    x-transition:enter-start="transform opacity-0 scale-95"
+                    x-transition:enter-end="transform opacity-100 scale-100"
+                    x-transition:leave="transition ease-in duration-75"
+                    x-transition:leave-start="transform opacity-100 scale-100"
+                    x-transition:leave-end="transform opacity-0 scale-95">
+                    <div class="p-3 border-b border-border-color bg-surface-1/40">
+                        <h4 class="text-sm font-semibold text-text-primary">Configuración Vistas</h4>
+                    </div>
+                    <div class="p-2 flex flex-col gap-1">
+                        <label
+                            class="flex items-center gap-3 p-2 hover:bg-surface-2 rounded-lg cursor-pointer transition-colors group">
+                            <input type="checkbox" :checked="$store.dashboard.preferences.showAirtime"
+                                @change="$store.dashboard.togglePreference('showAirtime')"
+                                class="checkbox checkbox-sm checkbox-primary rounded">
+                            <span class="text-sm text-text-secondary group-hover:text-text-primary">Top Airtime</span>
+                        </label>
+                        <label
+                            class="flex items-center gap-3 p-2 hover:bg-surface-2 rounded-lg cursor-pointer transition-colors group">
+                            <input type="checkbox" :checked="$store.dashboard.preferences.showSignal"
+                                @change="$store.dashboard.togglePreference('showSignal')"
+                                class="checkbox checkbox-sm checkbox-primary rounded">
+                            <span class="text-sm text-text-secondary group-hover:text-text-primary">Top Señal</span>
+                        </label>
+                    </div>
+                </div>
             </div>
 
             <button id="refresh-dashboard-btn" @click="store.loadAll()"
@@ -175,7 +210,8 @@
                 </div>
 
                 <div class="flex items-end justify-between">
-                    <span x-text="kpis.routers.total" class="text-4xl font-bold text-base-content tracking-tight">--</span>
+                    <span x-text="kpis.routers.total"
+                        class="text-4xl font-bold text-base-content tracking-tight">--</span>
                     <div class="flex -space-x-1.5 items-end">
                         <div class="flex flex-col items-end text-[10px] font-bold">
                             <span class="text-success" x-show="kpis.routers.online > 0"
@@ -207,7 +243,8 @@
                 </div>
 
                 <div class="flex items-end justify-between">
-                    <span x-text="kpis.switches.total" class="text-4xl font-bold text-base-content tracking-tight">--</span>
+                    <span x-text="kpis.switches.total"
+                        class="text-4xl font-bold text-base-content tracking-tight">--</span>
                     <div class="flex -space-x-1.5 items-end">
                         <div class="flex flex-col items-end text-[10px] font-bold">
                             <span class="text-success" x-show="kpis.switches.online > 0"
@@ -229,9 +266,11 @@
 
     <!-- SSL Card Removed / Integrated into Toolbar -->
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6"
+        x-show="$store.dashboard.preferences.showAirtime || $store.dashboard.preferences.showSignal">
 
-        <div class="rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md flex flex-col h-full shadow-lg">
+        <div x-show="$store.dashboard.preferences.showAirtime"
+            class="rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md flex flex-col h-full shadow-lg">
             <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-surface-1/40">
                 <h3 class="text-lg font-semibold text-text-primary flex items-center gap-2">
                     <span class="material-symbols-outlined text-primary">donut_large</span>
@@ -264,7 +303,8 @@
             </div>
         </div>
 
-        <div class="rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md flex flex-col h-full shadow-lg">
+        <div x-show="$store.dashboard.preferences.showSignal"
+            class="rounded-2xl border border-white/5 bg-surface-1/60 backdrop-blur-md flex flex-col h-full shadow-lg">
             <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-surface-1/40">
                 <h3 class="text-lg font-semibold text-text-primary flex items-center gap-2">
                     <span class="material-symbols-outlined text-warning">signal_wifi_bad</span>
@@ -426,7 +466,8 @@
                         <li>Selecciona <strong class="text-base-content">"Equipo local"</strong> → Siguiente</li>
                         <li>Selecciona <strong class="text-base-content">"Colocar todos los certificados en el siguiente
                                 almacén"</strong></li>
-                        <li>Clic en "Examinar" → Selecciona <strong class="text-base-content">"Entidades de certificación raíz
+                        <li>Clic en "Examinar" → Selecciona <strong class="text-base-content">"Entidades de
+                                certificación raíz
                                 de confianza"</strong></li>
                         <li>Siguiente → Finalizar → <strong class="text-success">¡Listo!</strong></li>
                     </ol>
@@ -454,15 +495,18 @@
                 <div x-show="isActiveTab('ios')">
                     <ol class="space-y-3 text-sm text-text-secondary list-decimal list-inside">
                         <li>Descarga el certificado en tu iPhone/iPad/Mac</li>
-                        <li>Toca el archivo descargado → <strong class="text-base-content">"Instalar perfil"</strong></li>
-                        <li>Ve a <strong class="text-base-content">Ajustes → General → VPN y Gestión de dispositivos</strong>
+                        <li>Toca el archivo descargado → <strong class="text-base-content">"Instalar perfil"</strong>
+                        </li>
+                        <li>Ve a <strong class="text-base-content">Ajustes → General → VPN y Gestión de
+                                dispositivos</strong>
                         </li>
                         <li>Toca el perfil descargado → <strong class="text-base-content">"Instalar"</strong></li>
                         <li>Introduce tu código de acceso</li>
                         <li>Ve a <strong class="text-base-content">Ajustes → General → Información → Confianza de
                                 certificados</strong></li>
-                        <li>Activa el interruptor para <strong class="text-base-content">"µMonitor CA"</strong> → <strong
-                                class="text-success">¡Listo!</strong></li>
+                        <li>Activa el interruptor para <strong class="text-base-content">"µMonitor CA"</strong> →
+                            <strong class="text-success">¡Listo!</strong>
+                        </li>
                     </ol>
                     <p class="mt-4 text-xs text-text-secondary">En macOS: Abre "Acceso a Llaveros", importa el
                         certificado y márcalo como "Confiable".</p>

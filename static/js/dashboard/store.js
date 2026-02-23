@@ -10,6 +10,33 @@ document.addEventListener('alpine:init', () => {
             switches: { total: 0, online: 0, offline: 0 }
         },
 
+        preferences: {
+            showAirtime: true,
+            showSignal: true
+        },
+
+        init() {
+            const savedPrefs = localStorage.getItem('umonitor_dashboard_prefs');
+            if (savedPrefs) {
+                try {
+                    this.preferences = { ...this.preferences, ...JSON.parse(savedPrefs) };
+                } catch (e) {
+                    console.error("Error loading dashboard preferences:", e);
+                }
+            }
+        },
+
+        togglePreference(key) {
+            if (key in this.preferences) {
+                this.preferences[key] = !this.preferences[key];
+                localStorage.setItem('umonitor_dashboard_prefs', JSON.stringify(this.preferences));
+
+                if (this.preferences[key]) {
+                    this.loadTopStats(true); // force load if activated
+                }
+            }
+        },
+
         topAirtime: [],
         topSignal: [],
 
@@ -98,22 +125,38 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        async loadTopStats() {
-            if (this.topStatsPromise) return this.topStatsPromise;
+        async loadTopStats(force = false) {
+            if (!force && this.topStatsPromise) return this.topStatsPromise;
 
             this.topStatsPromise = (async () => {
                 try {
-                    const [airtimeRes, signalRes] = await Promise.all([
-                        fetch(`${this.apiBase}/api/stats/top-aps-by-airtime`),
-                        fetch(`${this.apiBase}/api/stats/top-cpes-by-signal`)
-                    ]);
+                    const promises = [];
+                    let airtimeIndex = -1;
+                    let signalIndex = -1;
 
-                    if (airtimeRes.ok) {
-                        this.topAirtime = await airtimeRes.json();
+                    if (this.preferences.showAirtime) {
+                        airtimeIndex = promises.length;
+                        promises.push(fetch(`${this.apiBase}/api/stats/top-aps-by-airtime`));
+                    }
+                    if (this.preferences.showSignal) {
+                        signalIndex = promises.length;
+                        promises.push(fetch(`${this.apiBase}/api/stats/top-cpes-by-signal`));
                     }
 
-                    if (signalRes.ok) {
-                        this.topSignal = await signalRes.json();
+                    if (promises.length === 0) return;
+
+                    const results = await Promise.all(promises);
+
+                    if (airtimeIndex !== -1 && results[airtimeIndex].ok) {
+                        this.topAirtime = await results[airtimeIndex].json();
+                    } else if (!this.preferences.showAirtime) {
+                        this.topAirtime = [];
+                    }
+
+                    if (signalIndex !== -1 && results[signalIndex].ok) {
+                        this.topSignal = await results[signalIndex].json();
+                    } else if (!this.preferences.showSignal) {
+                        this.topSignal = [];
                     }
                 } catch (error) {
                     console.error("Error loading top stats:", error);
