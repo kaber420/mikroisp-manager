@@ -13,7 +13,7 @@
     <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
         <h1 class="text-4xl font-bold">Manage Clients</h1>
         <button @click="$dispatch('open-client-modal')"
-            class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover">
+            class="flex items-center justify-center h-10 px-4 text-sm font-bold text-primary-content rounded-lg bg-primary hover:bg-primary-hover">
             <span class="material-symbols-outlined mr-2">add</span>
             <span>Add New Client</span>
         </button>
@@ -21,25 +21,25 @@
 
     <div class="glass-card rounded-2xl border-0">
         <div class="px-6 py-4 border-b border-white/10 flex flex-wrap gap-4 items-center justify-between bg-white/5">
-            <h2 class="text-xl font-bold text-white">Clients</h2>
+            <h2 class="text-xl font-bold text-base-content">Clients</h2>
 
             <div class="flex flex-wrap items-center gap-4">
                 <div
                     class="flex flex-wrap gap-1 bg-surface-1/50 backdrop-blur-sm p-1 rounded-lg border border-white/10">
                     <button @click="statusFilter = 'all'"
-                        :class="{'bg-primary text-white shadow-lg shadow-primary/20': statusFilter === 'all', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'all'}"
+                        :class="{'bg-primary text-primary-content shadow-lg shadow-primary/20': statusFilter === 'all', 'text-text-secondary hover:text-primary-content hover:bg-white/5': statusFilter !== 'all'}"
                         class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200">All</button>
                     <button @click="statusFilter = 'active'"
-                        :class="{'bg-success text-white shadow-lg shadow-success/20': statusFilter === 'active', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'active'}"
+                        :class="{'bg-success text-success-content shadow-lg shadow-success/20': statusFilter === 'active', 'text-text-secondary hover:text-success-content hover:bg-white/5': statusFilter !== 'active'}"
                         class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200">Active</button>
                     <button @click="statusFilter = 'pendiente'"
-                        :class="{'bg-warning text-white shadow-lg shadow-warning/20': statusFilter === 'pendiente', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'pendiente'}"
+                        :class="{'bg-warning text-warning-content shadow-lg shadow-warning/20': statusFilter === 'pendiente', 'text-text-secondary hover:text-warning-content hover:bg-white/5': statusFilter !== 'pendiente'}"
                         class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200">Pending</button>
                     <button @click="statusFilter = 'suspended'"
-                        :class="{'bg-danger text-white shadow-lg shadow-danger/20': statusFilter === 'suspended', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'suspended'}"
+                        :class="{'bg-danger text-error-content shadow-lg shadow-danger/20': statusFilter === 'suspended', 'text-text-secondary hover:text-error-content hover:bg-white/5': statusFilter !== 'suspended'}"
                         class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200">Suspended</button>
                     <button @click="statusFilter = 'cancelled'"
-                        :class="{'bg-surface-3 text-white': statusFilter === 'cancelled', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'cancelled'}"
+                        :class="{'bg-surface-3 text-neutral-content': statusFilter === 'cancelled', 'text-text-secondary hover:text-neutral-content hover:bg-white/5': statusFilter !== 'cancelled'}"
                         class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200">Cancelled</button>
                 </div>
 
@@ -216,7 +216,7 @@
                 <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end gap-4">
                     <button type="button" @click="closeModal()"
                         class="px-4 py-2 rounded-md text-sm font-semibold">Cancel</button>
-                    <button type="submit" class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary">Save
+                    <button type="submit" class="px-4 py-2 rounded-md text-sm font-semibold text-primary-content bg-primary">Save
                         Client</button>
                 </div>
             </form>
@@ -439,7 +439,7 @@
 
                     <div class="pt-2">
                         <button type="submit"
-                            class="w-full px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">
+                            class="w-full px-4 py-2 rounded-md text-sm font-semibold text-primary-content bg-primary hover:bg-primary-hover">
                             Create Queue & Save
                         </button>
                     </div>
@@ -449,7 +449,7 @@
                 <button type="button" @click="closeModal()"
                     class="px-4 py-2 rounded-md text-sm font-semibold">Cancel</button>
                 <button type="button" @click="saveService()"
-                    class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary">Save Service</button>
+                    class="px-4 py-2 rounded-md text-sm font-semibold text-primary-content bg-primary">Save Service</button>
             </div>
         </div>
     </div>

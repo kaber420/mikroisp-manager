@@ -11,9 +11,9 @@
     <main class="flex-1 p-6 lg:p-8">
 
         <div class="flex items-center justify-between mb-8">
-            <h1 class="text-4xl font-bold text-white drop-shadow-md">Manage Zones</h1>
+            <h1 class="text-4xl font-bold text-base-content drop-shadow-md">Manage Zones</h1>
             <button @click="openModal()"
-                class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-transform hover:scale-105">
+                class="flex items-center justify-center h-10 px-4 text-sm font-bold text-primary-content rounded-lg bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-transform hover:scale-105">
                 <span class="material-symbols-outlined mr-2">add</span>
                 <span>Add Zone</span>
             </button>
@@ -23,7 +23,7 @@
 
             <div
                 class="px-6 py-4 border-b border-white/10 flex flex-wrap gap-4 items-center justify-between bg-white/5">
-                <h2 class="text-xl font-bold text-white">Zones</h2>
+                <h2 class="text-xl font-bold text-base-content">Zones</h2>
 
                 <div class="relative">
                     <span
@@ -62,7 +62,7 @@
                         <template x-for="zone in filteredZones" :key="zone.id">
                             <tr @click="openDetailsModal(zone)"
                                 class="hover:bg-white/5 transition-colors duration-200 group cursor-pointer">
-                                <td class="px-6 py-4 whitespace-nowrap font-semibold text-white" x-text="zone.nombre">
+                                <td class="px-6 py-4 whitespace-nowrap font-semibold text-base-content" x-text="zone.nombre">
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right flex justify-end gap-2">
                                     <a :href="`/zona/${zone.id}`" @click.stop
@@ -90,10 +90,10 @@
 
             <form @submit.prevent="saveZone()">
                 <div class="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
-                    <h3 class="text-2xl font-bold text-white"
+                    <h3 class="text-2xl font-bold text-base-content"
                         x-text="modalMode === 'add' ? 'Add New Zone' : 'Edit Zone'"></h3>
                     <button type="button" @click="closeModal()"
-                        class="text-text-secondary hover:text-white text-2xl transition-colors">&times;</button>
+                        class="text-text-secondary hover:text-base-content text-2xl transition-colors">&times;</button>
                 </div>
 
                 <div class="p-6 space-y-5">
@@ -108,11 +108,11 @@
 
                     <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-white/10">
                         <button type="button" @click="closeModal()"
-                            class="px-4 py-2 rounded-lg text-sm font-semibold text-text-secondary hover:text-white hover:bg-white/10 transition-colors">
+                            class="px-4 py-2 rounded-lg text-sm font-semibold text-text-secondary hover:text-base-content hover:bg-white/10 transition-colors">
                             Cancel
                         </button>
                         <button type="submit"
-                            class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-transform active:scale-95">
+                            class="px-4 py-2 rounded-lg text-sm font-bold text-primary-content bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-transform active:scale-95">
                             Save Zone
                         </button>
                     </div>
@@ -129,28 +129,28 @@
 
             <!-- Modal Header -->
             <div class="p-5 border-b border-white/10 flex justify-between items-center bg-white/5 flex-shrink-0">
-                <h3 class="text-2xl font-bold text-white" x-text="selectedZoneDetails.nombre || 'Zone Details'"></h3>
+                <h3 class="text-2xl font-bold text-base-content" x-text="selectedZoneDetails.nombre || 'Zone Details'"></h3>
                 <div class="flex items-center gap-3">
                     <a :href="`/zona/${selectedZoneDetails.id}`"
-                        class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-hover transition-colors">
+                        class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-primary-content bg-primary hover:bg-primary-hover transition-colors">
                         <span class="material-symbols-outlined text-lg">edit</span>
                         Edit Zone
                     </a>
                     <button type="button" @click="closeDetailsModal()"
-                        class="text-text-secondary hover:text-white text-3xl transition-colors leading-none">&times;</button>
+                        class="text-text-secondary hover:text-base-content text-3xl transition-colors leading-none">&times;</button>
                 </div>
             </div>
 
             <!-- Tabs Navigation -->
             <div class="flex border-b border-white/10 bg-white/5 flex-shrink-0">
                 <button @click="activeDetailsTab = 'notes'" type="button"
-                    :class="activeDetailsTab === 'notes' ? 'border-b-2 border-primary text-white' : 'text-text-secondary hover:text-white'"
+                    :class="activeDetailsTab === 'notes' ? 'border-b-2 border-primary text-base-content' : 'text-text-secondary hover:text-base-content'"
                     class="flex items-center gap-2 px-6 py-3 text-sm font-semibold transition-colors">
                     <span class="material-symbols-outlined text-lg">note</span>
                     Notas
                 </button>
                 <button @click="activeDetailsTab = 'infra'; loadInfrastructureData()" type="button"
-                    :class="activeDetailsTab === 'infra' ? 'border-b-2 border-primary text-white' : 'text-text-secondary hover:text-white'"
+                    :class="activeDetailsTab === 'infra' ? 'border-b-2 border-primary text-base-content' : 'text-text-secondary hover:text-base-content'"
                     class="flex items-center gap-2 px-6 py-3 text-sm font-semibold transition-colors">
                     <span class="material-symbols-outlined text-lg">developer_board</span>
                     Virtual Rack
@@ -186,7 +186,7 @@
                                     <div class="flex items-center gap-2">
                                         <span x-show="note.is_encrypted"
                                             class="material-symbols-outlined text-base text-warning">lock</span>
-                                        <span class="font-semibold text-white truncate" x-text="note.title"></span>
+                                        <span class="font-semibold text-base-content truncate" x-text="note.title"></span>
                                     </div>
                                     <p class="text-xs text-text-secondary mt-1 truncate"
                                         x-text="(note.content || '').substring(0, 50) + '...'"></p>
@@ -238,7 +238,7 @@
                             <!-- Header -->
                             <div class="flex items-center justify-between mb-4">
                                 <div class="flex items-center gap-3">
-                                    <h4 class="text-lg font-semibold text-white">Virtual Rack</h4>
+                                    <h4 class="text-lg font-semibold text-base-content">Virtual Rack</h4>
                                     <span class="text-sm text-text-secondary" x-text="infraStatusText"></span>
                                 </div>
                             </div>

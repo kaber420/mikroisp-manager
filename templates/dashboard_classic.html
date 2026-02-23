@@ -87,7 +87,7 @@
             </div>
 
             <button id="refresh-dashboard-btn" @click="store.loadAll()"
-                class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm transition-all shadow-lg shadow-primary/20">
+                class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-primary-content rounded-lg text-sm transition-all shadow-lg shadow-primary/20">
                 <span class="material-symbols-outlined text-[20px]">refresh</span>
                 <span>Actualizar</span>
             </button>
@@ -110,7 +110,7 @@
                 </div>
 
                 <div class="flex items-end justify-between">
-                    <span x-text="kpis.aps.total" class="text-4xl font-bold text-white tracking-tight">--</span>
+                    <span x-text="kpis.aps.total" class="text-4xl font-bold text-base-content tracking-tight">--</span>
                     <div class="flex -space-x-1.5 items-end">
                         <!-- Simplified visual indicators -->
                         <div class="flex flex-col items-end text-[10px] font-bold">
@@ -143,7 +143,7 @@
                 </div>
 
                 <div class="flex items-end justify-between">
-                    <span x-text="kpis.cpes.total" class="text-4xl font-bold text-white tracking-tight">--</span>
+                    <span x-text="kpis.cpes.total" class="text-4xl font-bold text-base-content tracking-tight">--</span>
                     <div class="flex -space-x-1.5 items-end">
                         <div class="flex flex-col items-end text-[10px] font-bold">
                             <span class="text-success" x-show="kpis.cpes.online > 0"
@@ -175,7 +175,7 @@
                 </div>
 
                 <div class="flex items-end justify-between">
-                    <span x-text="kpis.routers.total" class="text-4xl font-bold text-white tracking-tight">--</span>
+                    <span x-text="kpis.routers.total" class="text-4xl font-bold text-base-content tracking-tight">--</span>
                     <div class="flex -space-x-1.5 items-end">
                         <div class="flex flex-col items-end text-[10px] font-bold">
                             <span class="text-success" x-show="kpis.routers.online > 0"
@@ -207,7 +207,7 @@
                 </div>
 
                 <div class="flex items-end justify-between">
-                    <span x-text="kpis.switches.total" class="text-4xl font-bold text-white tracking-tight">--</span>
+                    <span x-text="kpis.switches.total" class="text-4xl font-bold text-base-content tracking-tight">--</span>
                     <div class="flex -space-x-1.5 items-end">
                         <div class="flex flex-col items-end text-[10px] font-bold">
                             <span class="text-success" x-show="kpis.switches.online > 0"
@@ -386,14 +386,14 @@
         <div
             class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl bg-surface-1 rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div class="p-6 border-b border-white/10 flex items-center justify-between">
-                <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                <h3 class="text-xl font-bold text-base-content flex items-center gap-2">
                     <span class="material-symbols-outlined text-primary">security</span>
                     Instalar Certificado CA
                 </h3>
 
                 <div class="flex gap-2">
                     <button id="download-ca-btn-modal" @click="downloadCertificate()"
-                        class="px-3 py-1 rounded-lg text-xs font-bold text-white bg-primary hover:bg-primary-hover flex items-center gap-1">
+                        class="px-3 py-1 rounded-lg text-xs font-bold text-primary-content bg-primary hover:bg-primary-hover flex items-center gap-1">
                         <span class="material-symbols-outlined text-sm">download</span>
                         Descargar CA
                     </button>
@@ -408,7 +408,7 @@
                 <template x-for="tab in tabs" :key="tab.id">
                     <button @click="switchTab(tab.id)"
                         class="flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors"
-                        :class="isActiveTab(tab.id) ? 'border-primary text-white' : 'border-transparent text-text-secondary'">
+                        :class="isActiveTab(tab.id) ? 'border-primary text-base-content' : 'border-transparent text-text-secondary'">
                         <span class="material-symbols-outlined text-lg align-middle mr-1" x-text="tab.icon"></span>
                         <span x-text="tab.label"></span>
                     </button>
@@ -422,11 +422,11 @@
                         <li>Descarga el certificado usando el botón superior <strong>"Descargar CA"</strong></li>
                         <li>Haz doble clic en el archivo <code class="bg-surface-2 px-1 rounded">umonitor-ca.crt</code>
                         </li>
-                        <li>Clic en <strong class="text-white">"Instalar certificado..."</strong></li>
-                        <li>Selecciona <strong class="text-white">"Equipo local"</strong> → Siguiente</li>
-                        <li>Selecciona <strong class="text-white">"Colocar todos los certificados en el siguiente
+                        <li>Clic en <strong class="text-base-content">"Instalar certificado..."</strong></li>
+                        <li>Selecciona <strong class="text-base-content">"Equipo local"</strong> → Siguiente</li>
+                        <li>Selecciona <strong class="text-base-content">"Colocar todos los certificados en el siguiente
                                 almacén"</strong></li>
-                        <li>Clic en "Examinar" → Selecciona <strong class="text-white">"Entidades de certificación raíz
+                        <li>Clic en "Examinar" → Selecciona <strong class="text-base-content">"Entidades de certificación raíz
                                 de confianza"</strong></li>
                         <li>Siguiente → Finalizar → <strong class="text-success">¡Listo!</strong></li>
                     </ol>
@@ -437,14 +437,14 @@
                 <div x-show="isActiveTab('android')">
                     <ol class="space-y-3 text-sm text-text-secondary list-decimal list-inside">
                         <li>Descarga el certificado en tu dispositivo Android</li>
-                        <li>Ve a <strong class="text-white">Configuración → Seguridad → Más ajustes de
+                        <li>Ve a <strong class="text-base-content">Configuración → Seguridad → Más ajustes de
                                 seguridad</strong></li>
-                        <li>Toca <strong class="text-white">"Instalar desde almacenamiento"</strong> o <strong
-                                class="text-white">"Credenciales de usuario"</strong></li>
+                        <li>Toca <strong class="text-base-content">"Instalar desde almacenamiento"</strong> o <strong
+                                class="text-base-content">"Credenciales de usuario"</strong></li>
                         <li>Selecciona el archivo <code class="bg-surface-2 px-1 rounded">umonitor-ca.crt</code></li>
                         <li>Ponle un nombre (ej: "µMonitor CA")</li>
-                        <li>Selecciona <strong class="text-white">"VPN y apps"</strong> o <strong
-                                class="text-white">"Wi-Fi"</strong></li>
+                        <li>Selecciona <strong class="text-base-content">"VPN y apps"</strong> o <strong
+                                class="text-base-content">"Wi-Fi"</strong></li>
                         <li>Confirma con tu PIN/huella → <strong class="text-success">¡Listo!</strong></li>
                     </ol>
                     <p class="mt-4 text-xs text-text-secondary">La ubicación exacta varía según el fabricante (Samsung,
@@ -454,14 +454,14 @@
                 <div x-show="isActiveTab('ios')">
                     <ol class="space-y-3 text-sm text-text-secondary list-decimal list-inside">
                         <li>Descarga el certificado en tu iPhone/iPad/Mac</li>
-                        <li>Toca el archivo descargado → <strong class="text-white">"Instalar perfil"</strong></li>
-                        <li>Ve a <strong class="text-white">Ajustes → General → VPN y Gestión de dispositivos</strong>
+                        <li>Toca el archivo descargado → <strong class="text-base-content">"Instalar perfil"</strong></li>
+                        <li>Ve a <strong class="text-base-content">Ajustes → General → VPN y Gestión de dispositivos</strong>
                         </li>
-                        <li>Toca el perfil descargado → <strong class="text-white">"Instalar"</strong></li>
+                        <li>Toca el perfil descargado → <strong class="text-base-content">"Instalar"</strong></li>
                         <li>Introduce tu código de acceso</li>
-                        <li>Ve a <strong class="text-white">Ajustes → General → Información → Confianza de
+                        <li>Ve a <strong class="text-base-content">Ajustes → General → Información → Confianza de
                                 certificados</strong></li>
-                        <li>Activa el interruptor para <strong class="text-white">"µMonitor CA"</strong> → <strong
+                        <li>Activa el interruptor para <strong class="text-base-content">"µMonitor CA"</strong> → <strong
                                 class="text-success">¡Listo!</strong></li>
                     </ol>
                     <p class="mt-4 text-xs text-text-secondary">En macOS: Abre "Acceso a Llaveros", importa el

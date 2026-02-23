@@ -8,9 +8,9 @@
 {% block content %}
 <main x-data="apList()" x-cloak class="flex-1 p-6 lg:p-8">
     <div class="flex items-center justify-between mb-8">
-        <h1 id="dashboard-title" class="text-4xl font-bold text-white drop-shadow-md">Manage Access Points</h1>
+        <h1 id="dashboard-title" class="text-4xl font-bold text-base-content drop-shadow-md">Manage Access Points</h1>
         <button @click="openApModal()"
-            class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all hover:scale-105">
+            class="flex items-center justify-center h-10 px-4 text-sm font-bold text-primary-content rounded-lg bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all hover:scale-105">
             <span class="material-symbols-outlined mr-2">add</span>
             <span>Add AP</span>
         </button>
@@ -18,7 +18,7 @@
 
     <div class="glass-card rounded-2xl border-0">
         <div class="px-6 py-4 border-b border-white/10 flex flex-wrap gap-4 items-center justify-between bg-white/5">
-            <h2 class="text-xl font-bold text-white">Access Points</h2>
+            <h2 class="text-xl font-bold text-base-content">Access Points</h2>
 
             <div class="flex items-center gap-4">
                 <select x-model="selectedZone" class="w-full sm:w-48 input-glass rounded-lg p-2 text-sm">
@@ -30,13 +30,13 @@
 
                 <div class="flex bg-surface-1/50 backdrop-blur-sm rounded-lg border border-white/10 p-1">
                     <button @click="statusFilter = 'all'"
-                        :class="{'bg-white/10 text-white shadow-sm': statusFilter === 'all', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'all'}"
+                        :class="{'bg-white/10 text-base-content shadow-sm': statusFilter === 'all', 'text-text-secondary hover:text-base-content hover:bg-white/5': statusFilter !== 'all'}"
                         class="px-3 py-1.5 rounded-md text-sm font-medium transition-all">All</button>
                     <button @click="statusFilter = 'online'"
-                        :class="{'bg-success/20 text-success shadow-sm border border-success/20': statusFilter === 'online', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'online'}"
+                        :class="{'bg-success/20 text-success shadow-sm border border-success/20': statusFilter === 'online', 'text-text-secondary hover:text-success-content hover:bg-white/5': statusFilter !== 'online'}"
                         class="px-3 py-1.5 rounded-md text-sm font-medium transition-all">Online</button>
                     <button @click="statusFilter = 'offline'"
-                        :class="{'bg-danger/20 text-danger shadow-sm border border-danger/20': statusFilter === 'offline', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'offline'}"
+                        :class="{'bg-danger/20 text-danger shadow-sm border border-danger/20': statusFilter === 'offline', 'text-text-secondary hover:text-error-content hover:bg-white/5': statusFilter !== 'offline'}"
                         class="px-3 py-1.5 rounded-md text-sm font-medium transition-all">Offline</button>
                 </div>
 
@@ -156,10 +156,10 @@
         class="bg-surface-1 border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
         <form @submit.prevent="saveAp()">
             <div class="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
-                <h3 class="text-2xl font-bold text-white"
+                <h3 class="text-2xl font-bold text-base-content"
                     x-text="isEditing ? 'Edit Access Point' : 'Add New Access Point'"></h3>
                 <button type="button" @click="closeModal()"
-                    class="text-text-secondary hover:text-white text-2xl">&times;</button>
+                    class="text-text-secondary hover:text-base-content text-2xl">&times;</button>
             </div>
             <div class="p-6 space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -289,7 +289,7 @@
                         <span class="text-sm font-medium text-text-secondary">Connection Check</span>
                         <button type="button" @click="testConnection()"
                             :disabled="isTesting || !currentAp.host || !currentAp.username"
-                            class="text-xs flex items-center gap-1 px-3 py-1.5 rounded border border-white/10 hover:bg-white/10 text-white disabled:opacity-50 transition-colors">
+                            class="text-xs flex items-center gap-1 px-3 py-1.5 rounded border border-white/10 hover:bg-white/10 text-base-content disabled:opacity-50 transition-colors">
                             <span x-show="isTesting" class="material-symbols-outlined text-sm animate-spin">sync</span>
                             <span x-show="!isTesting" class="material-symbols-outlined text-sm">network_check</span>
                             <span x-text="isTesting ? 'Testing...' : 'Test Connection'"></span>
@@ -310,9 +310,9 @@
 
                 <div class="p-6 bg-white/5 rounded-b-lg flex justify-end gap-4 mt-4 -mx-6 -mb-6">
                     <button type="button" @click="closeModal()"
-                        class="px-4 py-2 rounded-lg text-sm font-semibold text-text-secondary hover:text-white hover:bg-white/10 transition-colors">Cancel</button>
+                        class="px-4 py-2 rounded-lg text-sm font-semibold text-text-secondary hover:text-base-content hover:bg-white/10 transition-colors">Cancel</button>
                     <button type="submit"
-                        class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20"
+                        class="px-4 py-2 rounded-lg text-sm font-bold text-primary-content bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20"
                         x-text="isEditing ? 'Save Changes' : 'Save Access Point'"></button>
                 </div>
             </div>

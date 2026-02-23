@@ -10,12 +10,12 @@ Requires parent Alpine component to have provisionMixin (from provision.js)
         class="bg-surface-1 border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         <form @submit.prevent="handleProvisionSubmit()">
             <div class="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
-                <h3 class="text-2xl font-bold text-white">
+                <h3 class="text-2xl font-bold text-base-content">
                     Provision <span x-text="provisionDeviceType"></span>:
                     <span x-text="currentProvisionTarget.hostname || currentProvisionTarget.host"></span>
                 </h3>
                 <button type="button" @click="closeProvisionModal()"
-                    class="text-text-secondary hover:text-white text-2xl">&times;</button>
+                    class="text-text-secondary hover:text-base-content text-2xl">&times;</button>
             </div>
 
             <div class="p-6 space-y-4">
@@ -40,14 +40,14 @@ Requires parent Alpine component to have provisionMixin (from provision.js)
                                 x-model="currentProvisionTarget.newPass" required
                                 class="w-full input-glass rounded-lg p-2 pr-10">
                             <button type="button" @click="showPass = !showPass"
-                                class="absolute right-2 top-1/2 -translate-y-1/2 text-text-secondary hover:text-white p-1 rounded-md transition-colors"
+                                class="absolute right-2 top-1/2 -translate-y-1/2 text-text-secondary hover:text-base-content p-1 rounded-md transition-colors"
                                 :title="showPass ? 'Hide password' : 'Show password'">
                                 <span class="material-symbols-outlined text-sm"
                                     x-text="showPass ? 'visibility_off' : 'visibility'"></span>
                             </button>
                         </div>
                         <button type="button" @click="generatePassword()"
-                            class="px-3 py-2 rounded-lg text-sm font-semibold text-white bg-white/10 hover:bg-white/20 transition-colors"
+                            class="px-3 py-2 rounded-lg text-sm font-semibold text-base-content bg-white/10 hover:bg-white/20 transition-colors"
                             title="Generate secure password">
                             <span class="material-symbols-outlined text-sm">password</span>
                         </button>
@@ -80,9 +80,9 @@ Requires parent Alpine component to have provisionMixin (from provision.js)
 
             <div class="p-6 bg-white/5 rounded-b-lg flex justify-end gap-4">
                 <button type="button" @click="closeProvisionModal()"
-                    class="px-4 py-2 rounded-lg text-sm font-semibold text-text-secondary hover:text-white hover:bg-white/10 transition-colors">Cancel</button>
+                    class="px-4 py-2 rounded-lg text-sm font-semibold text-text-secondary hover:text-base-content hover:bg-white/10 transition-colors">Cancel</button>
                 <button type="submit" :disabled="isProvisioning"
-                    class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    class="px-4 py-2 rounded-lg text-sm font-bold text-base-content bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                     <span x-show="isProvisioning" class="material-symbols-outlined text-base animate-spin">sync</span>
                     Start Provisioning
                 </button>

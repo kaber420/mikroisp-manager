@@ -9,7 +9,7 @@
         <h1 class="text-4xl font-bold">Manage MikroTik Switches</h1>
         <div class="flex gap-3">
             <button @click="openSwitchModal()"
-                class="flex items-center justify-center h-10 px-4 text-sm font-bold text-white rounded-lg bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all duration-200">
+                class="flex items-center justify-center h-10 px-4 text-sm font-bold text-primary-content rounded-lg bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all duration-200">
                 <span class="material-symbols-outlined mr-2">add</span>
                 <span>Add New Switch</span>
             </button>
@@ -19,20 +19,20 @@
     <!-- Switch List Card -->
     <div class="glass-card rounded-2xl border-0" x-data="switchList()">
         <div class="px-6 py-4 border-b border-white/10 flex flex-wrap gap-4 items-center justify-between bg-white/5">
-            <h2 class="text-xl font-bold text-white">Switches</h2>
+            <h2 class="text-xl font-bold text-base-content">Switches</h2>
 
             <div class="flex flex-wrap items-center gap-4">
                 <!-- Status Filter Buttons -->
                 <div
                     class="flex flex-wrap gap-1 bg-surface-1/50 backdrop-blur-sm p-1 rounded-lg border border-white/10">
                     <button @click="statusFilter = 'all'"
-                        :class="{'bg-primary text-white shadow-lg shadow-primary/20': statusFilter === 'all', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'all'}"
+                        :class="{'bg-primary text-primary-content shadow-lg shadow-primary/20': statusFilter === 'all', 'text-text-secondary hover:text-primary-content hover:bg-white/5': statusFilter !== 'all'}"
                         class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200">All</button>
                     <button @click="statusFilter = 'online'"
-                        :class="{'bg-success text-white shadow-lg shadow-success/20': statusFilter === 'online', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'online'}"
+                        :class="{'bg-success text-success-content shadow-lg shadow-success/20': statusFilter === 'online', 'text-text-secondary hover:text-success-content hover:bg-white/5': statusFilter !== 'online'}"
                         class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200">Online</button>
                     <button @click="statusFilter = 'offline'"
-                        :class="{'bg-danger text-white shadow-lg shadow-danger/20': statusFilter === 'offline', 'text-text-secondary hover:text-white hover:bg-white/5': statusFilter !== 'offline'}"
+                        :class="{'bg-danger text-error-content shadow-lg shadow-danger/20': statusFilter === 'offline', 'text-text-secondary hover:text-error-content hover:bg-white/5': statusFilter !== 'offline'}"
                         class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200">Offline</button>
                 </div>
 

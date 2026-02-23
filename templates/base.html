@@ -117,7 +117,7 @@
                         class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == item.key %}active{% endif %}"
                         :class="collapsed ? 'justify-center' : ''">
                         <div x-show="collapsed"
-                            class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap border border-border-color shadow-lg">
+                            class="absolute left-16 bg-surface-2 text-base-content text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap border border-border-color shadow-lg">
                             {{ item.tip }}</div>
                         <span class="material-symbols-outlined text-2xl">{{ item.icon }}</span>
                         <span x-show="!collapsed"
@@ -138,7 +138,7 @@
                         class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == item.key %}active{% endif %}"
                         :class="collapsed ? 'justify-center' : ''">
                         <div x-show="collapsed"
-                            class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap border border-border-color">
+                            class="absolute left-16 bg-surface-2 text-base-content text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap border border-border-color">
                             {{ item.tip }}</div>
                         <span class="material-symbols-outlined text-2xl">{{ item.icon }}</span>
                         <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap">{{ item.label }}</span>
@@ -158,7 +158,7 @@
                         class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group {% if active_page == item.key %}active{% endif %}"
                         :class="collapsed ? 'justify-center' : ''">
                         <div x-show="collapsed"
-                            class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap border border-border-color">
+                            class="absolute left-16 bg-surface-2 text-base-content text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap border border-border-color">
                             {{ item.tip }}</div>
                         <span class="material-symbols-outlined text-2xl">{{ item.icon }}</span>
                         <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap">{{ item.label }}</span>
@@ -169,7 +169,7 @@
                         class="w-full nav-link flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group"
                         :class="collapsed ? 'justify-center' : ''">
                         <div x-show="collapsed"
-                            class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">
+                            class="absolute left-16 bg-surface-2 text-base-content text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">
                             Ayuda</div>
                         <span class="material-symbols-outlined text-2xl">help</span>
                         <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap">Ayuda</span>
@@ -183,7 +183,7 @@
                 <div class="flex items-center gap-3 mb-4 px-2 bg-surface-2/30 p-2 rounded-lg transition-all"
                     :class="collapsed ? 'justify-center p-0 bg-transparent' : ''">
 
-                    <div class="size-9 rounded-full bg-primary text-white flex items-center justify-center font-bold shadow-sm flex-shrink-0"
+                    <div class="size-9 rounded-full bg-primary text-primary-content flex items-center justify-center font-bold shadow-sm flex-shrink-0"
                         :title="collapsed ? '{{ user.username }}' : ''">
                         {{ user.username[:1] | upper }}
                     </div>
@@ -203,7 +203,7 @@
                         class="flex items-center gap-3 px-3 py-2 rounded-lg text-text-secondary hover:text-danger hover:bg-danger/10 transition-colors group"
                         :class="collapsed ? 'justify-center' : ''">
                         <div x-show="collapsed"
-                            class="absolute left-16 bg-surface-2 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">
+                            class="absolute left-16 bg-surface-2 text-base-content text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border-color">
                             Logout</div>
                         <span class="material-symbols-outlined text-[20px] group-hover:text-danger">logout</span>
                         <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap">Logout</span>

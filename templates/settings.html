@@ -6,7 +6,7 @@
 {# Custom styles moved to input.css for CSP compliance #}
 <main class="flex-1 p-6 lg:p-8">
     <div class="max-w-5xl mx-auto">
-        <h1 class="text-4xl font-bold mb-6 text-white drop-shadow-md">Global Settings</h1>
+        <h1 class="text-4xl font-bold mb-6 text-base-content drop-shadow-md">Global Settings</h1>
 
         <!-- Tab Navigation -->
         <div class="flex gap-1 border-b border-white/10 mb-6">
@@ -48,7 +48,7 @@
                 <div class="p-8 space-y-8">
 
                     <div>
-                        <h3 class="text-lg font-semibold text-white">General Information</h3>
+                        <h3 class="text-lg font-semibold text-base-content">General Information</h3>
                         <p class="text-sm text-text-secondary mt-1">Basic details about your ISP organization.</p>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/10 pt-6">
@@ -76,7 +76,7 @@
                     </div>
 
                     <div class="pt-6 border-t border-white/10">
-                        <h3 class="text-lg font-semibold text-white">Personalización del Ticket</h3>
+                        <h3 class="text-lg font-semibold text-base-content">Personalización del Ticket</h3>
                     </div>
                     <div class="grid grid-cols-1 gap-6 border-t border-white/10 pt-6">
                         <div>
@@ -110,7 +110,7 @@
 
 
                     <div class="pt-6 border-t border-white/10">
-                        <h3 class="text-lg font-semibold text-white">Monitoring & Backups</h3>
+                        <h3 class="text-lg font-semibold text-base-content">Monitoring & Backups</h3>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/10 pt-6">
                         <div>
@@ -140,7 +140,7 @@
 
                     <!-- Router Backups Section -->
                     <div class="pt-4 mt-2">
-                        <h4 class="text-md font-bold text-white mb-3 flex items-center gap-2">
+                        <h4 class="text-md font-bold text-base-content mb-3 flex items-center gap-2">
                             <span class="material-symbols-outlined text-primary text-sm">router</span>
                             Respaldo de Routers (MikroTik)
                         </h4>
@@ -181,7 +181,7 @@
 
                     <!-- Database Backups Section -->
                     <div class="pt-2">
-                        <h4 class="text-md font-bold text-white mb-3 flex items-center gap-2">
+                        <h4 class="text-md font-bold text-base-content mb-3 flex items-center gap-2">
                             <span class="material-symbols-outlined text-primary text-sm">database</span>
                             Respaldo de Base de Datos
                         </h4>
@@ -203,7 +203,7 @@
                     </div>
 
                     <div class="pt-6 border-t border-white/10">
-                        <h3 class="text-lg font-semibold text-white">Billing</h3>
+                        <h3 class="text-lg font-semibold text-base-content">Billing</h3>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/10 pt-6">
                         <div>
@@ -234,7 +234,7 @@
                         :class="$store.settings.saveStatus.type === 'success' ? 'text-success' : 'text-danger'"
                         class="text-sm"></span>
                     <button type="submit" :disabled="$store.settings.isLoading"
-                        class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary-hover flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50">
+                        class="px-4 py-2 rounded-lg text-sm font-bold text-primary-content bg-primary hover:bg-primary-hover flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50">
                         <span x-show="$store.settings.isLoading"
                             class="material-symbols-outlined text-base animate-spin">sync</span>
                         Save Settings
@@ -247,12 +247,12 @@
                 <h3 class="text-lg font-semibold text-danger">Danger Zone</h3>
                 <div class="mt-4 flex flex-wrap gap-4">
                     <button type="button" @click="forceBilling()"
-                        class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-orange hover:bg-orange-600 flex items-center gap-2 shadow-lg shadow-orange/20">
+                        class="px-4 py-2 rounded-lg text-sm font-bold text-base-content bg-orange hover:bg-orange-600 flex items-center gap-2 shadow-lg shadow-orange/20">
                         <span class="material-symbols-outlined">update</span>
                         Force Status Update Now
                     </button>
                     <button type="button" @click="backupNow()"
-                        class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary-hover flex items-center gap-2 shadow-lg shadow-primary/20">
+                        class="px-4 py-2 rounded-lg text-sm font-bold text-primary-content bg-primary hover:bg-primary-hover flex items-center gap-2 shadow-lg shadow-primary/20">
                         <span class="material-symbols-outlined">backup</span>
                         Backup Database Now
                     </button>
@@ -266,7 +266,7 @@
             <div class="glass-card rounded-2xl p-6">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <div>
-                        <h3 class="text-xl font-semibold text-white flex items-center gap-2">
+                        <h3 class="text-xl font-semibold text-base-content flex items-center gap-2">
                             <span class="material-symbols-outlined text-primary">policy</span>
                             Logs de Auditoría
                         </h3>
@@ -426,7 +426,7 @@
 
                     <!-- Bot Tokens Section -->
                     <div>
-                        <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                        <h3 class="text-lg font-semibold text-base-content flex items-center gap-2">
                             <span class="material-symbols-outlined text-primary">key</span>
                             Tokens de Bots
                         </h3>
@@ -493,7 +493,7 @@
                     </div>
 
                     <div class="pt-6 border-t border-white/10">
-                        <h3 class="text-lg font-semibold text-white">Mensajes de Bienvenida</h3>
+                        <h3 class="text-lg font-semibold text-base-content">Mensajes de Bienvenida</h3>
                         <p class="text-sm text-text-secondary mt-1">Personaliza los mensajes iniciales del bot.</p>
                     </div>
 
@@ -530,7 +530,7 @@
                     </div>
 
                     <div class="pt-6 border-t border-white/10">
-                        <h3 class="text-lg font-semibold text-white">Textos de Botones</h3>
+                        <h3 class="text-lg font-semibold text-base-content">Textos de Botones</h3>
                         <p class="text-sm text-text-secondary mt-1">Personaliza el texto de los botones del menú
                             principal.</p>
                     </div>
@@ -563,7 +563,7 @@
                     </div>
 
                     <div class="pt-6 border-t border-white/10">
-                        <h3 class="text-lg font-semibold text-white">Mensaje de Respuesta Automática</h3>
+                        <h3 class="text-lg font-semibold text-base-content">Mensaje de Respuesta Automática</h3>
                         <p class="text-sm text-text-secondary mt-1">Este mensaje se muestra cuando un cliente escribe
                             sin tener un reporte o sesión de soporte activa.</p>
                     </div>
@@ -584,7 +584,7 @@
                 <div class="p-6 bg-white/5 rounded-b-lg flex justify-between gap-4 items-center">
 
                     <button type="button" @click="restartBots()" :disabled="isRestarting || $store.settings.isLoading"
-                        class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-orange hover:bg-orange-600 flex items-center gap-2 shadow-lg shadow-orange/20 disabled:opacity-50">
+                        class="px-4 py-2 rounded-lg text-sm font-bold text-base-content bg-orange hover:bg-orange-600 flex items-center gap-2 shadow-lg shadow-orange/20 disabled:opacity-50">
                         <span :class="isRestarting ? 'animate-spin' : ''"
                             class="material-symbols-outlined">restart_alt</span>
                         <span x-text="isRestarting ? 'Reiniciando...' : 'Aplicar y Reiniciar Bots'"></span>
@@ -596,7 +596,7 @@
                             :class="$store.settings.saveStatus.type === 'success' ? 'text-success' : 'text-danger'"
                             class="text-sm"></span>
                         <button type="submit" :disabled="$store.settings.isLoading"
-                            class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary-hover flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50">
+                            class="px-4 py-2 rounded-lg text-sm font-bold text-primary-content bg-primary hover:bg-primary-hover flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50">
                             <span x-show="$store.settings.isLoading"
                                 class="material-symbols-outlined text-base animate-spin">sync</span>
                             Guardar Cambios
@@ -610,7 +610,7 @@
             <form x-data="systemSettings()" @submit.prevent="save()" class="glass-card rounded-2xl border-0">
                 <div class="p-8 space-y-8">
                     <div>
-                        <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                        <h3 class="text-lg font-semibold text-base-content flex items-center gap-2">
                             <span class="material-symbols-outlined text-primary">dns</span>
                             Configuración del Sistema
                         </h3>
@@ -622,7 +622,7 @@
 
                     <!-- Database Section -->
                     <div class="border-t border-white/10 pt-6">
-                        <h4 class="text-md font-bold text-white mb-4">Base de Datos</h4>
+                        <h4 class="text-md font-bold text-base-content mb-4">Base de Datos</h4>
 
                         <div class="mb-4">
                             <label class="block text-sm font-medium mb-2 text-text-secondary">Proveedor de Base de
@@ -631,12 +631,12 @@
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <input type="radio" x-model="config.db_provider" value="sqlite"
                                         class="text-primary focus:ring-primary">
-                                    <span class="text-white">SQLite (Archivo Local)</span>
+                                    <span class="text-base-content">SQLite (Archivo Local)</span>
                                 </label>
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <input type="radio" x-model="config.db_provider" value="postgres"
                                         class="text-primary focus:ring-primary">
-                                    <span class="text-white">PostgreSQL (Remoto/Docker)</span>
+                                    <span class="text-base-content">PostgreSQL (Remoto/Docker)</span>
                                 </label>
                             </div>
                         </div>
@@ -673,7 +673,7 @@
 
                     <!-- Cache Section -->
                     <div class="border-t border-white/10 pt-6">
-                        <h4 class="text-md font-bold text-white mb-4">Cache / Cola de Mensajes</h4>
+                        <h4 class="text-md font-bold text-base-content mb-4">Cache / Cola de Mensajes</h4>
 
                         <div class="mb-4">
                             <label class="block text-sm font-medium mb-2 text-text-secondary">Backend de Cache</label>
@@ -681,12 +681,12 @@
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <input type="radio" x-model="config.cache_provider" value="memory"
                                         class="text-primary focus:ring-primary">
-                                    <span class="text-white">Memoria (Solo Dev)</span>
+                                    <span class="text-base-content">Memoria (Solo Dev)</span>
                                 </label>
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <input type="radio" x-model="config.cache_provider" value="redict"
                                         class="text-primary focus:ring-primary">
-                                    <span class="text-white">Redict / Redis (Producción)</span>
+                                    <span class="text-base-content">Redict / Redis (Producción)</span>
                                 </label>
                             </div>
                         </div>
@@ -708,7 +708,7 @@
 
                 <div class="p-6 bg-white/5 rounded-b-lg flex justify-end gap-4 items-center">
                     <button type="submit" :disabled="isSaving"
-                        class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-warning hover:bg-warning-hover flex items-center gap-2 shadow-lg shadow-warning/20 disabled:opacity-50">
+                        class="px-4 py-2 rounded-lg text-sm font-bold text-warning-content bg-warning hover:bg-warning-hover flex items-center gap-2 shadow-lg shadow-warning/20 disabled:opacity-50">
                         <span x-show="isSaving" class="material-symbols-outlined text-base animate-spin">sync</span>
                         Guardar y Solicitar Reinicio
                     </button>
@@ -720,7 +720,7 @@
         <div x-show="$store.settings.activeTab === 'appearance'" x-data="appearanceSettings()" x-cloak>
             <div class="glass-card rounded-2xl p-8 space-y-8">
                 <div>
-                    <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                    <h3 class="text-lg font-semibold text-base-content flex items-center gap-2">
                         <span class="material-symbols-outlined text-primary">palette</span>
                         Tema Visual
                     </h3>
@@ -748,7 +748,7 @@
                             <span class="material-symbols-outlined text-2xl"
                                 :class="currentTheme === 'classic' ? 'text-primary' : 'text-text-secondary'">dark_mode</span>
                             <div>
-                                <h4 class="font-bold text-white">Clásico</h4>
+                                <h4 class="font-bold text-base-content">Clásico</h4>
                                 <p class="text-xs text-text-secondary">Oscuro sólido, sin animaciones de fondo</p>
                             </div>
                         </div>
@@ -778,7 +778,7 @@
                             <span class="material-symbols-outlined text-2xl"
                                 :class="currentTheme === 'modern' ? 'text-primary' : 'text-text-secondary'">auto_awesome</span>
                             <div>
-                                <h4 class="font-bold text-white">Moderno</h4>
+                                <h4 class="font-bold text-base-content">Moderno</h4>
                                 <p class="text-xs text-text-secondary">Glassmorphism + fondo animado Lava Lamp</p>
                             </div>
                         </div>
@@ -789,7 +789,7 @@
 
                 <!-- Esquema de Color -->
                 <div class="mt-8 border-t border-white/10 pt-6">
-                    <h3 class="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+                    <h3 class="text-lg font-semibold text-base-content flex items-center gap-2 mb-4">
                         <span class="material-symbols-outlined text-primary">contrast</span>
                         Esquema de Color
                     </h3>
@@ -804,7 +804,7 @@
                                 <span class="material-symbols-outlined text-2xl"
                                     :class="colorTheme === 'dark' ? 'text-primary' : 'text-text-secondary'">dark_mode</span>
                                 <div>
-                                    <h4 class="font-bold text-white">Oscuro</h4>
+                                    <h4 class="font-bold text-base-content">Oscuro</h4>
                                     <p class="text-xs text-text-secondary">Esquema de color oscuro (DaisyUI dark)</p>
                                 </div>
                             </div>
@@ -822,7 +822,7 @@
                                 <span class="material-symbols-outlined text-2xl"
                                     :class="colorTheme === 'light' ? 'text-primary' : 'text-text-secondary'">light_mode</span>
                                 <div>
-                                    <h4 class="font-bold text-white">Claro</h4>
+                                    <h4 class="font-bold text-base-content">Claro</h4>
                                     <p class="text-xs text-text-secondary">Esquema de color claro (DaisyUI light)</p>
                                 </div>
                             </div>

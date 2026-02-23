@@ -70,7 +70,7 @@
                 </div>
                 <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end gap-4">
                     <button type="submit"
-                        class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">
+                        class="px-4 py-2 rounded-md text-sm font-semibold text-primary-content bg-primary hover:bg-primary-hover">
                         Save General Info
                     </button>
                 </div>
@@ -85,12 +85,12 @@
                     <div class="flex items-center gap-2">
                         <span id="infra-status" class="text-sm text-text-secondary">Loading...</span>
                         <button id="edit-layout-btn" type="button"
-                            class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold bg-surface-2 text-text-secondary hover:text-white hover:bg-surface-2/80 transition-colors">
+                            class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold bg-surface-2 text-text-secondary hover:text-base-content hover:bg-surface-2/80 transition-colors">
                             <span class="material-symbols-outlined text-base">edit</span>
                             Edit Layout
                         </button>
                         <button id="save-layout-btn" type="button" style="display: none;"
-                            class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold bg-success hover:bg-success/80 text-white transition-colors">
+                            class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold bg-success hover:bg-success/80 text-success-content transition-colors">
                             <span class="material-symbols-outlined text-base">save</span>
                             Save
                         </button>
@@ -105,7 +105,7 @@
                 <!-- Layout Editor Panel (hidden by default) -->
                 <div id="layout-editor-panel" style="display: none;"
                     class="p-4 border-b border-border-color bg-surface-2/50">
-                    <h5 class="text-sm font-semibold text-white mb-3">Device Positions</h5>
+                    <h5 class="text-sm font-semibold text-base-content mb-3">Device Positions</h5>
                     <p class="text-xs text-text-secondary mb-4">
                         Use layout codes: <code class="bg-surface-1 px-1 rounded">1-f</code> (Row 1, Full),
                         <code class="bg-surface-1 px-1 rounded">2-h1</code> (Row 2, Half, Slot 1),
@@ -135,7 +135,7 @@
                         <input type="text" name="descripcion" placeholder="Optional description..."
                             class="w-full bg-background border border-border-color rounded-md p-2">
                         <button type="submit"
-                            class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">
+                            class="px-4 py-2 rounded-md text-sm font-semibold text-primary-content bg-primary hover:bg-primary-hover">
                             Upload File
                         </button>
                     </form>
@@ -179,7 +179,7 @@
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg font-semibold">Notes</h3>
                 <button @click="openNewNote()"
-                    class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">
+                    class="px-4 py-2 rounded-md text-sm font-semibold text-primary-content bg-primary hover:bg-primary-hover">
                     New Note
                 </button>
             </div>
@@ -249,7 +249,7 @@
                                 <button type="button" @click="closeNoteModal()"
                                     class="px-4 py-2 rounded-md text-sm font-semibold">Cancel</button>
                                 <button type="submit"
-                                    class="px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-hover">
+                                    class="px-4 py-2 rounded-md text-sm font-semibold text-primary-content bg-primary hover:bg-primary-hover">
                                     Save Note
                                 </button>
                             </div>
