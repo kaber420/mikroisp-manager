@@ -165,6 +165,7 @@ def main():
     parser.add_argument("--port", type=int, default=None, help="Puerto de escucha de Uvicorn (ej: --port 8100)")
     parser.add_argument("--show", action="store_true", help="Mostrar configuración actual y salir")
     parser.add_argument("--interactive", action="store_true", help="Forzar creación interactiva del primer usuario en terminal")
+    parser.add_argument("--run-frontend", action="store_true", help="Iniciar también el frontend de desarrollo SvelteKit V2")
 
     args = parser.parse_args()
 

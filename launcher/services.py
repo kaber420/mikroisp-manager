@@ -19,7 +19,8 @@ class ServiceManager:
             "scheduler": None,
             "uvicorn": None,
             "tech_bot": None,
-            "client_bot": None
+            "client_bot": None,
+            "svelte_frontend": None
         }
         self.server_info = {}
         self._init_server_info()
@@ -79,6 +80,8 @@ class ServiceManager:
         self.start_caddy()
         self.start_scheduler()
         self.start_uvicorn()
+        if getattr(self.args, 'run_frontend', False):
+            self.start_svelte_frontend()
         # Bots now integrated in main.py (hybrid architecture)
         # self.start_tech_bot()
         # self.start_client_bot()
@@ -148,6 +151,60 @@ class ServiceManager:
         self.processes["client_bot"] = self._start_bot_process(cmd, env, "client_bot")
         self._log("Client Bot started", "INFO")
 
+    def start_svelte_frontend(self):
+        """Inicia el servidor de desarrollo de SvelteKit."""
+        frontend_path = os.path.join(os.getcwd(), 'frontend-v2')
+        if not os.path.exists(frontend_path):
+            self._log("Frontend V2 skipped: Directory not found", "WARNING")
+            return
+
+        env = os.environ.copy()
+        
+        # Use npm run dev
+        cmd = ["npm", "run", "dev"]
+        
+        import subprocess
+        import threading
+        import logging
+
+        process = subprocess.Popen(
+            cmd,
+            cwd=frontend_path,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            stdin=subprocess.DEVNULL,
+            env=env,
+            text=True,
+            bufsize=1
+        )
+
+        def log_reader(pipe, level):
+             try:
+                with pipe:
+                    for line in iter(pipe.readline, ''):
+                        if line.strip():
+                            record = logging.LogRecord(
+                                name="svelte_v2",
+                                level=level,
+                                pathname="subprocess",
+                                lineno=0,
+                                msg=line.strip(),
+                                args=(),
+                                exc_info=None
+                            )
+                            self.log_queue.put(record)
+             except ValueError:
+                pass
+
+        t_out = threading.Thread(target=log_reader, args=(process.stdout, logging.INFO), daemon=True)
+        t_err = threading.Thread(target=log_reader, args=(process.stderr, logging.ERROR), daemon=True)
+        
+        t_out.start()
+        t_err.start()
+        
+        self.processes["svelte_frontend"] = process
+        self._log("Svelte Frontend V2 (Dev) started on port 5173", "INFO")
+
     def _start_bot_process(self, cmd, env, name):
         import subprocess
         import threading
@@ -206,6 +263,7 @@ class ServiceManager:
         self._stop_process("scheduler")
         self._stop_process("tech_bot")
         self._stop_process("client_bot")
+        self._stop_process("svelte_frontend")
         self._stop_process("uvicorn")
         self._stop_process("caddy")
 
