@@ -1,24 +1,24 @@
 import asyncio
 import logging
-import os
 from datetime import datetime, timedelta
+from app.core.config import settings
 
 from ...core.constants import DeviceStatus
-from ...db import router_db
-from ...db.stats_db import save_router_monitor_stats
+from ...repositories import router_repository
+from ...repositories.stats_repository import save_router_monitor_stats
 from ...db.engine import get_session
 from ...utils.cache import cache_manager
-from ..network.router_connector import router_connector
+from ...infrastructure.devices.router_connector import router_connector
 
 logger = logging.getLogger(__name__)
 
 # Configurable timeout via environment variable (default: 30 seconds)
-UNSUBSCRIBE_TIMEOUT = int(os.getenv("MONITOR_UNSUBSCRIBE_TIMEOUT", "30"))
+UNSUBSCRIBE_TIMEOUT = settings.MONITOR_UNSUBSCRIBE_TIMEOUT
 CLEANUP_CHECK_INTERVAL = 10  # Check for expired routers every 10 seconds
 # Interval for saving router stats to history (default: 5 minutes)
-ROUTER_HISTORY_INTERVAL = int(os.getenv("ROUTER_HISTORY_INTERVAL", "300"))
+ROUTER_HISTORY_INTERVAL = settings.ROUTER_HISTORY_INTERVAL
 # Configurable polling interval (default: 5 seconds) - how often to check routers
-MONITOR_POLL_INTERVAL = float(os.getenv("MONITOR_POLL_INTERVAL", "5.0"))
+MONITOR_POLL_INTERVAL = settings.MONITOR_POLL_INTERVAL
 
 
 class MonitorScheduler:
@@ -160,7 +160,7 @@ class MonitorScheduler:
         """Actualiza el estado del router en la base de datos."""
         try:
             async for session in get_session():
-                await router_db.update_router_status(session, host, status, result)
+                await router_repository.update_router_status(session, host, status, result)
                 # Session closes automatically due to generator? 
                 # Actually get_session yields and assumes caller handles commit/close logic via 'yield' typically?
                 # app/db/engine.py get_session typically yields session and closes in finally.
@@ -199,7 +199,7 @@ class MonitorScheduler:
 
         # 3. Limpiar pool de conexiones del router
         try:
-            from ...utils.device_clients.mikrotik import connection as mikrotik_conn
+            from ...infrastructure.devices.mikrotik import connection as mikrotik_conn
 
             mikrotik_conn.remove_pool(host)
             logger.info(f"[MonitorScheduler] Cleared connection pool for {host}")

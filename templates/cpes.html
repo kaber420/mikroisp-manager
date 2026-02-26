@@ -65,6 +65,40 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination Footer -->
+        <div class="px-6 py-4 border-t border-white/5 flex flex-wrap items-center justify-between gap-4 bg-white/5">
+            <div class="flex items-center gap-2 text-sm text-text-secondary">
+                <span>Rows per page:</span>
+                <select id="cpe-page-size"
+                    class="bg-base-100 border border-base-300 rounded px-2 py-1 focus:ring-primary focus:border-primary text-base-content text-xs">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+                <div class="h-4 w-px bg-white/10 mx-2"></div>
+                <span id="cpe-pagination-info">Showing 0 - 0 of 0</span>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="cpe-prev-page" disabled
+                    class="p-1 rounded hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed text-text-secondary transition-colors">
+                    <span class="material-symbols-outlined">chevron_left</span>
+                </button>
+
+                <span class="text-sm text-text-secondary font-mono">
+                    <span id="cpe-current-page" class="text-text-primary font-bold">1</span>
+                    <span class="mx-1">/</span>
+                    <span id="cpe-total-pages">1</span>
+                </span>
+
+                <button id="cpe-next-page" disabled
+                    class="p-1 rounded hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed text-text-secondary transition-colors">
+                    <span class="material-symbols-outlined">chevron_right</span>
+                </button>
+            </div>
+        </div>
     </div>
 </main>
 {% include 'partials/edit_cpe_modal.html' %}

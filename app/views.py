@@ -21,8 +21,8 @@ router = APIRouter()
 # --- Helpers ---
 async def _is_system_setup(session: AsyncSession) -> bool:
     """Check if any user exists in the database (system is setup)."""
-    result = await session.execute(select(User).limit(1))
-    return result.scalar_one_or_none() is not None
+    result = await session.exec(select(User).limit(1))
+    return result.first() is not None
 
 
 # --- Dependency ---
@@ -40,13 +40,13 @@ async def read_login_form(request: Request, session: AsyncSession = Depends(get_
     """Login page - redirects to /setup if no users exist."""
     if not await _is_system_setup(session):
         return RedirectResponse(url="/setup", status_code=status.HTTP_303_SEE_OTHER)
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request, "login.html")
 
 
 @router.get("/403", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_forbidden_page(request: Request):
     """403 Forbidden error page"""
-    return templates.TemplateResponse("403.html", {"request": request}, status_code=403)
+    return templates.TemplateResponse(request, "403.html", status_code=403)
 
 
 @router.get("/logout", tags=["Auth & Pages"], include_in_schema=False)
@@ -71,9 +71,9 @@ async def read_dashboard(
     isp_name = setting.value if setting else None
 
     return templates.TemplateResponse(
+        request,
         "dashboard_classic.html",
         {
-            "request": request,
             "active_page": "dashboard",
             "user": current_user,
             "isp_name": isp_name,
@@ -84,7 +84,7 @@ async def read_dashboard(
 @router.get("/aps", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_aps_page(request: Request, current_user: User = Depends(require_technician)):
     return templates.TemplateResponse(
-        "aps.html", {"request": request, "active_page": "aps", "user": current_user}
+        request, "aps.html", {"active_page": "aps", "user": current_user}
     )
 
 
@@ -101,9 +101,9 @@ async def read_ap_details_page(
     if not ap:
         raise HTTPException(status_code=404, detail="AP not found")
     return templates.TemplateResponse(
+        request,
         "ap_details.html",
         {
-            "request": request,
             "active_page": "ap_details",
             "host": host,
             "user": current_user,
@@ -115,7 +115,7 @@ async def read_ap_details_page(
 @router.get("/zonas", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_zones_page(request: Request, current_user: User = Depends(require_technician)):
     return templates.TemplateResponse(
-        "zonas.html", {"request": request, "active_page": "zonas", "user": current_user}
+        request, "zonas.html", {"active_page": "zonas", "user": current_user}
     )
 
 
@@ -126,9 +126,9 @@ async def read_zona_details_page(
     current_user: User = Depends(require_technician),
 ):
     return templates.TemplateResponse(
+        request,
         "zona_details.html",
         {
-            "request": request,
             "active_page": "zonas",
             "zona_id": zona_id,
             "user": current_user,
@@ -139,22 +139,23 @@ async def read_zona_details_page(
 @router.get("/settings", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_settings_page(request: Request, current_user: User = Depends(require_admin)):
     return templates.TemplateResponse(
+        request,
         "settings.html",
-        {"request": request, "active_page": "settings", "user": current_user},
+        {"active_page": "settings", "user": current_user},
     )
 
 
 @router.get("/users", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_users_page(request: Request, current_user: User = Depends(require_admin)):
     return templates.TemplateResponse(
-        "users.html", {"request": request, "active_page": "users", "user": current_user}
+        request, "users.html", {"active_page": "users", "user": current_user}
     )
 
 
 @router.get("/cpes", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_cpes_page(request: Request, current_user: User = Depends(require_technician)):
     return templates.TemplateResponse(
-        "cpes.html", {"request": request, "active_page": "cpes", "user": current_user}
+        request, "cpes.html", {"active_page": "cpes", "user": current_user}
     )
 
 
@@ -163,8 +164,9 @@ async def read_clients_page(
     request: Request, current_user: User = Depends(get_current_user_or_redirect)
 ):
     return templates.TemplateResponse(
+        request,
         "clients.html",
-        {"request": request, "active_page": "clients", "user": current_user},
+        {"active_page": "clients", "user": current_user},
     )
 
 
@@ -175,9 +177,9 @@ async def read_client_details_page(
     current_user: User = Depends(get_current_user_or_redirect),
 ):
     return templates.TemplateResponse(
+        request,
         "client_details.html",
         {
-            "request": request,
             "active_page": "clients",
             "client_id": client_id,
             "user": current_user,
@@ -201,17 +203,15 @@ async def read_payment_receipt(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     
-    # Add request to context for template
-    context["request"] = request
-    
-    return templates.TemplateResponse("payment_receipt.html", context)
+    return templates.TemplateResponse(request, "payment_receipt.html", context)
 
 
 @router.get("/routers", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_routers_page(request: Request, current_user: User = Depends(require_technician)):
     return templates.TemplateResponse(
+        request,
         "routers.html",
-        {"request": request, "active_page": "routers", "user": current_user},
+        {"active_page": "routers", "user": current_user},
     )
 
 
@@ -222,9 +222,9 @@ async def read_router_details_page(
     current_user: User = Depends(require_technician),
 ):
     return templates.TemplateResponse(
+        request,
         "router_details.html",
         {
-            "request": request,
             "active_page": "router_details",
             "host": host,
             "user": current_user,
@@ -235,8 +235,9 @@ async def read_router_details_page(
 @router.get("/switches", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_switches_page(request: Request, current_user: User = Depends(require_technician)):
     return templates.TemplateResponse(
+        request,
         "switches.html",
-        {"request": request, "active_page": "switches", "user": current_user},
+        {"active_page": "switches", "user": current_user},
     )
 
 
@@ -247,9 +248,9 @@ async def read_switch_details_page(
     current_user: User = Depends(require_technician),
 ):
     return templates.TemplateResponse(
+        request,
         "switch_details.html",
         {
-            "request": request,
             "active_page": "switch_details",
             "host": host,
             "user": current_user,
@@ -260,7 +261,7 @@ async def read_switch_details_page(
 @router.get("/tickets", response_class=HTMLResponse, tags=["Auth & Pages"])
 async def read_tickets_page(request: Request, current_user: User = Depends(require_technician)):
     return templates.TemplateResponse(
-        "tickets.html", {"request": request, "active_page": "tickets", "user": current_user}
+        request, "tickets.html", {"active_page": "tickets", "user": current_user}
     )
 
 
@@ -268,8 +269,9 @@ async def read_tickets_page(request: Request, current_user: User = Depends(requi
 async def read_guide_page(request: Request, current_user: User = Depends(get_current_user_or_redirect)):
     """Documentation guide page"""
     return templates.TemplateResponse(
+        request,
         "guide.html",
-        {"request": request, "active_page": "guia", "user": current_user},
+        {"active_page": "guia", "user": current_user},
     )
 
 
@@ -277,5 +279,5 @@ async def read_guide_page(request: Request, current_user: User = Depends(get_cur
 async def read_broadcast_page(request: Request, current_user: User = Depends(require_admin)):
     """Broadcast messaging page for sending Telegram messages"""
     return templates.TemplateResponse(
-        "broadcast.html", {"request": request, "active_page": "broadcast", "user": current_user}
+        request, "broadcast.html", {"active_page": "broadcast", "user": current_user}
     )

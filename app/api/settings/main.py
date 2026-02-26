@@ -28,6 +28,18 @@ async def api_get_settings(
     return await service.get_all_settings()
 
 
+@router.get("/settings/public", response_model=dict[str, str])
+async def api_get_public_settings(
+    service: SettingsService = Depends(get_settings_service),
+):
+    """
+    Returns public settings safe for unauthenticated or basic users.
+    """
+    settings = await service.get_all_settings()
+    public_keys = ["company_name", "company_logo_url", "ticket_footer_message", "billing_address"]
+    return {k: v for k, v in settings.items() if k in public_keys}
+
+
 @router.put("/settings", status_code=status.HTTP_204_NO_CONTENT)
 async def api_update_settings(
     settings: dict[str, str],

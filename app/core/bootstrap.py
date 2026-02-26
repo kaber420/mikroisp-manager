@@ -1,7 +1,7 @@
 # app/core/bootstrap.py
 import logging
-import os
 import uuid
+from app.core.config import settings
 
 from passlib.context import CryptContext
 from sqlmodel import Session, select
@@ -79,9 +79,9 @@ def bootstrap_system() -> None:
             # 4. Try Auto-Bootstrap from ENV
             logger.info("🌱 [Bootstrap] No users found. Checking Environment Variables for auto-create...")
 
-            admin_email = os.getenv("ADMIN_EMAIL")
-            admin_password = os.getenv("ADMIN_PASSWORD")
-            admin_username = os.getenv("ADMIN_USERNAME", "admin")
+            admin_email = settings.ADMIN_EMAIL
+            admin_password = settings.ADMIN_PASSWORD
+            admin_username = settings.ADMIN_USERNAME
 
             if admin_email and admin_password:
                 start_auto_creation(session, admin_email, admin_username, admin_password)

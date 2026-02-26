@@ -1,7 +1,7 @@
 import asyncio
 import logging
-import os
 from datetime import datetime
+from app.core.config import settings
 
 from sqlmodel import select
 
@@ -9,16 +9,16 @@ from ...core.constants import DeviceStatus
 from ...db.engine import async_session_maker
 from ...models.switch import Switch
 from ...utils.cache import cache_manager
-from ..network.switch_connector import switch_connector
+from ...infrastructure.devices.switch_connector import switch_connector
 
 logger = logging.getLogger(__name__)
 
 # Configurable timeout via environment variable (default: 30 seconds)
-UNSUBSCRIBE_TIMEOUT = int(os.getenv("SWITCH_MONITOR_UNSUBSCRIBE_TIMEOUT", "30"))
+UNSUBSCRIBE_TIMEOUT = settings.SWITCH_MONITOR_UNSUBSCRIBE_TIMEOUT
 CLEANUP_CHECK_INTERVAL = 10
-SWITCH_HISTORY_INTERVAL = int(os.getenv("SWITCH_HISTORY_INTERVAL", "300"))
+SWITCH_HISTORY_INTERVAL = settings.SWITCH_HISTORY_INTERVAL
 # Configurable polling interval (default: 5 seconds)
-SWITCH_POLL_INTERVAL = float(os.getenv("SWITCH_POLL_INTERVAL", "5.0"))
+SWITCH_POLL_INTERVAL = settings.SWITCH_POLL_INTERVAL
 
 
 class SwitchMonitorScheduler:

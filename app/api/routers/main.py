@@ -24,12 +24,12 @@ from ...services.network.provisioning import MikrotikProvisioningService
 from ...services.network.provisioning.models import ProvisionRequest, ProvisionResponse
 from ...services.network.router_service import RouterService
 
-# --- UPDATE: Import directly from router_db ---
-from ...db.router_db import create_router_in_db as create_router_service
-from ...db.router_db import delete_router_from_db as delete_router_service
-from ...db.router_db import get_all_routers as get_all_routers_service
-from ...db.router_db import get_router_by_host as get_router_by_host_service
-from ...db.router_db import update_router_in_db as update_router_service
+# --- UPDATE: Import directly from router_repository ---
+from ...repositories.router_repository import create_router_in_db as create_router_service
+from ...repositories.router_repository import delete_router_from_db as delete_router_service
+from ...repositories.router_repository import get_all_routers as get_all_routers_service
+from ...repositories.router_repository import get_router_by_host as get_router_by_host_service
+from ...repositories.router_repository import update_router_in_db as update_router_service
 
 from ...utils.cache import cache_manager
 from . import config, interfaces, pppoe, system, ssl as ssl_router
@@ -57,7 +57,7 @@ async def router_resources_stream(websocket: WebSocket, host: str):
 
     # 1. Obtener credenciales (BD)
     from ...db.engine import async_session_maker
-    from ...db.router_db import get_router_by_host  # Use router_db directly
+    from ...repositories.router_repository import get_router_by_host  # Use router_repository directly
     from ...utils.security import decrypt_data
 
     async with async_session_maker() as session:
@@ -77,13 +77,13 @@ async def router_resources_stream(websocket: WebSocket, host: str):
         try:
              # If it's encrypted, this works. If plain, it might fail or return garbage?
              # Fernet token validation usually fails if not token.
-             # Given router_db.get_router_by_host returns decrypted, we don't need to decrypt again.
+             # Given router_repository.get_router_by_host returns decrypted, we don't need to decrypt again.
              pass 
         except:
              pass
         
         # However, monitor_scheduler expects what?
-        # router_db.get_router_by_host returns decrypted object.
+        # router_repository.get_router_by_host returns decrypted object.
         creds = {
             "username": router.username,
             "password": router.password, # Already decrypted
@@ -326,7 +326,7 @@ async def get_queue_stats(
     """
     from ...utils.security import decrypt_data
 
-    # Use router_db directly via service alias
+    # Use router_repository directly via service alias
     creds = await get_router_by_host_service(session, host)
     if not creds:
         raise HTTPException(status_code=404, detail="Router not found")
@@ -362,7 +362,7 @@ async def get_router_history(
     Get historical stats for a router (CPU, Memory, etc.) over time.
     Default range is last 24 hours.
     """
-    from ...db.stats_db import get_router_monitor_stats_history
+    from ...repositories.stats_repository import get_router_monitor_stats_history
 
     data = await get_router_monitor_stats_history(session, host, range_hours)
     return {"status": "success", "data": data}

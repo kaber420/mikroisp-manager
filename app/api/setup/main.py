@@ -46,8 +46,8 @@ class SetupRequest(BaseModel):
 
 async def _is_system_setup(session: AsyncSession) -> bool:
     """Check if any user exists in the database."""
-    result = await session.execute(select(User).limit(1))
-    return result.scalar_one_or_none() is not None
+    result = await session.exec(select(User).limit(1))
+    return result.first() is not None
 
 
 @router.get("/setup")
@@ -58,7 +58,7 @@ async def setup_page(request: Request, session: AsyncSession = Depends(get_sessi
     """
     if await _is_system_setup(session):
         return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
-    return templates.TemplateResponse("setup.html", {"request": request})
+    return templates.TemplateResponse(request, "setup.html")
 
 
 @router.post("/setup")

@@ -245,7 +245,7 @@ def run_setup_wizard() -> None:
     print("\n🔐 CONFIGURACIÓN DE USUARIO")
     print("-" * 40)
     from .user_setup import check_and_create_first_user
-    check_and_create_first_user(interactive=True)
+    check_and_create_first_user(interactive=False)
 
 
 

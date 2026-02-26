@@ -2,6 +2,7 @@
 import os
 
 from dotenv import load_dotenv
+from app.core.config import settings
 
 # Cargar variables de entorno desde .env ANTES de cualquier otra cosa
 load_dotenv()
@@ -10,8 +11,9 @@ load_dotenv()
 import sys
 if sys.platform != "win32":
     try:
+        import asyncio
         import uvloop
-        uvloop.install()
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         print("✅ uvloop instalado como event loop")
     except ImportError:
         pass  # uvloop no instalado, usamos el loop por defecto
@@ -70,23 +72,20 @@ from .schemas.user import UserCreate, UserRead, UserUpdate
 # Importaciones de API Routers
 from .views import router as views_router
 
-app = FastAPI(title="µMonitor Pro", version="0.5.0")
+from contextlib import asynccontextmanager
 
-
-# --- Database Initialization ---
-@app.on_event("startup")
-async def on_startup():
-    """Initialize database tables and background services on application startup"""
-    """Initialize database tables and background services on application startup"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize database tables and background services on application startup, and cleanup on shutdown"""
     from .core.bootstrap import bootstrap_system
     bootstrap_system()
     print("✅ System bootstrapped (DB & Admin)")
 
     # --- Redict Cache: Conectar si está habilitado ---
-    if os.getenv("CACHE_BACKEND") == "redict":
+    if settings.CACHE_BACKEND == "redict":
         from .utils.cache.redict_store import redict_manager
 
-        redict_url = os.getenv("REDICT_URL", "redis://localhost:6379/0")
+        redict_url = settings.REDICT_URL
         connected = await redict_manager.connect(redict_url)
         if connected:
             print("✅ Redict cache conectado")
@@ -126,15 +125,12 @@ async def on_startup():
     # --- STATUS REPORTER (File-Based for TUI) ---
     from .services.monitoring.status_reporter import status_reporter_loop
     asyncio.create_task(status_reporter_loop())
-
-
-
-
-@app.on_event("shutdown")
-async def on_shutdown():
-    """Cleanup on application shutdown"""
+    
+    yield # Aquí es donde la aplicación corre y sirve las peticiones HTTP
+    
+    # --- SHUTDOWN ---
     # Desconectar Redict si estaba conectado
-    if os.getenv("CACHE_BACKEND") == "redict":
+    if settings.CACHE_BACKEND == "redict":
         from .utils.cache.redict_store import redict_manager
 
         if redict_manager.is_connected:
@@ -144,6 +140,8 @@ async def on_shutdown():
     # Detener Bots
     from .services.core.bot_manager import bot_manager
     await bot_manager.stop()
+
+app = FastAPI(title="µMonitor Pro", version="0.5.0", lifespan=lifespan)
 
 
 # --- Configuración de SlowAPI ---
@@ -158,11 +156,9 @@ def custom_rate_limit_handler(request: Request, exc: Exception) -> Response:
     if request.url.path == "/auth/cookie/login":
         # Note: This handler relies on templates. login.html is used here.
         return templates.TemplateResponse(
+            request,
             "login.html",
-            {
-                "request": request,
-                "error_message": "⚠️ Demasiados intentos fallidos. Por favor, espera 1 minuto.",
-            },
+            {"error_message": "⚠️ Demasiados intentos fallidos. Por favor, espera 1 minuto."},
             status_code=429,
         )
     detail = getattr(exc, "detail", str(exc))
@@ -171,16 +167,16 @@ def custom_rate_limit_handler(request: Request, exc: Exception) -> Response:
 
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
 
-APP_ENV = os.getenv("APP_ENV", "development")
+APP_ENV = settings.APP_ENV
 
 
 # --- SEGURIDAD: CONFIGURACIÓN CORS ESTRICTA ---
-allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:8000")
+allowed_origins_env = settings.ALLOWED_ORIGINS
 origins = allowed_origins_env.split(",")
 
 # Flutter Mobile App Development Support
 # Set FLUTTER_DEV=true in .env to allow Flutter web dev server (port 33000)
-if os.getenv("FLUTTER_DEV", "false").lower() == "true":
+if settings.FLUTTER_DEV:
     origins.append("http://localhost:33000")
     print("🦋 Flutter development mode enabled (port 33000)")
 
@@ -193,7 +189,7 @@ app.add_middleware(
 )
 
 # --- SEGURIDAD: TRUSTED HOSTS ---
-allowed_hosts = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+allowed_hosts = settings.ALLOWED_HOSTS.split(",")
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
 # --- SEGURIDAD: CSP con Nonces ---
@@ -313,7 +309,7 @@ async def add_security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
     # HSTS: Forzar HTTPS (solo si APP_ENV es producción)
-    if os.getenv("APP_ENV", "development") == "production":
+    if settings.APP_ENV == "production":
         response.headers["Strict-Transport-Security"] = (
             "max-age=31536000; includeSubDomains; preload"
         )
@@ -364,11 +360,9 @@ async def rate_limit_middleware(request: Request, call_next):
             if path == "/auth/cookie/login":
                 # Return HTML error for web login
                 return templates.TemplateResponse(
+                    request,
                     "login.html",
-                    {
-                        "request": request,
-                        "error_message": "⚠️ Demasiados intentos fallidos. Por favor, espera 1 minuto.",
-                    },
+                    {"error_message": "⚠️ Demasiados intentos fallidos. Por favor, espera 1 minuto."},
                     status_code=429,
                 )
             else:
@@ -469,8 +463,8 @@ async def _handle_http_exception(request: Request, status_code: int, detail: str
     # Show friendly 403 page for web requests
     if status_code == 403 and is_web:
         return templates.TemplateResponse(
+            request,
             "403.html",
-            {"request": request},
             status_code=403,
         )
 

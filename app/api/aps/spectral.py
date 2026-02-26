@@ -15,9 +15,9 @@ from queue import Empty, Queue
 from fastapi import APIRouter, Cookie, Depends, Query, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...db.aps_db import get_ap_by_host_with_stats, get_ap_credentials
+from ...repositories.ap_repository import get_ap_by_host_with_stats, get_ap_credentials
 from ...db.engine import get_session
-from ...utils.device_clients.mikrotik.ssh_client import MikrotikSSHClient
+from ...infrastructure.devices.mikrotik.ssh_client import MikrotikSSHClient
 
 logger = logging.getLogger(__name__)
 

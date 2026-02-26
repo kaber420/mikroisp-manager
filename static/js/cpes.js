@@ -2,11 +2,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_BASE_URL = window.location.origin;
     let allCPEs = [];
     let searchTerm = '';
+    let currentPage = 1;
+    let pageSize = 10;
+    let totalItems = 0;
+    let totalPages = 1;
+    let searchTimeout = null;
     let refreshIntervalId = null;
 
     // --- REFERENCIAS A ELEMENTOS DEL DOM ---
     const searchInput = document.getElementById('search-input');
     const tableBody = document.getElementById('cpe-table-body');
+    const pageSizeSelect = document.getElementById('cpe-page-size');
+    const paginationInfo = document.getElementById('cpe-pagination-info');
+    const prevPageBtn = document.getElementById('cpe-prev-page');
+    const nextPageBtn = document.getElementById('cpe-next-page');
+    const currentPageSpan = document.getElementById('cpe-current-page');
+    const totalPagesSpan = document.getElementById('cpe-total-pages');
 
     /**
      * Deshabilita un CPE en la base de datos.
@@ -256,26 +267,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderCPEs() {
         if (!tableBody) return;
 
-        const filteredCPEs = allCPEs.filter(cpe => {
-            const term = searchTerm.toLowerCase();
-            return !term ||
-                (cpe.cpe_hostname && cpe.cpe_hostname.toLowerCase().includes(term)) ||
-                (cpe.ap_hostname && cpe.ap_hostname.toLowerCase().includes(term)) ||
-                cpe.cpe_mac.toLowerCase().includes(term) ||
-                (cpe.ip_address && cpe.ip_address.toLowerCase().includes(term));
-        });
-
-        // Ordenamos los CPEs por señal, de más débil a más fuerte
-        filteredCPEs.sort((a, b) => (a.signal || -100) - (b.signal || -100));
-
         tableBody.innerHTML = '';
 
-        if (filteredCPEs.length === 0) {
+        if (allCPEs.length === 0) {
             const emptyRow = document.createElement('tr');
             emptyRow.innerHTML = `<td colspan="9" class="text-center p-8 text-text-secondary">No CPEs match the current filter.</td>`;
             tableBody.appendChild(emptyRow);
         } else {
-            filteredCPEs.forEach(cpe => {
+            allCPEs.forEach(cpe => {
                 const row = document.createElement('tr');
                 row.className = "hover:bg-surface-2 transition-colors duration-200";
 
@@ -367,26 +366,57 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
- * Carga todos los datos de los CPEs desde la API y los renderiza.
- */
+     * Actualiza la interfaz del paginador.
+     */
+    function updatePaginationUI() {
+        if (paginationInfo) {
+            const start = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+            const end = Math.min(currentPage * pageSize, totalItems);
+            paginationInfo.textContent = `Showing ${start} - ${end} of ${totalItems}`;
+        }
+
+        if (currentPageSpan) currentPageSpan.textContent = currentPage;
+        if (totalPagesSpan) totalPagesSpan.textContent = totalPages;
+
+        if (prevPageBtn) prevPageBtn.disabled = currentPage <= 1;
+        if (nextPageBtn) nextPageBtn.disabled = currentPage >= totalPages;
+    }
+
+    /**
+     * Carga todos los datos de los CPEs desde la API y los renderiza.
+     */
     function loadAllCPEs() {
         if (!tableBody) return;
 
         tableBody.style.filter = 'blur(4px)';
         tableBody.style.opacity = '0.6';
 
-        if (allCPEs.length === 0) {
+        if (allCPEs.length === 0 && totalItems === 0) {
             tableBody.innerHTML = '<tr><td colspan="9" class="text-center p-8 text-text-secondary">Loading CPE data...</td></tr>';
         }
 
         setTimeout(async () => {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/cpes/all`);
+                const url = new URL(`${API_BASE_URL}/api/cpes/all`);
+                url.searchParams.append('page', currentPage);
+                url.searchParams.append('page_size', pageSize);
+                if (searchTerm) {
+                    url.searchParams.append('search', searchTerm);
+                }
+
+                const response = await fetch(url.toString());
                 if (!response.ok) {
                     throw new Error('Failed to load CPEs');
                 }
-                allCPEs = await response.json();
+                const data = await response.json();
+
+                allCPEs = data.items || [];
+                totalItems = data.total || 0;
+                currentPage = data.page || 1;
+                totalPages = data.total_pages || 1;
+
                 renderCPEs();
+                updatePaginationUI();
             } catch (error) {
                 console.error("Error loading CPE data:", error);
                 tableBody.innerHTML = `<tr><td colspan="9" class="text-center p-8 text-danger">Failed to load network data. Please check the API.</td></tr>`;
@@ -408,10 +438,42 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- INICIALIZACIÓN ---
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener('change', (e) => {
+            pageSize = parseInt(e.target.value, 10);
+            currentPage = 1;
+            loadAllCPEs();
+        });
+    }
+
+    if (prevPageBtn) {
+        prevPageBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                loadAllCPEs();
+            }
+        });
+    }
+
+    if (nextPageBtn) {
+        nextPageBtn.addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                currentPage++;
+                loadAllCPEs();
+            }
+        });
+    }
+
     if (searchInput) {
         searchInput.addEventListener('input', (e) => {
             searchTerm = e.target.value;
-            renderCPEs();
+            currentPage = 1; // reset to first page on search
+
+            // Debounce
+            if (searchTimeout) clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                loadAllCPEs();
+            }, 500);
         });
     }
 

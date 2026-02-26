@@ -8,19 +8,19 @@ V2: Respeta intervalos individuales por dispositivo.
 
 import asyncio
 import logging
-import os
 from datetime import datetime
+from app.core.config import settings
 
 from ...core.constants import DeviceStatus
-from ...db import aps_db
+from ...repositories import ap_repository
 from ...db.engine import async_session_maker
 from ...utils.cache import cache_manager
-from ..network.ap_connector import ap_connector
+from ...infrastructure.devices.ap_connector import ap_connector
 
 logger = logging.getLogger(__name__)
 
 # Configurable timeout via environment variable (default: 30 seconds)
-UNSUBSCRIBE_TIMEOUT = int(os.getenv("AP_MONITOR_UNSUBSCRIBE_TIMEOUT", "30"))
+UNSUBSCRIBE_TIMEOUT = settings.AP_MONITOR_UNSUBSCRIBE_TIMEOUT
 CLEANUP_CHECK_INTERVAL = 10  # Check for expired APs every 10 seconds
 DEFAULT_POLL_INTERVAL = 3  # Default polling interval in seconds
 TICK_INTERVAL = 1.0  # How often the scheduler checks for pending polls
@@ -149,7 +149,7 @@ class APMonitorScheduler:
         """Actualiza el estado del AP en la base de datos."""
         try:
             async with async_session_maker() as session:
-                await aps_db.update_ap_status(session, host, status, result)
+                await ap_repository.update_ap_status(session, host, status, result)
             logger.debug(f"[APMonitorScheduler] DB updated: {host} -> {status}")
         except Exception as e:
             logger.error(f"[APMonitorScheduler] Failed to update DB for {host}: {e}")

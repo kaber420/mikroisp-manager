@@ -15,11 +15,11 @@ from ...api.aps.models import (
     HistoryDataPoint,
 )
 from ...core.constants import DeviceStatus, DeviceVendor
-from ...db import stats_db, aps_db
+from ...repositories import stats_repository, ap_repository
 from ...models.ap import AP
 from ...models.stats import APStats
-from ...utils.device_clients.adapter_factory import get_device_adapter
-from ...utils.device_clients.mikrotik import wireless as mikrotik_wireless
+from ...infrastructure.devices.adapter_factory import get_device_adapter
+from ...infrastructure.devices.mikrotik import wireless as mikrotik_wireless
 from ...utils.security import decrypt_data, encrypt_data
 
 
@@ -50,14 +50,14 @@ class APService:
 
     async def get_all_aps(self) -> list[dict[str, Any]]:
         """Obtiene todos los APs con sus últimas estadísticas."""
-        # Use centralized logic from aps_db
-        return await aps_db.get_all_aps_with_stats(self.session)
+        # Use centralized logic from ap_repository
+        return await ap_repository.get_all_aps_with_stats(self.session)
 
     # _fetch_latest_stats_map is no longer needed
 
     async def get_ap_by_host(self, host: str) -> dict[str, Any]:
         """Obtiene un AP específico por host."""
-        ap_dict = await aps_db.get_ap_by_host_with_stats(self.session, host)
+        ap_dict = await ap_repository.get_ap_by_host_with_stats(self.session, host)
         if not ap_dict:
             raise APNotFoundError(f"AP no encontrado: {host}")
 
@@ -227,7 +227,7 @@ class APService:
 
     async def get_cpes_for_ap(self, host: str) -> list[dict[str, Any]]:
         """Obtiene los CPEs conectados a un AP desde el último snapshot."""
-        result = await stats_db.get_cpes_for_ap_from_stats(self.session, host)
+        result = await stats_repository.get_cpes_for_ap_from_stats(self.session, host)
         return result if result else []
 
     async def get_live_data(self, host: str) -> APLiveDetail:
@@ -394,7 +394,7 @@ class APService:
 
     async def get_ap_history(self, host: str, period: str = "24h") -> APHistoryResponse:
         """Obtiene datos históricos de un AP desde la DB de estadísticas."""
-        ap_info = await aps_db.get_ap_by_host_with_stats(self.session, host)
+        ap_info = await ap_repository.get_ap_by_host_with_stats(self.session, host)
         hostname = ap_info.get("hostname", host) if ap_info else host
 
         # Calculate time

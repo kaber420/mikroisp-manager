@@ -8,7 +8,7 @@ from ...core.users import require_technician
 from ...db.engine_sync import get_sync_session
 from ...models.user import User
 from ...services.network.cpe_service import CPEService
-from .models import AssignedCPE, CPEGlobalInfo, CPEUpdate
+from .models import AssignedCPE, CPEGlobalInfo, CPEUpdate, CPEPagination
 
 router = APIRouter()
 
@@ -82,13 +82,18 @@ def api_update_cpe(
     return service.update_cpe(mac, update_data.model_dump(exclude_none=True))
 
 
-@router.get("/cpes/all", response_model=list[CPEGlobalInfo])
+@router.get("/cpes/all", response_model=CPEPagination)
 def api_get_all_cpes_globally(
+    page: int = 1,
+    page_size: int = 10,
+    search: str | None = None,
     status_filter: str | None = Query(
         None, alias="status", description="Filter by status: 'active', 'offline', 'disabled'"
     ),
     service: CPEService = Depends(get_cpe_service),
     current_user: User = Depends(require_technician),
 ):
-    """Get all CPEs globally with status (active/fallen/disabled)."""
-    return service.get_all_cpes_globally(status_filter=status_filter)
+    """Get all CPEs globally with status (active/fallen/disabled) and pagination."""
+    return service.get_all_cpes_globally(
+        page=page, page_size=page_size, search=search, status_filter=status_filter
+    )

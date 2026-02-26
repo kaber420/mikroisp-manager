@@ -9,8 +9,8 @@ import json
 import logging
 import os
 from typing import Any
-
 import redis.asyncio as redis
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ class RedictManager:
         # Si no hay pool, crearlo
         if self._pool is None:
             if not self._url:
-                 self._url = os.getenv("REDICT_URL", "redis://localhost:6379/0")
+                 self._url = settings.REDICT_URL
             
             logger.info(f"🔄 Inicializando Redict Pool Principal (PID: {current_pid})")
             self._pool = redis.ConnectionPool.from_url(
@@ -77,7 +77,7 @@ class RedictManager:
 
     async def connect(self, url: str | None = None) -> bool:
         """Configura la conexión."""
-        self._url = url or os.getenv("REDICT_URL", "redis://localhost:6379/0")
+        self._url = url or settings.REDICT_URL
         try:
             # Forzamos creación del pool
             pool = self._get_main_pool()

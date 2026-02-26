@@ -1,12 +1,12 @@
 # app/core/utils/security.py
 import logging
-import os
 
 from cryptography.fernet import Fernet
+from app.core.config import settings
 
 # Cargar la clave de cifrado desde las variables de entorno
-ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
-APP_ENV = os.getenv("APP_ENV", "development")
+ENCRYPTION_KEY = settings.ENCRYPTION_KEY
+APP_ENV = settings.APP_ENV
 
 if not ENCRYPTION_KEY:
     if APP_ENV == "production":

@@ -1,9 +1,9 @@
 import asyncio
 import contextlib
 
-from ...core.constants import CredentialKeys
-from ...utils.device_clients.mikrotik.channels import readonly_channels
-from .base_connector import BaseDeviceConnector
+from ....core.constants import CredentialKeys
+from .channels import readonly_channels
+from ..base_connector import BaseDeviceConnector
 
 
 class MikrotikBaseConnector(BaseDeviceConnector):

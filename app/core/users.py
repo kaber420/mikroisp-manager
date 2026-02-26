@@ -4,8 +4,8 @@ FastAPI Users configuration and authentication setup.
 Replaces manual JWT handling from app/auth.py with library-managed auth.
 """
 
-import os
 import uuid
+from app.core.config import settings
 
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
@@ -24,13 +24,13 @@ from app.db.engine import get_session
 from app.models.user import User
 
 # --- Configuration ---
-SECRET = os.getenv("SECRET_KEY")
+SECRET = settings.SECRET_KEY
 if not SECRET:
     raise RuntimeError("FATAL: SECRET_KEY not configured in .env")
 
 ACCESS_TOKEN_COOKIE_NAME = "umonitorpro_access_token_v2"
 ACCESS_TOKEN_LIFETIME_SECONDS = 28800  # 8 hours (standard work day)
-APP_ENV = os.getenv("APP_ENV", "development")
+APP_ENV = settings.APP_ENV
 
 # --- Authentication Transports ---
 # 1. Bearer Token Transport (for API access via Authorization header)
@@ -111,7 +111,7 @@ class SQLAlchemyUserDatabaseByUsername(SQLAlchemyUserDatabase):
 
         statement = select(self.user_table).where(self.user_table.username == email)
         result = await self.session.execute(statement)
-        return result.scalar_one_or_none()
+        return result.scalars().first()
 
 
 # --- Dependency Injectors ---

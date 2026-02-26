@@ -147,7 +147,7 @@ class MikrotikProvisioningService:
         5. Configure and enable api-ssl service.
         """
         # Import here to avoid circular imports
-        from app.utils.device_clients.mikrotik.ssh_client import MikrotikSSHClient
+        from app.infrastructure.devices.mikrotik.ssh_client import MikrotikSSHClient
         from app.services.business.pki_service import PKIService
 
         ssh_client = MikrotikSSHClient(host=host, username=ssh_username, password=ssh_password, port=ssh_port)
@@ -434,7 +434,7 @@ class MikrotikProvisioningService:
         Returns:
             Dict with status and message
         """
-        from app.utils.device_clients.mikrotik.ssh_client import MikrotikSSHClient
+        from app.infrastructure.devices.mikrotik.ssh_client import MikrotikSSHClient
 
         logger.info(f"[SSL Renew] Starting SSL renewal for {host}")
 
@@ -496,8 +496,8 @@ class MikrotikProvisioningService:
         # Import here to avoid circular imports
         from routeros_api import RouterOsApiPool
 
-        from app.utils.device_clients.mikrotik import ssl as ssl_module
-        from app.utils.device_clients.mikrotik.base import get_id
+        from app.infrastructure.devices.mikrotik import ssl as ssl_module
+        from app.infrastructure.devices.mikrotik.base import get_id
         from app.services.business.pki_service import PKIService
 
         pool = RouterOsApiPool(
@@ -607,7 +607,7 @@ class MikrotikProvisioningService:
         Returns:
             Tuple of (success: bool, message: str)
         """
-        from app.utils.device_clients.mikrotik.base import MikrotikApiClient
+        from app.infrastructure.devices.mikrotik.base import MikrotikApiClient
 
         for attempt in range(max_attempts):
             try:

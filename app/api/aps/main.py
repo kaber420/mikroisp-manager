@@ -186,7 +186,7 @@ async def get_ap_ssl_status(
     Retorna si SSL está habilitado, si el certificado es confiable, etc.
     """
     from ...models.ap import AP as APModel
-    from ...utils.device_clients.adapter_factory import get_device_adapter
+    from ...infrastructure.devices.adapter_factory import get_device_adapter
     from ...utils.security import decrypt_data
 
     # Get AP from database
@@ -255,7 +255,7 @@ def validate_ap_connection(ap_data: APCreate):
     No guarda nada en la BD. Retorna éxito o error.
     Soporta múltiples vendors (ubiquiti, mikrotik).
     """
-    from ...utils.device_clients.adapter_factory import get_device_adapter
+    from ...infrastructure.devices.adapter_factory import get_device_adapter
 
     adapter = None
     try:

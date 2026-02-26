@@ -3,9 +3,8 @@
 Gestor de caché con soporte para backend en memoria o Redict.
 El backend se selecciona mediante la variable de entorno CACHE_BACKEND.
 """
-
-import os
 from dataclasses import dataclass, field
+from app.core.config import settings
 from datetime import datetime, timedelta
 from threading import RLock
 from typing import TYPE_CHECKING, Any
@@ -89,7 +88,7 @@ class CacheManager:
             cls._instance = super().__new__(cls)
             cls._instance._stores = {}
             cls._instance._memory_stores = {}
-            cls._instance._use_redict = os.getenv("CACHE_BACKEND", "memory") == "redict"
+            cls._instance._use_redict = settings.CACHE_BACKEND == "redict"
         return cls._instance
 
     def get_store(self, name: str, **kwargs) -> "CacheStore | RedictStore":

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from ...models.switch import Switch
-from ...utils.device_clients.adapters.mikrotik_switch import MikrotikSwitchAdapter
+from ...infrastructure.devices.adapters.mikrotik_switch import MikrotikSwitchAdapter
 from ...utils.security import decrypt_data, encrypt_data
 
 logger = logging.getLogger(__name__)

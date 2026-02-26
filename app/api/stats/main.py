@@ -21,7 +21,7 @@ from ...core.constants import CPEStatus
 # Models specifically for response
 from .models import CPECount, SwitchCount, TopAP, TopCPE, TicketStats
 
-from ...db.logs_db import (
+from ...repositories.log_repository import (
     count_event_logs,
     get_event_logs_paginated,
 )

@@ -34,6 +34,15 @@ class CPEGlobalInfo(CPEDetail):
     model_config = ConfigDict(from_attributes=True)
 
 
+class CPEPagination(BaseModel):
+    """DTO para respuestas paginadas de CPEs."""
+    items: list[CPEGlobalInfo]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
 class AssignedCPE(BaseModel):
     mac: str
     hostname: str | None = None

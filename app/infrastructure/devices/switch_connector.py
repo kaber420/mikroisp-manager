@@ -5,7 +5,7 @@ from datetime import datetime
 from ...db.engine import async_session_maker
 from ...models.switch import Switch
 from ...utils.security import decrypt_data
-from .mikrotik_base_connector import MikrotikBaseConnector
+from .mikrotik.mikrotik_base_connector import MikrotikBaseConnector
 from sqlmodel import select
 
 logger = logging.getLogger(__name__)

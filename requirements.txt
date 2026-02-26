@@ -31,3 +31,5 @@ asyncpg
 psycopg2-binary
 psutil
 uvloop; sys_platform != 'win32'
+pytest>=8.0.0
+pytest-asyncio>=0.23.5

@@ -1,9 +1,9 @@
 
 import asyncio
 import logging
-import os
 
 import httpx
+from app.core.config import settings
 
 from app.db.engine import async_session_maker
 
@@ -21,7 +21,7 @@ def notify_api_update():
     """
     try:
         # Leemos el puerto del entorno o usamos 8000 por defecto
-        port = os.getenv("UVICORN_PORT", "8000")
+        port = settings.UVICORN_PORT
         # Llamamos al endpoint interno que creamos en main.py
         url = f"http://127.0.0.1:{port}/api/internal/notify-monitor-update"
         httpx.post(url, timeout=2)

@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.users import current_active_user as get_current_active_user
-from ...db import router_db
+from ...repositories import router_repository
 from ...db.engine import get_session
 from ...models.user import User
 from ...models.zona import Zona
@@ -49,7 +49,7 @@ async def get_router_resources(
             "model": resources.get("board-name"),
             "firmware": resources.get("version"),
         }
-        await router_db.update_router_in_db(session, host, update_data)
+        await router_repository.update_router_in_db(session, host, update_data)
         return resources
     except RouterCommandError as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -231,7 +231,7 @@ async def api_get_local_backup_files(
     Lista archivos de backup locales (en el servidor) para un router específico.
     """
     # Obtener datos del router para encontrar su carpeta
-    router_info = await router_db.get_router_by_host(session, host)
+    router_info = await router_repository.get_router_by_host(session, host)
     if not router_info:
         raise HTTPException(status_code=404, detail="Router no encontrado")
 
@@ -284,7 +284,7 @@ async def api_download_local_backup(
     """
     Descarga un archivo de backup local.
     """
-    router_info = await router_db.get_router_by_host(session, host)
+    router_info = await router_repository.get_router_by_host(session, host)
     if not router_info:
         raise HTTPException(status_code=404, detail="Router no encontrado")
 
@@ -329,7 +329,7 @@ async def api_delete_local_backup(
     """
     from ...core.audit import log_action
 
-    router_info = await router_db.get_router_by_host(session, host)
+    router_info = await router_repository.get_router_by_host(session, host)
     if not router_info:
         raise HTTPException(status_code=404, detail="Router no encontrado")
 
@@ -377,7 +377,7 @@ async def api_save_backup_to_server(
     """
     from ...services.core.backup_service import save_file_to_server
 
-    router_info = await router_db.get_router_by_host(session, host)
+    router_info = await router_repository.get_router_by_host(session, host)
     if not router_info:
         raise HTTPException(status_code=404, detail="Router no encontrado")
 

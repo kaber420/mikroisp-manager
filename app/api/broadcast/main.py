@@ -8,6 +8,7 @@ import asyncio
 import logging
 import os
 import uuid
+from app.core.config import settings
 from pathlib import Path
 
 from ...core.users import require_admin
@@ -210,10 +211,9 @@ async def send_broadcast(
         
     elif request.target_type == "technicians":
 
-        import os
         if not tech_bot_token:
              # Fallback to env var mainly for dev/legacy
-             tech_bot_token = os.getenv("TECH_BOT_TOKEN")
+             tech_bot_token = settings.TECH_BOT_TOKEN
              
         if not tech_bot_token:
              raise HTTPException(status_code=400, detail="Tech Bot Token not configured")

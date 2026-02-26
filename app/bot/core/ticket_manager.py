@@ -14,6 +14,7 @@ except ImportError:
     HTTPX_AVAILABLE = False
 import os
 from datetime import datetime, timedelta
+from app.core.config import settings
 from typing import Dict, List, Optional, Any
 from sqlmodel import select, Session, col, func
 from app.db.engine_sync import sync_engine as engine
@@ -39,7 +40,7 @@ def _send_telegram_message_to_client(telegram_chat_id: str, message: str) -> boo
     """
     import threading
     
-    token = os.getenv("CLIENT_BOT_TOKEN")
+    token = getattr(settings, "CLIENT_BOT_TOKEN", None)
     if not token:
         logger.warning("CLIENT_BOT_TOKEN not set, cannot forward message to client")
         return False
@@ -81,7 +82,7 @@ def _send_telegram_message_to_tech(telegram_chat_id: str, client_name: str, mess
     """
     import threading
     
-    token = os.getenv("TECH_BOT_TOKEN")
+    token = settings.TECH_BOT_TOKEN
     if not token:
         logger.warning("TECH_BOT_TOKEN not set, cannot forward message to tech")
         return False
@@ -125,7 +126,7 @@ def _publish_ticket_event(event_type: str, data: dict):
     import json
     
     def _do_notify():
-        redict_url = os.getenv("REDICT_URL", "redis://localhost:6379/0")
+        redict_url = settings.REDICT_URL
         
         # Try Redict Pub/Sub first
         try:
@@ -152,7 +153,7 @@ def _publish_ticket_event(event_type: str, data: dict):
         # HTTP fallback (for when Redict unavailable)
         if HTTPX_AVAILABLE:
             try:
-                port = os.getenv("UVICORN_PORT", "8100")
+                port = settings.UVICORN_PORT
                 url = f"http://127.0.0.1:{port}/api/internal/notify-monitor-update"
                 payload = {
                     "ticket_id": data.get("ticket_id"),

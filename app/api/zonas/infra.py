@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from ...core.users import require_technician
-from ...db import switches_db
+from ...repositories import switch_repository
 from ...db.engine_sync import get_sync_session
 from ...models.router import Router
 from ...models.user import User
@@ -109,12 +109,12 @@ async def get_zone_switches(
     Get all switches linked to a specific zone.
     Returns basic info for each switch (host, hostname, model, status).
     """
-    from ...db import switches_db
+    from ...repositories import switch_repository
     from ...db.engine import async_session_maker
 
     # Get all switches and filter by zona_id
     async with async_session_maker() as session:
-        all_switches = await switches_db.get_all_switches(session)
+        all_switches = await switch_repository.get_all_switches(session)
         zone_switches = [s for s in all_switches if s.zona_id == zona_id]
 
     return [
@@ -143,7 +143,7 @@ async def get_switch_ports(
     from ...db.engine import async_session_maker
 
     async with async_session_maker() as session:
-        switch_data = await switches_db.get_switch_by_host(session, host)
+        switch_data = await switch_repository.get_switch_by_host(session, host)
 
     if not switch_data:
         raise HTTPException(status_code=404, detail=f"Switch {host} not found")

@@ -5,6 +5,7 @@ import os
 import sys
 import warnings
 from dotenv import load_dotenv
+from app.core.config import settings
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from telegram.warnings import PTBUserWarning
 
@@ -28,7 +29,7 @@ logging.getLogger("telegram").setLevel(logging.WARNING)
 logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
-CLIENT_BOT_TOKEN = os.getenv("CLIENT_BOT_TOKEN")
+CLIENT_BOT_TOKEN = settings.CLIENT_BOT_TOKEN
 
 
 def create_application(token):

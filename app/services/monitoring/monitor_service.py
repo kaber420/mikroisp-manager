@@ -6,20 +6,20 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.constants import DeviceStatus, DeviceVendor
-from ...db.aps_db import (
+from ...repositories.ap_repository import (
     get_ap_by_host_with_stats,
     get_ap_status,
     get_enabled_aps_for_monitor,
     update_ap_status,
 )
-from ...db.logs_db import add_event_log
-from ...db.router_db import (
+from ...repositories.log_repository import add_event_log
+from ...repositories.router_repository import (
     get_enabled_routers_from_db,
     get_router_by_host,
     get_router_status,
     update_router_status,
 )
-from ...db.stats_db import save_device_stats, save_router_monitor_stats
+from ...repositories.stats_repository import save_device_stats, save_router_monitor_stats
 from ...models.ap import AP
 from ...models.router import Router
 from ..network.router_service import (
@@ -29,9 +29,9 @@ from ..network.router_service import (
     RouterService,
 )
 from ...utils.alerter import send_telegram_alert
-from ...utils.device_clients.adapter_factory import get_device_adapter
+from ...infrastructure.devices.adapter_factory import get_device_adapter
 
-from ..network.router_connector import router_connector
+from ...infrastructure.devices.router_connector import router_connector
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ class MonitorService:
                 hostname = status.hostname or host
                 logger.info(f"Estado de '{hostname}' ({host}): ONLINE")
 
-                # Save stats (stats_db is now async)
+                # Save stats (stats_repository is now async)
                 await save_device_stats(session, host, status, vendor=vendor)
 
                 # Update AP status (async)
@@ -134,7 +134,7 @@ class MonitorService:
             # fetch_router_stats handles connection internally (using MikrotikBaseConnector)
             
             # Prepare credentials for ad-hoc connection (MonitorService doesn't subscribe)
-            # router.password is typically encrypted in DB, but RouterService and router_db might have decrypted it?
+            # router.password is typically encrypted in DB, but RouterService and router_repository might have decrypted it?
             # get_enabled_routers_from_db returns routers with decrypted passwords.
             
             creds = {

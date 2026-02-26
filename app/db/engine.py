@@ -12,17 +12,11 @@ from sqlalchemy import event
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
+from app.core.config import settings
 
 # --- Database URL Configuration ---
-# Read DATABASE_URL from environment. If not set, default to SQLite.
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-if DATABASE_URL is None:
-    # Default to SQLite in data/db/
-    DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
-    DATABASE_FILE = os.path.join(DATA_DIR, "db", "inventory.sqlite")
-    os.makedirs(os.path.dirname(DATABASE_FILE), exist_ok=True)
-    DATABASE_URL = f"sqlite+aiosqlite:///{DATABASE_FILE}"
+# Read DATABASE_URL from settings
+DATABASE_URL = settings.DATABASE_URL
 
 # Detect dialect from URL
 _is_sqlite = DATABASE_URL.startswith("sqlite")

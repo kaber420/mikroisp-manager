@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 
-from .mikrotik_base_connector import MikrotikBaseConnector
+from .mikrotik.mikrotik_base_connector import MikrotikBaseConnector
 
 logger = logging.getLogger(__name__)
 

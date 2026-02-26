@@ -9,17 +9,11 @@ from collections.abc import Generator
 
 from sqlalchemy import event
 from sqlmodel import Session, SQLModel, create_engine
+from app.core.config import settings
 
 # --- Database URL Configuration ---
-# Read DATABASE_URL_SYNC from environment. If not set, default to SQLite.
-DATABASE_URL_SYNC = os.getenv("DATABASE_URL_SYNC")
-
-if DATABASE_URL_SYNC is None:
-    # Default to SQLite in data/db/
-    DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
-    DATABASE_FILE = os.path.join(DATA_DIR, "db", "inventory.sqlite")
-    os.makedirs(os.path.dirname(DATABASE_FILE), exist_ok=True)
-    DATABASE_URL_SYNC = f"sqlite:///{DATABASE_FILE}"
+# Read DATABASE_URL_SYNC from settings.
+DATABASE_URL_SYNC = settings.DATABASE_URL_SYNC
 
 # Detect dialect from URL
 _is_sqlite = DATABASE_URL_SYNC.startswith("sqlite")

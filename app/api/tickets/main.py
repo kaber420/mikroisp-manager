@@ -3,7 +3,7 @@
 import uuid as uuid_pkg
 from typing import List, Optional
 from datetime import datetime
-import os 
+from app.core.config import settings
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import select, col, desc, func
@@ -360,8 +360,8 @@ async def reply_ticket(
     # --- REAL-TIME NOTIFICATION ---
     import httpx
     try:
-        # Optimization: Use getenv directly, no file reading
-        port = os.getenv("UVICORN_PORT", "8100")
+        # Optimization: Use settings
+        port = settings.UVICORN_PORT
         
         params = {"ticket_id": str(ticket.id)}
         url = f"http://127.0.0.1:{port}/api/internal/notify-monitor-update"

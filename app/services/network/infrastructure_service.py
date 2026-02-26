@@ -20,7 +20,7 @@ def get_device_infrastructure_data(api, host: str, hostname: str, model: str) ->
     bridge_ports = api.get_resource("/interface/bridge/port").get()
 
     # Get detailed ethernet status using reusable function
-    from ...utils.device_clients.mikrotik.interfaces import MikrotikInterfaceManager
+    from ...infrastructure.devices.mikrotik.interfaces import MikrotikInterfaceManager
 
     interface_manager = MikrotikInterfaceManager(api)
     ethernet_status = interface_manager.get_ethernet_detailed_status()

@@ -2,6 +2,7 @@
 import os
 import logging
 import html
+from app.core.config import settings
 from sqlmodel import select, Session
 from app.db.engine_sync import sync_engine as engine
 from app.db.engine_sync import sync_engine as engine
@@ -27,7 +28,7 @@ def get_server_port() -> str:
     """
     Deduce el puerto del servidor API.
     """
-    port = os.getenv("UVICORN_PORT")
+    port = settings.UVICORN_PORT
     if port:
         return port
 

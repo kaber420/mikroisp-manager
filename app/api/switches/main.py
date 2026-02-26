@@ -84,8 +84,7 @@ class SwitchResponse(BaseModel):
     notes: str | None = None
     last_status: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 # --- WebSocket Stream for Live Data ---
@@ -315,7 +314,7 @@ async def validate_switch_connection(switch_data: SwitchCreate):
     Test connection to a switch without saving to database.
     """
     try:
-        from ...utils.device_clients.adapters.mikrotik_switch import MikrotikSwitchAdapter
+        from ...infrastructure.devices.adapters.mikrotik_switch import MikrotikSwitchAdapter
 
         adapter = MikrotikSwitchAdapter(
             host=switch_data.host,
@@ -369,7 +368,7 @@ async def check_switch_status(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Switch is disabled")
 
     try:
-        from ...utils.device_clients.adapters.mikrotik_switch import MikrotikSwitchAdapter
+        from ...infrastructure.devices.adapters.mikrotik_switch import MikrotikSwitchAdapter
 
         # Create adapter and connect
         adapter = MikrotikSwitchAdapter(

@@ -124,7 +124,7 @@
             <div class="flex items-center gap-2 text-sm text-text-secondary">
                 <span>Rows per page:</span>
                 <select @change="setPageSize(parseInt($event.target.value))"
-                    class="bg-surface-1 border border-white/10 rounded px-2 py-1 focus:ring-primary focus:border-primary text-text-primary text-xs">
+                    class="bg-base-100 border border-base-300 rounded px-2 py-1 focus:ring-primary focus:border-primary text-base-content text-xs">
                     <option value="10" :selected="pagination.pageSize === 10">10</option>
                     <option value="20" :selected="pagination.pageSize === 20">20</option>
                     <option value="50" :selected="pagination.pageSize === 50">50</option>
@@ -216,7 +216,8 @@
                 <div class="p-6 bg-surface-2 rounded-b-lg flex justify-end gap-4">
                     <button type="button" @click="closeModal()"
                         class="px-4 py-2 rounded-md text-sm font-semibold">Cancel</button>
-                    <button type="submit" class="px-4 py-2 rounded-md text-sm font-semibold text-primary-content bg-primary">Save
+                    <button type="submit"
+                        class="px-4 py-2 rounded-md text-sm font-semibold text-primary-content bg-primary">Save
                         Client</button>
                 </div>
             </form>
@@ -449,7 +450,8 @@
                 <button type="button" @click="closeModal()"
                     class="px-4 py-2 rounded-md text-sm font-semibold">Cancel</button>
                 <button type="button" @click="saveService()"
-                    class="px-4 py-2 rounded-md text-sm font-semibold text-primary-content bg-primary">Save Service</button>
+                    class="px-4 py-2 rounded-md text-sm font-semibold text-primary-content bg-primary">Save
+                    Service</button>
             </div>
         </div>
     </div>

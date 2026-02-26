@@ -259,3 +259,22 @@ def api_get_payment_history(
     current_user: User = Depends(require_billing),
 ):
     return service.get_payment_history(client_id)
+
+
+@router.get("/clients/payments/{payment_id}/receipt")
+def api_get_payment_receipt(
+    payment_id: int,
+    billing_service: BillingService = Depends(get_billing_service),
+    current_user: User = Depends(require_billing),
+):
+    """
+    Get all context data needed to render a payment receipt.
+    Adapts Pydantic/SQLModel instances to dictionaries.
+    """
+    context = billing_service.get_payment_receipt_context(payment_id)
+    if "payment" in context and hasattr(context["payment"], "model_dump"):
+        context["payment"] = context["payment"].model_dump()
+    if "client" in context and hasattr(context["client"], "model_dump"):
+        context["client"] = context["client"].model_dump()
+        
+    return context

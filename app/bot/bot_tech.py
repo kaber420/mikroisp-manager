@@ -5,6 +5,7 @@ import os
 import sys
 import warnings
 from dotenv import load_dotenv
+from app.core.config import settings
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from telegram.warnings import PTBUserWarning
@@ -34,7 +35,7 @@ logging.getLogger("telegram").setLevel(logging.WARNING)
 logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
-TECH_BOT_TOKEN = os.getenv("TECH_BOT_TOKEN")
+TECH_BOT_TOKEN = settings.TECH_BOT_TOKEN
 
 @rate_limit(limit=5, window=10)
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
