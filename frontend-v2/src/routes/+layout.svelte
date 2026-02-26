@@ -39,10 +39,11 @@
             >Clientes</a
           >
           <!-- Link back to old version -->
-          <a
-            href="http://localhost:8000/"
+          <button
+            onclick={() =>
+              (window.location.href = `${window.location.protocol}//${window.location.hostname}:${__UVICORN_PORT__}/`)}
             class="bg-indigo-800 hover:bg-indigo-900 px-3 py-1 rounded transition-colors text-sm border border-indigo-400"
-            >Volver a Clásica</a
+            >Volver a Clásica</button
           >
         </div>
       </nav>

@@ -29,6 +29,9 @@ const uvicornUrl = `http://127.0.0.1:${uvicornPort}`;
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
+	define: {
+		__UVICORN_PORT__: JSON.stringify(uvicornPort)
+	},
 	server: {
 		host: '0.0.0.0', // Listen on all network interfaces
 		port: 5173,
