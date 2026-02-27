@@ -7,7 +7,7 @@ declare global {
 		// interface PageData {}
 		// interface PageState {}
 		// interface Platform {}
+		const __BACKEND_URL__: string;
 	}
-}
 
-export {};
+	export { };

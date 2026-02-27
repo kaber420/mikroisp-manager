@@ -119,7 +119,13 @@
                             });
 
                             if (response.ok || response.status === 204) {
-                                window.location.href = '/';
+                                const urlParams = new URLSearchParams(window.location.search);
+                                const nextUrl = urlParams.get('next');
+                                if (nextUrl && (nextUrl.startsWith('http://') || nextUrl.startsWith('https://'))) {
+                                    window.location.href = nextUrl;
+                                } else {
+                                    window.location.href = '/';
+                                }
                             } else {
                                 let errorMsg = 'Usuario o contraseña incorrectos';
                                 if (response.status === 429) {

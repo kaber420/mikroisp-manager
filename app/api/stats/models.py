@@ -39,3 +39,13 @@ class TicketStats(BaseModel):
     pending_tickets: int
     support_tickets: int
     installation_tickets: int
+class RouterCount(BaseModel):
+    total_routers: int
+    online: int
+    offline: int
+
+
+class APCount(BaseModel):
+    total_aps: int
+    online: int
+    offline: int

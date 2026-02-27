@@ -11,15 +11,16 @@ from ...core.users import current_active_user
 from ...db.engine import get_session
 from ...models.ap import AP
 from ...models.cpe import CPE
-from ...core.constants import DeviceStatus 
+from ...models.router import Router
 from ...models.switch import Switch
-from ...models.stats import APStats, CPEStats, RouterStats
 from ...models.user import User
 from ...models.ticket import Ticket
-from ...core.constants import CPEStatus
-
+from ...core.constants import CPEStatus, DeviceStatus
 # Models specifically for response
-from .models import CPECount, SwitchCount, TopAP, TopCPE, TicketStats
+from .models import (
+    CPECount, SwitchCount, TopAP, TopCPE, 
+    TicketStats, RouterCount, APCount
+)
 
 from ...repositories.log_repository import (
     count_event_logs,
@@ -154,6 +155,56 @@ async def get_switch_total_count(
     except Exception as e:
         logger.error(f"Error obteniendo conteo de switches: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error obteniendo estadísticas de switches")
+
+
+@router.get("/stats/router-count", response_model=RouterCount)
+async def get_router_total_count(
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(current_active_user),
+):
+    try:
+        total = await session.exec(select(func.count()).select_from(Router))
+        total = total.one()
+        
+        online = await session.exec(select(func.count()).select_from(Router).where(Router.last_status == DeviceStatus.ONLINE, Router.is_enabled == True))
+        online = online.one()
+        
+        offline = await session.exec(select(func.count()).select_from(Router).where(Router.last_status == DeviceStatus.OFFLINE, Router.is_enabled == True))
+        offline = offline.one()
+
+        return {
+            "total_routers": total,
+            "online": online,
+            "offline": offline,
+        }
+    except Exception as e:
+        logger.error(f"Error obteniendo conteo de routers: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error obteniendo estadísticas de routers")
+
+
+@router.get("/stats/ap-count", response_model=APCount)
+async def get_ap_total_count(
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(current_active_user),
+):
+    try:
+        total = await session.exec(select(func.count()).select_from(AP))
+        total = total.one()
+        
+        online = await session.exec(select(func.count()).select_from(AP).where(AP.last_status == DeviceStatus.ONLINE, AP.is_enabled == True))
+        online = online.one()
+        
+        offline = await session.exec(select(func.count()).select_from(AP).where(AP.last_status == DeviceStatus.OFFLINE, AP.is_enabled == True))
+        offline = offline.one()
+
+        return {
+            "total_aps": total,
+            "online": online,
+            "offline": offline,
+        }
+    except Exception as e:
+        logger.error(f"Error obteniendo conteo de aps: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error obteniendo estadísticas de aps")
 
 
 @router.get("/stats/tickets", response_model=TicketStats)

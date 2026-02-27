@@ -41,8 +41,9 @@ cookie_transport = CookieTransport(
     cookie_name=ACCESS_TOKEN_COOKIE_NAME,
     cookie_max_age=ACCESS_TOKEN_LIFETIME_SECONDS,
     cookie_httponly=True,  # Prevent XSS attacks
-    cookie_secure=(APP_ENV == "production"),  # HTTPS only in production
-    cookie_samesite="strict",  # CSRF protection (strict is most secure)
+    # Force secure=False for intranet/dev IP access since HTTP is used on 192.168.x.x
+    cookie_secure=False,
+    cookie_samesite="lax",  # Allows cookies to be sent through origin proxy
 )
 
 
