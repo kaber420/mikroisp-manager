@@ -77,13 +77,15 @@
     <!-- Content Area -->
     <div class="card p-8 mt-8 text-center ring-1 ring-gray-900/5">
         <h3 class="text-lg font-semibold text-gray-900">
-            Nueva Interfaz Moderna ⚡
+            Interfaz v2 (Svelte) 🏗️
         </h3>
         <p class="text-gray-500 mt-2 max-w-md mx-auto">
-            SvelteKit proporciona una experiencia de usuario rápida y fluida sin
-            parpadeos. Hemos configurado nuestra paleta, tipografía y utilidad
-            base.
+            Esta interfaz se encuentra actualmente en construcción. Estamos
+            trabajando para brindarte una experiencia rápida y fluida sin
+            parpadeos.
         </p>
-        <button class="btn-primary mt-6"> Acción Principal </button>
+        <div class="mt-6 text-sm text-amber-600 font-medium font-mono">
+            ⚡ v2.0-beta | En desarrollo
+        </div>
     </div>
 </div>
