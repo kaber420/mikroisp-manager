@@ -17,6 +17,10 @@ class RouterStats(SQLModel, table=True):
     uptime: Optional[str] = None
     board_name: Optional[str] = None
     version: Optional[str] = None
+    wan_rx_bps: Optional[int] = None
+    wan_tx_bps: Optional[int] = None
+    wan_rx_bytes: Optional[int] = None
+    wan_tx_bytes: Optional[int] = None
 
 
 class APStats(SQLModel, table=True):

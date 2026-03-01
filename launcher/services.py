@@ -80,7 +80,7 @@ class ServiceManager:
         self.start_caddy()
         self.start_scheduler()
         self.start_uvicorn()
-        if getattr(self.args, 'run_frontend', False):
+        if getattr(self.args, 'frontend', None) is not None:
             self.start_svelte_frontend()
         # Bots now integrated in main.py (hybrid architecture)
         # self.start_tech_bot()
@@ -153,9 +153,17 @@ class ServiceManager:
 
     def start_svelte_frontend(self):
         """Inicia el servidor de desarrollo de SvelteKit."""
-        frontend_path = os.path.join(os.getcwd(), 'frontend-v2')
+        frontend_choice = getattr(self.args, 'frontend', 'v2')
+        frontend_map = {
+            "v2": "frontend-v2",
+            "daisy": "frontend-v2-daisy",
+            "shadcn": "frontend-v2-shadcn"
+        }
+        folder_name = frontend_map.get(frontend_choice, "frontend-v2")
+        
+        frontend_path = os.path.join(os.getcwd(), folder_name)
         if not os.path.exists(frontend_path):
-            self._log("Frontend V2 skipped: Directory not found", "WARNING")
+            self._log(f"Frontend skipped: Directory '{folder_name}' not found", "WARNING")
             return
 
         env = os.environ.copy()
@@ -203,7 +211,7 @@ class ServiceManager:
         t_err.start()
         
         self.processes["svelte_frontend"] = process
-        self._log("Svelte Frontend V2 (Dev) started on port 5173", "INFO")
+        self._log(f"Svelte Frontend '{folder_name}' (Dev) started on port 5173", "INFO")
 
     def _start_bot_process(self, cmd, env, name):
         import subprocess

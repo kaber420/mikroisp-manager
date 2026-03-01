@@ -1,0 +1,105 @@
+<script lang="ts">
+    import type { PageData } from "./$types";
+    import { getClients } from "$lib/api";
+    import DataTable from "$lib/components/DataTable.svelte";
+    import type { Client } from "$lib/types/client";
+
+    let { data }: { data: PageData } = $props();
+
+    async function loadClients(page: number, pageSize: number, search: string) {
+        const res = await getClients(page, pageSize, search);
+        return {
+            items: res.items,
+            total: res.total,
+            total_pages: res.total_pages,
+        };
+    }
+
+    function statusLabel(status: string) {
+        const map: Record<string, string> = {
+            active: "Activo",
+            suspended: "Suspendido",
+            inactive: "Inactivo",
+        };
+        return map[status] ?? status;
+    }
+
+    function statusStyle(status: string) {
+        if (status === "active")
+            return "background:#dcfce7;color:#166534;border:1px solid #bbf7d0;";
+        if (status === "suspended")
+            return "background:#fef9c3;color:#854d0e;border:1px solid #fef08a;";
+        return "background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;";
+    }
+</script>
+
+<div style="display:flex;flex-direction:column;gap:1.5rem;">
+    <!-- Encabezado de página -->
+    <div
+        style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;"
+    >
+        <div>
+            <h2 style="font-size:1.375rem;font-weight:700;margin:0;">
+                Gestión de Clientes
+            </h2>
+            <p style="margin:0.25rem 0 0;font-size:0.85rem;opacity:0.5;">
+                {data.clients.total} cliente{data.clients.total !== 1
+                    ? "s"
+                    : ""} registrados
+            </p>
+        </div>
+        <button class="btn btn-primary btn-sm">+ Nuevo Cliente</button>
+    </div>
+
+    <!-- DataTable modo servidor -->
+    <DataTable
+        loadData={loadClients}
+        initialItems={data.clients.items}
+        initialTotal={data.clients.total}
+        initialPage={data.clients.page}
+        initialTotalPages={data.clients.total_pages}
+    >
+        {#snippet header()}
+            <tr>
+                <th class="dt-th">Nombre</th>
+                <th class="dt-th">Dirección</th>
+                <th class="dt-th">Teléfono</th>
+                <th class="dt-th">Estado</th>
+                <th class="dt-th" style="text-align:center;">CPEs</th>
+                <th class="dt-th">Alta</th>
+            </tr>
+        {/snippet}
+
+        {#snippet row(client: Client)}
+            <tr>
+                <td class="dt-td" style="font-weight:500;">{client.name}</td>
+                <td class="dt-td" style="opacity:0.6;"
+                    >{client.address ?? "—"}</td
+                >
+                <td class="dt-td" style="opacity:0.6;"
+                    >{client.phone_number ?? "—"}</td
+                >
+                <td class="dt-td">
+                    <span
+                        style="
+                        display:inline-block;
+                        padding:0.15rem 0.55rem;
+                        border-radius:999px;
+                        font-size:0.7rem;
+                        font-weight:600;
+                        {statusStyle(client.service_status)}
+                    ">{statusLabel(client.service_status)}</span
+                    >
+                </td>
+                <td
+                    class="dt-td"
+                    style="text-align:center;font-family:monospace;"
+                    >{client.cpe_count}</td
+                >
+                <td class="dt-td" style="font-size:0.75rem;opacity:0.45;">
+                    {new Date(client.created_at).toLocaleDateString("es-MX")}
+                </td>
+            </tr>
+        {/snippet}
+    </DataTable>
+</div>

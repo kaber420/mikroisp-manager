@@ -1,0 +1,24 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+    --color-primary: #2563eb;
+    --color-background: #f9fafb;
+    --color-surface: #ffffff;
+}
+
+@layer base {
+    html {
+        font-family: 'Inter', sans-serif;
+    }
+}
+
+@layer components {
+    .btn-primary {
+        @apply inline-flex items-center justify-center px-4 py-2 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 transition-all shadow-sm hover:shadow active:scale-95;
+    }
+
+    .card {
+        @apply bg-white rounded-2xl border border-gray-100 shadow-sm p-6 transition-shadow hover:shadow-md;
+    }
+}

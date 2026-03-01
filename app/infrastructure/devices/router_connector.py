@@ -12,7 +12,7 @@ class RouterConnector(MikrotikBaseConnector):
     Fetches /system/resource and /system/health.
     """
 
-    def fetch_router_stats(self, host: str, creds: dict = None) -> dict:
+    def fetch_router_stats(self, host: str, creds: dict = None, wan_interface: str = None) -> dict:
         """
         Fetch monitoring statistics from a router.
         This is a synchronous method (runs in thread pool from scheduler).
@@ -20,6 +20,7 @@ class RouterConnector(MikrotikBaseConnector):
         Args:
             host: Router IP/Hostname
             creds: Optional dict for ad-hoc connection (keys: username, password, port)
+            wan_interface: Optional WAN interface name to fetch rx/tx traffic.
         """
         try:
             with self.api_session(host, creds=creds) as api:
@@ -73,6 +74,35 @@ class RouterConnector(MikrotikBaseConnector):
                         if "cpu-temp" in sensor:
                             cpu_temperature = sensor["cpu-temp"]
 
+                # Fetch WAN traffic if an interface is specified
+                wan_rx_bps = None
+                wan_tx_bps = None
+                wan_rx_bytes = None
+                wan_tx_bytes = None
+                
+                if wan_interface:
+                    try:
+                        # /interface/monitor-traffic requires 'interface' and 'once' parameter to return immediately
+                        traffic = api.get_resource("/interface").call("monitor-traffic", {"interface": wan_interface, "once": ""})
+                        if traffic and len(traffic) > 0:
+                            wan_rx_bps = int(traffic[0].get("rx-bits-per-second", 0))
+                            wan_tx_bps = int(traffic[0].get("tx-bits-per-second", 0))
+                    except Exception as e:
+                        self.logger.warning(f"Could not gather traffic for interface {wan_interface} on router {host}: {e}")
+                        
+                    try:
+                        # Fetch total bytes from /interface: get all and filter by name in Python
+                        # because routeros-api doesn't reliably support command_args filtering
+                        all_interfaces = api.get_resource("/interface").get()
+                        for iface in all_interfaces:
+                            if iface.get("name") == wan_interface:
+                                wan_rx_bytes = int(iface.get("rx-byte", 0) or 0)
+                                wan_tx_bytes = int(iface.get("tx-byte", 0) or 0)
+                                break
+                    except Exception as e:
+                        self.logger.warning(f"Could not gather byte stats for interface {wan_interface} on router {host}: {e}")
+
+
                 # Build response
                 return {
                     "cpu_load": r.get("cpu-load"),
@@ -89,6 +119,10 @@ class RouterConnector(MikrotikBaseConnector):
                     "voltage": voltage,
                     "temperature": temperature,
                     "cpu_temperature": cpu_temperature,
+                    "wan_rx_bps": wan_rx_bps,
+                    "wan_tx_bps": wan_tx_bps,
+                    "wan_rx_bytes": wan_rx_bytes,
+                    "wan_tx_bytes": wan_tx_bytes,
                     "timestamp": datetime.now().isoformat(),
                 }
 

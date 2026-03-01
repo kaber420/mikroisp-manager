@@ -31,6 +31,10 @@ async def save_router_monitor_stats(
             uptime=stats.get("uptime"),
             board_name=stats.get("board_name"),
             version=stats.get("version"),
+            wan_rx_bps=stats.get("wan_rx_bps"),
+            wan_tx_bps=stats.get("wan_tx_bps"),
+            wan_rx_bytes=stats.get("wan_rx_bytes"),
+            wan_tx_bytes=stats.get("wan_tx_bytes"),
         )
         session.add(router_stats)
         await session.commit()

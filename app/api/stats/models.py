@@ -19,6 +19,26 @@ class TopCPE(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class TopRouterConsumption(BaseModel):
+    hostname: str | None = None
+    host: str
+    wan_rx_bytes: int | None = None
+    wan_tx_bytes: int | None = None
+    wan_rx_bps: int | None = None
+    wan_tx_bps: int | None = None
+    total_bytes: int | None = None
+    total_bps: int | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TopOfflineDevice(BaseModel):
+    hostname: str | None = None
+    host: str
+    device_type: str
+    last_checked: str | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+
 class CPECount(BaseModel):
     total_cpes: int
     active: int

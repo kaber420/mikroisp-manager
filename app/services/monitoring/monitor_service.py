@@ -145,7 +145,7 @@ class MonitorService:
 
             # Run blocking call in thread
             def do_check():
-                return router_connector.fetch_router_stats(host, creds=creds)
+                return router_connector.fetch_router_stats(host, creds=creds, wan_interface=router.wan_interface)
 
             status_data = await asyncio.to_thread(do_check)
             

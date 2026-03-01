@@ -19,7 +19,8 @@ from ...core.constants import CPEStatus, DeviceStatus
 # Models specifically for response
 from .models import (
     CPECount, SwitchCount, TopAP, TopCPE, 
-    TicketStats, RouterCount, APCount
+    TicketStats, RouterCount, APCount,
+    TopRouterConsumption, TopOfflineDevice
 )
 
 from ...repositories.log_repository import (
@@ -96,6 +97,118 @@ async def get_top_cpes_by_weak_signal(
         return rows
     except Exception as e:
         logger.error(f"Error getting top CPEs: {e}", exc_info=True)
+        return []
+
+
+@router.get("/stats/top-routers-by-consumption", response_model=list[TopRouterConsumption])
+async def get_top_routers_by_consumption(
+    limit: int = 5,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(current_active_user),
+):
+    """
+    Returns top routers by sum of wan_rx_bps + wan_tx_bps.
+    Only considers routers where wan_interface is not null.
+    """
+    try:
+        # Priority: order by total accumulated bytes (wan_rx_bytes + wan_tx_bytes)
+        # Fallback to BPS if bytes are not available yet
+        # Uses two separate CTEs: one for latest bytes row, one for latest BPS row
+        query = text("""
+            WITH LatestBytes AS (
+                SELECT 
+                    router_host, wan_rx_bytes, wan_tx_bytes,
+                    ROW_NUMBER() OVER(PARTITION BY router_host ORDER BY timestamp DESC) as rn
+                FROM routerstats
+                WHERE wan_rx_bytes IS NOT NULL
+            ),
+            LatestBPS AS (
+                SELECT 
+                    router_host, wan_rx_bps, wan_tx_bps,
+                    ROW_NUMBER() OVER(PARTITION BY router_host ORDER BY timestamp DESC) as rn
+                FROM routerstats
+                WHERE wan_rx_bps IS NOT NULL
+            )
+            SELECT 
+                r.hostname, 
+                r.host,
+                COALESCE(b.wan_rx_bytes, 0) as wan_rx_bytes,
+                COALESCE(b.wan_tx_bytes, 0) as wan_tx_bytes,
+                COALESCE(p.wan_rx_bps, 0) as wan_rx_bps,
+                COALESCE(p.wan_tx_bps, 0) as wan_tx_bps,
+                (COALESCE(b.wan_rx_bytes, 0) + COALESCE(b.wan_tx_bytes, 0)) as total_bytes,
+                (COALESCE(p.wan_rx_bps, 0) + COALESCE(p.wan_tx_bps, 0)) as total_bps
+            FROM routers as r
+            LEFT JOIN LatestBytes b ON r.host = b.router_host AND b.rn = 1
+            LEFT JOIN LatestBPS p ON r.host = p.router_host AND p.rn = 1
+            WHERE r.wan_interface IS NOT NULL
+              AND (b.wan_rx_bytes IS NOT NULL OR p.wan_rx_bps IS NOT NULL)
+            ORDER BY total_bytes DESC, total_bps DESC
+            LIMIT :limit;
+        """)
+        
+        result = await session.exec(query, params={"limit": limit})
+        rows = [dict(row) for row in result.mappings()]
+        return rows
+        
+    except Exception as e:
+        logger.error(f"Error getting top routers by consumption: {e}", exc_info=True)
+        return []
+
+
+@router.get("/stats/top-offline-devices", response_model=list[TopOfflineDevice])
+async def get_top_offline_devices(
+    limit: int = 5,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(current_active_user),
+):
+    """
+    Returns top recently offline devices (routers, switches, aps) combined.
+    Items are sorted by last_checked ascending (longest time offline first) or descending depending on preference.
+    Here we order by last_checked DESC to show most recently dropped devices, or ASC to show oldest offline.
+    """
+    try:
+        # We will union all queries ensuring the structure matches TopOfflineDevice
+        # Device status should be strictly offline
+        query = text(f"""
+            SELECT hostname, host, 'Router' as device_type, last_checked
+            FROM routers
+            WHERE last_status = 'offline'
+            
+            UNION ALL
+            
+            SELECT hostname, host, 'AP' as device_type, last_checked
+            FROM aps
+            WHERE last_status = 'offline'
+            
+            UNION ALL
+            
+            SELECT hostname, host, 'Switch' as device_type, last_checked
+            FROM switches
+            WHERE last_status = 'offline'
+            
+            ORDER BY last_checked DESC
+            LIMIT :limit;
+        """)
+        
+        result = await session.exec(query, params={"limit": limit})
+        rows_result = []
+        for row in result.mappings():
+            item = dict(row)
+            if item.get("last_checked"):
+                # Format datetime string safely for frontend
+                try:
+                    item["last_checked"] = item["last_checked"][:19].replace("T", " ")
+                except:
+                    item["last_checked"] = str(item["last_checked"])
+            else:
+                 item["last_checked"] = "Desconocido"
+            rows_result.append(item)
+            
+        return rows_result
+        
+    except Exception as e:
+        logger.error(f"Error getting top offline devices: {e}", exc_info=True)
         return []
 
 
