@@ -6,10 +6,15 @@
 	import { initSession, clearSession } from "$lib/authutils";
 	import { user, sessionState } from "$lib/stores/auth";
 	import SessionMonitor from "$lib/components/SessionMonitor.svelte";
+	import { theme } from "$lib/stores/theme";
+	import LavaLampBackground from "$lib/components/LavaLampBackground.svelte";
 
 	let { children } = $props();
 
 	onMount(() => {
+		// Inicializa el tema seleccionado almacenado en localStorage
+		theme.init();
+
 		// Auth Optimista: pinta inmediato desde caché, verifica en background
 		if ($page.url.pathname !== "/login") {
 			initSession($page.url.pathname);
@@ -162,12 +167,18 @@
 	let currentSubMenu = $derived(subMenus[$page.url.pathname] || []);
 </script>
 
+<LavaLampBackground />
+
 {#if $page.url.pathname === "/login"}
 	<!-- Página de login sin layout -->
 	{@render children()}
 {:else}
 	<!-- Layout principal -->
-	<div class="min-h-screen bg-base-200 flex flex-col antialiased">
+	<div
+		class="min-h-screen flex flex-col antialiased {$theme.lavaLampActive
+			? 'bg-transparent'
+			: 'bg-base-200'}"
+	>
 		<!-- ===== TOP NAVBAR ===== -->
 		<div class="navbar bg-base-100 shadow-md sticky top-0 z-50 px-4">
 			<!-- IZQUIERDA: Menú App Grid + Logo -->

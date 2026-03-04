@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
+    import { theme } from "$lib/stores/theme";
     import {
         getSettings,
         updateSettings,
@@ -254,19 +255,19 @@
         { id: "garden", label: "Garden", desc: "Claro y floral" },
         { id: "business", label: "Business", desc: "Oscuro y elegante" },
     ];
-    let currentTheme = $state("dark");
 
-    function setTheme(theme: string) {
-        currentTheme = theme;
-        document.documentElement.setAttribute("data-theme", theme);
-        localStorage.setItem("umanager-theme", theme);
+    function setTheme(themeId: any) {
+        theme.setTheme(themeId);
+    }
+
+    function toggleLavaLamp() {
+        theme.setLavaLamp(!$theme.lavaLampActive);
     }
 
     // ═══════════════════════════════════════════════════════════════════
     // INIT
     // ═══════════════════════════════════════════════════════════════════
     onMount(async () => {
-        currentTheme = localStorage.getItem("umanager-theme") || "dark";
         await Promise.all([loadGeneralSettings(), loadSystemSettings()]);
     });
 
@@ -1407,26 +1408,26 @@
             </p>
 
             <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {#each availableThemes as theme}
+                {#each availableThemes as t}
                     <button
                         class="relative rounded-xl border-2 p-5 text-left transition-all duration-200 cursor-pointer
-                            {currentTheme === theme.id
+                            {$theme.id === t.id
                             ? 'border-primary bg-primary/10 shadow-lg'
                             : 'border-base-300 hover:border-base-content/40 bg-base-200/50'}"
-                        onclick={() => setTheme(theme.id)}
+                        onclick={() => setTheme(t.id)}
                     >
                         <!-- Preview color strip -->
                         <div
-                            data-theme={theme.id}
+                            data-theme={t.id}
                             class="rounded-lg h-14 mb-3 overflow-hidden flex gap-1 p-2 bg-base-100"
                         >
                             <div class="flex-1 rounded bg-primary"></div>
                             <div class="flex-1 rounded bg-secondary"></div>
                             <div class="flex-1 rounded bg-accent"></div>
                         </div>
-                        <p class="font-bold text-sm">{theme.label}</p>
-                        <p class="text-xs text-base-content/60">{theme.desc}</p>
-                        {#if currentTheme === theme.id}
+                        <p class="font-bold text-sm">{t.label}</p>
+                        <p class="text-xs text-base-content/60">{t.desc}</p>
+                        {#if $theme.id === t.id}
                             <span
                                 class="absolute top-2 right-2 text-primary text-lg"
                                 >✓</span
@@ -1434,6 +1435,30 @@
                         {/if}
                     </button>
                 {/each}
+            </div>
+
+            <div class="divider"></div>
+
+            <div
+                class="flex items-center justify-between p-4 bg-base-200 rounded-lg border border-base-300"
+            >
+                <div>
+                    <h3 class="font-bold text-lg">
+                        🌋 Fondo Animado Lava Lamp
+                    </h3>
+                    <p class="text-sm text-base-content/60">
+                        Activa círculos abstractos flotantes que reaccionan a
+                        los colores del tema actual.
+                    </p>
+                </div>
+                <div>
+                    <input
+                        type="checkbox"
+                        class="toggle toggle-primary toggle-lg"
+                        checked={$theme.lavaLampActive}
+                        onchange={toggleLavaLamp}
+                    />
+                </div>
             </div>
         </div>
     </div>
