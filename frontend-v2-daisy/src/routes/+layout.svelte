@@ -27,13 +27,13 @@
 		}
 	}
 
-	// Clases reactivas para el Avatar según el estado de la sesión
-	let avatarRingClass = $derived(
+	// Clases reactivas para el indicador (punto) de la sesión
+	let indicatorClass = $derived(
 		$sessionState === "active"
-			? "ring-success shadow-[0_0_12px_rgba(0,255,0,0.5)] animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]"
+			? "bg-success animate-pulse shadow-[0_0_8px_rgba(0,255,0,0.8)]"
 			: $sessionState === "warning"
-				? "ring-warning shadow-[0_0_12px_rgba(255,165,0,0.8)]"
-				: "ring-neutral shadow-none opacity-50",
+				? "bg-warning shadow-[0_0_8px_rgba(255,165,0,0.8)]"
+				: "bg-error opacity-80",
 	);
 
 	// Obtener inicial/avatar del usuario
@@ -271,11 +271,18 @@
 						class="btn btn-ghost btn-circle"
 						aria-label="Menú de usuario"
 					>
-						<div class="avatar placeholder">
-							<div
-								class="bg-gradient-to-br from-primary to-secondary text-primary-content rounded-full w-9 grid place-items-center font-bold text-sm ring ring-offset-base-100 ring-offset-2 transition-all duration-1000 {avatarRingClass}"
-							>
-								<span>{getUserInitial($user?.username)}</span>
+						<div class="indicator">
+							<span
+								class="indicator-item indicator-bottom indicator-end badge badge-xs {indicatorClass} border-[1.5px] border-base-100 p-0 h-[10px] w-[10px] rounded-full mb-[2px] mr-[2px]"
+							></span>
+							<div class="avatar placeholder">
+								<div
+									class="bg-gradient-to-br from-primary to-secondary text-primary-content rounded-full w-9 grid place-items-center font-bold text-sm ring ring-offset-base-100 ring-offset-2 transition-all duration-1000"
+								>
+									<span
+										>{getUserInitial($user?.username)}</span
+									>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -285,15 +292,20 @@
 						<!-- Info del usuario -->
 						<div class="p-4 border-b border-base-300">
 							<div class="flex items-center gap-3">
-								<div class="avatar placeholder">
-									<div
-										class="bg-gradient-to-br from-primary to-secondary text-primary-content rounded-full w-10 grid place-items-center font-bold ring ring-offset-base-100 ring-offset-2 transition-all duration-1000 {avatarRingClass}"
-									>
-										<span
-											>{getUserInitial(
-												$user?.username,
-											)}</span
+								<div class="indicator">
+									<span
+										class="indicator-item indicator-bottom indicator-end badge badge-xs {indicatorClass} border-[1.5px] border-base-100 p-0 h-3 w-3 rounded-full mb-1 mr-1"
+									></span>
+									<div class="avatar placeholder">
+										<div
+											class="bg-gradient-to-br from-primary to-secondary text-primary-content rounded-full w-10 grid place-items-center font-bold ring ring-offset-base-100 ring-offset-2 transition-all duration-1000"
 										>
+											<span
+												>{getUserInitial(
+													$user?.username,
+												)}</span
+											>
+										</div>
 									</div>
 								</div>
 								<div class="min-w-0">
