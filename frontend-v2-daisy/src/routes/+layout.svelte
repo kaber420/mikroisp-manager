@@ -5,13 +5,11 @@
 	import { api } from "$lib/api";
 	import { initSession, clearSession } from "$lib/authutils";
 	import { user, sessionState } from "$lib/stores/auth";
-	import { theme, THEMES, type ThemeId } from "$lib/stores/theme";
 	import SessionMonitor from "$lib/components/SessionMonitor.svelte";
 
 	let { children } = $props();
 
 	onMount(() => {
-		theme.init();
 		// Auth Optimista: pinta inmediato desde caché, verifica en background
 		if ($page.url.pathname !== "/login") {
 			initSession($page.url.pathname);
@@ -32,15 +30,11 @@
 	// Clases reactivas para el Avatar según el estado de la sesión
 	let avatarRingClass = $derived(
 		$sessionState === "active"
-			? "ring-success shadow-[0_0_12px_rgba(0,255,0,0.5)]"
+			? "ring-success shadow-[0_0_12px_rgba(0,255,0,0.5)] animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]"
 			: $sessionState === "warning"
 				? "ring-warning shadow-[0_0_12px_rgba(255,165,0,0.8)]"
 				: "ring-neutral shadow-none opacity-50",
 	);
-
-	function setTheme(id: ThemeId) {
-		theme.setTheme(id);
-	}
 
 	// Obtener inicial/avatar del usuario
 	function getUserInitial(username: string | undefined | null): string {
@@ -59,7 +53,7 @@
 		return map[role] || "badge-ghost";
 	}
 
-	// 4 Módulos Principales
+	// 5 Módulos Principales
 	const mainModules = [
 		{
 			href: "/",
@@ -83,6 +77,13 @@
 			desc: "Clientes, Planes y Zonas",
 		},
 		{
+			href: "/tickets",
+			label: "Comunicación",
+			emoji: "💬",
+			color: "hover:bg-warning hover:text-warning-content",
+			desc: "Tickets y Difusión",
+		},
+		{
 			href: "/configuracion",
 			label: "Sistema",
 			emoji: "⚙️",
@@ -95,28 +96,28 @@
 	const subMenus: Record<string, { href: string; label: string }[]> = {
 		// Grupo: Infraestructura
 		"/routers": [
-			{ href: "/routers", label: "Dashboard Routers" },
+			{ href: "/routers", label: "Routers" },
 			{ href: "/switches", label: "Switches" },
 			{ href: "/access-points", label: "Access Points" },
 			{ href: "/cpes", label: "CPEs" },
 		],
 		"/switches": [
 			{ href: "/routers", label: "Routers" },
-			{ href: "/switches", label: "Dashboard Switches" },
+			{ href: "/switches", label: "Switches" },
 			{ href: "/access-points", label: "Access Points" },
 			{ href: "/cpes", label: "CPEs" },
 		],
 		"/access-points": [
 			{ href: "/routers", label: "Routers" },
 			{ href: "/switches", label: "Switches" },
-			{ href: "/access-points", label: "Dashboard APs" },
+			{ href: "/access-points", label: "Access Points" },
 			{ href: "/cpes", label: "CPEs" },
 		],
 		"/cpes": [
 			{ href: "/routers", label: "Routers" },
 			{ href: "/switches", label: "Switches" },
 			{ href: "/access-points", label: "Access Points" },
-			{ href: "/cpes", label: "Dashboard CPEs" },
+			{ href: "/cpes", label: "CPEs" },
 		],
 
 		// Grupo: Gestión
@@ -134,6 +135,16 @@
 			{ href: "/clientes", label: "Clientes" },
 			{ href: "/planes", label: "Planes" },
 			{ href: "/zonas", label: "Zonas de Cobertura" },
+		],
+
+		// Grupo: Comunicación (Tickets + Difusión bot)
+		"/tickets": [
+			{ href: "/tickets", label: "Tickets de Soporte" },
+			{ href: "/difusion", label: "Difusión" },
+		],
+		"/difusion": [
+			{ href: "/tickets", label: "Tickets de Soporte" },
+			{ href: "/difusion", label: "Difusión" },
 		],
 
 		// Grupo: Sistema
@@ -186,7 +197,6 @@
 					</div>
 					<!-- Mega Menu tipo App Grid -->
 					<div
-						tabindex="0"
 						class="dropdown-content mt-3 z-[60] p-4 shadow-2xl bg-base-200 rounded-2xl w-80 border border-base-300"
 					>
 						<p
@@ -253,70 +263,6 @@
 
 			<!-- DERECHA: Herramientas globales -->
 			<div class="navbar-end gap-1">
-				<!-- Selector de Temas -->
-				<div class="dropdown dropdown-end">
-					<div
-						tabindex="0"
-						role="button"
-						class="btn btn-ghost btn-circle"
-						aria-label="Cambiar tema"
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
-							/>
-						</svg>
-					</div>
-					<div
-						tabindex="0"
-						class="dropdown-content z-[60] mt-4 shadow-2xl bg-base-200 rounded-2xl w-56 border border-base-300 p-2"
-					>
-						<p
-							class="text-xs font-bold uppercase tracking-widest text-base-content/50 mb-2 px-2"
-						>
-							Seleccionar Tema
-						</p>
-						<ul class="menu menu-sm p-0">
-							{#each THEMES as t}
-								<li>
-									<button
-										onclick={() => setTheme(t.id)}
-										class="flex justify-between items-center rounded-lg
-											{$theme === t.id ? 'bg-primary text-primary-content font-semibold' : ''}"
-									>
-										<span>{t.emoji} {t.label}</span>
-										{#if $theme === t.id}
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="h-4 w-4"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M5 13l4 4L19 7"
-												/>
-											</svg>
-										{/if}
-									</button>
-								</li>
-							{/each}
-						</ul>
-					</div>
-				</div>
-
 				<!-- Menú de perfil/usuario -->
 				<div class="dropdown dropdown-end">
 					<div
@@ -334,7 +280,6 @@
 						</div>
 					</div>
 					<div
-						tabindex="0"
 						class="dropdown-content z-[60] mt-4 shadow-2xl bg-base-200 rounded-2xl w-56 border border-base-300"
 					>
 						<!-- Info del usuario -->

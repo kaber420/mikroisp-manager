@@ -65,6 +65,14 @@ class APCreate(BaseModel):
     role: str = "access_point"  # "access_point" or "switch"
 
 
+class APValidate(BaseModel):
+    host: str
+    username: str
+    password: str
+    api_port: int = 443
+    vendor: str = "ubiquiti"  # "ubiquiti" or "mikrotik"
+
+
 class APUpdate(BaseModel):
     username: str | None = None
     password: str | None = None

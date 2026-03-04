@@ -36,6 +36,22 @@ class PlanCreate(PlanBase):
     pass
 
 
+class PlanUpdate(BaseModel):
+    name: str | None = None
+    max_limit: str | None = None
+    parent_queue: str | None = None
+    comment: str | None = None
+    router_host: str | None = None
+    price: float | None = None
+    plan_type: str | None = None
+    profile_name: str | None = None
+    suspension_method: str | None = None
+    address_list_strategy: str | None = None
+    address_list_name: str | None = None
+    v6_queue_type: str | None = None
+    v7_queue_type: str | None = None
+
+
 class PlanResponse(PlanBase):
     id: int
     router_name: str | None = None
@@ -91,6 +107,26 @@ def create_plan(
     new_plan = service.create_plan(plan.model_dump())
     # Devolvemos el modelo, router_name será null por defecto en la respuesta inmediata
     return {**new_plan.model_dump(), "router_name": None}
+
+
+@router.put("/plans/{plan_id}", response_model=PlanResponse)
+def update_plan(
+    plan_id: int,
+    plan: PlanUpdate,
+    service: PlanService = Depends(get_plan_service),
+    current_user: User = Depends(require_admin),
+):
+    """Actualiza un plan existente."""
+    existing = service.get_by_id(plan_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Plan no encontrado")
+    updated_data = plan.model_dump(exclude_none=True)
+    for key, value in updated_data.items():
+        setattr(existing, key, value)
+    service.session.add(existing)
+    service.session.commit()
+    service.session.refresh(existing)
+    return {**existing.model_dump(), "router_name": None}
 
 
 @router.delete("/plans/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -17,10 +17,11 @@ export default defineConfig(({ mode }) => {
                 '/api': {
                     target: backendUrl,
                     changeOrigin: true,
+                    ws: true,
                     // Sin esto las cookies del backend no llegan al browser
                     cookieDomainRewrite: 'localhost',
-                    configure: (proxy, options) => {
-                        proxy.on('proxyReq', (proxyReq, req, res) => {
+                    configure: (proxy: any, options: any) => {
+                        proxy.on('proxyReq', (proxyReq: any, req: any, res: any) => {
                             if (req.headers.origin) {
                                 proxyReq.setHeader('Origin', req.headers.origin);
                             }
@@ -34,8 +35,8 @@ export default defineConfig(({ mode }) => {
                     target: backendUrl,
                     changeOrigin: true,
                     cookieDomainRewrite: 'localhost',
-                    configure: (proxy, options) => {
-                        proxy.on('proxyReq', (proxyReq, req, res) => {
+                    configure: (proxy: any, options: any) => {
+                        proxy.on('proxyReq', (proxyReq: any, req: any, res: any) => {
                             if (req.headers.origin) {
                                 proxyReq.setHeader('Origin', req.headers.origin);
                             }
@@ -49,8 +50,8 @@ export default defineConfig(({ mode }) => {
                     target: backendUrl,
                     changeOrigin: true,
                     cookieDomainRewrite: 'localhost',
-                    configure: (proxy, options) => {
-                        proxy.on('proxyReq', (proxyReq, req, res) => {
+                    configure: (proxy: any, options: any) => {
+                        proxy.on('proxyReq', (proxyReq: any, req: any, res: any) => {
                             if (req.headers.origin) {
                                 proxyReq.setHeader('Origin', req.headers.origin);
                             }

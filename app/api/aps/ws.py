@@ -8,7 +8,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from ...db.engine import async_session_maker
 from ...models.ap import AP as APModel
 from ...services.monitoring.ap_monitor_scheduler import ap_monitor_scheduler
-from ...utils.cache import cache_manager
+from ...utils.cache import cache_manager, ap_live_history
 from ...utils.security import decrypt_data
 
 router = APIRouter()
@@ -48,29 +48,29 @@ async def ap_resources_stream(websocket: WebSocket, host: str):
             creds = {"username": username, "password": password, "vendor": vendor, "port": port}
 
         # 2. Subscribe to scheduler (starts shared polling if first subscriber)
-        await ap_monitor_scheduler.subscribe(host, creds, interval=ap_monitor_interval)
-        print(f"✅ WS AP: Subscribed to scheduler for {host}")
+        # We want LIVE streaming speed (fast), not the background interval.
+        try:
+            async with async_session_maker() as session:
+                from ...services.core.settings_service import SettingsService
+                svc = SettingsService(session)
+                val = await svc.get_setting_value("dashboard_refresh_interval")
+                interval_setting = val
+            
+            interval = int(interval_setting) if interval_setting else 2
+            if interval < 1:
+                interval = 1
+        except Exception:
+            interval = 2
+
+        await ap_monitor_scheduler.subscribe(host, creds, interval=interval)
+        print(f"✅ WS AP: Subscribed to scheduler for {host} as LIVE mode (interval={interval}s)")
 
         # 3. Loop reading from cache
         stats_cache = cache_manager.get_store("ap_stats")
 
         while True:
-            # Determine interval
-            if ap_monitor_interval and ap_monitor_interval >= 1:
-                interval = ap_monitor_interval
-            else:
-                try:
-                    async with async_session_maker() as session:
-                        from ...services.core.settings_service import SettingsService
-                        svc = SettingsService(session)
-                        val = await svc.get_setting_value("dashboard_refresh_interval")
-                        interval_setting = val
-                    
-                    interval = int(interval_setting) if interval_setting else 2
-                    if interval < 1:
-                        interval = 1
-                except ValueError:
-                    interval = 2
+            # We already defined 'interval' above for the loop sleep
+
 
             # Read from cache
             data = stats_cache.get(host)
@@ -124,6 +124,7 @@ async def ap_resources_stream(websocket: WebSocket, host: str):
                         except (ValueError, TypeError):
                             pass
 
+                    live_hist = await ap_live_history.get_all(host)
                     payload = {
                         "type": "resources",
                         "data": {
@@ -155,6 +156,7 @@ async def ap_resources_stream(websocket: WebSocket, host: str):
                                 "platform": extra.get("platform"),
                                 "wireless_type": extra.get("wireless_type"),
                             },
+                            "live_history": live_hist,
                         },
                     }
                     await websocket.send_json(payload)

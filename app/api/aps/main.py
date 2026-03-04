@@ -27,6 +27,7 @@ from .dependencies import get_ap_service
 from .models import (
     AP,
     APCreate,
+    APValidate,
     APHistoryResponse,
     APLiveDetail,
     APUpdate,
@@ -249,7 +250,7 @@ async def get_wireless_interfaces(
 
 
 @router.post("/aps/validate", status_code=200)
-def validate_ap_connection(ap_data: APCreate):
+def validate_ap_connection(ap_data: APValidate):
     """
     Intenta conectar con el AP usando las credenciales proporcionadas.
     No guarda nada en la BD. Retorna éxito o error.

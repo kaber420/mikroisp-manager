@@ -2,39 +2,129 @@
     import { onMount, onDestroy } from "svelte";
     import { page } from "$app/stores";
     import type { AP } from "$lib/types/ap";
-    import { syncAPCPEs } from "$lib/api";
+    import { syncAPCPEs, getAPHistory } from "$lib/api";
 
     // ── Props & Estado Base ────────────────────────────────────────────────
     let { data } = $props<{ data: { ap: AP } }>();
     let ap = $derived(data.ap);
 
-    // ── Websocket State ───────────────────────────────────────────────────
+    // ── Websocket / Live Mode State ─────────────────────────────────────────
+    let isLiveMode = $state(false);
     let ws: WebSocket | null = null;
     let wsStatus = $state<
         "connecting" | "connected" | "error" | "disconnected"
-    >("connecting");
+    >("disconnected");
     let wsErrorMsg = $state<string | null>(null);
-    let liveData = $state<any>(null);
+
+    // ── Datos de la Interfaz ───────────────────────────────────────────────
+    let displayData = $state<any>(null); // Datos que se muestran (Históricos o Live)
+    let historicalCpes = $state<any[]>([]); // CPEs cargados desde la DB
+    let dataLoading = $state(true);
 
     // ── Acciones estado ───────────────────────────────────────────────────
     let syncLoading = $state(false);
     let syncResult = $state<{ status: string; message: string } | null>(null);
 
+    // ── Historial AP ──────────────────────────────────────────────────────
+    let apHistory = $state<any[]>([]);
+    let historyLoading = $state(false);
+    // Historial en vivo (últimos N puntos del backend Redis/memoria)
+    let liveHistory = $state<any[]>([]);
+
     // ── Ciclo de vida WebSocket ───────────────────────────────────────────
     onMount(() => {
-        connectWebSocket();
+        // Por defecto, cargar datos de la base de datos (histórico)
+        loadHistoricalData();
+        loadAPHistory();
     });
 
     onDestroy(() => {
+        stopLiveMode();
+    });
+
+    async function loadHistoricalData() {
+        if (!ap) return;
+        dataLoading = true;
+        try {
+            // Obtener CPEs de la Base de Datos
+            const protocol = window.location.protocol;
+            const cpesRes = await fetch(
+                `${protocol}//${window.location.host}/api/aps/${ap.host}/cpes`,
+            );
+
+            if (cpesRes.ok) {
+                historicalCpes = await cpesRes.json();
+            }
+
+            // Inicializar displayData con los datos del AP base y los CPEs históricos
+            displayData = {
+                essid: ap.essid,
+                frequency: ap.frequency,
+                chanbw: ap.chanbw,
+                noise_floor: ap.noise_floor,
+                client_count: ap.client_count,
+                clients: historicalCpes,
+                model: ap.model,
+                total_tx_bytes: ap.total_tx_bytes,
+                total_rx_bytes: ap.total_rx_bytes,
+                extra: { cpu_load: null, memory_usage: null },
+            };
+        } catch (e) {
+            console.error("Error loading historical data:", e);
+        } finally {
+            dataLoading = false;
+        }
+    }
+
+    // ── Cargar historial de métricas del AP ───────────────────────────────
+    async function loadAPHistory() {
+        historyLoading = true;
+        try {
+            const res = await getAPHistory(ap.host, "24h");
+            apHistory = res?.history ?? [];
+        } catch (e) {
+            apHistory = [];
+        } finally {
+            historyLoading = false;
+        }
+    }
+
+    function toggleLiveMode() {
+        if (isLiveMode) {
+            stopLiveMode();
+        } else {
+            startLiveMode();
+        }
+    }
+
+    function stopLiveMode() {
+        isLiveMode = false;
         if (ws) {
             ws.close();
             ws = null;
         }
-    });
+        wsStatus = "disconnected";
+        liveHistory = [];
 
-    function connectWebSocket() {
+        // Volver a mostrar los datos estáticos de la DB
+        displayData = {
+            essid: ap.essid,
+            frequency: ap.frequency,
+            chanbw: ap.chanbw,
+            noise_floor: ap.noise_floor,
+            client_count: historicalCpes.length,
+            clients: historicalCpes,
+            model: ap.model,
+            total_tx_bytes: ap.total_tx_bytes,
+            total_rx_bytes: ap.total_rx_bytes,
+            extra: { cpu_load: null, memory_usage: null },
+        };
+    }
+
+    function startLiveMode() {
         if (!ap) return;
 
+        isLiveMode = true;
         wsStatus = "connecting";
         wsErrorMsg = null;
 
@@ -54,13 +144,20 @@
                 const message = JSON.parse(event.data);
 
                 if (message.type === "resources") {
-                    liveData = message.data;
+                    // Combinar CPEs en vivo con CPEs históricos
+                    const liveCpes = message.data.clients || [];
+
+                    // Actualizar el DOM reactivamente
+                    displayData = message.data;
+                    // Actualizar historial en vivo
+                    if (Array.isArray(message.data?.live_history)) {
+                        liveHistory = message.data.live_history;
+                    }
                     wsStatus = "connected";
                 } else if (message.type === "error") {
                     wsStatus = "error";
                     wsErrorMsg = message.data.message;
-                } else if (message.type === "loading") {
-                    // Esperando primer set de datos
+                    stopLiveMode();
                 }
             } catch (err) {
                 console.error("Error parseando WS message:", err);
@@ -71,11 +168,16 @@
             wsStatus = "error";
             wsErrorMsg = "Error en la conexión WebSocket";
             console.error("WS Error:", err);
+            stopLiveMode();
         };
 
         ws.onclose = (event) => {
             if (wsStatus !== "error") {
                 wsStatus = "disconnected";
+            }
+            if (isLiveMode) {
+                // Si se cerró inesperadamente pero el modo sigue "Live", forzamos a apagar
+                stopLiveMode();
             }
         };
     }
@@ -90,6 +192,10 @@
                 status: "success",
                 message: `Sincronización exitosa. ${result.updated_cpes || 0} CPEs actualizados.`,
             };
+            // Recargar datos históricos si no estamos en Live Mode
+            if (!isLiveMode) {
+                await loadHistoricalData();
+            }
         } catch (e: any) {
             syncResult = {
                 status: "error",
@@ -114,6 +220,49 @@
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
     }
+
+    // Genera puntos SVG para sparklines
+    function toSparkPoints(vals: (number | null)[], w = 200, h = 40): string {
+        const clean = vals.filter((v) => v != null) as number[];
+        if (clean.length < 2) return "";
+        const min = Math.min(...clean);
+        const max = Math.max(...clean);
+        const range = max - min || 1;
+        return vals
+            .map((v, i) => {
+                const x = (i / (vals.length - 1)) * w;
+                const y = v == null ? h : h - ((v - min) / range) * (h - 4) - 2;
+                return `${x.toFixed(1)},${y.toFixed(1)}`;
+            })
+            .join(" ");
+    }
+
+    let clientHistory = $derived(
+        apHistory.map((p: any) => p.client_count as number | null),
+    );
+    let txHistory = $derived(
+        apHistory.map((p: any) => p.total_throughput_tx as number | null),
+    );
+    let rxHistory = $derived(
+        apHistory.map((p: any) => p.total_throughput_rx as number | null),
+    );
+
+    // ── Arrays para gráficas live ──────────────────────────────────────────
+    let liveClientsHistory = $derived(
+        liveHistory.map((p: any) => p.clients as number | null),
+    );
+    let liveTxHistory = $derived(
+        liveHistory.map((p: any) => p.tx_kbps as number | null),
+    );
+    let liveRxHistory = $derived(
+        liveHistory.map((p: any) => p.rx_kbps as number | null),
+    );
+
+    function fmtKbps(kbps: number | null | undefined): string {
+        if (kbps == null) return "--";
+        if (kbps < 1000) return `${kbps} KB/s`;
+        return `${(kbps / 1024).toFixed(1)} MB/s`;
+    }
 </script>
 
 <svelte:head>
@@ -122,19 +271,32 @@
 
 <div class="flex flex-col gap-6 max-w-7xl mx-auto w-full">
     <!-- Header Block -->
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-6">
-            <div class="text-sm breadcrumbs opacity-60 mb-2">
-                <ul>
-                    <li><a href="/access-points">Access Points</a></li>
-                    <li>{ap.host}</li>
-                </ul>
-            </div>
+    <div class="glass-card-flat" style="border-radius:1rem;">
+        <div class="p-6 flex flex-col gap-4">
             <div
                 class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
             >
                 <div class="flex flex-col gap-1">
                     <div class="flex items-center gap-3">
+                        <a
+                            href="/access-points"
+                            class="hover:bg-base-200 p-1 rounded-lg transition-colors -ml-2"
+                            title="Volver a Access Points"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke-width="3"
+                                stroke="currentColor"
+                                class="w-6 h-6"
+                                ><path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M15.75 19.5L8.25 12l7.5-7.5"
+                                /></svg
+                            >
+                        </a>
                         <h1 class="text-3xl font-black m-0">
                             {ap.hostname || ap.host}
                         </h1>
@@ -165,16 +327,46 @@
                             </span>
                         {/if}
                     </div>
-                    <p class="text-sm opacity-60 font-mono m-0">
+                    <p class="text-sm opacity-60 font-mono m-0 mt-1">
                         {ap.host} • {ap.vendor
                             ? ap.vendor.toUpperCase()
-                            : "VENDOR DESCONOCIDO"} • {liveData?.model ||
+                            : "VENDOR DESCONOCIDO"} • {displayData?.model ||
                             ap.model ||
                             "Modelo Descocido"}
                     </p>
                 </div>
 
-                <div class="flex gap-2">
+                <div class="flex flex-wrap items-center gap-4">
+                    <!-- Live Mode Toggle -->
+                    <div class="form-control">
+                        <label class="label cursor-pointer flex gap-3">
+                            <span
+                                class="label-text font-bold uppercase text-[10px] tracking-wider opacity-70"
+                            >
+                                {#if wsStatus === "connecting"}
+                                    <span
+                                        class="loading loading-spinner loading-xs text-primary mr-1"
+                                    ></span> Conectando...
+                                {:else if isLiveMode}
+                                    <span
+                                        class="text-success flex items-center gap-1"
+                                        ><span
+                                            class="w-2 h-2 rounded-full bg-success animate-pulse"
+                                        ></span> Modo En Vivo</span
+                                    >
+                                {:else}
+                                    Modo Histórico
+                                {/if}
+                            </span>
+                            <input
+                                type="checkbox"
+                                class="toggle toggle-primary toggle-sm"
+                                checked={isLiveMode}
+                                onchange={toggleLiveMode}
+                            />
+                        </label>
+                    </div>
+
                     <button
                         class="btn btn-primary"
                         onclick={handleSyncCPEs}
@@ -231,12 +423,12 @@
                                 /></svg
                             >
                             <span class="text-sm font-medium"
-                                >{wsErrorMsg || "Sin conexión WebSocket."}</span
+                                >{wsErrorMsg ||
+                                    "Error al iniciar el modo en vivo. Se volverá al historial."}</span
                             >
                             <button
                                 class="btn btn-xs btn-outline ml-auto"
-                                onclick={connectWebSocket}
-                                >Vincular de Nuevo</button
+                                onclick={stopLiveMode}>Aceptar</button
                             >
                         </div>
                     {/if}
@@ -245,90 +437,170 @@
         </div>
     </div>
 
-    <!-- KPIs Rápidos en Grid (Live Metrics) -->
-    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+    <!-- KPIs Rápidos en Grid -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
         <!-- SSID -->
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-4 text-center items-center justify-center">
+        <div class="glass-card-flat" style="border-radius:0.875rem;">
+            <div
+                class="p-4 flex flex-col text-center items-center justify-center h-full"
+            >
                 <span
                     class="text-[10px] uppercase font-bold opacity-50 tracking-wider"
                     >Red (SSID)</span
                 >
-                <span class="text-xl font-black text-base-content mt-1"
-                    >{liveData?.essid || "--"}</span
+                <div
+                    class="text-xl font-black text-base-content mt-1 w-full truncate px-2"
+                    title={displayData?.essid || "--"}
                 >
+                    {#if dataLoading && !isLiveMode}
+                        <span class="loading loading-dots loading-sm opacity-50"
+                        ></span>
+                    {:else}
+                        {displayData?.essid || "--"}
+                    {/if}
+                </div>
             </div>
         </div>
         <!-- Clientes -->
-        <div
-            class="card bg-base-100 shadow-sm border border-base-200 align-center"
-        >
-            <div class="card-body p-4 text-center items-center justify-center">
+        <div class="glass-card-flat" style="border-radius:0.875rem;">
+            <div
+                class="p-4 flex flex-col text-center items-center justify-center h-full"
+            >
                 <span
                     class="text-[10px] uppercase font-bold opacity-50 tracking-wider"
                     >CPEs Conectados</span
                 >
-                <span class="text-3xl font-black text-primary mt-1"
-                    >{liveData?.client_count ?? "--"}</span
-                >
+                <div class="text-3xl font-black text-primary mt-1">
+                    {#if dataLoading && !isLiveMode}
+                        <span class="loading loading-dots loading-sm opacity-50"
+                        ></span>
+                    {:else}
+                        {displayData?.client_count ?? "--"}
+                    {/if}
+                </div>
             </div>
         </div>
         <!-- Frecuencia -->
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-4 text-center items-center justify-center">
+        <div class="glass-card-flat" style="border-radius:0.875rem;">
+            <div
+                class="p-4 flex flex-col text-center items-center justify-center h-full"
+            >
                 <span
                     class="text-[10px] uppercase font-bold opacity-50 tracking-wider"
                     >Canal / Freq</span
                 >
-                <span class="text-xl font-black mt-1 text-secondary"
-                    >{liveData?.frequency || "--"}</span
-                >
+                <div class="text-xl font-black mt-1 text-secondary">
+                    {#if dataLoading && !isLiveMode}
+                        <span class="loading loading-dots loading-sm opacity-50"
+                        ></span>
+                    {:else}
+                        {displayData?.frequency || "--"}
+                    {/if}
+                </div>
+                <!-- Solo mostrar el unit label si hay dato -->
                 <span class="text-[10px] opacity-50 font-bold"
-                    >{liveData?.chanbw || "-"} MHz HW</span
+                    >{displayData?.chanbw
+                        ? displayData.chanbw + " MHz HW"
+                        : "-"}</span
                 >
             </div>
         </div>
         <!-- Ruido -->
         <div
-            class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden relative"
+            class="glass-card-flat overflow-hidden relative"
+            style="border-radius:0.875rem;"
         >
-            <div class="card-body p-4 text-center items-center justify-center">
+            <div
+                class="p-4 flex flex-col text-center items-center justify-center h-full"
+            >
                 <span
                     class="text-[10px] uppercase font-bold opacity-50 tracking-wider"
                     >Ruido Fondo</span
                 >
-                <span
-                    class="text-2xl font-black mt-1 {liveData?.noise_floor > -80
+                <div
+                    class="text-2xl font-black mt-1 {displayData?.noise_floor >
+                    -80
                         ? 'text-warning'
-                        : 'text-success'}">{liveData?.noise_floor || "--"}</span
+                        : 'text-success'}"
                 >
+                    {#if dataLoading && !isLiveMode}
+                        <span class="loading loading-dots loading-sm opacity-50"
+                        ></span>
+                    {:else}
+                        {displayData?.noise_floor || "--"}
+                    {/if}
+                </div>
                 <span class="text-[10px] opacity-50 font-bold">dBm</span>
             </div>
-            {#if liveData?.noise_floor > -80}
+            {#if displayData?.noise_floor > -80}
                 <div
                     class="absolute bottom-0 left-0 w-full h-1 bg-warning"
                 ></div>
             {/if}
         </div>
-        <!-- CPU Load (Si existe) -->
+        <!-- Tráfico Total -->
         <div
-            class="card bg-base-100 shadow-sm border border-base-200 lg:col-span-2"
+            class="glass-card-flat lg:col-span-2"
+            style="border-radius:0.875rem;"
         >
-            <div
-                class="card-body p-4 flex flex-row items-center justify-between"
-            >
+            <div class="p-4 flex flex-row items-center justify-between h-full">
+                <div class="flex-1 px-2 text-center">
+                    <span
+                        class="text-[10px] uppercase font-bold opacity-50 tracking-wider"
+                        >Total TX</span
+                    >
+                    <div class="text-xl font-black mt-1 text-info">
+                        {#if dataLoading && !isLiveMode}
+                            <span
+                                class="loading loading-dots loading-sm opacity-50"
+                            ></span>
+                        {:else}
+                            {displayData?.total_tx_bytes != null
+                                ? formatBytes(displayData.total_tx_bytes)
+                                : "--"}
+                        {/if}
+                    </div>
+                </div>
+                <div
+                    class="flex-1 px-2 border-l border-base-200 ml-2 text-center"
+                >
+                    <span
+                        class="text-[10px] uppercase font-bold opacity-50 tracking-wider"
+                        >Total RX</span
+                    >
+                    <div class="text-xl font-black mt-1 text-primary">
+                        {#if dataLoading && !isLiveMode}
+                            <span
+                                class="loading loading-dots loading-sm opacity-50"
+                            ></span>
+                        {:else}
+                            {displayData?.total_rx_bytes != null
+                                ? formatBytes(displayData.total_rx_bytes)
+                                : "--"}
+                        {/if}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- CPU Load (Si existe en LiveMode) -->
+        <div
+            class="glass-card-flat lg:col-span-2"
+            style="border-radius:0.875rem;"
+        >
+            <div class="p-4 flex flex-row items-center justify-between h-full">
                 <div class="flex-1 px-2">
                     <div
                         class="flex justify-between text-xs font-bold mb-1 opacity-70"
                     >
                         <span>CPU</span>
-                        <span>{liveData?.extra?.cpu_load ?? "--"}%</span>
+                        <span>{displayData?.extra?.cpu_load ?? "--"}%</span>
                     </div>
                     <progress
-                        class="progress w-full {liveData?.extra?.cpu_load > 85
+                        class="progress w-full {displayData?.extra?.cpu_load >
+                        85
                             ? 'progress-error'
                             : 'progress-primary'}"
-                        value={liveData?.extra?.cpu_load || 0}
+                        value={displayData?.extra?.cpu_load || 0}
                         max="100"
                     ></progress>
                 </div>
@@ -337,14 +609,14 @@
                         class="flex justify-between text-xs font-bold mb-1 opacity-70"
                     >
                         <span>RAM</span>
-                        <span>{liveData?.extra?.memory_usage ?? "--"}%</span>
+                        <span>{displayData?.extra?.memory_usage ?? "--"}%</span>
                     </div>
                     <progress
-                        class="progress w-full {liveData?.extra?.memory_usage >
-                        85
+                        class="progress w-full {displayData?.extra
+                            ?.memory_usage > 85
                             ? 'progress-error'
                             : 'progress-info'}"
-                        value={liveData?.extra?.memory_usage || 0}
+                        value={displayData?.extra?.memory_usage || 0}
                         max="100"
                     ></progress>
                 </div>
@@ -352,9 +624,348 @@
         </div>
     </div>
 
-    <!-- Tabla de Clientes en Vivo -->
-    <div class="card bg-base-100 shadow-sm border border-base-200 flex-1">
-        <div class="card-body p-0 flex flex-col h-full">
+    <!-- Gráficas de Tendencia -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <!-- Clientes Conectados -->
+        <div class="glass-card-flat" style="border-radius:1rem;">
+            <div class="p-4 flex flex-col">
+                <p
+                    class="text-[10px] uppercase font-bold opacity-50 tracking-wider m-0"
+                >
+                    {isLiveMode
+                        ? "Clientes — En Vivo"
+                        : "Clientes conectados — 24h"}
+                </p>
+                {#if isLiveMode}
+                    {#if liveHistory.length >= 2}
+                        <svg
+                            viewBox="0 0 200 44"
+                            preserveAspectRatio="none"
+                            class="w-full mt-2"
+                            style="height:56px;"
+                        >
+                            <defs>
+                                <linearGradient
+                                    id="ap-lv-client-grad"
+                                    x1="0"
+                                    y1="0"
+                                    x2="0"
+                                    y2="1"
+                                >
+                                    <stop
+                                        offset="0%"
+                                        stop-color="oklch(from var(--color-primary) l c h)"
+                                        stop-opacity="0.3"
+                                    />
+                                    <stop
+                                        offset="100%"
+                                        stop-color="oklch(from var(--color-primary) l c h)"
+                                        stop-opacity="0"
+                                    />
+                                </linearGradient>
+                            </defs>
+                            <polygon
+                                points="0,44 {toSparkPoints(
+                                    liveClientsHistory,
+                                    200,
+                                    40,
+                                )} 200,44"
+                                fill="url(#ap-lv-client-grad)"
+                            />
+                            <polyline
+                                points={toSparkPoints(
+                                    liveClientsHistory,
+                                    200,
+                                    40,
+                                )}
+                                fill="none"
+                                stroke="oklch(from var(--color-primary) l c h)"
+                                stroke-width="1.5"
+                                stroke-linejoin="round"
+                                stroke-linecap="round"
+                            />
+                        </svg>
+                        <div
+                            class="flex justify-between text-[10px] opacity-40 mt-1"
+                        >
+                            <span
+                                >hace ~{Math.round(
+                                    (liveHistory.length * 3) / 60,
+                                )} min</span
+                            >
+                            <span
+                                >ahora: {liveHistory.at(-1)?.clients ?? "?"} clientes</span
+                            >
+                        </div>
+                    {:else}
+                        <p class="text-xs opacity-40 text-center py-4">
+                            <span class="loading loading-spinner loading-xs"
+                            ></span> Acumulando...
+                        </p>
+                    {/if}
+                {:else if historyLoading}
+                    <div class="flex justify-center items-center h-14">
+                        <span class="loading loading-spinner loading-sm"></span>
+                    </div>
+                {:else if clientHistory.some((v) => v != null)}
+                    <svg
+                        viewBox="0 0 200 44"
+                        preserveAspectRatio="none"
+                        class="w-full mt-2"
+                        style="height:56px;"
+                    >
+                        <defs>
+                            <linearGradient
+                                id="ap-client-grad"
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1"
+                            >
+                                <stop
+                                    offset="0%"
+                                    stop-color="oklch(from var(--color-primary) l c h)"
+                                    stop-opacity="0.3"
+                                />
+                                <stop
+                                    offset="100%"
+                                    stop-color="oklch(from var(--color-primary) l c h)"
+                                    stop-opacity="0"
+                                />
+                            </linearGradient>
+                        </defs>
+                        <polygon
+                            points="0,44 {toSparkPoints(
+                                clientHistory,
+                                200,
+                                40,
+                            )} 200,44"
+                            fill="url(#ap-client-grad)"
+                        />
+                        <polyline
+                            points={toSparkPoints(clientHistory, 200, 40)}
+                            fill="none"
+                            stroke="oklch(from var(--color-primary) l c h)"
+                            stroke-width="1.5"
+                            stroke-linejoin="round"
+                            stroke-linecap="round"
+                        />
+                    </svg>
+                    <div
+                        class="flex justify-between text-[10px] opacity-40 mt-1"
+                    >
+                        {#if apHistory.length > 0}
+                            <span
+                                >{new Date(
+                                    apHistory[0].timestamp,
+                                ).toLocaleTimeString("es", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                })}</span
+                            >
+                            <span
+                                >Máx: {Math.max(
+                                    ...(clientHistory.filter(
+                                        (v) => v != null,
+                                    ) as number[]),
+                                )} clientes</span
+                            >
+                            <span
+                                >{new Date(
+                                    apHistory[apHistory.length - 1].timestamp,
+                                ).toLocaleTimeString("es", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                })}</span
+                            >
+                        {/if}
+                    </div>
+                {:else}
+                    <p class="text-xs opacity-40 text-center py-4">
+                        Sin datos históricos
+                    </p>
+                {/if}
+            </div>
+        </div>
+
+        <!-- Throughput TX/RX -->
+        <div
+            class="glass-card-flat"
+            style="border-radius:1rem;{isLiveMode
+                ? 'border:1px solid oklch(from var(--color-success) l c h / 0.2);'
+                : ''}"
+        >
+            <div class="p-4 flex flex-col">
+                <div class="flex items-center justify-between m-0">
+                    <p
+                        class="text-[10px] uppercase font-bold opacity-50 tracking-wider m-0"
+                    >
+                        {isLiveMode
+                            ? "Throughput — En Vivo"
+                            : "Throughput TX/RX — 24h"}
+                    </p>
+                    <div class="flex gap-2 text-[9px] opacity-60">
+                        <span class="flex items-center gap-1">
+                            <span
+                                style="display:inline-block;width:8px;height:2px;background:oklch(from var(--color-warning) l c h);"
+                            ></span>TX
+                        </span>
+                        <span class="flex items-center gap-1">
+                            <span
+                                style="display:inline-block;width:8px;height:2px;background:oklch(from var(--color-success) l c h);"
+                            ></span>RX
+                        </span>
+                    </div>
+                </div>
+                {#if isLiveMode}
+                    {#if liveHistory.length >= 3}
+                        {@const lastTx = liveTxHistory
+                            .filter((v) => v != null)
+                            .at(-1)}
+                        {@const lastRx = liveRxHistory
+                            .filter((v) => v != null)
+                            .at(-1)}
+                        <div class="flex gap-3 text-[10px] font-bold mt-1 mb-1">
+                            <span
+                                style="color:oklch(from var(--color-warning) l c h);"
+                                >↑ {fmtKbps(lastTx)}</span
+                            >
+                            <span
+                                style="color:oklch(from var(--color-success) l c h);"
+                                >↓ {fmtKbps(lastRx)}</span
+                            >
+                        </div>
+                        <svg
+                            viewBox="0 0 200 44"
+                            preserveAspectRatio="none"
+                            class="w-full mt-1"
+                            style="height:52px;"
+                        >
+                            <defs>
+                                <linearGradient
+                                    id="ap-lv-tx-grad"
+                                    x1="0"
+                                    y1="0"
+                                    x2="0"
+                                    y2="1"
+                                >
+                                    <stop
+                                        offset="0%"
+                                        stop-color="oklch(from var(--color-warning) l c h)"
+                                        stop-opacity="0.2"
+                                    />
+                                    <stop
+                                        offset="100%"
+                                        stop-color="oklch(from var(--color-warning) l c h)"
+                                        stop-opacity="0"
+                                    />
+                                </linearGradient>
+                            </defs>
+                            <polygon
+                                points="0,44 {toSparkPoints(
+                                    liveTxHistory,
+                                    200,
+                                    40,
+                                )} 200,44"
+                                fill="url(#ap-lv-tx-grad)"
+                            />
+                            <polyline
+                                points={toSparkPoints(liveTxHistory, 200, 40)}
+                                fill="none"
+                                stroke="oklch(from var(--color-warning) l c h)"
+                                stroke-width="1.5"
+                                stroke-linejoin="round"
+                                stroke-linecap="round"
+                            />
+                            <polyline
+                                points={toSparkPoints(liveRxHistory, 200, 40)}
+                                fill="none"
+                                stroke="oklch(from var(--color-success) l c h)"
+                                stroke-width="1.5"
+                                stroke-linejoin="round"
+                                stroke-linecap="round"
+                                stroke-dasharray="4 2"
+                            />
+                        </svg>
+                    {:else}
+                        <p class="text-xs opacity-40 text-center py-4">
+                            <span class="loading loading-spinner loading-xs"
+                            ></span> Acumulando datos...
+                        </p>
+                    {/if}
+                {:else if historyLoading}
+                    <div class="flex justify-center items-center h-14">
+                        <span class="loading loading-spinner loading-sm"></span>
+                    </div>
+                {:else if txHistory.some((v) => v != null) || rxHistory.some((v) => v != null)}
+                    <svg
+                        viewBox="0 0 200 44"
+                        preserveAspectRatio="none"
+                        class="w-full mt-2"
+                        style="height:56px;"
+                    >
+                        <defs>
+                            <linearGradient
+                                id="ap-tx-grad"
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1"
+                            >
+                                <stop
+                                    offset="0%"
+                                    stop-color="oklch(from var(--color-info) l c h)"
+                                    stop-opacity="0.2"
+                                />
+                                <stop
+                                    offset="100%"
+                                    stop-color="oklch(from var(--color-info) l c h)"
+                                    stop-opacity="0"
+                                />
+                            </linearGradient>
+                        </defs>
+                        {#if txHistory.some((v) => v != null)}
+                            <polygon
+                                points="0,44 {toSparkPoints(
+                                    txHistory,
+                                    200,
+                                    40,
+                                )} 200,44"
+                                fill="url(#ap-tx-grad)"
+                            />
+                            <polyline
+                                points={toSparkPoints(txHistory, 200, 40)}
+                                fill="none"
+                                stroke="oklch(from var(--color-warning) l c h)"
+                                stroke-width="1.5"
+                                stroke-linejoin="round"
+                                stroke-linecap="round"
+                            />
+                        {/if}
+                        {#if rxHistory.some((v) => v != null)}
+                            <polyline
+                                points={toSparkPoints(rxHistory, 200, 40)}
+                                fill="none"
+                                stroke="oklch(from var(--color-success) l c h)"
+                                stroke-width="1.5"
+                                stroke-linejoin="round"
+                                stroke-linecap="round"
+                                stroke-dasharray="4 2"
+                            />
+                        {/if}
+                    </svg>
+                {:else}
+                    <p class="text-xs opacity-40 text-center py-4">
+                        Sin datos históricos
+                    </p>
+                {/if}
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Clientes (Históricos o Live) -->
+    <div class="glass-card-flat flex-1 mb-8" style="border-radius:1rem;">
+        <div class="p-0 flex flex-col h-full">
             <div
                 class="p-4 border-b border-base-200 flex justify-between items-center bg-base-200/30"
             >
@@ -373,22 +984,28 @@
                     </svg>
                     Estaciones (CPEs)
                 </h2>
-                {#if wsStatus === "connecting" || (wsStatus === "connected" && !liveData)}
+                {#if wsStatus === "connecting" || dataLoading}
                     <span class="loading loading-spinner w-4 h-4 text-primary"
                     ></span>
-                {:else if wsStatus === "connected"}
+                {:else if isLiveMode && wsStatus === "connected"}
                     <span
-                        class="flex items-center gap-2 text-xs font-bold text-success opacity-80"
+                        class="flex items-center gap-2 text-xs font-bold text-success opacity-80 bg-success/10 px-2 py-1 rounded border border-success/20"
                     >
                         <span
                             class="w-2 h-2 rounded-full bg-success animate-pulse"
                         ></span>
-                        LIVE
+                        DATOS EN VIVO
+                    </span>
+                {:else}
+                    <span
+                        class="flex items-center gap-2 text-xs font-bold text-base-content/50 opacity-80 bg-base-200 px-2 py-1 rounded"
+                    >
+                        HISTÓRICO (Base de Datos)
                     </span>
                 {/if}
             </div>
 
-            <div class="overflow-x-auto w-full max-h-[500px]">
+            <div class="overflow-x-auto w-full max-h-[600px]">
                 <table class="table table-zebra table-pin-rows table-sm w-full">
                     <thead>
                         <tr class="bg-base-200 border-none">
@@ -397,13 +1014,19 @@
                             <th>MAC / IP</th>
                             <th class="text-center">Señal dBm</th>
                             <th class="text-center">Modulación TX/RX</th>
+                            <th class="text-right">Tráfico Total</th>
                             <th class="text-right">Tráfico (Mbps)</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {#if liveData?.clients?.length > 0}
-                            {#each liveData.clients as client, index}
-                                <tr class="hover border-base-200">
+                        {#if displayData?.clients?.length > 0}
+                            {#each displayData.clients as client, index}
+                                <tr
+                                    class="hover border-base-200 {isLiveMode &&
+                                    client.throughput_rx_kbps !== undefined
+                                        ? ''
+                                        : 'opacity-80 grayscale-[30%]'}"
+                                >
                                     <td class="text-xs opacity-50 font-bold"
                                         >{index + 1}</td
                                     >
@@ -412,6 +1035,13 @@
                                             {client.cpe_hostname ||
                                                 "Desconocido"}
                                         </div>
+                                        {#if !isLiveMode && client.timestamp}
+                                            <div class="text-[10px] opacity-50">
+                                                Visto: {new Date(
+                                                    client.timestamp,
+                                                ).toLocaleString()}
+                                            </div>
+                                        {/if}
                                     </td>
                                     <td>
                                         <div class="font-mono text-xs">
@@ -424,16 +1054,20 @@
                                         </div>
                                     </td>
                                     <td class="text-center">
-                                        <div
-                                            class="badge badge-sm font-bold border-none text-white shadow-sm {client.signal >
-                                            -65
-                                                ? 'bg-success'
-                                                : client.signal > -75
-                                                  ? 'bg-warning'
-                                                  : 'bg-error'}"
-                                        >
-                                            {client.signal}
-                                        </div>
+                                        {#if client.signal != null}
+                                            <div
+                                                class="badge badge-sm font-bold border-none text-white shadow-sm {client.signal >
+                                                -65
+                                                    ? 'bg-success'
+                                                    : client.signal > -75
+                                                      ? 'bg-warning'
+                                                      : 'bg-error'}"
+                                            >
+                                                {client.signal}
+                                            </div>
+                                        {:else}
+                                            <span class="opacity-30">--</span>
+                                        {/if}
                                     </td>
                                     <td class="text-center">
                                         <div
@@ -451,38 +1085,52 @@
                                     </td>
                                     <td class="text-right">
                                         <div
+                                            class="font-mono text-[11px] opacity-80 bg-base-200 rounded px-2 py-1 inline-block text-right"
+                                        >
+                                            <span class="text-info font-bold"
+                                                >TX:</span
+                                            >
+                                            {client.total_tx_bytes != null
+                                                ? formatBytes(
+                                                      client.total_tx_bytes,
+                                                  )
+                                                : "--"} <br />
+                                            <span class="text-primary font-bold"
+                                                >RX:</span
+                                            >
+                                            {client.total_rx_bytes != null
+                                                ? formatBytes(
+                                                      client.total_rx_bytes,
+                                                  )
+                                                : "--"}
+                                        </div>
+                                    </td>
+                                    <td class="text-right">
+                                        <div
                                             class="font-mono text-xs text-info font-bold inline-flex items-center gap-1 w-20 justify-end"
                                         >
-                                            ↓ {(
-                                                client.throughput_rx_kbps / 1024
-                                            ).toFixed(1)}
+                                            ↓ {client.throughput_rx_kbps != null
+                                                ? (
+                                                      client.throughput_rx_kbps /
+                                                      1024
+                                                  ).toFixed(1)
+                                                : "--"}
                                         </div>
                                         <br />
                                         <div
                                             class="font-mono text-xs text-primary font-bold inline-flex items-center gap-1 w-20 justify-end mt-1"
                                         >
-                                            ↑ {(
-                                                client.throughput_tx_kbps / 1024
-                                            ).toFixed(1)}
+                                            ↑ {client.throughput_tx_kbps != null
+                                                ? (
+                                                      client.throughput_tx_kbps /
+                                                      1024
+                                                  ).toFixed(1)
+                                                : "--"}
                                         </div>
                                     </td>
                                 </tr>
                             {/each}
-                        {:else if liveData}
-                            <tr>
-                                <td
-                                    colspan="6"
-                                    class="text-center py-16 opacity-50"
-                                >
-                                    <div class="text-4xl mb-2">📡</div>
-                                    <h3 class="font-bold">Sin clientes</h3>
-                                    <p class="text-sm">
-                                        No hay estaciones conectadas
-                                        actualmente.
-                                    </p>
-                                </td>
-                            </tr>
-                        {:else}
+                        {:else if dataLoading}
                             <tr>
                                 <td colspan="6" class="text-center py-16">
                                     <span
@@ -491,7 +1139,21 @@
                                     <p
                                         class="mt-4 text-sm font-bold opacity-50"
                                     >
-                                        Obteniendo telemetría en vivo...
+                                        Obteniendo datos...
+                                    </p>
+                                </td>
+                            </tr>
+                        {:else if displayData}
+                            <tr>
+                                <td
+                                    colspan="6"
+                                    class="text-center py-16 opacity-50"
+                                >
+                                    <div class="text-4xl mb-2">📡</div>
+                                    <h3 class="font-bold">Sin clientes</h3>
+                                    <p class="text-sm">
+                                        No hay estaciones conectadas o
+                                        registradas actualmente.
                                     </p>
                                 </td>
                             </tr>

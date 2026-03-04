@@ -14,7 +14,7 @@ from app.core.config import settings
 from ...core.constants import DeviceStatus
 from ...repositories import ap_repository
 from ...db.engine import async_session_maker
-from ...utils.cache import cache_manager
+from ...utils.cache import cache_manager, ap_live_history
 from ...infrastructure.devices.ap_connector import ap_connector
 
 logger = logging.getLogger(__name__)
@@ -141,6 +141,12 @@ class APMonitorScheduler:
         del self._subscribed_aps[host]
         cache_manager.get_store("ap_stats").delete(host)
         ap_connector.cleanup(host)
+        # Limpiar historial en vivo
+        try:
+            import asyncio
+            asyncio.ensure_future(ap_live_history.clear(host))
+        except Exception:
+            pass
 
         logger.info(f"[APMonitorScheduler] Fully unsubscribed from {host} (timeout expired)")
 
@@ -239,6 +245,16 @@ class APMonitorScheduler:
                                 logger.info(f"[APMonitorScheduler] Status changed: {host} -> OFFLINE")
                     elif result and "error" not in result:
                         stats_cache.set(host, result)
+                        # ── Historial en vivo ─────────────────────────────────
+                        try:
+                            await ap_live_history.append(host, {
+                                "clients": result.get("client_count", 0) or 0,
+                                "tx_kbps": result.get("total_throughput_tx", 0) or 0,
+                                "rx_kbps": result.get("total_throughput_rx", 0) or 0,
+                            })
+                        except Exception as _lhe:
+                            logger.debug(f"[APMonitorScheduler] live_history error for {host}: {_lhe}")
+                        # ─────────────────────────────────────────────────────
                         # Only write to DB if status changed
                         if host in self._subscribed_aps:
                             info = self._subscribed_aps[host]

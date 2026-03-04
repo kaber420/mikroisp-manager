@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import { getAPs, createAP, updateAP, deleteAP, validateAP } from "$lib/api";
     import DataTable from "$lib/components/DataTable.svelte";
-    import type { AP, APCreate, APUpdate } from "$lib/types/ap";
+    import type { AP, APCreate, APUpdate, APValidate } from "$lib/types/ap";
 
     // ── Estado principal ──────────────────────────────────────────────────
     let aps = $state<AP[]>([]);
@@ -15,6 +15,11 @@
     let editTarget = $state<AP | null>(null);
     let modalError = $state<string | null>(null);
     let modalLoading = $state(false);
+
+    // Zonas
+    import { getZonas } from "$lib/api";
+    import type { Zona } from "$lib/types/zona";
+    let zonas = $state<Zona[]>([]);
 
     // Test connection
     let testLoading = $state(false);
@@ -31,6 +36,7 @@
     let fSshPort = $state<number | null>(22);
     let fApiPort = $state<number | null>(null);
     let fIsEnabled = $state(true);
+    let fZonaId = $state<number | null>(null);
 
     // Default ports based on vendor
     $effect(() => {
@@ -65,7 +71,12 @@
         loading = true;
         pageError = null;
         try {
-            aps = await getAPs();
+            const [apsRes, zonasRes] = await Promise.all([
+                getAPs(),
+                getZonas(),
+            ]);
+            aps = apsRes;
+            zonas = zonasRes;
         } catch (e: any) {
             pageError =
                 e?.response?.data?.detail ??
@@ -86,6 +97,7 @@
         fSshPort = 22;
         fApiPort = 443;
         fIsEnabled = true;
+        fZonaId = null;
         modalError = null;
         testResult = null;
     }
@@ -108,6 +120,7 @@
         fSshPort = a.ssh_port || 22;
         fApiPort = a.api_port || null;
         fIsEnabled = a.is_enabled;
+        fZonaId = a.zona_id;
         modalError = null;
         testResult = null;
         showModal = true;
@@ -130,7 +143,7 @@
         modalError = null;
 
         try {
-            const payload: APCreate = {
+            const payload: APValidate = {
                 host: fHost.trim(),
                 username: fUsername.trim(),
                 password: fPassword || undefined,
@@ -164,6 +177,7 @@
                     ssh_port: fSshPort || undefined,
                     api_port: fApiPort || undefined,
                     is_enabled: fIsEnabled,
+                    zona_id: fZonaId || undefined,
                     role: "access_point",
                 };
                 await createAP(payload);
@@ -174,6 +188,7 @@
                     ssh_port: fSshPort || undefined,
                     api_port: fApiPort || undefined,
                     is_enabled: fIsEnabled,
+                    zona_id: fZonaId || undefined,
                     role: "access_point",
                 };
                 if (fPassword.trim()) {
@@ -492,22 +507,6 @@
                 </tr>
             {/snippet}
         </DataTable>
-
-        <!-- Estado vacío -->
-        {#if aps.length === 0}
-            <div
-                class="glass-card-flat"
-                style="padding:3rem;border-radius:1rem;text-align:center;opacity:0.6;"
-            >
-                <p style="font-size:2.5rem;margin:0 0 0.5rem;">📡</p>
-                <p style="font-weight:600;margin:0 0 0.25rem;">
-                    Sin Access Points registrados
-                </p>
-                <p style="font-size:0.85rem;margin:0;">
-                    Añade tu primer AP con el botón "+ Nuevo AP".
-                </p>
-            </div>
-        {/if}
     {:else}
         <!-- Skeleton -->
         <div class="glass-card-flat" style="padding:2rem;border-radius:1rem;">
@@ -612,6 +611,33 @@
                         >
                             <option value="ubiquiti">Ubiquiti</option>
                             <option value="mikrotik">MikroTik</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div
+                    style="display:grid;grid-template-columns:1fr;gap:0.75rem;"
+                >
+                    <!-- Zona -->
+                    <label class="form-control w-full">
+                        <div class="label">
+                            <span class="label-text font-semibold"
+                                >Zona de Cobertura *</span
+                            >
+                        </div>
+                        <select
+                            class="select select-bordered select-sm w-full"
+                            bind:value={fZonaId}
+                            required
+                        >
+                            <option value={null} disabled selected>
+                                -- Selecciona una Zona --
+                            </option>
+                            {#each zonas as z}
+                                <option value={z.id}>
+                                    {z.nombre}
+                                </option>
+                            {/each}
                         </select>
                     </label>
                 </div>

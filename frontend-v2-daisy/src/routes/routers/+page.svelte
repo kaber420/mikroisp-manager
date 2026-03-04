@@ -390,6 +390,11 @@
                         <div
                             style="display:flex;gap:0.375rem;justify-content:center;"
                         >
+                            <a
+                                class="btn btn-xs btn-ghost"
+                                href="/routers/{r.host}"
+                                title="Ver detalle del router">📊</a
+                            >
                             <button
                                 class="btn btn-xs btn-ghost"
                                 title="Editar router"

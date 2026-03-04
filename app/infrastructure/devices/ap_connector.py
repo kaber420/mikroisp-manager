@@ -2,6 +2,7 @@ import asyncio
 import logging
 from datetime import datetime
 
+from ...core.constants import CredentialKeys, DeviceVendor
 from .adapter_factory import get_device_adapter
 from .adapters.base import BaseDeviceAdapter, DeviceStatus
 from .base_connector import BaseDeviceConnector

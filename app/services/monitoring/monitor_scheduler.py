@@ -7,7 +7,7 @@ from ...core.constants import DeviceStatus
 from ...repositories import router_repository
 from ...repositories.stats_repository import save_router_monitor_stats
 from ...db.engine import get_session
-from ...utils.cache import cache_manager
+from ...utils.cache import cache_manager, router_live_history
 from ...infrastructure.devices.router_connector import router_connector
 
 logger = logging.getLogger(__name__)
@@ -33,17 +33,21 @@ class MonitorScheduler:
             f"[MonitorScheduler] Inicializado (Intervalo: {poll_interval}s, Timeout: {UNSUBSCRIBE_TIMEOUT}s)"
         )
 
-    async def subscribe(self, host: str, creds: dict) -> None:
+    async def subscribe(self, host: str, creds: dict, wan_interface: str = None) -> None:
         """Suscribe un router. Si está marcado para limpieza, lo reactiva."""
         if host not in self._subscribed_routers:
             self._subscribed_routers[host] = {
                 "ref_count": 0,
                 "last_unsubscribe_time": None,
                 "last_history_save": None,
-                "backoff_until": None,  # Backoff exponencial para errores
+                "backoff_until": None,
                 "consecutive_failures": 0,
-                "last_known_status": None,  # Track status to avoid redundant DB writes
+                "last_known_status": None,
+                "wan_interface": wan_interface,
             }
+        else:
+            if wan_interface is not None:
+                self._subscribed_routers[host]["wan_interface"] = wan_interface
 
         info = self._subscribed_routers[host]
 
@@ -153,6 +157,12 @@ class MonitorScheduler:
         del self._subscribed_routers[host]
         cache_manager.get_store("router_stats").delete(host)
         router_connector.cleanup_credentials(host)
+        # Limpiar historial en vivo
+        try:
+            import asyncio
+            asyncio.ensure_future(router_live_history.clear(host))
+        except Exception:
+            pass
 
         logger.info(f"[MonitorScheduler] Fully unsubscribed from {host} (timeout expired)")
 
@@ -275,6 +285,28 @@ class MonitorScheduler:
                             logger.info(f"[MonitorScheduler] Status changed: {host} -> OFFLINE")
                     elif result:
                         stats_cache.set(host, result)
+                        # ── Historial en vivo ─────────────────────────────────
+                        try:
+                            free_mem = int(result.get("free_memory") or 0)
+                            total_mem = int(result.get("total_memory") or 0)
+                            ram_pct = (
+                                round(((total_mem - free_mem) / total_mem) * 100)
+                                if total_mem > 0
+                                else 0
+                            )
+                            tx_bps = int(result.get("wan_tx_bps") or 0)
+                            rx_bps = int(result.get("wan_rx_bps") or 0)
+                            cpu = float(result.get("cpu_load") or 0)
+                            await router_live_history.append(host, {
+                                "cpu": cpu,
+                                "ram": float(ram_pct),
+                                "tx_kbps": round(tx_bps / 1024, 1),
+                                "rx_kbps": round(rx_bps / 1024, 1),
+                            })
+                            logger.debug(f"[MonitorScheduler] live_history appended: {host} cpu={cpu} ram={ram_pct}")
+                        except Exception as _lhe:
+                            logger.warning(f"[MonitorScheduler] live_history FAILED for {host}: {_lhe}")
+                        # ─────────────────────────────────────────────────────
                         # Only write to DB if status changed
                         if info.get("last_known_status") != DeviceStatus.ONLINE:
                             await self._update_db_status(host, DeviceStatus.ONLINE, result)
@@ -312,7 +344,11 @@ class MonitorScheduler:
 
     async def _poll_host(self, host: str) -> dict:
         """Ejecuta la consulta al router en un thread separado."""
-        return await asyncio.to_thread(router_connector.fetch_router_stats, host)
+        info = self._subscribed_routers.get(host, {})
+        wan_iface = info.get("wan_interface")
+        return await asyncio.to_thread(
+            router_connector.fetch_router_stats, host, None, wan_iface
+        )
 
 
 # Singleton - uses configurable poll interval from environment

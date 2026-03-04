@@ -31,7 +31,7 @@ from ...repositories.router_repository import get_all_routers as get_all_routers
 from ...repositories.router_repository import get_router_by_host as get_router_by_host_service
 from ...repositories.router_repository import update_router_in_db as update_router_service
 
-from ...utils.cache import cache_manager
+from ...utils.cache import cache_manager, router_live_history
 from . import config, interfaces, pppoe, system, ssl as ssl_router
 from .models import (
     RouterCreate,
@@ -91,7 +91,7 @@ async def router_resources_stream(websocket: WebSocket, host: str):
         }
 
     # 2. Suscribir al Scheduler (esto inicia la conexión background si es necesario)
-    await monitor_scheduler.subscribe(host, creds)
+    await monitor_scheduler.subscribe(host, creds, wan_interface=router.wan_interface)
 
     try:
         # 3. Loop de lectura del Cache
@@ -119,6 +119,7 @@ async def router_resources_stream(websocket: WebSocket, host: str):
                     await websocket.send_json({"type": "error", "data": {"message": data["error"]}})
                 else:
                     # Mapeo de datos para frontend (compatible con V1)
+                    live_hist = await router_live_history.get_all(host)
                     payload = {
                         "type": "resources",
                         "data": {
@@ -131,6 +132,7 @@ async def router_resources_stream(websocket: WebSocket, host: str):
                             "voltage": data.get("voltage"),
                             "temperature": data.get("temperature"),
                             "cpu_temperature": data.get("cpu_temperature"),
+                            "live_history": live_hist,
                         },
                     }
                     await websocket.send_json(payload)
@@ -364,7 +366,15 @@ async def get_router_history(
     """
     from ...repositories.stats_repository import get_router_monitor_stats_history
 
-    data = await get_router_monitor_stats_history(session, host, range_hours)
+    rows = await get_router_monitor_stats_history(session, host, range_hours)
+    # Normalizar nombres de campo para el frontend (hdd → disk)
+    data = []
+    for row in rows:
+        point = row.model_dump() if hasattr(row, "model_dump") else row.__dict__.copy()
+        point.pop("_sa_instance_state", None)
+        point["free_disk"] = point.pop("free_hdd", None)
+        point["total_disk"] = point.pop("total_hdd", None)
+        data.append(point)
     return {"status": "success", "data": data}
 
 
