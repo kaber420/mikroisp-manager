@@ -708,6 +708,24 @@
                                         stop-opacity="0"
                                     />
                                 </linearGradient>
+                                <linearGradient
+                                    id="lv-ram-grad"
+                                    x1="0"
+                                    y1="0"
+                                    x2="0"
+                                    y2="1"
+                                >
+                                    <stop
+                                        offset="0%"
+                                        stop-color="oklch(from var(--color-info) l c h)"
+                                        stop-opacity="0.2"
+                                    />
+                                    <stop
+                                        offset="100%"
+                                        stop-color="oklch(from var(--color-info) l c h)"
+                                        stop-opacity="0"
+                                    />
+                                </linearGradient>
                             </defs>
                             <polygon
                                 points="0,48 {toSparkPoints(
@@ -716,6 +734,14 @@
                                     42,
                                 )} 200,48"
                                 fill="url(#lv-cpu-grad)"
+                            />
+                            <polygon
+                                points="0,48 {toSparkPoints(
+                                    liveRamHistory,
+                                    200,
+                                    42,
+                                )} 200,48"
+                                fill="url(#lv-ram-grad)"
                             />
                             <polyline
                                 points={toSparkPoints(liveCpuHistory, 200, 42)}
@@ -732,7 +758,6 @@
                                 stroke-width="1.5"
                                 stroke-linejoin="round"
                                 stroke-linecap="round"
-                                stroke-dasharray="4 2"
                             />
                         </svg>
                         <div
@@ -784,6 +809,24 @@
                                     stop-opacity="0"
                                 />
                             </linearGradient>
+                            <linearGradient
+                                id="ram-grad"
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1"
+                            >
+                                <stop
+                                    offset="0%"
+                                    stop-color="oklch(from var(--color-info) l c h)"
+                                    stop-opacity="0.2"
+                                />
+                                <stop
+                                    offset="100%"
+                                    stop-color="oklch(from var(--color-info) l c h)"
+                                    stop-opacity="0"
+                                />
+                            </linearGradient>
                         </defs>
                         <polygon
                             points="0,48 {toSparkPoints(
@@ -792,6 +835,14 @@
                                 42,
                             )} 200,48"
                             fill="url(#cpu-grad)"
+                        />
+                        <polygon
+                            points="0,48 {toSparkPoints(
+                                ramPctHistory,
+                                200,
+                                42,
+                            )} 200,48"
+                            fill="url(#ram-grad)"
                         />
                         <polyline
                             points={toSparkPoints(cpuHistory, 200, 42)}
@@ -808,7 +859,6 @@
                             stroke-width="1.5"
                             stroke-linejoin="round"
                             stroke-linecap="round"
-                            stroke-dasharray="4 2"
                         />
                     </svg>
                     <div
@@ -923,6 +973,24 @@
                                         stop-opacity="0"
                                     />
                                 </linearGradient>
+                                <linearGradient
+                                    id="lv-rx-grad"
+                                    x1="0"
+                                    y1="0"
+                                    x2="0"
+                                    y2="1"
+                                >
+                                    <stop
+                                        offset="0%"
+                                        stop-color="oklch(from var(--color-success) l c h)"
+                                        stop-opacity="0.2"
+                                    />
+                                    <stop
+                                        offset="100%"
+                                        stop-color="oklch(from var(--color-success) l c h)"
+                                        stop-opacity="0"
+                                    />
+                                </linearGradient>
                             </defs>
                             <polygon
                                 points="0,48 {toSparkPoints(
@@ -931,6 +999,14 @@
                                     42,
                                 )} 200,48"
                                 fill="url(#lv-tx-grad)"
+                            />
+                            <polygon
+                                points="0,48 {toSparkPoints(
+                                    liveRxKbps,
+                                    200,
+                                    42,
+                                )} 200,48"
+                                fill="url(#lv-rx-grad)"
                             />
                             <polyline
                                 points={toSparkPoints(liveTxKbps, 200, 42)}
@@ -947,7 +1023,6 @@
                                 stroke-width="1.5"
                                 stroke-linejoin="round"
                                 stroke-linecap="round"
-                                stroke-dasharray="4 2"
                             />
                         </svg>
                         <div
@@ -1017,6 +1092,24 @@
                                     stop-opacity="0"
                                 />
                             </linearGradient>
+                            <linearGradient
+                                id="hist-rx-grad"
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1"
+                            >
+                                <stop
+                                    offset="0%"
+                                    stop-color="oklch(from var(--color-success) l c h)"
+                                    stop-opacity="0.2"
+                                />
+                                <stop
+                                    offset="100%"
+                                    stop-color="oklch(from var(--color-success) l c h)"
+                                    stop-opacity="0"
+                                />
+                            </linearGradient>
                         </defs>
                         <polygon
                             points="0,48 {toSparkPoints(
@@ -1025,6 +1118,14 @@
                                 42,
                             )} 200,48"
                             fill="url(#hist-tx-grad)"
+                        />
+                        <polygon
+                            points="0,48 {toSparkPoints(
+                                historyRxKbps,
+                                200,
+                                42,
+                            )} 200,48"
+                            fill="url(#hist-rx-grad)"
                         />
                         <polyline
                             points={toSparkPoints(historyTxKbps, 200, 42)}
@@ -1041,7 +1142,6 @@
                             stroke-width="1.5"
                             stroke-linejoin="round"
                             stroke-linecap="round"
-                            stroke-dasharray="4 2"
                         />
                     </svg>
                     <div
