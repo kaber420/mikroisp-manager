@@ -34,21 +34,51 @@
 </script>
 
 <div style="display:flex;flex-direction:column;gap:1.5rem;">
-    <!-- Encabezado de página -->
+    <!-- ── HEADER ─────────────────────────────────────────────────────────── -->
     <div
-        style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;"
+        class="glass-card-flat"
+        style="border-radius:1rem;display:flex;flex-direction:column;overflow:hidden;"
     >
-        <div>
-            <h2 style="font-size:1.375rem;font-weight:700;margin:0;">
-                Gestión de Clientes
-            </h2>
-            <p style="margin:0.25rem 0 0;font-size:0.85rem;opacity:0.5;">
-                {data.clients.total} cliente{data.clients.total !== 1
-                    ? "s"
-                    : ""} registrados
-            </p>
+        <div
+            style="padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:0.75rem;"
+        >
+            <div
+                style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;"
+            >
+                <div>
+                    <h1 style="margin:0;font-size:1.5rem;font-weight:800;">
+                        Gestión de Clientes
+                    </h1>
+                    <p
+                        style="margin:0.25rem 0 0;font-size:0.85rem;opacity:0.5;"
+                    >
+                        {data.clients.total} cliente{data.clients.total !== 1
+                            ? "s"
+                            : ""} registrados
+                    </p>
+                </div>
+                <div
+                    style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;"
+                >
+                    <button class="btn btn-primary btn-sm gap-2">
+                        <svg
+                            class="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M12 4v16m8-8H4"
+                            />
+                        </svg>
+                        Nuevo Cliente
+                    </button>
+                </div>
+            </div>
         </div>
-        <button class="btn btn-primary btn-sm">+ Nuevo Cliente</button>
     </div>
 
     <!-- DataTable modo servidor -->

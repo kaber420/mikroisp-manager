@@ -297,50 +297,120 @@
     </div>
 {/if}
 
-<div class="mb-6">
-    <h1 class="text-3xl font-bold">Configuración Global</h1>
-    <p class="text-base-content/60 mt-1">
-        Ajustes del sistema, facturación, bots e infraestructura.
-    </p>
-</div>
+<!-- ── HEADER ─────────────────────────────────────────────────────────── -->
+<div
+    class="glass-card-flat mb-6"
+    style="border-radius:1rem;display:flex;flex-direction:column;overflow:hidden;"
+>
+    <!-- Título y descripción -->
+    <div
+        style="padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:0.75rem;"
+    >
+        <div
+            style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;"
+        >
+            <div>
+                <h1 style="margin:0;font-size:1.5rem;font-weight:800;">
+                    Configuración Global
+                </h1>
+                <p style="margin:0.25rem 0 0;font-size:0.85rem;opacity:0.5;">
+                    Ajustes del sistema, facturación, bots e infraestructura.
+                </p>
+            </div>
+        </div>
+    </div>
 
-<!-- Tabs DaisyUI (role=tablist) -->
-<div role="tablist" class="tabs tabs-bordered tabs-lg mb-6 flex-wrap gap-1">
-    <button
-        role="tab"
-        class="tab {activeTab === 'general' ? 'tab-active font-bold' : ''}"
-        onclick={() => (activeTab = "general")}
+    <!-- Pestañas de Navegación integradas al header -->
+    <div
+        style="background:oklch(from var(--color-base-content) l c h / 0.02);border-top:1px solid oklch(from var(--color-base-content) l c h / 0.08);padding:0 1.5rem;display:flex;gap:1.5rem;"
+        role="tablist"
     >
-        ⚙️ General
-    </button>
-    <button
-        role="tab"
-        class="tab {activeTab === 'auditoria' ? 'tab-active font-bold' : ''}"
-        onclick={() => (activeTab = "auditoria")}
-    >
-        🛡️ Auditoría
-    </button>
-    <button
-        role="tab"
-        class="tab {activeTab === 'bots' ? 'tab-active font-bold' : ''}"
-        onclick={() => (activeTab = "bots")}
-    >
-        🤖 Bots
-    </button>
-    <button
-        role="tab"
-        class="tab {activeTab === 'sistema' ? 'tab-active font-bold' : ''}"
-        onclick={() => (activeTab = "sistema")}
-    >
-        🗄️ Sistema
-    </button>
-    <button
-        role="tab"
-        class="tab {activeTab === 'apariencia' ? 'tab-active font-bold' : ''}"
-        onclick={() => (activeTab = "apariencia")}
-    >
-        🎨 Apariencia
-    </button>
+        <button
+            role="tab"
+            aria-selected={activeTab === "general"}
+            onclick={() => (activeTab = "general")}
+            style="padding:0.85rem 0;font-size:0.85rem;font-weight:{activeTab ===
+            'general'
+                ? '800'
+                : '600'};color:{activeTab === 'general'
+                ? 'oklch(from var(--color-primary) l c h)'
+                : 'inherit'};opacity:{activeTab === 'general'
+                ? '1'
+                : '0.5'};border-bottom:3px solid {activeTab === 'general'
+                ? 'oklch(from var(--color-primary) l c h)'
+                : 'transparent'};background:none;cursor:pointer;transition:all 0.2s;"
+        >
+            ⚙️ General
+        </button>
+        <button
+            role="tab"
+            aria-selected={activeTab === "auditoria"}
+            onclick={() => (activeTab = "auditoria")}
+            style="padding:0.85rem 0;font-size:0.85rem;font-weight:{activeTab ===
+            'auditoria'
+                ? '800'
+                : '600'};color:{activeTab === 'auditoria'
+                ? 'oklch(from var(--color-primary) l c h)'
+                : 'inherit'};opacity:{activeTab === 'auditoria'
+                ? '1'
+                : '0.5'};border-bottom:3px solid {activeTab === 'auditoria'
+                ? 'oklch(from var(--color-primary) l c h)'
+                : 'transparent'};background:none;cursor:pointer;transition:all 0.2s;"
+        >
+            🛡️ Auditoría
+        </button>
+        <button
+            role="tab"
+            aria-selected={activeTab === "bots"}
+            onclick={() => (activeTab = "bots")}
+            style="padding:0.85rem 0;font-size:0.85rem;font-weight:{activeTab ===
+            'bots'
+                ? '800'
+                : '600'};color:{activeTab === 'bots'
+                ? 'oklch(from var(--color-primary) l c h)'
+                : 'inherit'};opacity:{activeTab === 'bots'
+                ? '1'
+                : '0.5'};border-bottom:3px solid {activeTab === 'bots'
+                ? 'oklch(from var(--color-primary) l c h)'
+                : 'transparent'};background:none;cursor:pointer;transition:all 0.2s;"
+        >
+            🤖 Bots
+        </button>
+        <button
+            role="tab"
+            aria-selected={activeTab === "sistema"}
+            onclick={() => (activeTab = "sistema")}
+            style="padding:0.85rem 0;font-size:0.85rem;font-weight:{activeTab ===
+            'sistema'
+                ? '800'
+                : '600'};color:{activeTab === 'sistema'
+                ? 'oklch(from var(--color-primary) l c h)'
+                : 'inherit'};opacity:{activeTab === 'sistema'
+                ? '1'
+                : '0.5'};border-bottom:3px solid {activeTab === 'sistema'
+                ? 'oklch(from var(--color-primary) l c h)'
+                : 'transparent'};background:none;cursor:pointer;transition:all 0.2s;"
+        >
+            🗄️ Sistema
+        </button>
+        <button
+            role="tab"
+            aria-selected={activeTab === "apariencia"}
+            onclick={() => (activeTab = "apariencia")}
+            style="padding:0.85rem 0;font-size:0.85rem;font-weight:{activeTab ===
+            'apariencia'
+                ? '800'
+                : '600'};color:{activeTab === 'apariencia'
+                ? 'oklch(from var(--color-primary) l c h)'
+                : 'inherit'};opacity:{activeTab === 'apariencia'
+                ? '1'
+                : '0.5'};border-bottom:3px solid {activeTab === 'apariencia'
+                ? 'oklch(from var(--color-primary) l c h)'
+                : 'transparent'};background:none;cursor:pointer;transition:all 0.2s;"
+        >
+            🎨 Apariencia
+        </button>
+    </div>
 </div>
 
 <!-- ══════════════════ TAB 1: GENERAL ══════════════════ -->

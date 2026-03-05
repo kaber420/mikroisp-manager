@@ -1,10 +1,11 @@
 <script lang="ts">
 	import "../app.css";
-	import { onMount } from "svelte";
+	import { onMount, onDestroy } from "svelte";
 	import { page } from "$app/stores";
 	import { api } from "$lib/api";
 	import { initSession, clearSession } from "$lib/authutils";
 	import { user, sessionState } from "$lib/stores/auth";
+	import { serverConnected, connect, disconnect } from "$lib/stores/websocket";
 	import SessionMonitor from "$lib/components/SessionMonitor.svelte";
 	import { theme } from "$lib/stores/theme";
 	import LavaLampBackground from "$lib/components/LavaLampBackground.svelte";
@@ -18,7 +19,13 @@
 		// Auth Optimista: pinta inmediato desde caché, verifica en background
 		if ($page.url.pathname !== "/login") {
 			initSession($page.url.pathname);
+			// Conectar WebSocket global para monitorear conexión con el servidor
+			connect();
 		}
+	});
+
+	onDestroy(() => {
+		disconnect();
 	});
 
 	async function handleLogout() {
@@ -33,12 +40,18 @@
 	}
 
 	// Clases reactivas para el indicador (punto) de la sesión
+	// Prioridad: sin conexión al servidor → rojo fijo
+	//            sesión activa              → verde pulsante
+	//            sesión por expirar (warn)  → amarillo
+	//            sesión expirada            → rojo opaco
 	let indicatorClass = $derived(
-		$sessionState === "active"
-			? "bg-success animate-pulse shadow-[0_0_8px_rgba(0,255,0,0.8)]"
-			: $sessionState === "warning"
-				? "bg-warning shadow-[0_0_8px_rgba(255,165,0,0.8)]"
-				: "bg-error opacity-80",
+		!$serverConnected
+			? "bg-error animate-none shadow-[0_0_8px_rgba(255,0,0,0.9)]"
+			: $sessionState === "active"
+				? "bg-success animate-pulse shadow-[0_0_8px_rgba(0,255,0,0.8)]"
+				: $sessionState === "warning"
+					? "bg-warning shadow-[0_0_8px_rgba(255,165,0,0.8)]"
+					: "bg-error opacity-80",
 	);
 
 	// Obtener inicial/avatar del usuario
