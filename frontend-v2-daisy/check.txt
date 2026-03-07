@@ -1,0 +1,1771 @@
+Loading svelte-check in workspace: /home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy
+Getting Svelte diagnostics...
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/+page.svelte:194:24
+Error: Cannot find name 'diffDays'. (ts)
+        if (diffHrs < 24) return `Hace ${diffHrs}h`;
+        return `Hace ${diffDays}d`;
+    }
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/configuracion/+page.svelte:1377:33
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                            <div class="md:col-span-2 form-control">
+                                <label class="label"
+                                    ><span class="label-text">Host</span></label
+                                >
+                                <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/configuracion/+page.svelte:1388:33
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                            <div class="form-control">
+                                <label class="label"
+                                    ><span class="label-text">Puerto</span
+                                    ></label
+                                >
+                                <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/configuracion/+page.svelte:1400:33
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                            <div class="form-control">
+                                <label class="label"
+                                    ><span class="label-text"
+                                        >Base de Datos</span
+                                    ></label
+                                >
+                                <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/configuracion/+page.svelte:1413:33
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                            <div class="form-control">
+                                <label class="label"
+                                    ><span class="label-text">Usuario</span
+                                    ></label
+                                >
+                                <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/configuracion/+page.svelte:1425:33
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                            <div class="form-control">
+                                <label class="label"
+                                    ><span class="label-text">Contraseña</span
+                                    ></label
+                                >
+                                <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/configuracion/+page.svelte:1485:33
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                            <div class="form-control">
+                                <label class="label"
+                                    ><span class="label-text"
+                                        >URL de Conexión</span
+                                    ></label
+                                >
+                                <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/configuracion/+page.svelte:1496:33
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                                />
+                                <label class="label"
+                                    ><span
+                                        class="label-text-alt text-base-content/50"
+                                        >Formato:
+                                        redis://[:password@]host:port/db</span
+                                    ></label
+                                >
+                            </div>
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/cpes/+page.svelte:372:5
+Warn: Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events (svelte)
+{#if editModal && editTarget}
+    <div
+        style="position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);"
+        onclick={(e) => {
+            if (e.target === e.currentTarget) editModal = false;
+        }}
+    >
+        <div
+            class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 w-full max-w-sm"
+        >
+            <div
+                class="flex items-center justify-between p-5 border-b border-base-200"
+            >
+                <h3 class="text-lg font-bold">Editar CPE</h3>
+                <button
+                    class="btn btn-ghost btn-sm btn-circle"
+                    onclick={() => (editModal = false)}>✕</button
+                >
+            </div>
+
+            <div
+                class="p-5"
+                style="display:flex;flex-direction:column;gap:1rem;"
+            >
+                {#if editError}
+                    <div class="alert alert-error py-2 text-sm">
+                        {editError}
+                    </div>
+                {/if}
+
+                <div>
+                    <label class="label pb-1"
+                        ><span
+                            class="label-text text-xs font-bold uppercase opacity-60"
+                            >MAC Address</span
+                        ></label
+                    >
+                    <input
+                        type="text"
+                        readonly
+                        value={editTarget.cpe_mac}
+                        class="input input-bordered input-sm w-full font-mono opacity-60 cursor-not-allowed"
+                    />
+                </div>
+
+                <div>
+                    <label class="label pb-1"
+                        ><span
+                            class="label-text text-xs font-bold uppercase opacity-60"
+                            >Hostname / Alias</span
+                        ></label
+                    >
+                    <input
+                        type="text"
+                        class="input input-bordered input-sm w-full"
+                        placeholder="Ej: Casa García"
+                        bind:value={editHostname}
+                    />
+                    <p class="text-xs opacity-50 mt-1">
+                        Se mostrará como nombre del CPE en el sistema.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 p-5 border-t border-base-200">
+                <button
+                    class="btn btn-ghost btn-sm"
+                    onclick={() => (editModal = false)}>Cancelar</button
+                >
+                <button
+                    class="btn btn-primary btn-sm"
+                    onclick={saveEdit}
+                    disabled={editSaving}
+                >
+                    {#if editSaving}<span
+                            class="loading loading-spinner loading-xs"
+                        ></span>{/if}
+                    Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/cpes/+page.svelte:372:5
+Warn: `<div>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions (svelte)
+{#if editModal && editTarget}
+    <div
+        style="position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);"
+        onclick={(e) => {
+            if (e.target === e.currentTarget) editModal = false;
+        }}
+    >
+        <div
+            class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 w-full max-w-sm"
+        >
+            <div
+                class="flex items-center justify-between p-5 border-b border-base-200"
+            >
+                <h3 class="text-lg font-bold">Editar CPE</h3>
+                <button
+                    class="btn btn-ghost btn-sm btn-circle"
+                    onclick={() => (editModal = false)}>✕</button
+                >
+            </div>
+
+            <div
+                class="p-5"
+                style="display:flex;flex-direction:column;gap:1rem;"
+            >
+                {#if editError}
+                    <div class="alert alert-error py-2 text-sm">
+                        {editError}
+                    </div>
+                {/if}
+
+                <div>
+                    <label class="label pb-1"
+                        ><span
+                            class="label-text text-xs font-bold uppercase opacity-60"
+                            >MAC Address</span
+                        ></label
+                    >
+                    <input
+                        type="text"
+                        readonly
+                        value={editTarget.cpe_mac}
+                        class="input input-bordered input-sm w-full font-mono opacity-60 cursor-not-allowed"
+                    />
+                </div>
+
+                <div>
+                    <label class="label pb-1"
+                        ><span
+                            class="label-text text-xs font-bold uppercase opacity-60"
+                            >Hostname / Alias</span
+                        ></label
+                    >
+                    <input
+                        type="text"
+                        class="input input-bordered input-sm w-full"
+                        placeholder="Ej: Casa García"
+                        bind:value={editHostname}
+                    />
+                    <p class="text-xs opacity-50 mt-1">
+                        Se mostrará como nombre del CPE en el sistema.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 p-5 border-t border-base-200">
+                <button
+                    class="btn btn-ghost btn-sm"
+                    onclick={() => (editModal = false)}>Cancelar</button
+                >
+                <button
+                    class="btn btn-primary btn-sm"
+                    onclick={saveEdit}
+                    disabled={editSaving}
+                >
+                    {#if editSaving}<span
+                            class="loading loading-spinner loading-xs"
+                        ></span>{/if}
+                    Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/cpes/+page.svelte:402:21
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                <div>
+                    <label class="label pb-1"
+                        ><span
+                            class="label-text text-xs font-bold uppercase opacity-60"
+                            >MAC Address</span
+                        ></label
+                    >
+                    <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/cpes/+page.svelte:417:21
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                <div>
+                    <label class="label pb-1"
+                        ><span
+                            class="label-text text-xs font-bold uppercase opacity-60"
+                            >Hostname / Alias</span
+                        ></label
+                    >
+                    <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/cpes/+page.svelte:457:5
+Warn: Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events (svelte)
+{#if disableModal && disableTarget}
+    <div
+        style="position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);"
+        onclick={(e) => {
+            if (e.target === e.currentTarget) disableModal = false;
+        }}
+    >
+        <div
+            class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 w-full max-w-sm"
+        >
+            <div
+                class="flex items-center justify-between p-5 border-b border-base-200"
+            >
+                <h3 class="text-lg font-bold text-warning">Deshabilitar CPE</h3>
+                <button
+                    class="btn btn-ghost btn-sm btn-circle"
+                    onclick={() => (disableModal = false)}>✕</button
+                >
+            </div>
+            <div class="p-5">
+                {#if disableError}
+                    <div class="alert alert-error py-2 text-sm mb-3">
+                        {disableError}
+                    </div>
+                {/if}
+                <p class="text-sm">
+                    ¿Confirmas que deseas deshabilitar el CPE <strong
+                        >{disableTarget.cpe_hostname ??
+                            disableTarget.cpe_mac}</strong
+                    >?
+                </p>
+                <p class="text-xs opacity-50 mt-2">
+                    El CPE quedará inactivo pero permanecerá en la base de
+                    datos. Puedes eliminarlo después.
+                </p>
+            </div>
+            <div class="flex justify-end gap-2 p-5 border-t border-base-200">
+                <button
+                    class="btn btn-ghost btn-sm"
+                    onclick={() => (disableModal = false)}>Cancelar</button
+                >
+                <button
+                    class="btn btn-warning btn-sm"
+                    onclick={confirmDisable}
+                    disabled={disabling}
+                >
+                    {#if disabling}<span
+                            class="loading loading-spinner loading-xs"
+                        ></span>{/if}
+                    Deshabilitar
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/cpes/+page.svelte:457:5
+Warn: `<div>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions (svelte)
+{#if disableModal && disableTarget}
+    <div
+        style="position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);"
+        onclick={(e) => {
+            if (e.target === e.currentTarget) disableModal = false;
+        }}
+    >
+        <div
+            class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 w-full max-w-sm"
+        >
+            <div
+                class="flex items-center justify-between p-5 border-b border-base-200"
+            >
+                <h3 class="text-lg font-bold text-warning">Deshabilitar CPE</h3>
+                <button
+                    class="btn btn-ghost btn-sm btn-circle"
+                    onclick={() => (disableModal = false)}>✕</button
+                >
+            </div>
+            <div class="p-5">
+                {#if disableError}
+                    <div class="alert alert-error py-2 text-sm mb-3">
+                        {disableError}
+                    </div>
+                {/if}
+                <p class="text-sm">
+                    ¿Confirmas que deseas deshabilitar el CPE <strong
+                        >{disableTarget.cpe_hostname ??
+                            disableTarget.cpe_mac}</strong
+                    >?
+                </p>
+                <p class="text-xs opacity-50 mt-2">
+                    El CPE quedará inactivo pero permanecerá en la base de
+                    datos. Puedes eliminarlo después.
+                </p>
+            </div>
+            <div class="flex justify-end gap-2 p-5 border-t border-base-200">
+                <button
+                    class="btn btn-ghost btn-sm"
+                    onclick={() => (disableModal = false)}>Cancelar</button
+                >
+                <button
+                    class="btn btn-warning btn-sm"
+                    onclick={confirmDisable}
+                    disabled={disabling}
+                >
+                    {#if disabling}<span
+                            class="loading loading-spinner loading-xs"
+                        ></span>{/if}
+                    Deshabilitar
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/cpes/+page.svelte:514:5
+Warn: Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events (svelte)
+{#if deleteModal && deleteTarget}
+    <div
+        style="position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);"
+        onclick={(e) => {
+            if (e.target === e.currentTarget) deleteModal = false;
+        }}
+    >
+        <div
+            class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 w-full max-w-sm"
+        >
+            <div
+                class="flex items-center justify-between p-5 border-b border-base-200"
+            >
+                <h3 class="text-lg font-bold text-error">Eliminar CPE</h3>
+                <button
+                    class="btn btn-ghost btn-sm btn-circle"
+                    onclick={() => (deleteModal = false)}>✕</button
+                >
+            </div>
+            <div class="p-5">
+                {#if deleteError}
+                    <div class="alert alert-error py-2 text-sm mb-3">
+                        {deleteError}
+                    </div>
+                {/if}
+                <p class="text-sm">
+                    ¿Confirmas que deseas eliminar <strong
+                        >permanentemente</strong
+                    >
+                    el CPE
+                    <strong
+                        >{deleteTarget.cpe_hostname ??
+                            deleteTarget.cpe_mac}</strong
+                    >?
+                </p>
+                <p class="text-xs text-error mt-2 font-semibold">
+                    ⚠ Esta acción no se puede deshacer.
+                </p>
+            </div>
+            <div class="flex justify-end gap-2 p-5 border-t border-base-200">
+                <button
+                    class="btn btn-ghost btn-sm"
+                    onclick={() => (deleteModal = false)}>Cancelar</button
+                >
+                <button
+                    class="btn btn-error btn-sm"
+                    onclick={confirmDelete}
+                    disabled={deleting}
+                >
+                    {#if deleting}<span
+                            class="loading loading-spinner loading-xs"
+                        ></span>{/if}
+                    Eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/cpes/+page.svelte:514:5
+Warn: `<div>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions (svelte)
+{#if deleteModal && deleteTarget}
+    <div
+        style="position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);"
+        onclick={(e) => {
+            if (e.target === e.currentTarget) deleteModal = false;
+        }}
+    >
+        <div
+            class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 w-full max-w-sm"
+        >
+            <div
+                class="flex items-center justify-between p-5 border-b border-base-200"
+            >
+                <h3 class="text-lg font-bold text-error">Eliminar CPE</h3>
+                <button
+                    class="btn btn-ghost btn-sm btn-circle"
+                    onclick={() => (deleteModal = false)}>✕</button
+                >
+            </div>
+            <div class="p-5">
+                {#if deleteError}
+                    <div class="alert alert-error py-2 text-sm mb-3">
+                        {deleteError}
+                    </div>
+                {/if}
+                <p class="text-sm">
+                    ¿Confirmas que deseas eliminar <strong
+                        >permanentemente</strong
+                    >
+                    el CPE
+                    <strong
+                        >{deleteTarget.cpe_hostname ??
+                            deleteTarget.cpe_mac}</strong
+                    >?
+                </p>
+                <p class="text-xs text-error mt-2 font-semibold">
+                    ⚠ Esta acción no se puede deshacer.
+                </p>
+            </div>
+            <div class="flex justify-end gap-2 p-5 border-t border-base-200">
+                <button
+                    class="btn btn-ghost btn-sm"
+                    onclick={() => (deleteModal = false)}>Cancelar</button
+                >
+                <button
+                    class="btn btn-error btn-sm"
+                    onclick={confirmDelete}
+                    disabled={deleting}
+                >
+                    {#if deleting}<span
+                            class="loading loading-spinner loading-xs"
+                        ></span>{/if}
+                    Eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/planes/PlanFormModal.svelte:129:25
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                    <div class="form-control">
+                        <label class="label"
+                            ><span class="label-text font-medium"
+                                >Nombre del Plan *</span
+                            ></label
+                        >
+                        <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/planes/PlanFormModal.svelte:143:25
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                    <div class="form-control">
+                        <label class="label"
+                            ><span class="label-text font-medium"
+                                >Max Limit *</span
+                            ></label
+                        >
+                        <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/planes/PlanFormModal.svelte:161:25
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                    <div class="form-control">
+                        <label class="label"
+                            ><span class="label-text font-medium"
+                                >Precio ($)</span
+                            ></label
+                        >
+                        <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/planes/PlanFormModal.svelte:175:25
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                    <div class="form-control">
+                        <label class="label"
+                            ><span class="label-text font-medium"
+                                >Tipo de Plan</span
+                            ></label
+                        >
+                        <select
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/planes/PlanFormModal.svelte:193:25
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                    <div class="form-control">
+                        <label class="label"
+                            ><span class="label-text font-medium"
+                                >Nombre de Perfil PPPoE</span
+                            ></label
+                        >
+                        <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/planes/PlanFormModal.svelte:209:21
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Aplicar en</span>
+                        <span class="label-text-alt text-info"
+                            >Global = aplica en todos los routers</span
+                        >
+                    </label>
+                    {#if fixedRouterHost}
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/planes/PlanFormModal.svelte:240:21
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                <div class="form-control">
+                    <label class="label"
+                        ><span class="label-text font-medium"
+                            >Método de Suspensión</span
+                        ></label
+                    >
+                    <select
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/planes/PlanFormModal.svelte:267:29
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                        <div class="form-control">
+                            <label class="label"
+                                ><span class="label-text font-medium"
+                                    >Estrategia</span
+                                ></label
+                            >
+                            <select
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/planes/PlanFormModal.svelte:281:29
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                        <div class="form-control">
+                            <label class="label"
+                                ><span class="label-text font-medium"
+                                    >Nombre de Lista</span
+                                ></label
+                            >
+                            <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/planes/PlanFormModal.svelte:298:21
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                <div class="form-control">
+                    <label class="label"
+                        ><span class="label-text font-medium">Parent Queue</span
+                        ></label
+                    >
+                    <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/planes/PlanFormModal.svelte:312:21
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                <div class="form-control">
+                    <label class="label"
+                        ><span class="label-text font-medium">Comentario</span
+                        ></label
+                    >
+                    <textarea
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/planes/PlanFormModal.svelte:327:25
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                    <div class="form-control">
+                        <label class="label"
+                            ><span class="label-text font-medium"
+                                >Queue Type (RouterOS v6)</span
+                            ></label
+                        >
+                        <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/planes/PlanFormModal.svelte:340:25
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                    <div class="form-control">
+                        <label class="label"
+                            ><span class="label-text font-medium"
+                                >Queue Type (RouterOS v7)</span
+                            ></label
+                        >
+                        <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/routers/[host]/VlanModal.svelte:44:28
+Error: Parameter 'i' implicitly has an 'any' type. (ts)
+    const physicalInterfaces = $derived(
+        interfaces.filter((i) => ["ether", "wlan", "bonding"].includes(i.type)),
+    );
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/routers/[host]/BridgeModal.svelte:145:21
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                <div class="form-control">
+                    <label class="label"
+                        ><span class="label-text">Puertos</span></label
+                    >
+                    <div
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/routers/[host]/RouterEditModal.svelte:83:1
+Warn: Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events (svelte)
+<!-- Overlay -->
+<div
+    style="position:fixed;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);z-index:9000;display:flex;align-items:center;justify-content:center;padding:1rem;"
+    onclick={onClose}
+>
+    <!-- Modal card -->
+    <div
+        class="glass-card-flat"
+        style="border-radius:1.25rem;width:100%;max-width:540px;padding:1.75rem;box-shadow:0 20px 60px rgba(0,0,0,0.5);border:1px solid oklch(from var(--color-primary) l c h / 0.2);"
+        onclick={(e) => e.stopPropagation()}
+    >
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+            <h2 style="margin:0;font-size:1.15rem;font-weight:800;display:flex;align-items:center;gap:0.5rem;">
+                <span style="font-size:1.3rem;">✏️</span>
+                Editar Router
+                <span style="font-family:monospace;font-size:0.85rem;opacity:0.5;font-weight:400;">/ {router.host}</span>
+            </h2>
+            <button class="btn btn-ghost btn-sm btn-circle" onclick={onClose} aria-label="Cerrar">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" style="width:1rem;height:1rem;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Mensajes -->
+        {#if errorMsg}
+            <div class="alert alert-error py-2 mb-4" style="font-size:0.85rem;">⚠️ {errorMsg}</div>
+        {/if}
+        {#if successMsg}
+            <div class="alert alert-success py-2 mb-4" style="font-size:0.85rem;">✅ {successMsg}</div>
+        {/if}
+
+        <!-- Form -->
+        <form onsubmit={(e) => { e.preventDefault(); handleSave(); }} style="display:flex;flex-direction:column;gap:1rem;">
+            <!-- Usuario -->
+            <div>
+                <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                    Usuario API
+                </label>
+                <input
+                    type="text"
+                    class="input input-bordered w-full input-sm"
+                    bind:value={username}
+                    required
+                    autocomplete="off"
+                    placeholder="admin"
+                />
+            </div>
+
+            <!-- Contraseña -->
+            <div>
+                <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                    Nueva Contraseña <span style="opacity:0.5;text-transform:none;font-weight:400;">(vacío = no cambiar)</span>
+                </label>
+                <input
+                    type="password"
+                    class="input input-bordered w-full input-sm"
+                    bind:value={password}
+                    autocomplete="new-password"
+                    placeholder="••••••••"
+                />
+            </div>
+
+            <!-- Puertos -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                <div>
+                    <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                        Puerto API
+                    </label>
+                    <input
+                        type="number"
+                        class="input input-bordered w-full input-sm"
+                        bind:value={apiPort}
+                        min="1"
+                        max="65535"
+                        required
+                    />
+                </div>
+                <div>
+                    <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                        Puerto SSH
+                    </label>
+                    <input
+                        type="number"
+                        class="input input-bordered w-full input-sm"
+                        bind:value={sshPort}
+                        min="1"
+                        max="65535"
+                    />
+                </div>
+            </div>
+
+            <!-- Zona -->
+            <div>
+                <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                    Zona
+                </label>
+                <select class="select select-bordered w-full select-sm" bind:value={zonaId}>
+                    <option value={null}>-- Sin zona --</option>
+                    {#each zonas as z}
+                        <option value={z.id}>{z.nombre}</option>
+                    {/each}
+                </select>
+            </div>
+
+            <!-- Habilitado -->
+            <label class="label cursor-pointer justify-start gap-3" style="padding:0;">
+                <input type="checkbox" class="toggle toggle-success toggle-sm" bind:checked={isEnabled} />
+                <span style="font-size:0.85rem;font-weight:600;">Router habilitado para monitoreo</span>
+            </label>
+
+            <!-- Acciones -->
+            <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:0.5rem;padding-top:0.75rem;border-top:1px solid oklch(from var(--color-base-content) l c h / 0.1);">
+                <button type="button" class="btn btn-ghost btn-sm" onclick={onClose}>Cancelar</button>
+                <button type="submit" class="btn btn-primary btn-sm" disabled={saving}>
+                    {#if saving}
+                        <span class="loading loading-spinner loading-xs"></span>
+                        Guardando...
+                    {:else}
+                        💾 Guardar Cambios
+                    {/if}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{/if}
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/routers/[host]/RouterEditModal.svelte:83:1
+Warn: `<div>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions (svelte)
+<!-- Overlay -->
+<div
+    style="position:fixed;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);z-index:9000;display:flex;align-items:center;justify-content:center;padding:1rem;"
+    onclick={onClose}
+>
+    <!-- Modal card -->
+    <div
+        class="glass-card-flat"
+        style="border-radius:1.25rem;width:100%;max-width:540px;padding:1.75rem;box-shadow:0 20px 60px rgba(0,0,0,0.5);border:1px solid oklch(from var(--color-primary) l c h / 0.2);"
+        onclick={(e) => e.stopPropagation()}
+    >
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+            <h2 style="margin:0;font-size:1.15rem;font-weight:800;display:flex;align-items:center;gap:0.5rem;">
+                <span style="font-size:1.3rem;">✏️</span>
+                Editar Router
+                <span style="font-family:monospace;font-size:0.85rem;opacity:0.5;font-weight:400;">/ {router.host}</span>
+            </h2>
+            <button class="btn btn-ghost btn-sm btn-circle" onclick={onClose} aria-label="Cerrar">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" style="width:1rem;height:1rem;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Mensajes -->
+        {#if errorMsg}
+            <div class="alert alert-error py-2 mb-4" style="font-size:0.85rem;">⚠️ {errorMsg}</div>
+        {/if}
+        {#if successMsg}
+            <div class="alert alert-success py-2 mb-4" style="font-size:0.85rem;">✅ {successMsg}</div>
+        {/if}
+
+        <!-- Form -->
+        <form onsubmit={(e) => { e.preventDefault(); handleSave(); }} style="display:flex;flex-direction:column;gap:1rem;">
+            <!-- Usuario -->
+            <div>
+                <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                    Usuario API
+                </label>
+                <input
+                    type="text"
+                    class="input input-bordered w-full input-sm"
+                    bind:value={username}
+                    required
+                    autocomplete="off"
+                    placeholder="admin"
+                />
+            </div>
+
+            <!-- Contraseña -->
+            <div>
+                <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                    Nueva Contraseña <span style="opacity:0.5;text-transform:none;font-weight:400;">(vacío = no cambiar)</span>
+                </label>
+                <input
+                    type="password"
+                    class="input input-bordered w-full input-sm"
+                    bind:value={password}
+                    autocomplete="new-password"
+                    placeholder="••••••••"
+                />
+            </div>
+
+            <!-- Puertos -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                <div>
+                    <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                        Puerto API
+                    </label>
+                    <input
+                        type="number"
+                        class="input input-bordered w-full input-sm"
+                        bind:value={apiPort}
+                        min="1"
+                        max="65535"
+                        required
+                    />
+                </div>
+                <div>
+                    <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                        Puerto SSH
+                    </label>
+                    <input
+                        type="number"
+                        class="input input-bordered w-full input-sm"
+                        bind:value={sshPort}
+                        min="1"
+                        max="65535"
+                    />
+                </div>
+            </div>
+
+            <!-- Zona -->
+            <div>
+                <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                    Zona
+                </label>
+                <select class="select select-bordered w-full select-sm" bind:value={zonaId}>
+                    <option value={null}>-- Sin zona --</option>
+                    {#each zonas as z}
+                        <option value={z.id}>{z.nombre}</option>
+                    {/each}
+                </select>
+            </div>
+
+            <!-- Habilitado -->
+            <label class="label cursor-pointer justify-start gap-3" style="padding:0;">
+                <input type="checkbox" class="toggle toggle-success toggle-sm" bind:checked={isEnabled} />
+                <span style="font-size:0.85rem;font-weight:600;">Router habilitado para monitoreo</span>
+            </label>
+
+            <!-- Acciones -->
+            <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:0.5rem;padding-top:0.75rem;border-top:1px solid oklch(from var(--color-base-content) l c h / 0.1);">
+                <button type="button" class="btn btn-ghost btn-sm" onclick={onClose}>Cancelar</button>
+                <button type="submit" class="btn btn-primary btn-sm" disabled={saving}>
+                    {#if saving}
+                        <span class="loading loading-spinner loading-xs"></span>
+                        Guardando...
+                    {:else}
+                        💾 Guardar Cambios
+                    {/if}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{/if}
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/routers/[host]/RouterEditModal.svelte:88:5
+Warn: Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events (svelte)
+    <!-- Modal card -->
+    <div
+        class="glass-card-flat"
+        style="border-radius:1.25rem;width:100%;max-width:540px;padding:1.75rem;box-shadow:0 20px 60px rgba(0,0,0,0.5);border:1px solid oklch(from var(--color-primary) l c h / 0.2);"
+        onclick={(e) => e.stopPropagation()}
+    >
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+            <h2 style="margin:0;font-size:1.15rem;font-weight:800;display:flex;align-items:center;gap:0.5rem;">
+                <span style="font-size:1.3rem;">✏️</span>
+                Editar Router
+                <span style="font-family:monospace;font-size:0.85rem;opacity:0.5;font-weight:400;">/ {router.host}</span>
+            </h2>
+            <button class="btn btn-ghost btn-sm btn-circle" onclick={onClose} aria-label="Cerrar">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" style="width:1rem;height:1rem;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Mensajes -->
+        {#if errorMsg}
+            <div class="alert alert-error py-2 mb-4" style="font-size:0.85rem;">⚠️ {errorMsg}</div>
+        {/if}
+        {#if successMsg}
+            <div class="alert alert-success py-2 mb-4" style="font-size:0.85rem;">✅ {successMsg}</div>
+        {/if}
+
+        <!-- Form -->
+        <form onsubmit={(e) => { e.preventDefault(); handleSave(); }} style="display:flex;flex-direction:column;gap:1rem;">
+            <!-- Usuario -->
+            <div>
+                <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                    Usuario API
+                </label>
+                <input
+                    type="text"
+                    class="input input-bordered w-full input-sm"
+                    bind:value={username}
+                    required
+                    autocomplete="off"
+                    placeholder="admin"
+                />
+            </div>
+
+            <!-- Contraseña -->
+            <div>
+                <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                    Nueva Contraseña <span style="opacity:0.5;text-transform:none;font-weight:400;">(vacío = no cambiar)</span>
+                </label>
+                <input
+                    type="password"
+                    class="input input-bordered w-full input-sm"
+                    bind:value={password}
+                    autocomplete="new-password"
+                    placeholder="••••••••"
+                />
+            </div>
+
+            <!-- Puertos -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                <div>
+                    <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                        Puerto API
+                    </label>
+                    <input
+                        type="number"
+                        class="input input-bordered w-full input-sm"
+                        bind:value={apiPort}
+                        min="1"
+                        max="65535"
+                        required
+                    />
+                </div>
+                <div>
+                    <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                        Puerto SSH
+                    </label>
+                    <input
+                        type="number"
+                        class="input input-bordered w-full input-sm"
+                        bind:value={sshPort}
+                        min="1"
+                        max="65535"
+                    />
+                </div>
+            </div>
+
+            <!-- Zona -->
+            <div>
+                <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                    Zona
+                </label>
+                <select class="select select-bordered w-full select-sm" bind:value={zonaId}>
+                    <option value={null}>-- Sin zona --</option>
+                    {#each zonas as z}
+                        <option value={z.id}>{z.nombre}</option>
+                    {/each}
+                </select>
+            </div>
+
+            <!-- Habilitado -->
+            <label class="label cursor-pointer justify-start gap-3" style="padding:0;">
+                <input type="checkbox" class="toggle toggle-success toggle-sm" bind:checked={isEnabled} />
+                <span style="font-size:0.85rem;font-weight:600;">Router habilitado para monitoreo</span>
+            </label>
+
+            <!-- Acciones -->
+            <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:0.5rem;padding-top:0.75rem;border-top:1px solid oklch(from var(--color-base-content) l c h / 0.1);">
+                <button type="button" class="btn btn-ghost btn-sm" onclick={onClose}>Cancelar</button>
+                <button type="submit" class="btn btn-primary btn-sm" disabled={saving}>
+                    {#if saving}
+                        <span class="loading loading-spinner loading-xs"></span>
+                        Guardando...
+                    {:else}
+                        💾 Guardar Cambios
+                    {/if}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/routers/[host]/RouterEditModal.svelte:88:5
+Warn: `<div>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions (svelte)
+    <!-- Modal card -->
+    <div
+        class="glass-card-flat"
+        style="border-radius:1.25rem;width:100%;max-width:540px;padding:1.75rem;box-shadow:0 20px 60px rgba(0,0,0,0.5);border:1px solid oklch(from var(--color-primary) l c h / 0.2);"
+        onclick={(e) => e.stopPropagation()}
+    >
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+            <h2 style="margin:0;font-size:1.15rem;font-weight:800;display:flex;align-items:center;gap:0.5rem;">
+                <span style="font-size:1.3rem;">✏️</span>
+                Editar Router
+                <span style="font-family:monospace;font-size:0.85rem;opacity:0.5;font-weight:400;">/ {router.host}</span>
+            </h2>
+            <button class="btn btn-ghost btn-sm btn-circle" onclick={onClose} aria-label="Cerrar">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" style="width:1rem;height:1rem;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Mensajes -->
+        {#if errorMsg}
+            <div class="alert alert-error py-2 mb-4" style="font-size:0.85rem;">⚠️ {errorMsg}</div>
+        {/if}
+        {#if successMsg}
+            <div class="alert alert-success py-2 mb-4" style="font-size:0.85rem;">✅ {successMsg}</div>
+        {/if}
+
+        <!-- Form -->
+        <form onsubmit={(e) => { e.preventDefault(); handleSave(); }} style="display:flex;flex-direction:column;gap:1rem;">
+            <!-- Usuario -->
+            <div>
+                <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                    Usuario API
+                </label>
+                <input
+                    type="text"
+                    class="input input-bordered w-full input-sm"
+                    bind:value={username}
+                    required
+                    autocomplete="off"
+                    placeholder="admin"
+                />
+            </div>
+
+            <!-- Contraseña -->
+            <div>
+                <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                    Nueva Contraseña <span style="opacity:0.5;text-transform:none;font-weight:400;">(vacío = no cambiar)</span>
+                </label>
+                <input
+                    type="password"
+                    class="input input-bordered w-full input-sm"
+                    bind:value={password}
+                    autocomplete="new-password"
+                    placeholder="••••••••"
+                />
+            </div>
+
+            <!-- Puertos -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                <div>
+                    <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                        Puerto API
+                    </label>
+                    <input
+                        type="number"
+                        class="input input-bordered w-full input-sm"
+                        bind:value={apiPort}
+                        min="1"
+                        max="65535"
+                        required
+                    />
+                </div>
+                <div>
+                    <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                        Puerto SSH
+                    </label>
+                    <input
+                        type="number"
+                        class="input input-bordered w-full input-sm"
+                        bind:value={sshPort}
+                        min="1"
+                        max="65535"
+                    />
+                </div>
+            </div>
+
+            <!-- Zona -->
+            <div>
+                <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                    Zona
+                </label>
+                <select class="select select-bordered w-full select-sm" bind:value={zonaId}>
+                    <option value={null}>-- Sin zona --</option>
+                    {#each zonas as z}
+                        <option value={z.id}>{z.nombre}</option>
+                    {/each}
+                </select>
+            </div>
+
+            <!-- Habilitado -->
+            <label class="label cursor-pointer justify-start gap-3" style="padding:0;">
+                <input type="checkbox" class="toggle toggle-success toggle-sm" bind:checked={isEnabled} />
+                <span style="font-size:0.85rem;font-weight:600;">Router habilitado para monitoreo</span>
+            </label>
+
+            <!-- Acciones -->
+            <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:0.5rem;padding-top:0.75rem;border-top:1px solid oklch(from var(--color-base-content) l c h / 0.1);">
+                <button type="button" class="btn btn-ghost btn-sm" onclick={onClose}>Cancelar</button>
+                <button type="submit" class="btn btn-primary btn-sm" disabled={saving}>
+                    {#if saving}
+                        <span class="loading loading-spinner loading-xs"></span>
+                        Guardando...
+                    {:else}
+                        💾 Guardar Cambios
+                    {/if}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/routers/[host]/RouterEditModal.svelte:119:17
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+            <div>
+                <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                    Usuario API
+                </label>
+                <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/routers/[host]/RouterEditModal.svelte:134:17
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+            <div>
+                <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                    Nueva Contraseña <span style="opacity:0.5;text-transform:none;font-weight:400;">(vacío = no cambiar)</span>
+                </label>
+                <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/routers/[host]/RouterEditModal.svelte:149:21
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                <div>
+                    <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                        Puerto API
+                    </label>
+                    <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/routers/[host]/RouterEditModal.svelte:162:21
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                <div>
+                    <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                        Puerto SSH
+                    </label>
+                    <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/routers/[host]/RouterEditModal.svelte:177:17
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+            <div>
+                <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                    Zona
+                </label>
+                <select class="select select-bordered w-full select-sm" bind:value={zonaId}>
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/routers/[host]/+page.svelte:13:25
+Warn: This reference only captures the initial value of `data`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+    let { data } = $props<{ data: { router: Router } }>();
+    let router = $state(data.router);
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/tickets/+page.svelte:350:5
+Warn: Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events (svelte)
+{#if showModal}
+    <div
+        style="position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);"
+        onclick={(e) => {
+            if (e.target === e.currentTarget) showModal = false;
+        }}
+    >
+        <div
+            class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 w-full max-w-lg"
+        >
+            <!-- Header modal -->
+            <div
+                class="flex items-center justify-between p-5 border-b border-base-200"
+            >
+                <h3 class="text-lg font-bold">Nuevo Ticket</h3>
+                <button
+                    class="btn btn-ghost btn-sm btn-circle"
+                    onclick={() => (showModal = false)}>✕</button
+                >
+            </div>
+
+            <!-- Body -->
+            <div
+                class="p-5"
+                style="display:flex;flex-direction:column;gap:1rem;max-height:70vh;overflow-y:auto;"
+            >
+                {#if createError}
+                    <div class="alert alert-error py-2 text-sm">
+                        {createError}
+                    </div>
+                {/if}
+
+                <!-- Búsqueda de cliente -->
+                <div style="position:relative;">
+                    <label class="label pb-1"
+                        ><span
+                            class="label-text text-xs font-bold uppercase opacity-60"
+                            >Cliente *</span
+                        ></label
+                    >
+                    <input
+                        type="text"
+                        class="input input-bordered w-full input-sm"
+                        placeholder="Buscar cliente por nombre..."
+                        value={clientSearch}
+                        oninput={onClientSearch}
+                    />
+                    {#if searchingClients}
+                        <p class="text-xs opacity-50 mt-1">Buscando...</p>
+                    {/if}
+                    {#if clientResults.length > 0}
+                        <div
+                            class="bg-base-200 border border-base-300 rounded-xl mt-1 shadow-lg"
+                            style="position:absolute;z-index:10;width:100%;max-height:180px;overflow-y:auto;"
+                        >
+                            {#each clientResults as c}
+                                <button
+                                    class="w-full text-left px-4 py-2 hover:bg-base-300 text-sm transition-colors"
+                                    onclick={() => selectClient(c)}
+                                    >{c.name}</button
+                                >
+                            {/each}
+                        </div>
+                    {/if}
+                </div>
+
+                <!-- Tipo y Prioridad -->
+                <div
+                    style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;"
+                >
+                    <div>
+                        <label class="label pb-1"
+                            ><span
+                                class="label-text text-xs font-bold uppercase opacity-60"
+                                >Tipo *</span
+                            ></label
+                        >
+                        <select
+                            class="select select-bordered select-sm w-full"
+                            bind:value={form.ticket_type}
+                        >
+                            <option value="support">Soporte</option>
+                            <option value="installation">Instalación</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label pb-1"
+                            ><span
+                                class="label-text text-xs font-bold uppercase opacity-60"
+                                >Prioridad</span
+                            ></label
+                        >
+                        <select
+                            class="select select-bordered select-sm w-full"
+                            bind:value={form.priority}
+                        >
+                            <option value="low">Baja</option>
+                            <option value="normal">Normal</option>
+                            <option value="high">Alta</option>
+                            <option value="urgent">Urgente</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Campos exclusivos de instalación -->
+                {#if form.ticket_type === "installation"}
+                    <div
+                        class="bg-base-200 rounded-xl p-3"
+                        style="display:flex;flex-direction:column;gap:0.75rem;"
+                    >
+                        <p class="text-xs font-bold uppercase opacity-60 m-0">
+                            Datos de Instalación
+                        </p>
+                        <div>
+                            <label class="label pb-1"
+                                ><span class="label-text text-xs"
+                                    >Fecha programada</span
+                                ></label
+                            >
+                            <input
+                                type="datetime-local"
+                                class="input input-bordered input-sm w-full"
+                                bind:value={form.scheduled_at}
+                            />
+                        </div>
+                        <div>
+                            <label class="label pb-1"
+                                ><span class="label-text text-xs"
+                                    >Coordenadas (Lat, Lon)</span
+                                ></label
+                            >
+                            <input
+                                type="text"
+                                class="input input-bordered input-sm w-full"
+                                placeholder="-20.1234, -98.5678"
+                                bind:value={form.coordinates}
+                            />
+                        </div>
+                        <div>
+                            <label class="label pb-1"
+                                ><span class="label-text text-xs"
+                                    >Notas de acceso</span
+                                ></label
+                            >
+                            <input
+                                type="text"
+                                class="input input-bordered input-sm w-full"
+                                placeholder="Ej: Portón azul, llamar al llegar"
+                                bind:value={form.address_notes}
+                            />
+                        </div>
+                    </div>
+                {/if}
+
+                <!-- Asunto -->
+                <div>
+                    <label class="label pb-1"
+                        ><span
+                            class="label-text text-xs font-bold uppercase opacity-60"
+                            >Asunto *</span
+                        ></label
+                    >
+                    <input
+                        type="text"
+                        class="input input-bordered input-sm w-full"
+                        placeholder="Resumen breve..."
+                        bind:value={form.subject}
+                    />
+                </div>
+
+                <!-- Descripción -->
+                <div>
+                    <label class="label pb-1"
+                        ><span
+                            class="label-text text-xs font-bold uppercase opacity-60"
+                            >Descripción *</span
+                        ></label
+                    >
+                    <textarea
+                        class="textarea textarea-bordered w-full textarea-sm"
+                        rows="3"
+                        placeholder="Descripción detallada..."
+                        bind:value={form.description}
+                    ></textarea>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex justify-end gap-2 p-5 border-t border-base-200">
+                <button
+                    class="btn btn-ghost btn-sm"
+                    onclick={() => (showModal = false)}>Cancelar</button
+                >
+                <button
+                    class="btn btn-primary btn-sm"
+                    onclick={submitCreate}
+                    disabled={creating}
+                >
+                    {#if creating}<span
+                            class="loading loading-spinner loading-xs"
+                        ></span>{/if}
+                    Crear Ticket
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/tickets/+page.svelte:350:5
+Warn: `<div>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions (svelte)
+{#if showModal}
+    <div
+        style="position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);"
+        onclick={(e) => {
+            if (e.target === e.currentTarget) showModal = false;
+        }}
+    >
+        <div
+            class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 w-full max-w-lg"
+        >
+            <!-- Header modal -->
+            <div
+                class="flex items-center justify-between p-5 border-b border-base-200"
+            >
+                <h3 class="text-lg font-bold">Nuevo Ticket</h3>
+                <button
+                    class="btn btn-ghost btn-sm btn-circle"
+                    onclick={() => (showModal = false)}>✕</button
+                >
+            </div>
+
+            <!-- Body -->
+            <div
+                class="p-5"
+                style="display:flex;flex-direction:column;gap:1rem;max-height:70vh;overflow-y:auto;"
+            >
+                {#if createError}
+                    <div class="alert alert-error py-2 text-sm">
+                        {createError}
+                    </div>
+                {/if}
+
+                <!-- Búsqueda de cliente -->
+                <div style="position:relative;">
+                    <label class="label pb-1"
+                        ><span
+                            class="label-text text-xs font-bold uppercase opacity-60"
+                            >Cliente *</span
+                        ></label
+                    >
+                    <input
+                        type="text"
+                        class="input input-bordered w-full input-sm"
+                        placeholder="Buscar cliente por nombre..."
+                        value={clientSearch}
+                        oninput={onClientSearch}
+                    />
+                    {#if searchingClients}
+                        <p class="text-xs opacity-50 mt-1">Buscando...</p>
+                    {/if}
+                    {#if clientResults.length > 0}
+                        <div
+                            class="bg-base-200 border border-base-300 rounded-xl mt-1 shadow-lg"
+                            style="position:absolute;z-index:10;width:100%;max-height:180px;overflow-y:auto;"
+                        >
+                            {#each clientResults as c}
+                                <button
+                                    class="w-full text-left px-4 py-2 hover:bg-base-300 text-sm transition-colors"
+                                    onclick={() => selectClient(c)}
+                                    >{c.name}</button
+                                >
+                            {/each}
+                        </div>
+                    {/if}
+                </div>
+
+                <!-- Tipo y Prioridad -->
+                <div
+                    style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;"
+                >
+                    <div>
+                        <label class="label pb-1"
+                            ><span
+                                class="label-text text-xs font-bold uppercase opacity-60"
+                                >Tipo *</span
+                            ></label
+                        >
+                        <select
+                            class="select select-bordered select-sm w-full"
+                            bind:value={form.ticket_type}
+                        >
+                            <option value="support">Soporte</option>
+                            <option value="installation">Instalación</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label pb-1"
+                            ><span
+                                class="label-text text-xs font-bold uppercase opacity-60"
+                                >Prioridad</span
+                            ></label
+                        >
+                        <select
+                            class="select select-bordered select-sm w-full"
+                            bind:value={form.priority}
+                        >
+                            <option value="low">Baja</option>
+                            <option value="normal">Normal</option>
+                            <option value="high">Alta</option>
+                            <option value="urgent">Urgente</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Campos exclusivos de instalación -->
+                {#if form.ticket_type === "installation"}
+                    <div
+                        class="bg-base-200 rounded-xl p-3"
+                        style="display:flex;flex-direction:column;gap:0.75rem;"
+                    >
+                        <p class="text-xs font-bold uppercase opacity-60 m-0">
+                            Datos de Instalación
+                        </p>
+                        <div>
+                            <label class="label pb-1"
+                                ><span class="label-text text-xs"
+                                    >Fecha programada</span
+                                ></label
+                            >
+                            <input
+                                type="datetime-local"
+                                class="input input-bordered input-sm w-full"
+                                bind:value={form.scheduled_at}
+                            />
+                        </div>
+                        <div>
+                            <label class="label pb-1"
+                                ><span class="label-text text-xs"
+                                    >Coordenadas (Lat, Lon)</span
+                                ></label
+                            >
+                            <input
+                                type="text"
+                                class="input input-bordered input-sm w-full"
+                                placeholder="-20.1234, -98.5678"
+                                bind:value={form.coordinates}
+                            />
+                        </div>
+                        <div>
+                            <label class="label pb-1"
+                                ><span class="label-text text-xs"
+                                    >Notas de acceso</span
+                                ></label
+                            >
+                            <input
+                                type="text"
+                                class="input input-bordered input-sm w-full"
+                                placeholder="Ej: Portón azul, llamar al llegar"
+                                bind:value={form.address_notes}
+                            />
+                        </div>
+                    </div>
+                {/if}
+
+                <!-- Asunto -->
+                <div>
+                    <label class="label pb-1"
+                        ><span
+                            class="label-text text-xs font-bold uppercase opacity-60"
+                            >Asunto *</span
+                        ></label
+                    >
+                    <input
+                        type="text"
+                        class="input input-bordered input-sm w-full"
+                        placeholder="Resumen breve..."
+                        bind:value={form.subject}
+                    />
+                </div>
+
+                <!-- Descripción -->
+                <div>
+                    <label class="label pb-1"
+                        ><span
+                            class="label-text text-xs font-bold uppercase opacity-60"
+                            >Descripción *</span
+                        ></label
+                    >
+                    <textarea
+                        class="textarea textarea-bordered w-full textarea-sm"
+                        rows="3"
+                        placeholder="Descripción detallada..."
+                        bind:value={form.description}
+                    ></textarea>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex justify-end gap-2 p-5 border-t border-base-200">
+                <button
+                    class="btn btn-ghost btn-sm"
+                    onclick={() => (showModal = false)}>Cancelar</button
+                >
+                <button
+                    class="btn btn-primary btn-sm"
+                    onclick={submitCreate}
+                    disabled={creating}
+                >
+                    {#if creating}<span
+                            class="loading loading-spinner loading-xs"
+                        ></span>{/if}
+                    Crear Ticket
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/tickets/+page.svelte:383:21
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                <div style="position:relative;">
+                    <label class="label pb-1"
+                        ><span
+                            class="label-text text-xs font-bold uppercase opacity-60"
+                            >Cliente *</span
+                        ></label
+                    >
+                    <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/tickets/+page.svelte:420:25
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                    <div>
+                        <label class="label pb-1"
+                            ><span
+                                class="label-text text-xs font-bold uppercase opacity-60"
+                                >Tipo *</span
+                            ></label
+                        >
+                        <select
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/tickets/+page.svelte:435:25
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                    <div>
+                        <label class="label pb-1"
+                            ><span
+                                class="label-text text-xs font-bold uppercase opacity-60"
+                                >Prioridad</span
+                            ></label
+                        >
+                        <select
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/tickets/+page.svelte:463:29
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                        <div>
+                            <label class="label pb-1"
+                                ><span class="label-text text-xs"
+                                    >Fecha programada</span
+                                ></label
+                            >
+                            <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/tickets/+page.svelte:475:29
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                        <div>
+                            <label class="label pb-1"
+                                ><span class="label-text text-xs"
+                                    >Coordenadas (Lat, Lon)</span
+                                ></label
+                            >
+                            <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/tickets/+page.svelte:488:29
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                        <div>
+                            <label class="label pb-1"
+                                ><span class="label-text text-xs"
+                                    >Notas de acceso</span
+                                ></label
+                            >
+                            <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/tickets/+page.svelte:505:21
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                <div>
+                    <label class="label pb-1"
+                        ><span
+                            class="label-text text-xs font-bold uppercase opacity-60"
+                            >Asunto *</span
+                        ></label
+                    >
+                    <input
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/tickets/+page.svelte:521:21
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                <div>
+                    <label class="label pb-1"
+                        ><span
+                            class="label-text text-xs font-bold uppercase opacity-60"
+                            >Descripción *</span
+                        ></label
+                    >
+                    <textarea
+
+/home/kaber420/Documentos/python/prueba-umanager/frontend-v2-daisy/src/routes/tickets/[id]/+page.svelte:8:33
+Warn: This reference only captures the initial value of `data`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+
+    let ticket = $state<Ticket>(data.ticket);
+    let replyContent = $state("");
+
+====================================
+svelte-check found 2 errors and 50 warnings in 10 files

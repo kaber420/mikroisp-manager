@@ -1,11 +1,14 @@
-import { getCPEs } from '$lib/api';
+import { getCPEs, getPublicSettings } from '$lib/api';
 import { redirect } from '@sveltejs/kit';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async () => {
     try {
-        const cpes = await getCPEs({ page: 1, page_size: 20 });
-        return { cpes };
+        const [cpes, publicSettings] = await Promise.all([
+            getCPEs({ page: 1, page_size: 20 }),
+            getPublicSettings()
+        ]);
+        return { cpes, publicSettings };
     } catch (e: any) {
         if (e?.response?.status === 401) {
             throw redirect(302, '/login');

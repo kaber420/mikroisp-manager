@@ -20,6 +20,7 @@ class RouterResponse(BaseModel):
     last_status: str | None = None
     zona_nombre: str | None = None
     wan_interface: str | None = None
+    vendor: str | None = None
 
 
 class RouterCreate(BaseModel):
@@ -32,6 +33,8 @@ class RouterCreate(BaseModel):
     api_port: int
     ssh_port: int = 22
     is_enabled: bool = True
+    is_provisioned: bool = False
+    vendor: str = "mikrotik"
 
 
 class RouterUpdate(BaseModel):
@@ -43,7 +46,9 @@ class RouterUpdate(BaseModel):
     api_port: int | None = None
     ssh_port: int | None = None
     is_enabled: bool | None = None
+    is_provisioned: bool | None = None
     wan_interface: str | None = None
+    vendor: str | None = None
 
 
 

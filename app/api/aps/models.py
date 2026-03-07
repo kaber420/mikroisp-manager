@@ -57,6 +57,7 @@ class APCreate(BaseModel):
     master_password: str | None = None
     zona_id: int
     is_enabled: bool = True
+    is_provisioned: bool = False
     monitor_interval: int | None = None
     api_port: int = 443
     ssh_port: int = 22

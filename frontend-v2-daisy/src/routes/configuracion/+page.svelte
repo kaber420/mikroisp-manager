@@ -688,6 +688,63 @@
 
                 <div class="divider"></div>
 
+                <!-- SEÑAL CPE -->
+                <section>
+                    <h2 class="text-lg font-semibold mb-4">
+                        Umbrales de Señal CPE
+                    </h2>
+                    <p class="text-sm text-base-content/60 mb-4">
+                        Configura los valores para determinar la calidad de
+                        señal de los CPEs.
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="form-control">
+                            <label
+                                class="label"
+                                for="cpe_signal_warning_threshold"
+                                ><span class="label-text"
+                                    >Baja / Advertencia (dBm)</span
+                                ></label
+                            >
+                            <input
+                                id="cpe_signal_warning_threshold"
+                                type="number"
+                                class="input input-bordered"
+                                placeholder="-62"
+                                value={getS("cpe_signal_warning_threshold")}
+                                oninput={(e) =>
+                                    setS(
+                                        "cpe_signal_warning_threshold",
+                                        (e.target as HTMLInputElement).value,
+                                    )}
+                            />
+                        </div>
+                        <div class="form-control">
+                            <label
+                                class="label"
+                                for="cpe_signal_danger_threshold"
+                                ><span class="label-text"
+                                    >Mala / Peligro (dBm)</span
+                                ></label
+                            >
+                            <input
+                                id="cpe_signal_danger_threshold"
+                                type="number"
+                                class="input input-bordered"
+                                placeholder="-71"
+                                value={getS("cpe_signal_danger_threshold")}
+                                oninput={(e) =>
+                                    setS(
+                                        "cpe_signal_danger_threshold",
+                                        (e.target as HTMLInputElement).value,
+                                    )}
+                            />
+                        </div>
+                    </div>
+                </section>
+
+                <div class="divider"></div>
+
                 <!-- FACTURACIÓN -->
                 <section>
                     <h2 class="text-lg font-semibold mb-4">

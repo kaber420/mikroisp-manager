@@ -37,6 +37,7 @@
     let fApiPort = $state<number | null>(null);
     let fIsEnabled = $state(true);
     let fZonaId = $state<number | null>(null);
+    let fIsProvisioned = $state(false);
 
     // Default ports based on vendor
     $effect(() => {
@@ -98,6 +99,7 @@
         fApiPort = 443;
         fIsEnabled = true;
         fZonaId = null;
+        fIsProvisioned = false;
         modalError = null;
         testResult = null;
     }
@@ -121,6 +123,7 @@
         fApiPort = a.api_port || null;
         fIsEnabled = a.is_enabled;
         fZonaId = a.zona_id;
+        fIsProvisioned = a.is_provisioned || false;
         modalError = null;
         testResult = null;
         showModal = true;
@@ -178,6 +181,7 @@
                     api_port: fApiPort || undefined,
                     is_enabled: fIsEnabled,
                     zona_id: fZonaId || undefined,
+                    is_provisioned: fIsProvisioned,
                     role: "access_point",
                 };
                 await createAP(payload);
@@ -189,6 +193,7 @@
                     api_port: fApiPort || undefined,
                     is_enabled: fIsEnabled,
                     zona_id: fZonaId || undefined,
+                    is_provisioned: fIsProvisioned,
                     role: "access_point",
                 };
                 if (fPassword.trim()) {
@@ -252,7 +257,7 @@
             >
                 <div>
                     <h1 style="margin:0;font-size:1.5rem;font-weight:800;">
-                        Infraestructura — Access Points
+                        Access Points
                     </h1>
                     <p
                         style="margin:0.25rem 0 0;font-size:0.85rem;opacity:0.5;"
@@ -788,6 +793,24 @@
                         Access Point Habilitado
                     </label>
                 </div>
+
+                <!-- Aprovisionado Manualmente -->
+                {#if fVendor === 'mikrotik'}
+                    <div style="display:flex;align-items:center;gap:0.75rem;">
+                        <input
+                            type="checkbox"
+                            class="toggle toggle-info toggle-sm"
+                            bind:checked={fIsProvisioned}
+                            id="chk-provisioned-ap"
+                        />
+                        <label
+                            for="chk-provisioned-ap"
+                            class="label-text font-semibold cursor-pointer"
+                        >
+                            AP Aprovisionado (API-SSL)
+                        </label>
+                    </div>
+                {/if}
 
                 <!-- Botones -->
                 <div

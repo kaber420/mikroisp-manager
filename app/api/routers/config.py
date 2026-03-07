@@ -33,6 +33,17 @@ def get_router_full_details(
         raise HTTPException(status_code=500, detail=f"Error reading bulk data from router: {e}")
 
 
+@router.get("/pppoe-servers", response_model=list[dict[str, Any]])
+def get_pppoe_servers(
+    service: RouterService = Depends(get_router_service),
+    user: User = Depends(get_current_active_user),
+):
+    try:
+        return service.get_pppoe_servers()
+    except RouterCommandError as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener servidores PPPoE: {e}")
+
+
 # --- Endpoints de Escritura (ADD) ---
 
 

@@ -7,7 +7,7 @@ export const ssr = false;
 
 export const load = async ({ fetch }) => {
     try {
-        const [cpeRes, switchRes, ticketsRes, routerRes, apRes, topSignalRes, topAirtimeRes, topConsumptionRes, topOfflineRes] = await Promise.all([
+        const [cpeRes, switchRes, ticketsRes, routerRes, apRes, topSignalRes, topAirtimeRes, topConsumptionRes, topOfflineRes, routersListRes] = await Promise.all([
             fetch('/api/stats/cpe-count'),
             fetch('/api/stats/switch-count'),
             fetch('/api/stats/tickets'),
@@ -16,7 +16,8 @@ export const load = async ({ fetch }) => {
             fetch('/api/stats/top-cpes-by-signal'),
             fetch('/api/stats/top-aps-by-airtime'),
             fetch('/api/stats/top-routers-by-consumption'),
-            fetch('/api/stats/top-offline-devices')
+            fetch('/api/stats/top-offline-devices'),
+            fetch('/api/routers')
         ]);
 
         return {
@@ -32,7 +33,8 @@ export const load = async ({ fetch }) => {
                 airtime: topAirtimeRes.ok ? await topAirtimeRes.json() : [],
                 consumption: topConsumptionRes.ok ? await topConsumptionRes.json() : [],
                 offline: topOfflineRes.ok ? await topOfflineRes.json() : []
-            }
+            },
+            routersList: routersListRes.ok ? await routersListRes.json() : []
         };
     } catch (e) {
         console.error('Failed to load dashboard stats and tops:', e);
@@ -49,7 +51,8 @@ export const load = async ({ fetch }) => {
                 airtime: [],
                 consumption: [],
                 offline: []
-            }
+            },
+            routersList: []
         };
     }
 };

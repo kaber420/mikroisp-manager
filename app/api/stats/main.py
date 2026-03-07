@@ -22,6 +22,7 @@ from .models import (
     TicketStats, RouterCount, APCount,
     TopRouterConsumption, TopOfflineDevice
 )
+from ...services.core.settings_service import SettingsService
 
 from ...repositories.log_repository import (
     count_event_logs,
@@ -77,6 +78,10 @@ async def get_top_cpes_by_weak_signal(
     current_user: User = Depends(current_active_user),
 ):
     try:
+        settings_service = SettingsService(session)
+        warning_str = await settings_service.get_setting_value("cpe_signal_warning_threshold")
+        warning_threshold = float(warning_str) if warning_str else -62.0
+
         query = text(f"""
             WITH LatestCPEStats AS (
                 SELECT 
@@ -87,12 +92,12 @@ async def get_top_cpes_by_weak_signal(
             )
             SELECT cpe_hostname, cpe_mac, ap_host, signal
             FROM LatestCPEStats
-            WHERE rn = 1
+            WHERE rn = 1 AND signal <= :warning_threshold
             ORDER BY signal ASC 
             LIMIT :limit;
         """)
         
-        result = await session.exec(query, params={"limit": limit})
+        result = await session.exec(query, params={"limit": limit, "warning_threshold": warning_threshold})
         rows = [dict(row) for row in result.mappings()]
         return rows
     except Exception as e:

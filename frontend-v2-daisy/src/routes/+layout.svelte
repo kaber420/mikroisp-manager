@@ -180,12 +180,11 @@
 	let currentSubMenu = $derived(subMenus[$page.url.pathname] || []);
 </script>
 
-<LavaLampBackground />
-
-{#if $page.url.pathname === "/login"}
-	<!-- Página de login sin layout -->
+{#if $page.url.pathname === "/login" || $page.url.pathname.endsWith("/receipt")}
+	<!-- Páginas sin layout (Login, Recibos imprimibles) -->
 	{@render children()}
 {:else}
+	<LavaLampBackground />
 	<!-- Layout principal -->
 	<div
 		class="min-h-screen flex flex-col antialiased {$theme.lavaLampActive

@@ -36,7 +36,14 @@ async def api_get_public_settings(
     Returns public settings safe for unauthenticated or basic users.
     """
     settings = await service.get_all_settings()
-    public_keys = ["company_name", "company_logo_url", "ticket_footer_message", "billing_address"]
+    public_keys = [
+        "company_name", 
+        "company_logo_url", 
+        "ticket_footer_message", 
+        "billing_address",
+        "cpe_signal_warning_threshold",
+        "cpe_signal_danger_threshold"
+    ]
     return {k: v for k, v in settings.items() if k in public_keys}
 
 

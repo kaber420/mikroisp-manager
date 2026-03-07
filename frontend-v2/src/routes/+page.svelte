@@ -1,5 +1,7 @@
 <script lang="ts">
     import type { PageData } from "./$types";
+    import { onMount, tick } from "svelte";
+
     let { data }: { data: PageData } = $props();
 
     // --- Infraestructura Crítica (Grid Superior - 4 cards) ---
@@ -189,6 +191,113 @@
         };
         return map[color]?.[type] ?? "";
     }
+
+    // --- Bitácora de Eventos ---
+    let events = $state<{
+        items: any[];
+        page: number;
+        pageSize: number;
+        totalPages: number;
+        total: number;
+        hostFilter: string;
+        loading: boolean;
+    }>({
+        items: [],
+        page: 1,
+        pageSize: 10,
+        totalPages: 1,
+        total: 0,
+        hostFilter: "all",
+        loading: false,
+    });
+
+    let routerOptions = $derived([
+        { value: "all", label: "Todos los Dispositivos" },
+        ...(data.routersList?.map((r: any) => ({
+            value: r.host,
+            label: r.hostname || r.host,
+        })) || []),
+    ]);
+
+    async function loadEvents() {
+        events.loading = true;
+        try {
+            const url = `/api/stats/events?host=${encodeURIComponent(
+                events.hostFilter,
+            )}&page=${events.page}&page_size=${events.pageSize}`;
+            const res = await fetch(url);
+            if (res.ok) {
+                const json = await res.json();
+                events.items = json.items || [];
+                events.totalPages = json.total_pages || 1;
+                events.total = json.total || 0;
+            }
+        } catch (error) {
+            console.error("Error loading events:", error);
+        } finally {
+            events.loading = false;
+        }
+    }
+
+    function changePage(direction: number) {
+        const newPage = events.page + direction;
+        if (newPage > 0 && newPage <= events.totalPages) {
+            events.page = newPage;
+            loadEvents();
+        }
+    }
+
+    function changePageSize(e: Event) {
+        const target = e.target as HTMLSelectElement;
+        events.pageSize = parseInt(target.value);
+        events.page = 1;
+        loadEvents();
+    }
+
+    function changeFilter(e: Event) {
+        const target = e.target as HTMLSelectElement;
+        events.hostFilter = target.value;
+        events.page = 1;
+        loadEvents();
+    }
+
+    function formatEventDate(timestamp: string) {
+        const dateObj = new Date(timestamp + "Z");
+        const timeStr = dateObj.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+        const dateStr = dateObj.toLocaleDateString();
+        return { timeStr, dateStr };
+    }
+
+    function getEventIconAndClass(eventType: string) {
+        let icon = "❓";
+        let colorClass = "text-blue-600 bg-blue-100 border border-blue-200";
+
+        if (eventType === "danger") {
+            icon = "❌";
+            colorClass = "text-red-600 bg-red-100 border border-red-200";
+        } else if (eventType === "success") {
+            icon = "✅";
+            colorClass =
+                "text-emerald-600 bg-emerald-100 border border-emerald-200";
+        }
+
+        return { icon, colorClass };
+    }
+
+    let paginationInfo = $derived(() => {
+        const start = (events.page - 1) * events.pageSize + 1;
+        const end = Math.min(start + events.pageSize - 1, events.total);
+        return events.total > 0
+            ? `Mostrando ${start}-${end} de ${events.total}`
+            : "Sin resultados";
+    });
+
+    onMount(() => {
+        loadEvents();
+    });
 </script>
 
 <div class="space-y-6">
@@ -367,6 +476,152 @@
             <p class="text-xs text-gray-300 text-right font-mono">
                 ⚡ datos de muestra · v2-beta
             </p>
+        </div>
+    </div>
+
+    <!-- === BITÁCORA DE EVENTOS === -->
+    <div class="card p-5 flex flex-col gap-4">
+        <!-- Encabezado de la bitácora -->
+        <div
+            class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4"
+        >
+            <h3
+                class="text-lg font-semibold text-gray-800 flex items-center gap-2"
+            >
+                <span class="text-xl">📜</span>
+                Bitácora de Eventos
+            </h3>
+
+            <!-- Controles de filtrado -->
+            <div class="flex items-center gap-2">
+                <label
+                    for="log-filter"
+                    class="text-xs text-gray-500 uppercase font-bold"
+                    >Filtrar:</label
+                >
+                <select
+                    id="log-filter"
+                    class="select select-bordered select-sm w-48 transition-colors"
+                    value={events.hostFilter}
+                    onchange={changeFilter}
+                >
+                    {#each routerOptions as opt}
+                        <option value={opt.value}>{opt.label}</option>
+                    {/each}
+                </select>
+            </div>
+        </div>
+
+        <!-- Tabla -->
+        <div class="overflow-x-auto">
+            <table class="table w-full text-sm text-left text-gray-600">
+                <thead>
+                    <tr class="text-gray-500 border-b border-gray-100">
+                        <th class="font-semibold bg-transparent">Fecha/Hora</th>
+                        <th class="font-semibold bg-transparent">Host</th>
+                        <th class="font-semibold bg-transparent">Mensaje</th>
+                        <th class="font-semibold bg-transparent">Tipo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {#if events.loading}
+                        <tr>
+                            <td colspan="4" class="text-center py-8">
+                                <span
+                                    class="loading loading-spinner text-primary"
+                                ></span>
+                            </td>
+                        </tr>
+                    {:else if events.items.length === 0}
+                        <tr>
+                            <td
+                                colspan="4"
+                                class="text-center py-8 text-gray-400 italic"
+                            >
+                                No hay eventos registrados.
+                            </td>
+                        </tr>
+                    {:else}
+                        {#each events.items as evt (evt.id)}
+                            {@const styling = getEventIconAndClass(
+                                evt.event_type,
+                            )}
+                            <tr
+                                class="border-b border-gray-50 hover:bg-gray-50 transition-colors"
+                            >
+                                <td class="whitespace-nowrap">
+                                    <span
+                                        class="block text-gray-800 font-medium"
+                                    >
+                                        {formatEventDate(evt.timestamp).timeStr}
+                                    </span>
+                                    <span class="text-xs text-gray-500">
+                                        {formatEventDate(evt.timestamp).dateStr}
+                                    </span>
+                                </td>
+                                <td class="text-gray-800 font-medium"
+                                    >{evt.device_host}</td
+                                >
+                                <td>{evt.message}</td>
+                                <td>
+                                    <span
+                                        class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold {styling.colorClass}"
+                                    >
+                                        <span>{styling.icon}</span>
+                                        <span
+                                            >{evt.event_type.toUpperCase()}</span
+                                        >
+                                    </span>
+                                </td>
+                            </tr>
+                        {/each}
+                    {/if}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginación -->
+        <div
+            class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-2 pt-4 border-t border-gray-100"
+        >
+            <!-- Selector de tamaño de página -->
+            <div class="flex items-center gap-2 text-xs text-gray-500">
+                <span>Mostrar</span>
+                <select
+                    id="logs-page-size"
+                    class="select select-bordered select-xs"
+                    value={events.pageSize}
+                    onchange={changePageSize}
+                >
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                </select>
+                <span>por pág.</span>
+            </div>
+
+            <!-- Información (Mostrando 1-10 de 50) -->
+            <span class="text-xs text-gray-500 font-medium">
+                {paginationInfo}
+            </span>
+
+            <!-- Botones anterior / siguiente -->
+            <div class="join">
+                <button
+                    class="join-item btn btn-sm btn-ghost"
+                    disabled={events.page <= 1}
+                    onclick={() => changePage(-1)}
+                >
+                    « Ant
+                </button>
+                <button
+                    class="join-item btn btn-sm btn-ghost"
+                    disabled={events.page >= events.totalPages}
+                    onclick={() => changePage(1)}
+                >
+                    Sig »
+                </button>
+            </div>
         </div>
     </div>
 </div>

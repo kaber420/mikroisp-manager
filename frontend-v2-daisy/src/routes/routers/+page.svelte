@@ -29,6 +29,8 @@
     let fApiPort = $state(8728);
     let fIsEnabled = $state(true);
     let fWanInterface = $state("");
+    let fVendor = $state("mikrotik");
+    let fIsProvisioned = $state(false);
 
     // ── Modal Confirmar Eliminar ─────────────────────────────────────────
     let showDeleteModal = $state(false);
@@ -72,6 +74,8 @@
         fApiPort = 8728;
         fIsEnabled = true;
         fWanInterface = "";
+        fVendor = "mikrotik";
+        fIsProvisioned = false;
         modalError = null;
     }
 
@@ -93,6 +97,8 @@
         fApiPort = r.api_port;
         fIsEnabled = r.is_enabled;
         fWanInterface = r.wan_interface ?? "";
+        fVendor = r.vendor ?? "mikrotik";
+        fIsProvisioned = r.is_provisioned ?? false;
         modalError = null;
         showModal = true;
     }
@@ -115,6 +121,8 @@
                     ssh_port: fSshPort,
                     api_port: fApiPort,
                     is_enabled: fIsEnabled,
+                    vendor: fVendor,
+                    is_provisioned: fIsProvisioned,
                 };
                 await createRouter(payload);
             } else if (editTarget) {
@@ -124,6 +132,8 @@
                     api_port: fApiPort,
                     is_enabled: fIsEnabled,
                     wan_interface: fWanInterface.trim() || null,
+                    vendor: fVendor,
+                    is_provisioned: fIsProvisioned,
                 };
                 if (fPassword.trim()) {
                     payload.password = fPassword;
@@ -188,7 +198,7 @@
             >
                 <div>
                     <h1 style="margin:0;font-size:1.5rem;font-weight:800;">
-                        Infraestructura — Routers MikroTik
+                        Routers
                     </h1>
                     <p
                         style="margin:0.25rem 0 0;font-size:0.85rem;opacity:0.5;"
@@ -377,8 +387,13 @@
                         {/if}
                     </td>
 
-                    <!-- Modelo -->
+                    <!-- Modelo / Marca -->
                     <td class="dt-td">
+                        {#if r.vendor}
+                            <span class="badge badge-sm badge-outline badge-primary" style="margin-right: 0.25rem;">
+                                {r.vendor}
+                            </span>
+                        {/if}
                         {#if r.model}
                             {r.model}
                         {:else}
@@ -626,6 +641,19 @@
                     </label>
                 {/if}
 
+                <!-- Vendor -->
+                <label class="form-control w-full">
+                    <div class="label">
+                        <span class="label-text font-semibold">Marca (Vendor)</span>
+                    </div>
+                    <select class="select select-bordered select-sm w-full" bind:value={fVendor}>
+                        <option value="mikrotik">MikroTik</option>
+                        <option value="ubiquiti">Ubiquiti</option>
+                        <option value="cisco">Cisco</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                </label>
+
                 <!-- Habilitado -->
                 <div style="display:flex;align-items:center;gap:0.75rem;">
                     <input
@@ -641,6 +669,24 @@
                         Router Habilitado
                     </label>
                 </div>
+
+                <!-- Aprovisionado Manualmente -->
+                {#if fVendor === 'mikrotik'}
+                    <div style="display:flex;align-items:center;gap:0.75rem;">
+                        <input
+                            type="checkbox"
+                            class="toggle toggle-info toggle-sm"
+                            bind:checked={fIsProvisioned}
+                            id="chk-provisioned"
+                        />
+                        <label
+                            for="chk-provisioned"
+                            class="label-text font-semibold cursor-pointer"
+                        >
+                            Router Aprovisionado (API-SSL)
+                        </label>
+                    </div>
+                {/if}
 
                 <!-- Botones -->
                 <div

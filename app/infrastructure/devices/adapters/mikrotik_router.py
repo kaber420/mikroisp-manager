@@ -225,6 +225,10 @@ class MikrotikRouterAdapter(BaseDeviceAdapter):
         api = self._get_api()
         return ppp.get_pppoe_secrets(api, username=username)
 
+    def get_pppoe_servers(self) -> list[dict[str, Any]]:
+        api = self._get_api()
+        return ppp.get_pppoe_servers(api)
+
     def get_ppp_profiles(self) -> list[dict[str, Any]]:
         api = self._get_api()
         return ppp.get_ppp_profiles(api)

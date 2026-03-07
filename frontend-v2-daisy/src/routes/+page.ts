@@ -7,7 +7,7 @@ export const ssr = false;
 
 export const load = async ({ fetch }) => {
     try {
-        const [cpeRes, switchRes, ticketsRes, routerRes, apRes, topSignalRes, topAirtimeRes, topConsumptionRes, topOfflineRes, recentTicketsRes] = await Promise.all([
+        const [cpeRes, switchRes, ticketsRes, routerRes, apRes, topSignalRes, topAirtimeRes, topConsumptionRes, topOfflineRes, recentTicketsRes, settingsRes, routersListRes] = await Promise.all([
             fetch('/api/stats/cpe-count'),
             fetch('/api/stats/switch-count'),
             fetch('/api/stats/tickets'),
@@ -17,7 +17,9 @@ export const load = async ({ fetch }) => {
             fetch('/api/stats/top-aps-by-airtime'),
             fetch('/api/stats/top-routers-by-consumption'),
             fetch('/api/stats/top-offline-devices'),
-            fetch('/api/tickets/?limit=10')
+            fetch('/api/tickets/?limit=10'),
+            fetch('/api/settings/public'),
+            fetch('/api/routers')
         ]);
 
         return {
@@ -34,7 +36,9 @@ export const load = async ({ fetch }) => {
                 consumption: topConsumptionRes.ok ? await topConsumptionRes.json() : [],
                 offline: topOfflineRes.ok ? await topOfflineRes.json() : []
             },
-            recentTickets: recentTicketsRes.ok ? (await recentTicketsRes.json()).items : []
+            publicSettings: settingsRes.ok ? await settingsRes.json() : {},
+            recentTickets: recentTicketsRes.ok ? (await recentTicketsRes.json()).items : [],
+            routersList: routersListRes.ok ? await routersListRes.json() : []
         };
     } catch (e) {
         console.error('Failed to load dashboard stats and tops:', e);
@@ -42,7 +46,7 @@ export const load = async ({ fetch }) => {
             stats: {
                 cpes: { total_cpes: 0, active: 0 },
                 switches: { total_switches: 0, online: 0 },
-                tickets: { open_tickets: 0, resolved_tickets: 0 },
+                tickets: { open_tickets: 0, resolved_tickets: 0, pending_tickets: 0, total_tickets: 0 },
                 routers: { total_routers: 0, online: 0 },
                 aps: { total_aps: 0, online: 0 }
             },
@@ -52,7 +56,9 @@ export const load = async ({ fetch }) => {
                 consumption: [],
                 offline: []
             },
-            recentTickets: []
+            publicSettings: {},
+            recentTickets: [],
+            routersList: []
         };
     }
 };

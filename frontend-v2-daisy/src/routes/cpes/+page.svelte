@@ -135,11 +135,22 @@
             }[s ?? ""] ?? "badge-ghost"
         );
     }
+    let warningLevel = $derived(
+        data.publicSettings?.cpe_signal_warning_threshold
+            ? parseFloat(data.publicSettings.cpe_signal_warning_threshold)
+            : -62,
+    );
+    let dangerLevel = $derived(
+        data.publicSettings?.cpe_signal_danger_threshold
+            ? parseFloat(data.publicSettings.cpe_signal_danger_threshold)
+            : -71,
+    );
+
     function signalClass(sig: number | null): string {
         if (sig === null) return "text-base-content opacity-40";
-        if (sig >= -65) return "text-success font-semibold";
-        if (sig >= -75) return "text-warning font-semibold";
-        return "text-error font-semibold";
+        if (sig <= dangerLevel) return "text-error font-semibold";
+        if (sig <= warningLevel) return "text-warning font-semibold";
+        return "text-success font-semibold";
     }
     function displayName(cpe: CPEGlobalInfo): string {
         return cpe.cpe_hostname ?? cpe.cpe_mac;

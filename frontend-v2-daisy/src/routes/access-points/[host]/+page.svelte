@@ -2,7 +2,8 @@
     import { onMount, onDestroy } from "svelte";
     import { page } from "$app/stores";
     import type { AP } from "$lib/types/ap";
-    import { syncAPCPEs, getAPHistory } from "$lib/api";
+    import { syncAPCPEs, getAPHistory, provisionAP, repairAP } from "$lib/api";
+    import ProvisionModal from "$lib/components/ProvisionModal.svelte";
 
     // ── Props & Estado Base ────────────────────────────────────────────────
     let { data } = $props<{ data: { ap: AP } }>();
@@ -24,6 +25,42 @@
     // ── Acciones estado ───────────────────────────────────────────────────
     let syncLoading = $state(false);
     let syncResult = $state<{ status: string; message: string } | null>(null);
+
+    // ── Aprovisionamiento ──────────────────────────────────────────────────
+    let showProvisionModal = $state(false);
+    let isProvisioning = $state(false);
+    let provisionResult = $state<{status: string, message: string} | null>(null);
+
+    async function handleProvision(data: { newApiUser: string; newApiPassword?: string; method: string }) {
+        isProvisioning = true;
+        provisionResult = null;
+        try {
+            const res = await provisionAP(ap.host, data.newApiUser, data.newApiPassword, data.method);
+            provisionResult = { status: "success", message: res.message || "AP aprovisionado exitosamente." };
+            ap.is_provisioned = true;
+            showProvisionModal = false;
+        } catch (e: any) {
+            provisionResult = { status: "error", message: e?.response?.data?.detail ?? "Error al aprovisionar el AP." };
+            showProvisionModal = false;
+        } finally {
+            isProvisioning = false;
+            setTimeout(() => { provisionResult = null; }, 6000);
+        }
+    }
+
+    async function handleUnprovision() {
+        if (!confirm("¿Desvincular AP? Perderá el acceso API-SSL hasta que vuelva a aprovisionarse.")) return;
+        provisionResult = null;
+        try {
+            await repairAP(ap.host, "unprovision");
+            provisionResult = { status: "success", message: "AP desvinculado correctamente." };
+            ap.is_provisioned = false;
+        } catch (e: any) {
+            provisionResult = { status: "error", message: e?.response?.data?.detail ?? "Error al desvincular el AP." };
+        } finally {
+            setTimeout(() => { provisionResult = null; }, 6000);
+        }
+    }
 
     // ── Historial AP ──────────────────────────────────────────────────────
     let apHistory = $state<any[]>([]);
@@ -274,8 +311,16 @@
     <div class="glass-card-flat" style="border-radius:1rem;">
         <div class="p-6 flex flex-col gap-4">
             <div
-                class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+                class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative"
             >
+                <!-- ProvisionResult Toast -->
+                {#if provisionResult}
+                    <div class="toast toast-top toast-center z-[100] absolute top-[-50px]">
+                        <div class="alert {provisionResult.status === 'success' ? 'alert-success' : 'alert-error'} shadow-lg py-2">
+                            <span class="text-sm font-bold text-white">{provisionResult.message}</span>
+                        </div>
+                    </div>
+                {/if}
                 <div class="flex flex-col gap-1">
                     <div class="flex items-center gap-3">
                         <a
@@ -307,24 +352,27 @@
                         >
                             {ap.last_status || "desconocido"}
                         </span>
-                        {#if ap.is_provisioned}
-                            <span
-                                class="badge badge-info badge-sm gap-1 font-bold shadow-sm"
-                            >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 20 20"
-                                    fill="currentColor"
-                                    class="w-3 h-3"
-                                >
-                                    <path
-                                        fill-rule="evenodd"
-                                        d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z"
-                                        clip-rule="evenodd"
-                                    />
-                                </svg>
-                                Seguro
-                            </span>
+                        {#if ap.vendor === 'mikrotik'}
+                            {#if ap.is_provisioned}
+                                <div class="dropdown dropdown-end">
+                                    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                                    <div tabindex="0" role="button" class="badge badge-info badge-sm gap-1 font-bold shadow-sm cursor-pointer mb-0">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
+                                            <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
+                                        </svg>
+                                        Seguro
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 ml-1 opacity-70" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                                    </div>
+                                    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                                    <ul tabindex="0" class="dropdown-content z-[2] menu p-2 shadow bg-base-100 rounded-box w-52 mt-1 border border-base-200">
+                                        <li><button class="text-error text-xs font-bold" onclick={handleUnprovision}>Desvincular (Unprovision)</button></li>
+                                    </ul>
+                                </div>
+                            {:else}
+                                <button class="btn btn-xs btn-success text-white px-2 h-6 min-h-6" onclick={() => (showProvisionModal = true)}>
+                                    Aprovisionar
+                                </button>
+                            {/if}
                         {/if}
                     </div>
                     <p class="text-sm opacity-60 font-mono m-0 mt-1">
@@ -1164,3 +1212,5 @@
         </div>
     </div>
 </div>
+
+<ProvisionModal bind:show={showProvisionModal} {isProvisioning} onProvision={handleProvision} />

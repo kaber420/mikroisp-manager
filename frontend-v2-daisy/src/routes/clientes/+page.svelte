@@ -3,6 +3,7 @@
     import { getClients } from "$lib/api";
     import DataTable from "$lib/components/DataTable.svelte";
     import type { Client } from "$lib/types/client";
+    import { goto } from "$app/navigation";
 
     let { data }: { data: PageData } = $props();
 
@@ -97,12 +98,19 @@
                 <th class="dt-th">Estado</th>
                 <th class="dt-th" style="text-align:center;">CPEs</th>
                 <th class="dt-th">Alta</th>
+                <th class="dt-th" style="text-align:center;">Acciones</th>
             </tr>
         {/snippet}
 
         {#snippet row(client: Client)}
-            <tr>
-                <td class="dt-td" style="font-weight:500;">{client.name}</td>
+            <tr style="cursor:pointer;" onclick={() => goto(`/clientes/${client.id}`)}>
+                <td class="dt-td" style="font-weight:500;">
+                    <a
+                        href="/clientes/{client.id}"
+                        onclick={(e) => e.stopPropagation()}
+                        style="color:inherit;text-decoration:none;hover:text-decoration:underline;"
+                    >{client.name}</a>
+                </td>
                 <td class="dt-td" style="opacity:0.6;"
                     >{client.address ?? "—"}</td
                 >
@@ -128,6 +136,18 @@
                 >
                 <td class="dt-td" style="font-size:0.75rem;opacity:0.45;">
                     {new Date(client.created_at).toLocaleDateString("es-MX")}
+                </td>
+                <td class="dt-td" style="text-align:center;">
+                    <a
+                        href="/clientes/{client.id}"
+                        onclick={(e) => e.stopPropagation()}
+                        class="btn btn-xs btn-ghost"
+                        title="Ver detalle"
+                    >
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </a>
                 </td>
             </tr>
         {/snippet}

@@ -119,6 +119,9 @@ class RouterService:
     def get_pppoe_secrets(self, username: str = None) -> list[dict[str, Any]]:
         return self.adapter.get_pppoe_secrets(username)
 
+    def get_pppoe_servers(self) -> list[dict[str, Any]]:
+        return self.adapter.get_pppoe_servers()
+
     def get_ppp_profiles(self) -> list[dict[str, Any]]:
         return self.adapter.get_ppp_profiles()
 

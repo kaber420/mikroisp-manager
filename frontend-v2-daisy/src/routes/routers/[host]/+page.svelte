@@ -1,10 +1,17 @@
 <script lang="ts">
     import { onMount, onDestroy } from "svelte";
-    import { getRouterHistory } from "$lib/api";
+    import { getRouterHistory, provisionRouter, repairRouter } from "$lib/api";
     import type { Router, RouterHistoryPoint } from "$lib/types/router";
     import RouterPlansTab from "./RouterPlansTab.svelte";
+    import RouterInterfacesTab from "./RouterInterfacesTab.svelte";
     import RouterEditModal from "./RouterEditModal.svelte";
     import RouterBackupsTab from "./RouterBackupsTab.svelte";
+    import QueuesTab from "./QueuesTab.svelte";
+    import RouterNetworkTab from "./RouterNetworkTab.svelte";
+    import RouterFirewallTab from "./RouterFirewallTab.svelte";
+    import RouterUsersTab from "./RouterUsersTab.svelte";
+    import RouterPPPTab from "./RouterPPPTab.svelte";
+    import ProvisionModal from "$lib/components/ProvisionModal.svelte";
 
     // ── Props ──────────────────────────────────────────────────────────────
     let { data } = $props<{ data: { router: Router } }>();
@@ -13,8 +20,54 @@
     // ── Modal de edición ───────────────────────────────────────────────────
     let showEditModal = $state(false);
 
+    // ── Aprovisionamiento ──────────────────────────────────────────────────
+    let showProvisionModal = $state(false);
+    let isProvisioning = $state(false);
+    let provisionResult = $state<{status: string, message: string} | null>(null);
+
+    async function handleProvision(data: { newApiUser: string; newApiPassword?: string; method: string }) {
+        isProvisioning = true;
+        provisionResult = null;
+        try {
+            const res = await provisionRouter(router.host, data.newApiUser, data.newApiPassword, data.method);
+            provisionResult = { status: "success", message: res.message || "Router aprovisionado exitosamente." };
+            router.is_provisioned = true;
+            showProvisionModal = false;
+        } catch (e: any) {
+            provisionResult = { status: "error", message: e?.response?.data?.detail ?? "Error al aprovisionar el router." };
+            showProvisionModal = false;
+        } finally {
+            isProvisioning = false;
+            setTimeout(() => { provisionResult = null; }, 6000);
+        }
+    }
+
+    async function handleUnprovision() {
+        if (!confirm("¿Desvincular router? Perderá el acceso API-SSL hasta que vuelva a aprovisionarse.")) return;
+        provisionResult = null;
+        try {
+            await repairRouter(router.host, "unprovision");
+            provisionResult = { status: "success", message: "Router desvinculado correctamente." };
+            router.is_provisioned = false;
+        } catch (e: any) {
+            provisionResult = { status: "error", message: e?.response?.data?.detail ?? "Error al desvincular el router." };
+        } finally {
+            setTimeout(() => { provisionResult = null; }, 6000);
+        }
+    }
+
     // ── Sistema de pestañas ────────────────────────────────────────────────
-    let activeTab = $state<"overview" | "planes" | "backups">("overview");
+    let activeTab = $state<
+        | "overview"
+        | "planes"
+        | "backups"
+        | "interfaces"
+        | "queues"
+        | "network"
+        | "firewall"
+        | "users"
+        | "ppp"
+    >("overview");
 
     // ── Modo Live / Histórico ──────────────────────────────────────────────
     let isLiveMode = $state(false);
@@ -327,6 +380,8 @@
                             {router.host}
                             {#if router.model}
                                 · {router.model}{/if}
+                            {#if router.firmware}
+                                · {router.firmware}{/if}
                             {#if router.zona_nombre}
                                 · 📍 {router.zona_nombre}{/if}
                         </p>
@@ -335,8 +390,16 @@
 
                 <!-- Badges + Toggle + Editar -->
                 <div
-                    style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;"
-                >
+                class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative"
+            >
+                <!-- ProvisionResult Toast -->
+                {#if provisionResult}
+                    <div class="toast toast-top toast-center z-[100] absolute top-[-50px]">
+                        <div class="alert {provisionResult.status === 'success' ? 'alert-success' : 'alert-error'} shadow-lg py-2">
+                            <span class="text-sm font-bold text-white">{provisionResult.message}</span>
+                        </div>
+                    </div>
+                {/if}
                     <!-- Status badge -->
                     <span
                         class="badge badge-sm {router.last_status === 'online'
@@ -347,10 +410,39 @@
                     >
                         {router.last_status || "desconocido"}
                     </span>
-                    {#if router.is_provisioned}
-                        <span class="badge badge-sm badge-info gap-1 font-bold"
-                            >🔐 Seguro</span
+                    <!-- Enabled Badge -->
+                    {#if !router.is_enabled}
+                        <span
+                            class="badge badge-sm badge-ghost font-bold opacity-60"
                         >
+                            Deshabilitado
+                        </span>
+                    {/if}
+                    <!-- Provisioning Buttons/Badges -->
+                    {#if router.vendor === 'mikrotik'}
+                        {#if router.is_provisioned}
+                            <div class="dropdown dropdown-end">
+                                <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                                <div tabindex="0" role="button" class="btn btn-sm btn-info gap-1 text-white pr-2 mb-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3">
+                                        <path fill-rule="evenodd" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7V4.5A3.5 3.5 0 0 0 8 1Zm2 6V4.5a2 2 0 1 0-4 0V7h4Z" clip-rule="evenodd" />
+                                    </svg>
+                                    Seguro
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 ml-1 opacity-70" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                                </div>
+                                <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                                <ul tabindex="0" class="dropdown-content z-[2] menu p-2 shadow bg-base-100 rounded-box w-52 mt-1 border border-base-200">
+                                    <li><button class="text-error text-xs font-bold" onclick={handleUnprovision}>Desvincular (Unprovision)</button></li>
+                                </ul>
+                            </div>
+                        {:else}
+                            <button class="btn btn-sm btn-success text-white" onclick={() => (showProvisionModal = true)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 mr-1">
+                                    <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
+                                </svg>
+                                Aprovisionar
+                            </button>
+                        {/if}
                     {/if}
 
                     <!-- Botón Editar -->
@@ -429,7 +521,7 @@
             style="background:oklch(from var(--color-base-content) l c h / 0.02);border-top:1px solid oklch(from var(--color-base-content) l c h / 0.08);padding:0 1.5rem;display:flex;gap:1.5rem;"
             role="tablist"
         >
-            {#each [{ id: "overview", label: "📊 Overview" }, { id: "planes", label: "📋 Planes Locales" }, { id: "backups", label: "💾 Backups" }] as tab}
+            {#each [{ id: "overview", label: "📊 Overview" }, { id: "planes", label: "📋 Planes Locales" }, { id: "interfaces", label: "🔌 Interfaces" }, { id: "network", label: "🌐 Network" }, { id: "firewall", label: "🛡️ Firewall" }, { id: "queues", label: "🚦 Queues" }, { id: "backups", label: "💾 Backups" }, { id: "users", label: "👤 Usuarios" }, { id: "ppp", label: "🔗 PPP" }] as tab}
                 <button
                     role="tab"
                     aria-selected={activeTab === tab.id}
@@ -1167,101 +1259,29 @@
                 {/if}
             </div>
         </div>
-
-        <!-- ── LIVE DATA PANEL (ELIMINADO) ─────────────────────────────────────────────────── -->
-        <!-- ── INFO DEL DISPOSITIVO ────────────────────────────────────────────── -->
-        <div
-            class="glass-card-flat"
-            style="padding:1.25rem;border-radius:1rem;"
-        >
-            <h3
-                style="margin:0 0 1rem;font-size:0.85rem;font-weight:700;opacity:0.6;text-transform:uppercase;letter-spacing:0.06em;"
-            >
-                Información del dispositivo
-            </h3>
-            <div
-                style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem;font-size:0.85rem;"
-            >
-                <div>
-                    <span
-                        style="opacity:0.5;font-size:0.7rem;display:block;text-transform:uppercase;"
-                        >Firmware</span
-                    >
-                    <strong style="font-family:monospace;"
-                        >{router.firmware || "—"}</strong
-                    >
-                </div>
-                <div>
-                    <span
-                        style="opacity:0.5;font-size:0.7rem;display:block;text-transform:uppercase;"
-                        >Puerto API</span
-                    >
-                    <strong style="font-family:monospace;"
-                        >{router.api_port}</strong
-                    >
-                </div>
-                <div>
-                    <span
-                        style="opacity:0.5;font-size:0.7rem;display:block;text-transform:uppercase;"
-                        >Puerto SSH</span
-                    >
-                    <strong style="font-family:monospace;"
-                        >{router.ssh_port}</strong
-                    >
-                </div>
-                <div>
-                    <span
-                        style="opacity:0.5;font-size:0.7rem;display:block;text-transform:uppercase;"
-                        >Puerto API SSL</span
-                    >
-                    <strong style="font-family:monospace;"
-                        >{router.api_ssl_port}</strong
-                    >
-                </div>
-                {#if router.wan_interface}
-                    <div>
-                        <span
-                            style="opacity:0.5;font-size:0.7rem;display:block;text-transform:uppercase;"
-                            >Interfaz WAN</span
-                        >
-                        <strong style="font-family:monospace;"
-                            >{router.wan_interface}</strong
-                        >
-                    </div>
-                {/if}
-                <div>
-                    <span
-                        style="opacity:0.5;font-size:0.7rem;display:block;text-transform:uppercase;"
-                        >Habilitado</span
-                    >
-                    <span
-                        class="badge badge-sm {router.is_enabled
-                            ? 'badge-success'
-                            : 'badge-ghost'}"
-                        >{router.is_enabled ? "Sí" : "No"}</span
-                    >
-                </div>
-                <div>
-                    <span
-                        style="opacity:0.5;font-size:0.7rem;display:block;text-transform:uppercase;"
-                        >Aprovisionado</span
-                    >
-                    <span
-                        class="badge badge-sm {router.is_provisioned
-                            ? 'badge-info'
-                            : 'badge-ghost'}"
-                        >{router.is_provisioned ? "Sí (SSL)" : "No"}</span
-                    >
-                </div>
-            </div>
-        </div>
     {/if}
 
     <!-- ── OTROS PANELES ─────────────────────────────────────────────────── -->
     {#if activeTab === "planes"}
         <RouterPlansTab routerHost={router.host} />
+    {:else if activeTab === "interfaces"}
+        <RouterInterfacesTab routerHost={router.host} />
+    {:else if activeTab === "queues"}
+        <QueuesTab routerHost={router.host} />
+    {:else if activeTab === "network"}
+        <RouterNetworkTab routerHost={router.host} />
+    {:else if activeTab === "firewall"}
+        <RouterFirewallTab routerHost={router.host} />
     {:else if activeTab === "backups"}
         <RouterBackupsTab host={router.host} />
+    {:else if activeTab === "users"}
+        <div class="glass-card-flat" style="padding:1.5rem;border-radius:1rem;">
+            <RouterUsersTab host={router.host} />
+        </div>
+    {:else if activeTab === "ppp"}
+        <div class="glass-card-flat" style="padding:1.5rem;border-radius:1rem;">
+            <RouterPPPTab host={router.host} />
+        </div>
     {/if}
 </div>
 
@@ -1287,3 +1307,6 @@
         }
     }
 </style>
+
+<ProvisionModal bind:show={showProvisionModal} {isProvisioning} onProvision={handleProvision} />
+

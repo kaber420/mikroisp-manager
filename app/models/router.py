@@ -31,6 +31,10 @@ class Router(SQLModel, table=True):
     # WAN Interface for traffic monitoring
     wan_interface: str | None = Field(default=None)
 
+    # Multi-vendor support
+    # vendor: str | None = Field(default="mikrotik") - Mikrotik default for routers
+    vendor: str | None = Field(default="mikrotik")
+
     # Provisioning status (True after successful secure provisioning)
     is_provisioned: bool = Field(default=False)
 
