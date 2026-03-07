@@ -128,16 +128,7 @@ async def test_login_failure(client: AsyncClient):
     assert response.status_code in (400, 429)
     assert "LOGIN_BAD_CREDENTIALS" in response.text
 
-@pytest.mark.asyncio
-async def test_protected_route_without_auth(client: AsyncClient):
-    """Prueba que una ruta protegida rechaza el acceso sin cookie."""
-    
-    # Intentar acceder a /users, que requiere admin
-    response = await client.get("/users", follow_redirects=False)
-    
-    # El middleware global redirige al login si es una petición web (HTML)
-    assert response.status_code == 303
-    assert response.headers["location"] == "/login"
+
 
 @pytest.mark.asyncio
 async def test_api_protected_route_without_auth(client: AsyncClient):

@@ -7,12 +7,10 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.core.templates import templates
 from app.core.users import get_user_manager, UserManager
 from app.db.engine import get_session
 from app.models.user import User
@@ -48,17 +46,6 @@ async def _is_system_setup(session: AsyncSession) -> bool:
     """Check if any user exists in the database."""
     result = await session.exec(select(User).limit(1))
     return result.first() is not None
-
-
-@router.get("/setup")
-async def setup_page(request: Request, session: AsyncSession = Depends(get_session)):
-    """
-    Render the first-run setup page.
-    Redirects to login if the system is already configured.
-    """
-    if await _is_system_setup(session):
-        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
-    return templates.TemplateResponse(request, "setup.html")
 
 
 @router.post("/setup")
