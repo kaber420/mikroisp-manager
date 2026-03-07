@@ -180,7 +180,7 @@
 	let currentSubMenu = $derived(subMenus[$page.url.pathname] || []);
 </script>
 
-{#if $page.url.pathname === "/login" || $page.url.pathname.endsWith("/receipt")}
+{#if $page.url.pathname === "/login" || $page.url.pathname.endsWith("/receipt") || $page.error}
 	<!-- Páginas sin layout (Login, Recibos imprimibles) -->
 	{@render children()}
 {:else}

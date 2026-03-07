@@ -197,6 +197,34 @@ def get_bootstrap_qr_image(request: Request, current_user: User = Depends(requir
     return FileResponse(str(qr_path), media_type="image/png")
 
 
+@router.post("/security/bootstrap-qr/regenerate")
+def regenerate_bootstrap_qr(current_user: User = Depends(require_admin)):
+    """
+    Elimina todos los códigos QR generados anteriormente para forzar su regeneración.
+    Útil si la IP del servidor ha cambiado o si hay problemas con el QR.
+    """
+    import logging
+    from pathlib import Path
+    import shutil
+
+    logger = logging.getLogger(__name__)
+    base_dir = Path(__file__).resolve().parent.parent.parent.parent
+    qr_dir = base_dir / "data" / "qr_codes"
+
+    if qr_dir.exists():
+        try:
+            # Eliminar todos los archivos .png en el directorio
+            for qr_file in qr_dir.glob("*.png"):
+                qr_file.unlink()
+            logger.info("Todos los códigos QR han sido eliminados para su regeneración.")
+            return {"status": "success", "message": "Códigos QR eliminados. Se generará uno nuevo en el próximo acceso."}
+        except Exception as e:
+            logger.error(f"Error al eliminar los códigos QR: {e}")
+            raise HTTPException(status_code=500, detail=f"Error al limpiar el caché de QR: {e}")
+    
+    return {"status": "success", "message": "No había códigos QR para eliminar."}
+
+
 @router.get("/security/bootstrap-qr", response_class=HTMLResponse)
 def get_bootstrap_qr_page(request: Request, current_user: User = Depends(require_admin)):
     """
