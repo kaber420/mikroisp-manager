@@ -17,7 +17,7 @@
 		theme.init();
 
 		// Auth Optimista: pinta inmediato desde caché, verifica en background
-		if ($page.url.pathname !== "/login") {
+		if ($page.url.pathname !== "/login" && $page.url.pathname !== "/setup") {
 			initSession($page.url.pathname);
 			// Conectar WebSocket global para monitorear conexión con el servidor
 			connect();
@@ -180,8 +180,8 @@
 	let currentSubMenu = $derived(subMenus[$page.url.pathname] || []);
 </script>
 
-{#if $page.url.pathname === "/login" || $page.url.pathname.endsWith("/receipt") || $page.error}
-	<!-- Páginas sin layout (Login, Recibos imprimibles) -->
+{#if $page.url.pathname === "/login" || $page.url.pathname === "/setup" || $page.url.pathname.endsWith("/receipt") || $page.error}
+	<!-- Páginas sin layout (Login, Setup, Recibos imprimibles) -->
 	{@render children()}
 {:else}
 	<LavaLampBackground />

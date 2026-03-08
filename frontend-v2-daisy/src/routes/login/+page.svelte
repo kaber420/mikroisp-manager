@@ -17,9 +17,9 @@
         formData.append("password", password);
 
         try {
-            // POST to /auth/cookie/login through Vite proxy (same origin :5173)
+            // POST to /api/auth/cookie/login through Vite proxy (same origin :5173)
             // This way the cookie is set for :5173 — NOT for :7777
-            const response = await axios.post("/auth/cookie/login", formData, {
+            const response = await axios.post("/api/auth/cookie/login", formData, {
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded",
                     Accept: "application/json",

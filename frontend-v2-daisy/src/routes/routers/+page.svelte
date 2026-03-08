@@ -7,12 +7,19 @@
         deleteRouter,
     } from "$lib/api";
     import DataTable from "$lib/components/DataTable.svelte";
+    import Toast from "$lib/components/Toast.svelte";
     import type { Router, RouterCreate, RouterUpdate } from "$lib/types/router";
+
+    // ── Estado de Notificaciones ──────────────────────────────────────────
+    let toast = $state<{ msg: string; type: "success" | "error" | "info" | "warning" } | null>(null);
+
+    function showToast(msg: string, type: "success" | "error" | "info" | "warning" = "info") {
+        toast = { msg, type };
+    }
 
     // ── Estado principal ──────────────────────────────────────────────────
     let routers = $state<Router[]>([]);
     let loading = $state(true);
-    let pageError = $state<string | null>(null);
 
     // ── Modal Crear/Editar ────────────────────────────────────────────────
     let showModal = $state(false);
@@ -52,12 +59,10 @@
     // ── Carga inicial ─────────────────────────────────────────────────────
     async function loadRouters() {
         loading = true;
-        pageError = null;
         try {
             routers = await getRouters();
         } catch (e: any) {
-            pageError =
-                e?.response?.data?.detail ?? "Error al cargar los routers.";
+            showToast(e?.response?.data?.detail ?? "Error al cargar los routers.", "error");
         } finally {
             loading = false;
         }
@@ -141,10 +146,11 @@
                 await updateRouter(editTarget.host, payload);
             }
             showModal = false;
-            await loadRouters();
+            showToast(modalMode === "create" ? "Router agregado exitosamente." : "Cambios guardados correctamente.", "success");
         } catch (e: any) {
             modalError =
                 e?.response?.data?.detail ?? "Error al guardar el router.";
+            showToast(modalError || "Error desconocido", "error");
         } finally {
             modalLoading = false;
         }
@@ -158,10 +164,10 @@
             await deleteRouter(deleteTarget.host);
             showDeleteModal = false;
             deleteTarget = null;
+            showToast("Router eliminado correctamente.", "success");
             await loadRouters();
         } catch (e: any) {
-            pageError =
-                e?.response?.data?.detail ?? "Error al eliminar el router.";
+            showToast(e?.response?.data?.detail ?? "Error al eliminar el router.", "error");
             showDeleteModal = false;
         } finally {
             deleteLoading = false;
@@ -327,30 +333,7 @@
         </div>
     {/if}
 
-    <!-- Error de página -->
-    {#if pageError}
-        <div class="alert alert-error shadow-sm">
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5 shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-            >
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-            </svg>
-            <span>{pageError}</span>
-            <button
-                class="btn btn-xs btn-ghost"
-                onclick={() => (pageError = null)}>✕</button
-            >
-        </div>
-    {/if}
+    <!-- El error ahora se muestra como Toast -->
 
     <!-- DataTable -->
     {#if !loading}
@@ -457,22 +440,7 @@
             {/snippet}
         </DataTable>
 
-        <!-- Estado vacío -->
-        {#if routers.length === 0}
-            <div
-                class="glass-card-flat"
-                style="padding:3rem;border-radius:1rem;text-align:center;opacity:0.6;"
-            >
-                <p style="font-size:2.5rem;margin:0 0 0.5rem;">🖧</p>
-                <p style="font-weight:600;margin:0 0 0.25rem;">
-                    Sin routers registrados
-                </p>
-                <p style="font-size:0.85rem;margin:0;">
-                    Añade tu primer router MikroTik con el botón "+ Nuevo
-                    Router".
-                </p>
-            </div>
-        {/if}
+        <!-- DataTable maneja su propio estado vacío internamente -->
     {:else}
         <!-- Skeleton -->
         <div class="glass-card-flat" style="padding:2rem;border-radius:1rem;">
@@ -762,6 +730,13 @@
         </div>
     </div>
 {/if}
+
+<Toast
+    visible={!!toast}
+    message={toast?.msg ?? ""}
+    type={toast?.type ?? "info"}
+    onClose={() => (toast = null)}
+/>
 
 <style>
     @keyframes pulseSkel {

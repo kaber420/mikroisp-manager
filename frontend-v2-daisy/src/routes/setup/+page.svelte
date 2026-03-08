@@ -27,10 +27,9 @@
         }
 
         try {
-            // POST to backend setup endpoint
-            // Usually proxy routes are used for backend paths, assuming Vite proxy config routes /setup to :7777/setup
+            // POST to backend setup endpoint - el router de setup está bajo /api/setup
             const response = await axios.post(
-                "/setup",
+                "/api/setup",
                 { username, email, password },
                 {
                     headers: {

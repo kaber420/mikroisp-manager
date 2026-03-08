@@ -298,6 +298,11 @@ class TrustedOriginMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(TrustedOriginMiddleware)
 
+# --- SETUP MIDDLEWARE ---
+from app.middleware.setup_middleware import SetupMiddleware
+app.add_middleware(SetupMiddleware)
+
+
 
 # --- SEGURIDAD: CABECERAS DE SEGURIDAD HTTP ---
 @app.middleware("http")
@@ -538,7 +543,7 @@ async def notify_monitor_update(
 # --- ROUTERS INCLUSION ---
 
 # 0. Setup Wizard (only active on first run)
-app.include_router(setup_api.router)
+app.include_router(setup_api.router, prefix="/api")
 
 # 1. Main Views (Pages & Legacy Auth)
 
@@ -546,22 +551,22 @@ app.include_router(setup_api.router)
 # Rate limiting is handled by rate_limit_middleware for auth endpoints
 app.include_router(
     fastapi_users.get_auth_router(auth_backend_jwt),
-    prefix="/auth/jwt",
+    prefix="/api/auth/jwt",
     tags=["FastAPI Users - JWT Auth"],
 )
 app.include_router(
     fastapi_users.get_auth_router(auth_backend_cookie),
-    prefix="/auth/cookie",
+    prefix="/api/auth/cookie",
     tags=["FastAPI Users - Cookie Auth"],
 )
 app.include_router(
     fastapi_users.get_register_router(UserRead, UserCreate),
-    prefix="/auth",
+    prefix="/api/auth",
     tags=["FastAPI Users - Registration"],
 )
 app.include_router(
     fastapi_users.get_users_router(UserRead, UserUpdate),
-    prefix="/users",
+    prefix="/api/users",
     tags=["FastAPI Users - Users Management"],
 )
 
@@ -600,3 +605,52 @@ async def bot_webhook(bot_type: str, token: str, request: Request):
         print(f"⚠️ Webhook Error: {e}")
         return {"status": "error", "detail": str(e)}
 
+# --- FRONTEND SPA FALLBACK ---
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def serve_frontend(full_path: str, request: Request):
+    """Sirve la Single Page Application (SvelteKit) y sus archivos estáticos."""
+    import os
+    frontend_dir = os.path.join(current_dir, "..", "frontend-v2-daisy", "build")
+    file_path = os.path.join(frontend_dir, full_path)
+    
+    # Determinar MIME type explícito para evitar problemas con SvelteKit
+    media_type = None
+    if file_path.endswith(".js"):
+        media_type = "application/javascript"
+    elif file_path.endswith(".css"):
+        media_type = "text/css"
+    elif file_path.endswith(".html"):
+        media_type = "text/html"
+    elif file_path.endswith(".json"):
+        media_type = "application/json"
+    elif file_path.endswith(".png"):
+        media_type = "image/png"
+    elif file_path.endswith(".ico"):
+        media_type = "image/x-icon"
+    elif file_path.endswith(".svg"):
+        media_type = "image/svg+xml"
+
+    # Si es un archivo estático real (js, css, png)
+    if os.path.isfile(file_path):
+        return FileResponse(file_path, media_type=media_type)
+        
+    # Fallback a index.html para rutas de la SPA (ej: /setup, /dashboard)
+    index_path = os.path.join(frontend_dir, "index.html")
+    if os.path.isfile(index_path):
+        with open(index_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            
+        # Inyectar el nonce de CSP generado en el Middleware
+        if hasattr(request, "state") and hasattr(request.state, "csp_nonce"):
+            nonce = request.state.csp_nonce
+            content = content.replace("<script", f'<script nonce="{nonce}"')
+            
+        return HTMLResponse(content)
+        
+    # Si no existe el build
+    return JSONResponse(
+        status_code=404, 
+        content={"detail": "Frontend no construido o no disponible. Ejecuta npm run build en frontend-v2-daisy."}
+    )

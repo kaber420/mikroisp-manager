@@ -44,7 +44,7 @@ class SetupRequest(BaseModel):
 
 async def _is_system_setup(session: AsyncSession) -> bool:
     """Check if any user exists in the database."""
-    result = await session.exec(select(User).limit(1))
+    result = await session.execute(select(User).limit(1))
     return result.first() is not None
 
 

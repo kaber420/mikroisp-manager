@@ -31,55 +31,10 @@ export default defineConfig(({ mode }) => {
                         });
                     }
                 },
-                '/auth': {
-                    target: backendUrl,
-                    changeOrigin: true,
-                    cookieDomainRewrite: 'localhost',
-                    configure: (proxy: any, options: any) => {
-                        proxy.on('proxyReq', (proxyReq: any, req: any, res: any) => {
-                            if (req.headers.origin) {
-                                proxyReq.setHeader('Origin', req.headers.origin);
-                            }
-                            if (req.headers.referer) {
-                                proxyReq.setHeader('Referer', req.headers.referer);
-                            }
-                        });
-                    }
-                },
-                '/users': {
-                    target: backendUrl,
-                    changeOrigin: true,
-                    cookieDomainRewrite: 'localhost',
-                    configure: (proxy: any, options: any) => {
-                        proxy.on('proxyReq', (proxyReq: any, req: any, res: any) => {
-                            if (req.headers.origin) {
-                                proxyReq.setHeader('Origin', req.headers.origin);
-                            }
-                            if (req.headers.referer) {
-                                proxyReq.setHeader('Referer', req.headers.referer);
-                            }
-                        });
-                    }
-                },
                 '/ws': {
                     target: backendUrl.replace('http', 'ws'),
                     ws: true,
                     changeOrigin: true,
-                },
-                '/setup': {
-                    target: backendUrl,
-                    changeOrigin: true,
-                    cookieDomainRewrite: 'localhost',
-                    configure: (proxy: any, options: any) => {
-                        proxy.on('proxyReq', (proxyReq: any, req: any, res: any) => {
-                            if (req.headers.origin) {
-                                proxyReq.setHeader('Origin', req.headers.origin);
-                            }
-                            if (req.headers.referer) {
-                                proxyReq.setHeader('Referer', req.headers.referer);
-                            }
-                        });
-                    }
                 }
             }
         },

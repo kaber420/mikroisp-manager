@@ -86,8 +86,8 @@ def bootstrap_system() -> None:
             if admin_email and admin_password:
                 start_auto_creation(session, admin_email, admin_username, admin_password)
             else:
-                logger.warning("⚠️ [Bootstrap] ADMIN_EMAIL or ADMIN_PASSWORD not set. Waiting for manual setup.")
-
+                logger.warning("⚠️ [Bootstrap] No se encontró un usuario administrador ni variables predefinidas.")
+                logger.info("👉 Para configurar el sistema, accede a la interfaz web en http://<tu-ip>/ o usa 'python launcher/main.py setup'.")
     except Exception as e:
         logger.critical(f"❌ [Bootstrap] Fatal error during initialization: {e}")
         raise e
