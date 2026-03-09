@@ -4,11 +4,12 @@
     import DataTable from "$lib/components/DataTable.svelte";
     import type { User, UserCreate, UserUpdate } from "$lib/types/user";
     import { user as currentUser } from "$lib/stores/auth";
+    import { notify } from "$lib/stores/notifications";
 
     // ── Estado principal ──────────────────────────────────────────────────
     let users = $state<User[]>([]);
     let loading = $state(true);
-    let pageError = $state<string | null>(null);
+
 
     // ── Modal Crear/Editar ────────────────────────────────────────────────
     let showModal = $state(false);
@@ -36,13 +37,11 @@
     // ── Carga inicial ─────────────────────────────────────────────────────
     async function loadUsers() {
         loading = true;
-        pageError = null;
         try {
             const res = await api.get<User[]>("/users");
             users = res.data;
         } catch (e: any) {
-            pageError =
-                e?.response?.data?.detail ?? "Error al cargar usuarios.";
+            notify.error(e?.response?.data?.detail ?? "Error al cargar usuarios.");
         } finally {
             loading = false;
         }
@@ -54,19 +53,16 @@
     const ROLES = ["admin", "tecnico", "cobranza"];
 
     function roleBadgeStyle(role: string): string {
-        if (role === "admin")
-            return "background:#fef3c7;color:#92400e;border:1px solid #fde68a;";
-        if (role === "tecnico")
-            return "background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;";
-        if (role === "cobranza")
-            return "background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;";
-        return "background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;";
+        const map: Record<string, string> = {
+            admin: "badge-warning",
+            tecnico: "badge-info",
+            cobranza: "badge-success",
+        };
+        return map[role] || "badge-ghost";
     }
 
-    function activeStyle(active: boolean): string {
-        return active
-            ? "background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;"
-            : "background:#fee2e2;color:#991b1b;border:1px solid #fecaca;";
+    function activeBadgeStyle(active: boolean): string {
+        return active ? "badge-success" : "badge-error";
     }
 
     // ── Abrir Modales ──────────────────────────────────────────────────────
@@ -139,10 +135,10 @@
                 await updateUser(editTarget.username, payload);
             }
             showModal = false;
+            notify.success(modalMode === "create" ? "Usuario creado correctamente." : "Usuario actualizado.");
             await loadUsers();
         } catch (e: any) {
-            modalError =
-                e?.response?.data?.detail ?? "Error al guardar el usuario.";
+            notify.error(e?.response?.data?.detail ?? "Error al guardar el usuario.");
         } finally {
             modalLoading = false;
         }
@@ -159,8 +155,7 @@
             await loadUsers();
         } catch (e: any) {
             // mostrar alerta aunque cerremos el modal
-            pageError =
-                e?.response?.data?.detail ?? "Error al eliminar el usuario.";
+            notify.error(e?.response?.data?.detail ?? "Error al eliminar el usuario.");
             showDeleteModal = false;
         } finally {
             deleteLoading = false;
@@ -220,30 +215,6 @@
         </div>
     </div>
 
-    <!-- Error de página (ej. no tienes permisos o fallo de red) -->
-    {#if pageError}
-        <div class="alert alert-error shadow-sm">
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5 shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-            >
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-            </svg>
-            <span>{pageError}</span>
-            <button
-                class="btn btn-xs btn-ghost"
-                onclick={() => (pageError = null)}>✕</button
-            >
-        </div>
-    {/if}
 
     <!-- DataTable (modo local — la lista completa viene del onMount) -->
     {#if !loading}
@@ -296,22 +267,16 @@
                     <!-- Rol -->
                     <td class="dt-td">
                         <span
-                            style="
-                            display:inline-block; padding:0.15rem 0.55rem;
-                            border-radius:999px; font-size:0.7rem; font-weight:600;
-                            {roleBadgeStyle(u.role)}
-                        ">{u.role}</span
+                            class="badge badge-sm {roleBadgeStyle(u.role)} capitalize"
+                        >{u.role}</span
                         >
                     </td>
 
                     <!-- Estado activo -->
                     <td class="dt-td" style="text-align:center;">
                         <span
-                            style="
-                            display:inline-block; padding:0.15rem 0.55rem;
-                            border-radius:999px; font-size:0.7rem; font-weight:600;
-                            {activeStyle(u.is_active)}
-                        ">{u.is_active ? "Activo" : "Inactivo"}</span
+                            class="badge badge-sm {activeBadgeStyle(u.is_active)}"
+                        >{u.is_active ? "Activo" : "Inactivo"}</span
                         >
                     </td>
 
@@ -415,12 +380,6 @@
                 }}
                 style="padding:1.5rem;display:flex;flex-direction:column;gap:1rem;"
             >
-                {#if modalError}
-                    <div class="alert alert-error alert-sm py-2">
-                        <span style="font-size:0.85rem;">{modalError}</span>
-                    </div>
-                {/if}
-
                 <!-- Username -->
                 <label class="form-control w-full">
                     <div class="label">

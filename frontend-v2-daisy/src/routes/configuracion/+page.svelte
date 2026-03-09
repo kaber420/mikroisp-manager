@@ -14,18 +14,13 @@
         type AuditLog,
         type SystemSettingsPayload,
     } from "$lib/api";
+    import { notify } from "$lib/stores/notifications";
 
     // ─── Estado de tabs ────────────────────────────────────────────────
     let activeTab = $state<
         "general" | "auditoria" | "bots" | "sistema" | "apariencia"
     >("general");
 
-    // ─── Toast ─────────────────────────────────────────────────────────
-    let toast = $state<{ msg: string; type: "success" | "error" } | null>(null);
-    function showToast(msg: string, type: "success" | "error" = "success") {
-        toast = { msg, type };
-        setTimeout(() => (toast = null), 3500);
-    }
 
     // ═══════════════════════════════════════════════════════════════════
     // TAB 1: GENERAL
@@ -38,7 +33,7 @@
         try {
             generalSettings = await getSettings();
         } catch {
-            showToast("Error al cargar configuración", "error");
+            notify.error("Error al cargar configuración");
         } finally {
             generalLoading = false;
         }
@@ -55,9 +50,9 @@
         generalSaving = true;
         try {
             await updateSettings(generalSettings);
-            showToast("✅ Configuración guardada correctamente");
+            notify.success("Configuración guardada correctamente");
         } catch {
-            showToast("Error al guardar configuración", "error");
+            notify.error("Error al guardar configuración");
         } finally {
             generalSaving = false;
         }
@@ -66,18 +61,18 @@
     async function onForceBilling() {
         try {
             const res = await forceBilling();
-            showToast(`✅ ${res.message}`);
+            notify.success(res.message);
         } catch {
-            showToast("Error al forzar actualización", "error");
+            notify.error("Error al forzar actualización");
         }
     }
 
     async function onBackupNow() {
         try {
             await backupNow();
-            showToast("✅ Backup completado");
+            notify.success("Backup completado");
         } catch {
-            showToast("Error al realizar backup", "error");
+            notify.error("Error al realizar backup");
         }
     }
 
@@ -114,7 +109,7 @@
             auditTotal = res.total;
             auditTotalPages = res.total_pages;
         } catch {
-            showToast("Error al cargar logs de auditoría", "error");
+            notify.error("Error al cargar logs de auditoría");
         } finally {
             auditLoading = false;
         }
@@ -159,9 +154,9 @@
         botSaving = true;
         try {
             await updateSettings(generalSettings);
-            showToast("✅ Configuración de bots guardada");
+            notify.success("Configuración de bots guardada");
         } catch {
-            showToast("Error al guardar bots", "error");
+            notify.error("Error al guardar bots");
         } finally {
             botSaving = false;
         }
@@ -172,9 +167,9 @@
         try {
             await updateSettings(generalSettings);
             const res = await restartBots();
-            showToast(`✅ ${res.message}`);
+            notify.success(res.message);
         } catch {
-            showToast("Error al reiniciar bots", "error");
+            notify.error("Error al reiniciar bots");
         } finally {
             botRestarting = false;
         }
@@ -221,7 +216,7 @@
                 env["CACHE_BACKEND"] === "redict" ? "redict" : "memory";
             sysConfig.redict_url = env["REDICT_URL"] ?? "";
         } catch {
-            showToast("Error al cargar config del sistema", "error");
+            notify.error("Error al cargar config del sistema");
         } finally {
             sysLoading = false;
         }
@@ -231,9 +226,9 @@
         sysSaving = true;
         try {
             const res = await updateSystemSettings(sysConfig);
-            showToast(`✅ ${res.message}`);
+            notify.success(res.message);
         } catch {
-            showToast("Error al guardar config del sistema", "error");
+            notify.error("Error al guardar config del sistema");
         } finally {
             sysSaving = false;
         }
@@ -284,18 +279,6 @@
     <title>Configuración Global — UManager</title>
 </svelte:head>
 
-<!-- Toast global -->
-{#if toast}
-    <div class="toast toast-top toast-center z-50">
-        <div
-            class="alert {toast.type === 'success'
-                ? 'alert-success'
-                : 'alert-error'} shadow-lg"
-        >
-            <span>{toast.msg}</span>
-        </div>
-    </div>
-{/if}
 
 <!-- ── HEADER ─────────────────────────────────────────────────────────── -->
 <div

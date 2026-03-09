@@ -69,7 +69,10 @@ def write_add_simple_queue(
     user: User = Depends(get_current_active_user),
 ):
     try:
-        return service.add_simple_queue(**data.model_dump())
+        # Filter out is_parent as the underlying service doesn't use it directly yet
+        params = data.model_dump()
+        params.pop("is_parent", None)
+        return service.add_simple_queue(**params)
     except (RouterCommandError, ValueError) as e:
         raise HTTPException(status_code=409, detail=str(e))
 
@@ -208,9 +211,9 @@ def write_delete_service_plan(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/write/delete-simple-queue/{queue_id:path}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/write/delete-simple-queue", status_code=status.HTTP_204_NO_CONTENT)
 def write_delete_simple_queue(
-    queue_id: str,
+    queue_id: str = Query(...),
     host: str = "",
     request: Request = None,
     service: RouterService = Depends(get_router_service),

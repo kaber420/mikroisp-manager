@@ -5,17 +5,14 @@
         createRouter,
         updateRouter,
         deleteRouter,
+        provisionRouter,
+        repairRouter,
     } from "$lib/api";
     import DataTable from "$lib/components/DataTable.svelte";
-    import Toast from "$lib/components/Toast.svelte";
+    import ProvisionModal from "$lib/components/ProvisionModal.svelte";
     import type { Router, RouterCreate, RouterUpdate } from "$lib/types/router";
+    import { notify } from "$lib/stores/notifications";
 
-    // ── Estado de Notificaciones ──────────────────────────────────────────
-    let toast = $state<{ msg: string; type: "success" | "error" | "info" | "warning" } | null>(null);
-
-    function showToast(msg: string, type: "success" | "error" | "info" | "warning" = "info") {
-        toast = { msg, type };
-    }
 
     // ── Estado principal ──────────────────────────────────────────────────
     let routers = $state<Router[]>([]);
@@ -44,6 +41,15 @@
     let deleteTarget = $state<Router | null>(null);
     let deleteLoading = $state(false);
 
+    // ── Aprovisionamiento desde la lista ──────────────────────────────────
+    let showProvisionModal = $state(false);
+    let provisionTarget = $state<Router | null>(null);
+    let isProvisioning = $state(false);
+
+    // ── Modal Post-Creación (sugerir aprovisionar) ────────────────────────
+    let showPostCreateModal = $state(false);
+    let postCreateRouter = $state<Router | null>(null);
+
     // ── Estadísticas ──────────────────────────────────────────────────────
     let totalRouters = $derived(routers.length);
     let onlineRouters = $derived(
@@ -62,7 +68,7 @@
         try {
             routers = await getRouters();
         } catch (e: any) {
-            showToast(e?.response?.data?.detail ?? "Error al cargar los routers.", "error");
+            notify.error(e?.response?.data?.detail ?? "Error al cargar los routers.");
         } finally {
             loading = false;
         }
@@ -130,6 +136,17 @@
                     is_provisioned: fIsProvisioned,
                 };
                 await createRouter(payload);
+                showModal = false;
+                notify.success("Router agregado exitosamente.");
+                await loadRouters();
+                // Sugerir aprovisionamiento si es mikrotik y no fue marcado como aprovisionado
+                if (fVendor === 'mikrotik' && !fIsProvisioned) {
+                    const created = routers.find(r => r.host === fHost.trim());
+                    if (created) {
+                        postCreateRouter = created;
+                        showPostCreateModal = true;
+                    }
+                }
             } else if (editTarget) {
                 const payload: RouterUpdate = {
                     username: fUsername.trim(),
@@ -144,15 +161,59 @@
                     payload.password = fPassword;
                 }
                 await updateRouter(editTarget.host, payload);
+                showModal = false;
+                notify.success("Cambios guardados correctamente.");
+                await loadRouters();
             }
-            showModal = false;
-            showToast(modalMode === "create" ? "Router agregado exitosamente." : "Cambios guardados correctamente.", "success");
         } catch (e: any) {
-            modalError =
-                e?.response?.data?.detail ?? "Error al guardar el router.";
-            showToast(modalError || "Error desconocido", "error");
+            notify.error(e?.response?.data?.detail ?? "Error al guardar el router.");
         } finally {
             modalLoading = false;
+        }
+    }
+
+    // ── Aprovisionamiento desde la lista ──────────────────────────────────
+    function openProvision(r: Router) {
+        provisionTarget = r;
+        showProvisionModal = true;
+    }
+
+    async function handleProvision(data: { newApiUser: string; newApiPassword?: string; method: string }) {
+        if (!provisionTarget) return;
+        isProvisioning = true;
+        try {
+            await provisionRouter(provisionTarget.host, data.newApiUser, data.newApiPassword, data.method);
+            notify.success(`Router ${provisionTarget.host} aprovisionado exitosamente.`);
+            showProvisionModal = false;
+            showPostCreateModal = false;
+            await loadRouters();
+        } catch (e: any) {
+            notify.error(e?.response?.data?.detail ?? "Error al aprovisionar.");
+            showProvisionModal = false;
+        } finally {
+            isProvisioning = false;
+            provisionTarget = null;
+        }
+    }
+
+    async function handleRenewSSL(r: Router) {
+        if (!confirm(`¿Renovar certificados SSL en ${r.host}?`)) return;
+        try {
+            await repairRouter(r.host, "renew");
+            notify.success(`Certificados SSL renovados en ${r.host}.`);
+        } catch (e: any) {
+            notify.error(e?.response?.data?.detail ?? "Error al renovar SSL.");
+        }
+    }
+
+    async function handleUnprovision(r: Router) {
+        if (!confirm(`¿Desvincular ${r.host}? Perderá el acceso API-SSL hasta que vuelva a aprovisionarse.`)) return;
+        try {
+            await repairRouter(r.host, "unprovision");
+            notify.success(`Router ${r.host} desvinculado correctamente.`);
+            await loadRouters();
+        } catch (e: any) {
+            notify.error(e?.response?.data?.detail ?? "Error al desvincular.");
         }
     }
 
@@ -164,10 +225,10 @@
             await deleteRouter(deleteTarget.host);
             showDeleteModal = false;
             deleteTarget = null;
-            showToast("Router eliminado correctamente.", "success");
+            notify.success("Router eliminado correctamente.");
             await loadRouters();
         } catch (e: any) {
-            showToast(e?.response?.data?.detail ?? "Error al eliminar el router.", "error");
+            notify.error(e?.response?.data?.detail ?? "Error al eliminar el router.");
             showDeleteModal = false;
         } finally {
             deleteLoading = false;
@@ -345,7 +406,7 @@
                     <th class="dt-th">Modelo</th>
                     <th class="dt-th">Zona</th>
                     <th class="dt-th" style="text-align:center;">Estado</th>
-                    <th class="dt-th" style="text-align:center;">Activo</th>
+                    <th class="dt-th" style="text-align:center;">Seguridad</th>
                     <th class="dt-th" style="text-align:center;">Acciones</th>
                 </tr>
             {/snippet}
@@ -402,15 +463,33 @@
                         >
                     </td>
 
-                    <!-- Habilitado -->
+                    <!-- Seguridad (Provisioning) -->
                     <td class="dt-td" style="text-align:center;">
-                        {#if r.is_enabled}
-                            <span
-                                class="badge badge-sm badge-success badge-outline"
-                                >Sí</span
-                            >
+                        {#if r.vendor === 'mikrotik'}
+                            {#if r.is_provisioned}
+                                <div class="dropdown dropdown-end">
+                                    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                                    <div tabindex="0" role="button" class="btn btn-xs btn-info gap-1 text-white">
+                                        🔒 Seguro
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 opacity-70" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                                    </div>
+                                    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                                    <ul tabindex="0" class="dropdown-content z-[2] menu p-2 shadow bg-base-100 rounded-box w-52 mt-1 border border-base-200">
+                                        <li><button class="text-info text-xs font-bold" onclick={() => handleRenewSSL(r)}>🔄 Renovar SSL / Cert</button></li>
+                                        <li><button class="text-error text-xs font-bold" onclick={() => handleUnprovision(r)}>❌ Desvincular (Unprovision)</button></li>
+                                    </ul>
+                                </div>
+                            {:else}
+                                <button
+                                    class="btn btn-xs btn-success text-white gap-1"
+                                    title="Aprovisionar este router (API-SSL)"
+                                    onclick={() => openProvision(r)}
+                                >
+                                    🔐 Aprovisionar
+                                </button>
+                            {/if}
                         {:else}
-                            <span class="badge badge-sm badge-ghost">No</span>
+                            <span class="badge badge-sm badge-ghost">N/A</span>
                         {/if}
                     </td>
 
@@ -488,12 +567,6 @@
                 }}
                 style="padding:1.5rem;display:flex;flex-direction:column;gap:1rem;"
             >
-                {#if modalError}
-                    <div class="alert alert-error alert-sm py-2">
-                        <span style="font-size:0.85rem;">{modalError}</span>
-                    </div>
-                {/if}
-
                 <!-- Host / IP -->
                 <label class="form-control w-full">
                     <div class="label">
@@ -731,12 +804,56 @@
     </div>
 {/if}
 
-<Toast
-    visible={!!toast}
-    message={toast?.msg ?? ""}
-    type={toast?.type ?? "info"}
-    onClose={() => (toast = null)}
+<!-- ═══════════════════════════════════════════════════
+     MODAL — Aprovisionamiento
+═══════════════════════════════════════════════════ -->
+<ProvisionModal
+    bind:show={showProvisionModal}
+    {isProvisioning}
+    onProvision={handleProvision}
 />
+
+<!-- ═══════════════════════════════════════════════════
+     MODAL — Sugerir Aprovisionamiento Post-Creación
+═══════════════════════════════════════════════════ -->
+{#if showPostCreateModal && postCreateRouter}
+    <div
+        style="position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:1rem;"
+        role="dialog"
+        aria-modal="true"
+    >
+        <div
+            style="background:var(--color-base-100);border-radius:1rem;width:100%;max-width:440px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.4);padding:1.5rem;display:flex;flex-direction:column;gap:1rem;"
+        >
+            <h3 style="margin:0;font-size:1.1rem;font-weight:700;display:flex;align-items:center;gap:0.5rem;">
+                🔐 ¿Aprovisionar ahora?
+            </h3>
+            <p style="margin:0;font-size:0.9rem;opacity:0.8;">
+                El router <strong style="font-family:monospace;">{postCreateRouter.host}</strong> fue creado exitosamente.
+                El aprovisionamiento habilita la conexión segura (API-SSL) para que UManager pueda monitorear y gestionar el router.
+            </p>
+            <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+                <button
+                    class="btn btn-ghost btn-sm"
+                    onclick={() => { showPostCreateModal = false; postCreateRouter = null; }}
+                >Después</button>
+                <button
+                    class="btn btn-success btn-sm text-white"
+                    onclick={() => {
+                        if (postCreateRouter) {
+                            provisionTarget = postCreateRouter;
+                            showPostCreateModal = false;
+                            showProvisionModal = true;
+                        }
+                    }}
+                >
+                    🔐 Sí, Aprovisionar
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
+
 
 <style>
     @keyframes pulseSkel {

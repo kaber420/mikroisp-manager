@@ -10,30 +10,26 @@
         type BackupCreatePayload,
     } from "$lib/api";
     import { onMount } from "svelte";
+    import { notify } from "$lib/stores/notifications";
 
     let { host }: { host: string } = $props();
 
     // ── Estado Backups en Router ──────────────────────────────────────────────
     let routerFiles = $state<any[]>([]);
     let filesLoading = $state(true);
-    let filesError = $state<string | null>(null);
 
     // ── Estado Backups Servidor ───────────────────────────────────────────────
     let localFiles = $state<any[]>([]);
     let localLoading = $state(true);
-    let localError = $state<string | null>(null);
 
     // ── Estado Modal Crear Backup ─────────────────────────────────────────────
     let showCreateModal = $state(false);
     let newBackupName = $state("");
     let newBackupType = $state<"backup" | "export">("backup");
     let creating = $state(false);
-    let createError = $state<string | null>(null);
-    let createSuccess = $state<string | null>(null);
 
     // ── Acciones en curso ────────────────────────────────────────────────────
     let actionInProgress = $state<string | null>(null);
-    let actionMsg = $state<{ type: "ok" | "err"; text: string } | null>(null);
 
     onMount(() => {
         loadRouterFiles();
@@ -42,13 +38,13 @@
 
     async function loadRouterFiles() {
         filesLoading = true;
-        filesError = null;
         try {
             routerFiles = await getRouterFiles(host);
         } catch (e: any) {
-            filesError =
+            notify.error(
                 e?.response?.data?.detail ??
-                "Error al cargar archivos del router.";
+                "Error al cargar archivos del router."
+            );
         } finally {
             filesLoading = false;
         }
@@ -56,12 +52,12 @@
 
     async function loadLocalFiles() {
         localLoading = true;
-        localError = null;
         try {
             localFiles = await getLocalBackups(host);
         } catch (e: any) {
-            localError =
-                e?.response?.data?.detail ?? "Error al cargar backups locales.";
+            notify.error(
+                e?.response?.data?.detail ?? "Error al cargar backups locales."
+            );
         } finally {
             localLoading = false;
         }
@@ -70,8 +66,6 @@
     async function handleCreateBackup() {
         if (!newBackupName.trim()) return;
         creating = true;
-        createError = null;
-        createSuccess = null;
         try {
             const payload: BackupCreatePayload = {
                 backup_name: newBackupName.trim(),
@@ -79,20 +73,19 @@
                 overwrite: false,
             };
             const result = await createRouterBackup(host, payload);
-            createSuccess = result.message;
+            notify.success(result.message || "Backup completado");
             newBackupName = "";
             await loadRouterFiles();
-            setTimeout(() => {
-                showCreateModal = false;
-                createSuccess = null;
-            }, 1500);
+            showCreateModal = false;
         } catch (e: any) {
             if (e?.response?.status === 409) {
-                createError =
-                    e?.response?.data?.detail ?? "El archivo ya existe.";
+                notify.error(
+                    e?.response?.data?.detail ?? "El archivo ya existe."
+                );
             } else {
-                createError =
-                    e?.response?.data?.detail ?? "Error al crear el backup.";
+                notify.error(
+                    e?.response?.data?.detail ?? "Error al crear el backup."
+                );
             }
         } finally {
             creating = false;
@@ -102,68 +95,46 @@
     async function handleDeleteRouterFile(fileId: string) {
         if (!confirm(`¿Eliminar "${fileId}" del router?`)) return;
         actionInProgress = "del_" + fileId;
-        actionMsg = null;
         try {
             await deleteRouterFile(host, fileId);
-            actionMsg = {
-                type: "ok",
-                text: `"${fileId}" eliminado del router.`,
-            };
+            notify.success(`"${fileId}" eliminado del router.`);
             routerFiles = routerFiles.filter((f) => f.name !== fileId);
         } catch (e: any) {
-            actionMsg = {
-                type: "err",
-                text: e?.response?.data?.detail ?? "Error al eliminar.",
-            };
+            notify.error(e?.response?.data?.detail ?? "Error al eliminar.");
         } finally {
             actionInProgress = null;
-            setTimeout(() => (actionMsg = null), 3000);
         }
     }
 
     async function handleSaveToServer(filename: string) {
         actionInProgress = "save_" + filename;
-        actionMsg = null;
         try {
             const result = await saveBackupToServer(host, filename);
-            actionMsg = {
-                type: "ok",
-                text:
-                    result?.message ?? `"${filename}" guardado en el servidor.`,
-            };
+            notify.success(
+                result?.message ?? `"${filename}" guardado en el servidor.`
+            );
             await loadLocalFiles();
         } catch (e: any) {
-            actionMsg = {
-                type: "err",
-                text:
-                    e?.response?.data?.detail ??
-                    "Error al guardar en servidor.",
-            };
+            notify.error(
+                e?.response?.data?.detail ??
+                "Error al guardar en servidor."
+            );
         } finally {
             actionInProgress = null;
-            setTimeout(() => (actionMsg = null), 4000);
         }
     }
 
     async function handleDeleteLocalFile(filename: string) {
         if (!confirm(`¿Eliminar "${filename}" del servidor?`)) return;
         actionInProgress = "ldel_" + filename;
-        actionMsg = null;
         try {
             await deleteLocalBackup(host, filename);
-            actionMsg = {
-                type: "ok",
-                text: `"${filename}" eliminado del servidor.`,
-            };
+            notify.success(`"${filename}" eliminado del servidor.`);
             localFiles = localFiles.filter((f) => f.name !== filename);
         } catch (e: any) {
-            actionMsg = {
-                type: "err",
-                text: e?.response?.data?.detail ?? "Error al eliminar local.",
-            };
+            notify.error(e?.response?.data?.detail ?? "Error al eliminar local.");
         } finally {
             actionInProgress = null;
-            setTimeout(() => (actionMsg = null), 3000);
         }
     }
 
@@ -184,18 +155,6 @@
 </script>
 
 <div style="display:flex;flex-direction:column;gap:1.25rem;">
-    <!-- Toast de acción -->
-    {#if actionMsg}
-        <div
-            class="alert {actionMsg.type === 'ok'
-                ? 'alert-success'
-                : 'alert-error'} py-2"
-            style="font-size:0.85rem;border-radius:0.75rem;"
-        >
-            {actionMsg.type === "ok" ? "✅" : "⚠️"}
-            {actionMsg.text}
-        </div>
-    {/if}
 
     <!-- ── Card 1: Backups en el Router ──────────────────────────────────── -->
     <div class="glass-card-flat" style="border-radius:1rem;padding:1.25rem;">
@@ -227,8 +186,6 @@
                     class="btn btn-primary btn-xs"
                     onclick={() => {
                         showCreateModal = true;
-                        createError = null;
-                        createSuccess = null;
                     }}
                 >
                     + Crear Backup
@@ -242,10 +199,6 @@
                 <p style="margin:0.5rem 0 0;font-size:0.85rem;">
                     Cargando archivos del router...
                 </p>
-            </div>
-        {:else if filesError}
-            <div class="alert alert-warning py-2" style="font-size:0.8rem;">
-                {filesError}
             </div>
         {:else if routerFiles.length === 0}
             <p
@@ -388,10 +341,6 @@
                     Cargando respaldos en servidor...
                 </p>
             </div>
-        {:else if localError}
-            <div class="alert alert-warning py-2" style="font-size:0.8rem;">
-                {localError}
-            </div>
         {:else if localFiles.length === 0}
             <p
                 style="text-align:center;opacity:0.4;font-size:0.85rem;padding:1.5rem 0;"
@@ -493,22 +442,6 @@
                 >
             </div>
 
-            {#if createError}
-                <div
-                    class="alert alert-error py-2 mb-3"
-                    style="font-size:0.85rem;"
-                >
-                    ⚠️ {createError}
-                </div>
-            {/if}
-            {#if createSuccess}
-                <div
-                    class="alert alert-success py-2 mb-3"
-                    style="font-size:0.85rem;"
-                >
-                    ✅ {createSuccess}
-                </div>
-            {/if}
 
             <form
                 onsubmit={(e) => {

@@ -39,11 +39,11 @@ from .models import (
     RouterUpdate,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/routers")
 
 
 
-@router.websocket("/routers/{host}/ws/resources")
+@router.websocket("/{host}/ws/resources")
 async def router_resources_stream(websocket: WebSocket, host: str):
     """
     Canal de streaming para datos en vivo del router (CPU, RAM, etc).
@@ -156,14 +156,14 @@ async def router_resources_stream(websocket: WebSocket, host: str):
 
 
 # --- Endpoints CRUD (Gestión de Routers en BD) ---
-@router.get("/routers", response_model=list[RouterResponse])
+@router.get("", response_model=list[RouterResponse])
 async def get_all_routers(
     current_user: User = Depends(require_technician), session: AsyncSession = Depends(get_session)
 ):
     return await get_all_routers_service(session)
 
 
-@router.get("/routers/{host}", response_model=RouterResponse)
+@router.get("/{host}", response_model=RouterResponse)
 async def get_router(
     host: str,
     current_user: User = Depends(require_technician),
@@ -175,7 +175,7 @@ async def get_router(
     return router_data
 
 
-@router.post("/routers", response_model=RouterResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=RouterResponse, status_code=status.HTTP_201_CREATED)
 async def create_router(
     router_data: RouterCreate,
     current_user: User = Depends(require_admin),
@@ -191,7 +191,7 @@ async def create_router(
     return new_router
 
 
-@router.put("/routers/{host}", response_model=RouterResponse)
+@router.put("/{host}", response_model=RouterResponse)
 async def update_router(
     host: str,
     router_data: RouterUpdate,
@@ -215,7 +215,7 @@ async def update_router(
     return updated_router
 
 
-@router.delete("/routers/{host}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{host}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_router(
     host: str,
     request: Request,
@@ -231,7 +231,7 @@ async def delete_router(
     return
 
 
-@router.post("/routers/{host}/provision", response_model=ProvisionResponse)
+@router.post("/{host}/provision", response_model=ProvisionResponse)
 async def provision_router_endpoint(
     host: str,
     data: ProvisionRequest,
@@ -315,7 +315,7 @@ async def provision_router_endpoint(
 
 
 # --- Simple Queue Stats Endpoint ---
-@router.get("/routers/{host}/queue/stats")
+@router.get("/{host}/queue/stats")
 async def get_queue_stats(
     host: str,
     target: str,
@@ -353,7 +353,7 @@ async def get_queue_stats(
 
 
 # --- Router Historical Stats Endpoint ---
-@router.get("/routers/{host}/history")
+@router.get("/{host}/history")
 async def get_router_history(
     host: str,
     range_hours: int = 24,
@@ -379,18 +379,18 @@ async def get_router_history(
 
 
 # --- Inclusión de los otros módulos de la API de routers ---
-router.include_router(config.router, prefix="/routers/{host}")
-router.include_router(pppoe.router, prefix="/routers/{host}")
-router.include_router(system.router, prefix="/routers/{host}")
-router.include_router(interfaces.router, prefix="/routers/{host}")
-router.include_router(ssl_router.router, prefix="/routers/{host}")
+router.include_router(config.router, prefix="/{host}")
+router.include_router(pppoe.router, prefix="/{host}")
+router.include_router(system.router, prefix="/{host}")
+router.include_router(interfaces.router, prefix="/{host}")
+router.include_router(ssl_router.router, prefix="/{host}")
 
 
 
 
 
 # --- NUEVO ENDPOINT PARA CONEXIÓN AUTOMÁTICA ---
-@router.post("/routers/{host}/check", status_code=status.HTTP_200_OK)
+@router.post("/{host}/check", status_code=status.HTTP_200_OK)
 async def check_router_status_manual(
     host: str,
     current_user: User = Depends(require_technician),
@@ -448,7 +448,7 @@ class RepairRequest(BaseModel):
     action: str = "unprovision"  # 'renew' or 'unprovision'
 
 
-@router.post("/routers/{host}/repair", status_code=status.HTTP_200_OK)
+@router.post("/{host}/repair", status_code=status.HTTP_200_OK)
 async def repair_router_connection(
     host: str,
     body: RepairRequest | None = None,

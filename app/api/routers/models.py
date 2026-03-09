@@ -111,10 +111,11 @@ class CreatePlanRequest(BaseModel):
 
 class AddSimpleQueueRequest(BaseModel):
     name: str
-    target: str
+    target: str | None = None
     max_limit: str
     parent: str | None = None
     comment: str | None = None
+    is_parent: bool = False
 
 
 class AddIpRequest(BaseModel):

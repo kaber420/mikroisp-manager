@@ -12,6 +12,7 @@
     import RouterUsersTab from "./RouterUsersTab.svelte";
     import RouterPPPTab from "./RouterPPPTab.svelte";
     import ProvisionModal from "$lib/components/ProvisionModal.svelte";
+    import { notify } from "$lib/stores/notifications";
 
     // ── Props ──────────────────────────────────────────────────────────────
     let { data } = $props<{ data: { router: Router } }>();
@@ -23,36 +24,30 @@
     // ── Aprovisionamiento ──────────────────────────────────────────────────
     let showProvisionModal = $state(false);
     let isProvisioning = $state(false);
-    let provisionResult = $state<{status: string, message: string} | null>(null);
 
     async function handleProvision(data: { newApiUser: string; newApiPassword?: string; method: string }) {
         isProvisioning = true;
-        provisionResult = null;
         try {
             const res = await provisionRouter(router.host, data.newApiUser, data.newApiPassword, data.method);
-            provisionResult = { status: "success", message: res.message || "Router aprovisionado exitosamente." };
+            notify.success(res.message || "Router aprovisionado exitosamente.");
             router.is_provisioned = true;
             showProvisionModal = false;
         } catch (e: any) {
-            provisionResult = { status: "error", message: e?.response?.data?.detail ?? "Error al aprovisionar el router." };
+            notify.error(e?.response?.data?.detail ?? "Error al aprovisionar el router.");
             showProvisionModal = false;
         } finally {
             isProvisioning = false;
-            setTimeout(() => { provisionResult = null; }, 6000);
         }
     }
 
     async function handleUnprovision() {
         if (!confirm("¿Desvincular router? Perderá el acceso API-SSL hasta que vuelva a aprovisionarse.")) return;
-        provisionResult = null;
         try {
             await repairRouter(router.host, "unprovision");
-            provisionResult = { status: "success", message: "Router desvinculado correctamente." };
+            notify.success("Router desvinculado correctamente.");
             router.is_provisioned = false;
         } catch (e: any) {
-            provisionResult = { status: "error", message: e?.response?.data?.detail ?? "Error al desvincular el router." };
-        } finally {
-            setTimeout(() => { provisionResult = null; }, 6000);
+            notify.error(e?.response?.data?.detail ?? "Error al desvincular el router.");
         }
     }
 
@@ -392,14 +387,6 @@
                 <div
                 class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative"
             >
-                <!-- ProvisionResult Toast -->
-                {#if provisionResult}
-                    <div class="toast toast-top toast-center z-[100] absolute top-[-50px]">
-                        <div class="alert {provisionResult.status === 'success' ? 'alert-success' : 'alert-error'} shadow-lg py-2">
-                            <span class="text-sm font-bold text-white">{provisionResult.message}</span>
-                        </div>
-                    </div>
-                {/if}
                     <!-- Status badge -->
                     <span
                         class="badge badge-sm {router.last_status === 'online'

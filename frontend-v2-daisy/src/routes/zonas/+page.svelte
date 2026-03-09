@@ -2,6 +2,7 @@
     import { onMount } from "svelte";
     import { api, createZona, updateZona, deleteZona } from "$lib/api";
     import DataTable from "$lib/components/DataTable.svelte";
+    import { notify } from "$lib/stores/notifications";
     import type { Zona, ZonaCreate, ZonaUpdate } from "$lib/types/zona";
 
     // ── Estado principal ──────────────────────────────────────────────────
@@ -32,8 +33,7 @@
             const res = await api.get<Zona[]>("/zonas");
             zonas = res.data;
         } catch (e: any) {
-            pageError =
-                e?.response?.data?.detail ?? "Error al cargar las zonas.";
+            notify.error(e?.response?.data?.detail ?? "Error al cargar las zonas.");
         } finally {
             loading = false;
         }
@@ -68,10 +68,10 @@
             const payload: ZonaCreate = { nombre: fNombre.trim() };
             await createZona(payload);
             showModal = false;
+            notify.success("Zona creada correctamente.");
             await loadZonas();
         } catch (e: any) {
-            modalError =
-                e?.response?.data?.detail ?? "Error al guardar la zona.";
+            notify.error(e?.response?.data?.detail ?? "Error al guardar la zona.");
         } finally {
             modalLoading = false;
         }
@@ -83,12 +83,13 @@
         deleteLoading = true;
         try {
             await deleteZona(deleteTarget.id);
+            showModal = false;
             showDeleteModal = false;
             deleteTarget = null;
+            notify.success("Zona eliminada correctamente.");
             await loadZonas();
         } catch (e: any) {
-            pageError =
-                e?.response?.data?.detail ?? "Error al eliminar la zona.";
+            notify.error(e?.response?.data?.detail ?? "Error al eliminar la zona.");
             showDeleteModal = false;
         } finally {
             deleteLoading = false;
@@ -132,30 +133,6 @@
         </div>
     </div>
 
-    <!-- Error de página -->
-    {#if pageError}
-        <div class="alert alert-error shadow-sm">
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5 shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-            >
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-            </svg>
-            <span>{pageError}</span>
-            <button
-                class="btn btn-xs btn-ghost"
-                onclick={() => (pageError = null)}>✕</button
-            >
-        </div>
-    {/if}
 
     <!-- DataTable -->
     {#if !loading}
@@ -205,22 +182,7 @@
             {/snippet}
         </DataTable>
 
-        <!-- Estado vacío -->
-        {#if zonas.length === 0}
-            <div
-                class="glass-card-flat"
-                style="padding:3rem;border-radius:1rem;text-align:center;opacity:0.6;"
-            >
-                <p style="font-size:2.5rem;margin:0 0 0.5rem;">🗺️</p>
-                <p style="font-weight:600;margin:0 0 0.25rem;">
-                    Sin zonas registradas
-                </p>
-                <p style="font-size:0.85rem;margin:0;">
-                    Crea tu primera zona de cobertura con el botón "+ Nueva
-                    Zona".
-                </p>
-            </div>
-        {/if}
+        <!-- DataTable maneja su propio estado vacío internamente -->
     {:else}
         <!-- Skeleton -->
         <div class="glass-card-flat" style="padding:2rem;border-radius:1rem;">
@@ -268,12 +230,6 @@
                 }}
                 style="padding:1.5rem;display:flex;flex-direction:column;gap:1rem;"
             >
-                {#if modalError}
-                    <div class="alert alert-error alert-sm py-2">
-                        <span style="font-size:0.85rem;">{modalError}</span>
-                    </div>
-                {/if}
-
                 <!-- Nombre -->
                 <label class="form-control w-full">
                     <div class="label">

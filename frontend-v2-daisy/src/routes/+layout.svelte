@@ -9,6 +9,7 @@
 	import SessionMonitor from "$lib/components/SessionMonitor.svelte";
 	import { theme } from "$lib/stores/theme";
 	import LavaLampBackground from "$lib/components/LavaLampBackground.svelte";
+	import NotificationContainer from "$lib/components/NotificationContainer.svelte";
 
 	let { children } = $props();
 
@@ -422,5 +423,6 @@
 
 		<!-- Monitor de sesión (global a la aplicación, invisible excepto durante warning) -->
 		<SessionMonitor timeoutMinutes={15} warningMinutes={1} />
+		<NotificationContainer />
 	</div>
 {/if}

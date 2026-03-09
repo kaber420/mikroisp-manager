@@ -52,7 +52,7 @@
         };
 
         try {
-            await addSimpleQueue(payload);
+            await addSimpleQueue(routerHost, payload);
             if (onsuccess) onsuccess();
             close();
         } catch (e: any) {
