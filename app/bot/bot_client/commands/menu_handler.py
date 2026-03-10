@@ -13,14 +13,13 @@ from app.db.engine_sync import sync_engine as engine
 from app.models.client import Client
 
 from app.bot.core.ticket_manager import crear_ticket, obtener_tickets, agregar_respuesta_a_ticket, TicketLimitExceeded
-from app.bot.core.ticket_manager import crear_ticket, obtener_tickets, agregar_respuesta_a_ticket, TicketLimitExceeded
-from app.bot.core.utils import get_client_by_telegram_id, sanitize_input, get_bot_setting, upsert_bot_user, get_bot_setting_bool
+from app.bot.core.utils import get_client_by_telegram_id, sanitize_input, get_bot_setting, upsert_bot_user, get_bot_setting_bool, get_user_by_telegram_id, update_user_password
 from app.bot.core.middleware import rate_limit
 
 logger = logging.getLogger(__name__)
 
 # Estados
-(MENU_PRINCIPAL, AWAITING_FALLA, AWAITING_NEW_PASSWORD) = range(3)
+(MENU_PRINCIPAL, AWAITING_FALLA, AWAITING_NEW_PASSWORD, AWAITING_CONFIRM_PASSWORD_RESET, AWAITING_NEW_PORTAL_PASSWORD) = range(5)
 BTN_REPORTAR_DEFAULT = "📞 Reportar Falla / Solicitar Ayuda"
 BTN_VER_ESTADO_DEFAULT = "📋 Ver Mis Tickets"
 BTN_SOLICITAR_AGENTE_DEFAULT = "🙋 Solicitar Agente Humano"
@@ -253,6 +252,64 @@ async def guardar_nueva_clave(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     return MENU_PRINCIPAL
 
+async def solicitar_reseteo_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user_id = str(update.effective_user.id)
+    user = get_user_by_telegram_id(user_id)
+    
+    if not user:
+        await update.message.reply_text(
+            "❌ No tienes un usuario activo del portal vinculado a esta cuenta de Telegram.",
+            reply_markup=get_main_keyboard_markup()
+        )
+        return MENU_PRINCIPAL
+        
+    await update.message.reply_text(
+        f"🔐 Has solicitado cambiar tu contraseña de acceso al portal (Usuario: `{user.username}`).\n\n¿Deseas continuar? Responde 'SI' o 'NO'.",
+        parse_mode="Markdown",
+        reply_markup=ReplyKeyboardMarkup([['SI', 'NO']], resize_keyboard=True)
+    )
+    return AWAITING_CONFIRM_PASSWORD_RESET
+
+async def confirmar_reseteo_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    respuesta = update.message.text.strip().upper()
+    if respuesta == 'SI':
+        await update.message.reply_text(
+            "🔒 Por favor, escribe la **nueva contraseña** para tu usuario del portal:",
+            parse_mode="Markdown",
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return AWAITING_NEW_PORTAL_PASSWORD
+    else:
+        await update.message.reply_text(
+            "Operación cancelada.",
+            reply_markup=get_main_keyboard_markup()
+        )
+        return MENU_PRINCIPAL
+
+async def guardar_nuevo_password_portal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    nueva_clave = sanitize_input(update.message.text, max_length=100)
+    user_id = str(update.effective_user.id)
+    
+    user = get_user_by_telegram_id(user_id)
+    if not user:
+        await update.message.reply_text("Error: Usuario no encontrado.", reply_markup=get_main_keyboard_markup())
+        return MENU_PRINCIPAL
+        
+    exito = update_user_password(str(user.id), nueva_clave)
+    
+    if exito:
+        await update.message.reply_text(
+            "✅ ¡Tu contraseña del portal ha sido actualizada correctamente!\nYa puedes intentar iniciar sesión.",
+            reply_markup=get_main_keyboard_markup()
+        )
+    else:
+        await update.message.reply_text(
+            "❌ Hubo un error al actualizar tu contraseña. Intenta nuevamente o contacta a soporte.",
+            reply_markup=get_main_keyboard_markup()
+        )
+        
+    return MENU_PRINCIPAL
+
 async def handle_chat_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Checks if the user has an active chat session (open ticket with specific subject).
@@ -368,15 +425,18 @@ async def handle_menu_selection(update: Update, context: ContextTypes.DEFAULT_TY
         return await handle_chat_messages(update, context)
 
 main_menu_conv_handler = ConversationHandler(
-    entry_points=[CommandHandler("start", start_command)],
+    entry_points=[CommandHandler("start", start_command), CommandHandler("password", solicitar_reseteo_password)],
     states={
         MENU_PRINCIPAL: [
             CommandHandler("start", start_command),
+            CommandHandler("password", solicitar_reseteo_password),
             # Usamos un handler genérico de texto para el menú
             MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_selection),
         ],
         AWAITING_FALLA: [MessageHandler(filters.TEXT & ~filters.COMMAND, guardar_solicitud)],
         AWAITING_NEW_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, guardar_nueva_clave)],
+        AWAITING_CONFIRM_PASSWORD_RESET: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirmar_reseteo_password)],
+        AWAITING_NEW_PORTAL_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, guardar_nuevo_password_portal)],
     },
     fallbacks=[CommandHandler("cancelar", cancelar)],
 )

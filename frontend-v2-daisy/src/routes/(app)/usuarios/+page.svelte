@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { api, createUser, updateUser, deleteUser } from "$lib/api";
+    import { createUser, updateUser, deleteUser, getUsers } from "$lib/api";
     import DataTable from "$lib/components/DataTable.svelte";
     import type { User, UserCreate, UserUpdate } from "$lib/types/user";
     import { user as currentUser } from "$lib/stores/auth";
@@ -38,8 +38,8 @@
     async function loadUsers() {
         loading = true;
         try {
-            const res = await api.get<User[]>("/users");
-            users = res.data;
+            const res = await getUsers();
+            users = res;
         } catch (e: any) {
             notify.error(e?.response?.data?.detail ?? "Error al cargar usuarios.");
         } finally {

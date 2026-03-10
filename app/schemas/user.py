@@ -23,6 +23,7 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
     receive_device_down_alerts: bool
     receive_announcements: bool
     disabled: bool
+    client_id: uuid.UUID | None = None
 
 
 class UserCreate(schemas.BaseUserCreate):
@@ -39,6 +40,7 @@ class UserCreate(schemas.BaseUserCreate):
     receive_alerts: bool = False
     receive_device_down_alerts: bool = False
     receive_announcements: bool = False
+    client_id: uuid.UUID | None = None
 
 
 class UserUpdate(schemas.BaseUserUpdate):
@@ -56,3 +58,4 @@ class UserUpdate(schemas.BaseUserUpdate):
     receive_device_down_alerts: bool | None = None
     receive_announcements: bool | None = None
     disabled: bool | None = None
+    client_id: uuid.UUID | None = None

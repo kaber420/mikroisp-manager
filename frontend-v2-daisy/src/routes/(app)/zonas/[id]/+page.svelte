@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { page } from "$app/stores";
-    import { api } from "$lib/api";
+    import { getZonaDetails } from "$lib/api";
     import type { ZonaDetail, ZonaDocumento } from "$lib/types/zona";
     import MarkdownViewer from "$lib/components/MarkdownViewer.svelte";
 
@@ -19,8 +19,8 @@
         loading = true;
         pageError = null;
         try {
-            const res = await api.get<ZonaDetail>(`/zonas/${zonaId}/details`);
-            zona = res.data;
+            const res = await getZonaDetails(zonaId);
+            zona = res;
         } catch (e: any) {
             pageError = e?.response?.data?.detail ?? "Error al cargar la zona.";
         } finally {

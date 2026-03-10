@@ -4,6 +4,7 @@ from fastapi_users.password import PasswordHelper
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
+from ...core.users import password_helper
 # Importamos los modelos y esquemas modernos
 from ...models.user import User
 from ...core.exceptions import DuplicateError, UserNotFoundError, ValidationError
@@ -27,7 +28,7 @@ class UserService:
         if existing_user:
             raise DuplicateError("El nombre de usuario ya existe.")
 
-        hashed_password = PasswordHelper().hash(user_create.password)
+        hashed_password = password_helper.hash(user_create.password)
 
         # Crear instancia del modelo manualmente
         db_user = User(
@@ -39,6 +40,7 @@ class UserService:
             receive_alerts=user_create.receive_alerts,
             receive_device_down_alerts=user_create.receive_device_down_alerts,
             receive_announcements=user_create.receive_announcements,
+            client_id=user_create.client_id,
         )
 
         # Guardar
@@ -69,7 +71,7 @@ class UserService:
             db_user.is_active = not is_disabled
 
         if "password" in update_data and update_data["password"]:
-            hashed = PasswordHelper().hash(update_data.pop("password"))
+            hashed = password_helper.hash(update_data.pop("password"))
             db_user.hashed_password = hashed
 
         for key, value in update_data.items():

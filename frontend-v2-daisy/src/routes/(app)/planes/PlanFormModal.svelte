@@ -126,12 +126,13 @@
                 <!-- Fila 1: Nombre + Max Limit -->
                 <div class="grid grid-cols-2 gap-4">
                     <div class="form-control">
-                        <label class="label"
+                        <label class="label" for="plan_name"
                             ><span class="label-text font-medium"
                                 >Nombre del Plan *</span
                             ></label
                         >
                         <input
+                            id="plan_name"
                             type="text"
                             class="input input-bordered input-sm"
                             placeholder="ej. 10 Megas"
@@ -140,12 +141,13 @@
                         />
                     </div>
                     <div class="form-control">
-                        <label class="label"
+                        <label class="label" for="max_limit"
                             ><span class="label-text font-medium"
                                 >Max Limit *</span
                             ></label
                         >
                         <input
+                            id="max_limit"
                             type="text"
                             class="input input-bordered input-sm"
                             placeholder="ej. 10M/10M"
@@ -158,12 +160,13 @@
                 <!-- Fila 2: Precio + Tipo de Plan -->
                 <div class="grid grid-cols-2 gap-4">
                     <div class="form-control">
-                        <label class="label"
+                        <label class="label" for="price"
                             ><span class="label-text font-medium"
                                 >Precio ($)</span
                             ></label
                         >
                         <input
+                            id="price"
                             type="number"
                             min="0"
                             step="0.01"
@@ -172,12 +175,13 @@
                         />
                     </div>
                     <div class="form-control">
-                        <label class="label"
+                        <label class="label" for="plan_type"
                             ><span class="label-text font-medium"
                                 >Tipo de Plan</span
                             ></label
                         >
                         <select
+                            id="plan_type"
                             class="select select-bordered select-sm"
                             bind:value={form.plan_type}
                         >
@@ -190,12 +194,13 @@
                 <!-- Nombre de Perfil PPPoE (condicional) -->
                 {#if showProfileName}
                     <div class="form-control">
-                        <label class="label"
+                        <label class="label" for="profile_name"
                             ><span class="label-text font-medium"
                                 >Nombre de Perfil PPPoE</span
                             ></label
                         >
                         <input
+                            id="profile_name"
                             type="text"
                             class="input input-bordered input-sm"
                             placeholder="ej. 10M-profile"
@@ -206,7 +211,7 @@
 
                 <!-- Fila 3: Aplicar en (Router) -->
                 <div class="form-control">
-                    <label class="label">
+                    <label class="label" for={fixedRouterHost ? "fixed_router" : "router_host"}>
                         <span class="label-text font-medium">Aplicar en</span>
                         <span class="label-text-alt text-info"
                             >Global = aplica en todos los routers</span
@@ -215,6 +220,7 @@
                     {#if fixedRouterHost}
                         <!-- Router fijo (desde la vista del router) -->
                         <input
+                            id="fixed_router"
                             type="text"
                             class="input input-bordered input-sm bg-base-200"
                             value={fixedRouterHost}
@@ -222,6 +228,7 @@
                         />
                     {:else}
                         <select
+                            id="router_host"
                             class="select select-bordered select-sm"
                             bind:value={form.router_host}
                         >
@@ -237,12 +244,13 @@
 
                 <!-- Método de Suspensión -->
                 <div class="form-control">
-                    <label class="label"
+                    <label class="label" for="suspension_method"
                         ><span class="label-text font-medium"
                             >Método de Suspensión</span
                         ></label
                     >
                     <select
+                        id="suspension_method"
                         class="select select-bordered select-sm"
                         bind:value={form.suspension_method}
                     >
@@ -264,12 +272,13 @@
                         class="grid grid-cols-2 gap-4 p-3 bg-base-200 rounded-lg"
                     >
                         <div class="form-control">
-                            <label class="label"
+                            <label class="label" for="address_list_strategy"
                                 ><span class="label-text font-medium"
                                     >Estrategia</span
                                 ></label
                             >
                             <select
+                                id="address_list_strategy"
                                 class="select select-bordered select-sm"
                                 bind:value={form.address_list_strategy}
                             >
@@ -278,12 +287,13 @@
                             </select>
                         </div>
                         <div class="form-control">
-                            <label class="label"
+                            <label class="label" for="address_list_name"
                                 ><span class="label-text font-medium"
                                     >Nombre de Lista</span
                                 ></label
                             >
                             <input
+                                id="address_list_name"
                                 type="text"
                                 class="input input-bordered input-sm"
                                 placeholder="ej. morosos"
@@ -295,11 +305,12 @@
 
                 <!-- Parent Queue -->
                 <div class="form-control">
-                    <label class="label"
+                    <label class="label" for="parent_queue"
                         ><span class="label-text font-medium">Parent Queue</span
                         ></label
                     >
                     <input
+                        id="parent_queue"
                         type="text"
                         class="input input-bordered input-sm"
                         placeholder="ej. ISP-Main (opcional)"
@@ -309,11 +320,12 @@
 
                 <!-- Comentario -->
                 <div class="form-control">
-                    <label class="label"
+                    <label class="label" for="comment"
                         ><span class="label-text font-medium">Comentario</span
                         ></label
                     >
                     <textarea
+                        id="comment"
                         class="textarea textarea-bordered textarea-sm"
                         rows="2"
                         placeholder="Descripción del plan (opcional)"
@@ -324,12 +336,13 @@
                 <!-- Queue Types -->
                 <div class="grid grid-cols-2 gap-4">
                     <div class="form-control">
-                        <label class="label"
+                        <label class="label" for="v6_queue_type"
                             ><span class="label-text font-medium"
                                 >Queue Type (RouterOS v6)</span
                             ></label
                         >
                         <input
+                            id="v6_queue_type"
                             type="text"
                             class="input input-bordered input-sm"
                             placeholder="default-small"
@@ -337,12 +350,13 @@
                         />
                     </div>
                     <div class="form-control">
-                        <label class="label"
+                        <label class="label" for="v7_queue_type"
                             ><span class="label-text font-medium"
                                 >Queue Type (RouterOS v7)</span
                             ></label
                         >
                         <input
+                            id="v7_queue_type"
                             type="text"
                             class="input input-bordered input-sm"
                             placeholder="cake-default"

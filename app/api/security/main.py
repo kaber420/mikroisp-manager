@@ -6,7 +6,7 @@ import subprocess
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
 
-from ...core.users import current_active_user, require_admin
+from ...core.users import current_active_user, require_admin, require_technician
 from ...models.user import User
 
 router = APIRouter()
@@ -38,7 +38,7 @@ def _get_ca_fingerprint() -> str | None:
 
 
 @router.get("/security/ca-status")
-def get_ca_status(request: Request, current_user: User = Depends(current_active_user)):
+def get_ca_status(request: Request, current_user: User = Depends(require_technician)):
     """
     Returns the status of the CA certificate and HTTPS configuration.
     """
@@ -57,7 +57,7 @@ def get_ca_status(request: Request, current_user: User = Depends(current_active_
 
 
 @router.get("/security/ca-certificate")
-def download_ca_certificate(current_user: User = Depends(current_active_user)):
+def download_ca_certificate(current_user: User = Depends(require_technician)):
     """
     Serves the CA certificate for download.
     Users can install this certificate on their devices to trust the local HTTPS.

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { api, createZona, updateZona, deleteZona } from "$lib/api";
+    import { createZona, updateZona, deleteZona, getZonas } from "$lib/api";
     import DataTable from "$lib/components/DataTable.svelte";
     import { notify } from "$lib/stores/notifications";
     import type { Zona, ZonaCreate, ZonaUpdate } from "$lib/types/zona";
@@ -30,8 +30,8 @@
         loading = true;
         pageError = null;
         try {
-            const res = await api.get<Zona[]>("/zonas");
-            zonas = res.data;
+            const res = await getZonas();
+            zonas = res;
         } catch (e: any) {
             notify.error(e?.response?.data?.detail ?? "Error al cargar las zonas.");
         } finally {

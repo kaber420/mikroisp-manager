@@ -7,7 +7,7 @@ from sqlalchemy import func, text
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from ...core.users import current_active_user
+from ...core.users import require_technician, current_active_user
 from ...db.engine import get_session
 from ...models.ap import AP
 from ...models.cpe import CPE
@@ -36,7 +36,7 @@ router = APIRouter()
 async def get_top_aps_by_airtime(
     limit: int = 5,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(current_active_user),
+    current_user: User = Depends(require_technician),
 ):
     """
     Returns top APs by airtime usage.

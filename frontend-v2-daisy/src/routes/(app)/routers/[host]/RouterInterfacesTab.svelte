@@ -45,14 +45,14 @@
     let editingBridge = $state<InterfaceData | null>(null);
 
     // Computed filtered interfaces
-    let filteredInterfaces = $derived(() => {
-        let filtered = interfacesList;
+    let filteredInterfaces = $derived.by(() => {
+        let filtered = [...interfacesList];
         if (currentFilter === "general") {
-            filtered = interfacesList.filter((i) =>
+            filtered = filtered.filter((i) =>
                 FILTER_TYPES.general.includes(i.type),
             );
         } else if (currentFilter === "ppp") {
-            filtered = interfacesList.filter(
+            filtered = filtered.filter(
                 (i) => FILTER_TYPES.ppp.includes(i.type) && i.name !== "none",
             );
         }
@@ -271,7 +271,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {#each filteredInterfaces() as iface}
+                        {#each filteredInterfaces as iface}
                             {@const isDisabled =
                                 iface.disabled === "true" ||
                                 iface.disabled === true}

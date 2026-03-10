@@ -153,7 +153,7 @@ current_verified_user = fastapi_users.current_user(active=True, verified=True)
 
 # --- Role-Based Access Control ---
 # Valid role values (use lowercase strings for DB compatibility)
-VALID_ROLES = ["admin", "technician", "billing"]
+VALID_ROLES = ["admin", "technician", "billing", "client"]
 
 
 class RoleChecker:
@@ -184,3 +184,6 @@ class RoleChecker:
 require_admin = RoleChecker(["admin"])
 require_technician = RoleChecker(["admin", "technician"])
 require_billing = RoleChecker(["admin", "billing"])
+require_client = RoleChecker(["admin", "technician", "billing", "client"])
+# Specific checker for portal features (only clients or admins acting as clients)
+require_exclusive_client = RoleChecker(["client", "admin"])

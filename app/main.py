@@ -51,6 +51,7 @@ from .api.tickets import main as tickets_main_api
 from .api.broadcast import main as broadcast_main_api
 from .api.health import router as health_router
 from .api.setup import main as setup_api
+from .api.portal import main as portal_api
 
 # Shared Core Modules
 
@@ -585,6 +586,7 @@ app.include_router(plans_main_api.router, prefix="/api", tags=["Plans"])
 app.include_router(switches_main_api.router, prefix="/api", tags=["Switches"])
 app.include_router(security_main_api.router, prefix="/api", tags=["Security"])
 app.include_router(tickets_main_api.router, prefix="/api", tags=["Tickets"])
+app.include_router(portal_api.router, prefix="/api", tags=["Portal de Clientes"])
 app.include_router(broadcast_main_api.router, prefix="/api/broadcast", tags=["Broadcast"])
 app.include_router(health_router, prefix="/api", tags=["Health"])
 

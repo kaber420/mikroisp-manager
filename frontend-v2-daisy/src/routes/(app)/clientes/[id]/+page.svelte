@@ -13,14 +13,17 @@
         getPPPoESecrets,
         getPPPoEActive,
         getQueueStats,
+        generateClientAccess,
+        getUsers,
         api,
     } from '$lib/api';
+import type { User, UserCreate } from '$lib/types/user';
 
     let { data }: { data: PageData } = $props();
     let client = $derived(data.client);
 
     // --- Tab state ---
-    let activeTab = $state<'info' | 'servicios' | 'pagos'>('info');
+    let activeTab = $state<'info' | 'servicios' | 'pagos' | 'acceso'>('info');
 
     // --- Services tab state ---
     let services = $state<ClientService[]>([]);
@@ -49,6 +52,18 @@
     let selectedPlanId = $state('');
     let planModalLoading = $state(false);
     let planModalError = $state('');
+
+    // --- Access tab state ---
+    let clientUser = $state<User | null>(null);
+    let accessLoading = $state(false);
+    let accessError = $state('');
+    let showAccessModal = $state(false);
+    let accessForm = $state({
+        username: '',
+        password: '',
+        telegram_chat_id: '',
+    });
+    let creatingAccess = $state(false);
 
     // --- Utility functions ---
     function formatBytes(bytes: number | undefined | null): string {
@@ -247,8 +262,51 @@
         }
     }
 
+    // --- Access management ---
+    async function loadAccessInfo() {
+        accessLoading = true;
+        accessError = '';
+        try {
+            // Buscamos un usuario que tenga este client_id
+            const allUsers = await getUsers();
+            clientUser = allUsers.find(u => u.client_id === client.id) || null;
+            if (!clientUser) {
+                // Sugerir username basado en email o nombre
+                accessForm.username = client.email?.split('@')[0] || client.name.toLowerCase().replace(/\s+/g, '.');
+                accessForm.telegram_chat_id = client.telegram_contact || '';
+            }
+        } catch (e: any) {
+            accessError = 'No se pudo cargar la información de acceso.';
+        } finally {
+            accessLoading = false;
+        }
+    }
+
+    async function handleCreateAccess(e: SubmitEvent) {
+        e.preventDefault();
+        creatingAccess = true;
+        accessError = '';
+        try {
+            const payload = {
+                username: accessForm.username,
+                email: client.email || `${accessForm.username}@mikroisp.local`,
+                password: accessForm.password,
+                role: 'client',
+                client_id: client.id,
+                telegram_chat_id: accessForm.telegram_chat_id || null,
+            };
+            await generateClientAccess(client.id, payload);
+            showAccessModal = false;
+            await loadAccessInfo();
+        } catch (e: any) {
+            accessError = e?.response?.data?.detail ?? e?.message ?? 'Error al crear el acceso.';
+        } finally {
+            creatingAccess = false;
+        }
+    }
+
     // --- Tab switching (load data lazily) ---
-    function switchTab(tab: 'info' | 'servicios' | 'pagos') {
+    function switchTab(tab: 'info' | 'servicios' | 'pagos' | 'acceso') {
         activeTab = tab;
         if (tab === 'servicios' && services.length === 0 && !servicesLoading) {
             loadServices();
@@ -256,6 +314,9 @@
         if (tab === 'pagos') {
             if (payments.length === 0 && !paymentsLoading) loadPayments();
             if (services.length === 0 && !servicesLoading) loadServices();
+        }
+        if (tab === 'acceso' && !clientUser && !accessLoading) {
+            loadAccessInfo();
         }
     }
 
@@ -329,6 +390,15 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" />
                 </svg>
                 Facturación
+            </button>
+            <button
+                class="tab {activeTab === 'acceso' ? 'tab-active' : ''}"
+                onclick={() => switchTab('acceso')}
+            >
+                <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+                Acceso Portal
             </button>
         </div>
     </div>
@@ -670,7 +740,105 @@
             </div>
         </div>
     {/if}
+
+    <!-- ── TAB: ACCESO PORTAL ────────────────────────────────────────── -->
+    {#if activeTab === 'acceso'}
+        <div class="glass-card-flat" style="border-radius:1rem;overflow:hidden;">
+            <div style="padding:1rem 1.25rem;font-weight:700;font-size:1rem;border-bottom:1px solid color-mix(in oklch,currentColor 10%,transparent);">
+                Gestión de Acceso al Portal
+            </div>
+            <div style="padding:2rem;display:flex;flex-direction:column;align-items:center;text-align:center;gap:1.5rem;">
+                {#if accessLoading}
+                    <span class="loading loading-spinner loading-lg"></span>
+                {:else if clientUser}
+                    <div class="avatar placeholder">
+                        <div class="bg-neutral text-neutral-content rounded-full w-24">
+                            <span class="text-3xl">{clientUser.username[0].toUpperCase()}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 style="font-size:1.25rem;font-weight:700;margin:0;">{clientUser.username}</h3>
+                        <p style="opacity:0.6;margin:0.25rem 0;">{clientUser.email}</p>
+                        <div style="margin-top:0.5rem;display:flex;gap:0.5rem;justify-content:center;">
+                            <span class="badge badge-success">Acceso Activo</span>
+                            <span class="badge badge-outline">{clientUser.role}</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md mt-2">
+                        <div class="stats shadow bg-base-200/50">
+                            <div class="stat p-3">
+                                <div class="stat-title text-xs">Telegram ID</div>
+                                <div class="stat-value text-sm">{clientUser.telegram_chat_id || 'No vinculado'}</div>
+                            </div>
+                        </div>
+                        <div class="stats shadow bg-base-200/50">
+                            <div class="stat p-3">
+                                <div class="stat-title text-xs">Último Acceso</div>
+                                <div class="stat-value text-sm">Próximamente</div>
+                            </div>
+                        </div>
+                    </div>
+                {:else}
+                    <div style="background:color-mix(in oklch,var(--color-primary,oklch(60% 0.15 240)) 10%,transparent);padding:2rem;border-radius:50%;margin-bottom:0.5rem;">
+                        <svg class="w-16 h-16 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 style="font-size:1.25rem;font-weight:700;">Sin Acceso al Portal</h3>
+                        <p style="opacity:0.6;max-width:400px;margin:0.5rem auto;">
+                            Este cliente aún no tiene credenciales vinculadas para acceder al portal de autogestión.
+                        </p>
+                    </div>
+                    <button class="btn btn-primary" onclick={() => showAccessModal = true}>
+                        Crear Credenciales de Acceso
+                    </button>
+                {/if}
+            </div>
+        </div>
+    {/if}
 </div>
+
+<!-- ── MODAL: Crear Acceso ─────────────────────────────────────────── -->
+{#if showAccessModal}
+    <div style="position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,0.6);">
+        <div class="glass-card-flat" style="border-radius:1rem;width:100%;max-width:460px;overflow:hidden;">
+            <div style="padding:1.25rem 1.5rem;font-weight:700;font-size:1.1rem;border-bottom:1px solid color-mix(in oklch,currentColor 10%,transparent);display:flex;justify-content:space-between;align-items:center;">
+                <span>Crear Acceso al Portal</span>
+                <button class="btn btn-ghost btn-xs btn-circle" onclick={() => { showAccessModal = false; }}>✕</button>
+            </div>
+            <form onsubmit={handleCreateAccess} style="padding:1.5rem;display:flex;flex-direction:column;gap:1rem;">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Nombre de Usuario</span></label>
+                    <input type="text" bind:value={accessForm.username} required class="input input-bordered" placeholder="Ej: pablo.perez" />
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Contraseña</span></label>
+                    <input type="password" bind:value={accessForm.password} required class="input input-bordered" placeholder="••••••••" />
+                </div>
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">Telegram Chat ID (Opcional)</span>
+                        <span class="label-text-alt text-info">Para comandos /password</span>
+                    </label>
+                    <input type="text" bind:value={accessForm.telegram_chat_id} class="input input-bordered" placeholder="Ej: 123456789" />
+                </div>
+
+                {#if accessError}
+                    <div class="alert alert-error p-2 text-sm"><span>{accessError}</span></div>
+                {/if}
+
+                <div style="display:flex;justify-content:flex-end;gap:0.75rem;padding-top:1rem;">
+                    <button type="button" class="btn btn-ghost" onclick={() => { showAccessModal = false; }}>Cancelar</button>
+                    <button type="submit" class="btn btn-primary" disabled={creatingAccess}>
+                        {#if creatingAccess}<span class="loading loading-spinner loading-xs"></span>{/if}
+                        Habilitar Acceso
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+{/if}
 
 <!-- ── MODAL: Cambiar Plan ─────────────────────────────────────────── -->
 {#if showPlanModal}

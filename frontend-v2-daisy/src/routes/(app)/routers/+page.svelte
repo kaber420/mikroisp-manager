@@ -12,6 +12,7 @@
     import ProvisionModal from "$lib/components/ProvisionModal.svelte";
     import type { Router, RouterCreate, RouterUpdate } from "$lib/types/router";
     import { notify } from "$lib/stores/notifications";
+    import { goto } from "$app/navigation";
 
 
     // ── Estado principal ──────────────────────────────────────────────────
@@ -58,9 +59,17 @@
     let offlineRouters = $derived(
         routers.filter((r) => r.last_status === "offline").length,
     );
-    let provisionedRouters = $derived(
-        routers.filter((r) => r.is_provisioned).length,
+    let percentRouters = $derived(
+        totalRouters > 0 ? Math.round((onlineRouters / totalRouters) * 100) : 0
     );
+
+    const theme = {
+        text: "text-purple-400",
+        bgLight: "bg-purple-500/10",
+        borderLight: "border-purple-500/20",
+        glow: "drop-shadow-[0_0_8px_rgba(168,85,247,0.3)]",
+        blob: "bg-purple-500/10 group-hover:bg-purple-500/15",
+    };
 
     // ── Carga inicial ─────────────────────────────────────────────────────
     async function loadRouters() {
@@ -186,6 +195,7 @@
             notify.success(`Router ${provisionTarget.host} aprovisionado exitosamente.`);
             showProvisionModal = false;
             showPostCreateModal = false;
+            showModal = false;
             await loadRouters();
         } catch (e: any) {
             notify.error(e?.response?.data?.detail ?? "Error al aprovisionar.");
@@ -201,6 +211,7 @@
         try {
             await repairRouter(r.host, "renew");
             notify.success(`Certificados SSL renovados en ${r.host}.`);
+            showModal = false;
         } catch (e: any) {
             notify.error(e?.response?.data?.detail ?? "Error al renovar SSL.");
         }
@@ -211,6 +222,7 @@
         try {
             await repairRouter(r.host, "unprovision");
             notify.success(`Router ${r.host} desvinculado correctamente.`);
+            showModal = false;
             await loadRouters();
         } catch (e: any) {
             notify.error(e?.response?.data?.detail ?? "Error al desvincular.");
@@ -304,92 +316,52 @@
 
     <!-- KPI Cards -->
     {#if !loading}
-        <div
-            style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;"
-        >
+        <div class="max-w-sm">
             <div
-                class="glass-card-flat"
-                style="padding:1rem;border-radius:0.875rem;display:flex;align-items:center;gap:0.875rem;"
+                class="glass-panel-dona p-5 flex items-center justify-between group relative overflow-hidden"
             >
-                <div
-                    style="font-size:1.75rem;width:2.5rem;height:2.5rem;display:flex;align-items:center;justify-content:center;background:oklch(from var(--color-primary) l c h / 0.12);border-radius:0.625rem;"
-                >
-                    🖧
-                </div>
-                <div>
-                    <p
-                        style="margin:0;font-size:0.7rem;opacity:0.5;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;"
+                <!-- Columna izquierda: Datos -->
+                <div class="flex flex-col z-10">
+                    <span
+                        class="text-[11px] font-bold tracking-[0.15em] text-slate-400 uppercase mb-1"
                     >
-                        Total
-                    </p>
-                    <p style="margin:0;font-size:1.5rem;font-weight:700;">
+                        Routers
+                    </span>
+                    <span
+                        class="text-3xl font-extrabold text-white leading-none"
+                    >
                         {totalRouters}
-                    </p>
+                    </span>
+                    <!-- Badges de Up / Down -->
+                    <div class="mt-3 flex gap-2 text-xs">
+                        <span
+                            class="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 px-2 py-0.5 rounded border font-medium"
+                        >
+                            {onlineRouters}
+                        </span>
+                        <span
+                            class="bg-rose-500/10 text-rose-400 border-rose-500/20 px-2 py-0.5 rounded border font-medium"
+                        >
+                            {offlineRouters}
+                        </span>
+                    </div>
                 </div>
-            </div>
-            <div
-                class="glass-card-flat"
-                style="padding:1rem;border-radius:0.875rem;display:flex;align-items:center;gap:0.875rem;"
-            >
+
+                <!-- Columna derecha: Dona (Radial Progress) -->
                 <div
-                    style="font-size:1.75rem;width:2.5rem;height:2.5rem;display:flex;align-items:center;justify-content:center;background:oklch(from var(--color-success) l c h / 0.12);border-radius:0.625rem;"
+                    class="z-10 {theme.text} radial-progress donut-sm {theme.glow}"
+                    style="--value:{percentRouters};"
+                    role="progressbar"
                 >
-                    ✅
-                </div>
-                <div>
-                    <p
-                        style="margin:0;font-size:0.7rem;opacity:0.5;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;"
+                    <span class="text-white text-xs font-bold"
+                        >{percentRouters}%</span
                     >
-                        Online
-                    </p>
-                    <p
-                        style="margin:0;font-size:1.5rem;font-weight:700;color:oklch(from var(--color-success) l c h);"
-                    >
-                        {onlineRouters}
-                    </p>
                 </div>
-            </div>
-            <div
-                class="glass-card-flat"
-                style="padding:1rem;border-radius:0.875rem;display:flex;align-items:center;gap:0.875rem;"
-            >
+
+                <!-- Fondo mancha -->
                 <div
-                    style="font-size:1.75rem;width:2.5rem;height:2.5rem;display:flex;align-items:center;justify-content:center;background:oklch(from var(--color-error) l c h / 0.12);border-radius:0.625rem;"
-                >
-                    ❌
-                </div>
-                <div>
-                    <p
-                        style="margin:0;font-size:0.7rem;opacity:0.5;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;"
-                    >
-                        Offline
-                    </p>
-                    <p
-                        style="margin:0;font-size:1.5rem;font-weight:700;color:oklch(from var(--color-error) l c h);"
-                    >
-                        {offlineRouters}
-                    </p>
-                </div>
-            </div>
-            <div
-                class="glass-card-flat"
-                style="padding:1rem;border-radius:0.875rem;display:flex;align-items:center;gap:0.875rem;"
-            >
-                <div
-                    style="font-size:1.75rem;width:2.5rem;height:2.5rem;display:flex;align-items:center;justify-content:center;background:oklch(from var(--color-info) l c h / 0.12);border-radius:0.625rem;"
-                >
-                    🔐
-                </div>
-                <div>
-                    <p
-                        style="margin:0;font-size:0.7rem;opacity:0.5;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;"
-                    >
-                        Provisionados
-                    </p>
-                    <p style="margin:0;font-size:1.5rem;font-weight:700;">
-                        {provisionedRouters}
-                    </p>
-                </div>
+                    class="absolute right-0 top-0 w-32 h-32 blur-[40px] rounded-full pointer-events-none transition-colors {theme.blob}"
+                ></div>
             </div>
         </div>
     {/if}
@@ -406,14 +378,13 @@
                     <th class="dt-th">Modelo</th>
                     <th class="dt-th">Zona</th>
                     <th class="dt-th" style="text-align:center;">Estado</th>
-                    <th class="dt-th" style="text-align:center;">Seguridad</th>
                     <th class="dt-th" style="text-align:center;">Acciones</th>
                 </tr>
             {/snippet}
 
             {#snippet row(r: Router)}
                 {@const badge = statusBadge(r.last_status)}
-                <tr>
+                <tr style="cursor: pointer;" onclick={() => goto(`/routers/${r.host}`)}>
                     <!-- Host / IP -->
                     <td class="dt-td">
                         <span
@@ -463,38 +434,8 @@
                         >
                     </td>
 
-                    <!-- Seguridad (Provisioning) -->
-                    <td class="dt-td" style="text-align:center;">
-                        {#if r.vendor === 'mikrotik'}
-                            {#if r.is_provisioned}
-                                <div class="dropdown dropdown-end">
-                                    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-                                    <div tabindex="0" role="button" class="btn btn-xs btn-info gap-1 text-white">
-                                        🔒 Seguro
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 opacity-70" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
-                                    </div>
-                                    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-                                    <ul tabindex="0" class="dropdown-content z-[2] menu p-2 shadow bg-base-100 rounded-box w-52 mt-1 border border-base-200">
-                                        <li><button class="text-info text-xs font-bold" onclick={() => handleRenewSSL(r)}>🔄 Renovar SSL / Cert</button></li>
-                                        <li><button class="text-error text-xs font-bold" onclick={() => handleUnprovision(r)}>❌ Desvincular (Unprovision)</button></li>
-                                    </ul>
-                                </div>
-                            {:else}
-                                <button
-                                    class="btn btn-xs btn-success text-white gap-1"
-                                    title="Aprovisionar este router (API-SSL)"
-                                    onclick={() => openProvision(r)}
-                                >
-                                    🔐 Aprovisionar
-                                </button>
-                            {/if}
-                        {:else}
-                            <span class="badge badge-sm badge-ghost">N/A</span>
-                        {/if}
-                    </td>
-
                     <!-- Acciones -->
-                    <td class="dt-td" style="text-align:center;">
+                    <td class="dt-td" style="text-align:center;" onclick={(e) => e.stopPropagation()}>
                         <div
                             style="display:flex;gap:0.375rem;justify-content:center;"
                         >
@@ -711,21 +652,33 @@
                     </label>
                 </div>
 
-                <!-- Aprovisionado Manualmente -->
+                <!-- Aprovisionado Manualmente y Seguridad -->
                 {#if fVendor === 'mikrotik'}
-                    <div style="display:flex;align-items:center;gap:0.75rem;">
-                        <input
-                            type="checkbox"
-                            class="toggle toggle-info toggle-sm"
-                            bind:checked={fIsProvisioned}
-                            id="chk-provisioned"
-                        />
-                        <label
-                            for="chk-provisioned"
-                            class="label-text font-semibold cursor-pointer"
-                        >
-                            Router Aprovisionado (API-SSL)
-                        </label>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;margin-top:0.5rem;">
+                        <div style="display:flex;align-items:center;gap:0.75rem;">
+                            <input
+                                type="checkbox"
+                                class="toggle toggle-info toggle-sm"
+                                bind:checked={fIsProvisioned}
+                                id="chk-provisioned"
+                            />
+                            <label
+                                for="chk-provisioned"
+                                class="label-text font-semibold cursor-pointer"
+                            >
+                                Router Aprovisionado (API-SSL)
+                            </label>
+                        </div>
+                        {#if modalMode === "edit" && editTarget}
+                            <div style="display:flex;gap:0.5rem;">
+                                {#if fIsProvisioned}
+                                    <button type="button" class="btn btn-xs btn-outline btn-info bg-base-100" onclick={() => handleRenewSSL(editTarget!)}>🔄 Renovar SSL</button>
+                                    <button type="button" class="btn btn-xs btn-outline btn-error bg-base-100" onclick={() => handleUnprovision(editTarget!)}>❌ Desvincular</button>
+                                {:else}
+                                    <button type="button" class="btn btn-xs btn-success text-white" onclick={() => openProvision(editTarget!)}>🔐 Aprovisionar</button>
+                                {/if}
+                            </div>
+                        {/if}
                     </div>
                 {/if}
 

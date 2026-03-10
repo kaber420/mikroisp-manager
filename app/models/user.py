@@ -46,6 +46,7 @@ class User(SQLModel, table=True):
     receive_alerts: bool = Field(default=False)
     receive_device_down_alerts: bool = Field(default=False)
     receive_announcements: bool = Field(default=False)
+    client_id: uuid_pkg.UUID | None = Field(default=None, foreign_key="clients.id", index=True)
 
     @property
     def disabled(self) -> bool:

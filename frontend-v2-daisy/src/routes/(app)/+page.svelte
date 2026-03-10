@@ -375,17 +375,15 @@
                     <!-- Badges de Up / Down -->
                     <div class="mt-3 flex gap-2 text-xs">
                         <span
-                            class="{theme.bgLight} {theme.text} px-2 py-0.5 rounded border {theme.borderLight} font-medium"
+                            class="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 px-2 py-0.5 rounded border font-medium"
                         >
-                            {stat.active} ↑
+                            {stat.active}
                         </span>
-                        {#if stat.offline > 0}
-                            <span
-                                class="bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700 font-medium"
-                            >
-                                {stat.offline} ↓
-                            </span>
-                        {/if}
+                        <span
+                            class="bg-rose-500/10 text-rose-400 border-rose-500/20 px-2 py-0.5 rounded border font-medium"
+                        >
+                            {stat.offline}
+                        </span>
                     </div>
                 </div>
 

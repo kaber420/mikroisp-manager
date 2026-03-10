@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...core.users import require_technician as get_require_technician
 from ...core.users import current_active_user as get_current_active_user
 from ...repositories import router_repository
 from ...db.engine import get_session
@@ -130,7 +131,7 @@ async def api_remove_backup_file(
 @router.get("/system/users", response_model=list[dict[str, Any]])
 async def api_get_router_users(
     service: RouterService = Depends(get_router_service),
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_require_technician),
 ):
     try:
         return service.get_router_users()
@@ -142,7 +143,7 @@ async def api_get_router_users(
 async def api_create_router_user(
     user_data: RouterUserCreate,
     service: RouterService = Depends(get_router_service),
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_require_technician),
 ):
     try:
         return service.add_router_user(**user_data.model_dump())

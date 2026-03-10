@@ -35,8 +35,20 @@
                 response.status === 204 ||
                 response.status === 303
             ) {
-                // Login ok — go to dashboard
-                goto("/");
+                // Login ok — Get user info to decide redirection
+                try {
+                    const userRes = await axios.get("/api/users/me", { withCredentials: true });
+                    const userData = userRes.data;
+                    
+                    if (userData.role === "client") {
+                        goto("/portal");
+                    } else {
+                        goto("/");
+                    }
+                } catch (err) {
+                    // Fallback to home if /me fails
+                    goto("/");
+                }
             } else {
                 errorMsg =
                     response.data?.detail || "Usuario o contraseña incorrectos";

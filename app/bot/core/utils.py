@@ -24,6 +24,43 @@ def get_client_by_telegram_id(telegram_id: str):
         logger.error(f"Error en get_client_by_telegram_id: {e}")
         return None
 
+def get_user_by_telegram_id(telegram_id: str):
+    """
+    Busca un usuario activo en la base de datos usando su ID de Telegram.
+    """
+    try:
+        from app.models.user import User
+        with Session(engine) as session:
+            statement = select(User).where(User.telegram_chat_id == str(telegram_id), User.is_active == True)
+            return session.exec(statement).first()
+    except Exception as e:
+        logger.error(f"Error en get_user_by_telegram_id: {e}")
+        return None
+
+def update_user_password(user_id: str, new_password: str) -> bool:
+    """
+    Actualiza la contraseña de un usuario usando Argon2.
+    """
+    try:
+        import uuid
+        from app.models.user import User
+        from app.core.users import password_helper
+        with Session(engine) as session:
+            try:
+                uid = uuid.UUID(user_id)
+            except ValueError:
+                uid = user_id
+            user = session.get(User, uid)
+            if user:
+                user.hashed_password = password_helper.hash(new_password)
+                session.add(user)
+                session.commit()
+                return True
+            return False
+    except Exception as e:
+        logger.error(f"Error en update_user_password: {e}")
+        return False
+
 def get_server_port() -> str:
     """
     Deduce el puerto del servidor API.

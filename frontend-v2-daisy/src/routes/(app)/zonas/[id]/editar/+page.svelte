@@ -3,7 +3,7 @@
     import { page } from "$app/stores";
     import { goto } from "$app/navigation";
     import {
-        api,
+        getZonaDetails,
         updateZona,
         updateZonaInfra,
         createZonaNote,
@@ -77,8 +77,8 @@
     async function loadDetalle() {
         loading = true;
         try {
-            const res = await api.get<ZonaDetail>(`/zonas/${zonaId}/details`);
-            zona = res.data;
+            const res = await getZonaDetails(zonaId);
+            zona = res;
             fNombre = zona.nombre;
             fDireccion = zona.direccion ?? "";
             fCoordenadas = zona.coordenadas_gps ?? "";

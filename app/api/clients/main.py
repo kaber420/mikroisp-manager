@@ -15,6 +15,8 @@ from ...models.user import User
 from ...services.business.billing_service import BillingService
 from ...services.business.client_service import ClientService as ClientManagerService
 from ...services.business.payment_service import PaymentService
+from ...services.business.user_service import UserService
+from ...schemas.user import UserCreate, UserRead
 from .models import (
     AssignedCPE,
     ClientCreate,
@@ -41,6 +43,10 @@ def get_payment_service(session: Session = Depends(get_sync_session)) -> Payment
 
 def get_billing_service(session: Session = Depends(get_sync_session)) -> BillingService:
     return BillingService(session)
+
+
+def get_user_service(session: Session = Depends(get_sync_session)) -> UserService:
+    return UserService(session)
 
 
 # --- Client Endpoints ---
@@ -110,6 +116,34 @@ def api_get_cpes_for_client(
     current_user: User = Depends(require_billing),
 ):
     return service.get_cpes_for_client(client_id)
+
+
+@router.post("/clients/{client_id}/generate-access", response_model=UserRead)
+def api_generate_client_access(
+    client_id: uuid.UUID,
+    user_data: UserCreate,
+    client_service: ClientManagerService = Depends(get_client_service),
+    user_service: UserService = Depends(get_user_service),
+    current_user: User = Depends(require_billing),
+):
+    """
+    Genera credenciales de acceso vinculadas a un cliente específico.
+    """
+    # Verificar que el cliente existe
+    client = client_service.get_client_by_id(client_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+    # Asegurar que el client_id en user_data coincide con el de la URL
+    user_data.client_id = client_id
+    user_data.role = "client"
+
+    try:
+        new_user = user_service.create_user(user_data)
+        return new_user
+    except Exception as e:
+        logger.error(f"Error generando acceso para cliente {client_id}: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # --- Service Endpoints ---
