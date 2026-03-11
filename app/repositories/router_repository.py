@@ -32,19 +32,24 @@ async def get_router_by_host(session: AsyncSession, host: str) -> Router | None:
         return None
 
 
-async def get_all_routers(session: AsyncSession) -> Sequence[Router]:
+async def get_all_routers(session: AsyncSession) -> list[dict[str, Any]]:
     """Obtiene todos los routers de la base de datos."""
     try:
-        stmt = select(Router).order_by(Router.host)
+        stmt = (
+            select(Router, Zona.nombre)
+            .outerjoin(Zona, Router.zona_id == Zona.id)
+            .order_by(Router.host)
+        )
         result = await session.exec(stmt)
-        routers = result.all()
 
         output = []
-        for r in routers:
-            r_out = r.model_copy()
-            if r_out.password:
+        for router, zona_nombre in result:
+            r_out = router.model_dump()
+            r_out["zona_nombre"] = zona_nombre
+            
+            if r_out.get("password"):
                 try:
-                    r_out.password = decrypt_data(r_out.password)
+                    r_out["password"] = decrypt_data(r_out["password"])
                 except Exception:
                     pass
             output.append(r_out)
