@@ -197,7 +197,7 @@ def run_setup_wizard() -> None:
             print("⚠️  No se pudo generar el Caddyfile.")
 
     # 8. CONSTRUIR ALLOWED_HOSTS y ALLOWED_ORIGINS
-    # ALLOWED_HOSTS: sin esquema, incluye puerto para acceso directo
+    # ALLOWED_HOSTS: IPs/Hosts puros requeridos por TrustedHostMiddleware, y también con puertos para versatilidad
     hosts_with_port = [f"{h}:{port}" for h in hosts]
     allowed_hosts = ",".join(hosts + hosts_with_port)
 

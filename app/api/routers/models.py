@@ -29,7 +29,7 @@ class RouterCreate(BaseModel):
     password: str
     master_username: str | None = None
     master_password: str | None = None
-    zona_id: int | None = None
+    zona_id: int
     api_port: int
     ssh_port: int = 22
     is_enabled: bool = True

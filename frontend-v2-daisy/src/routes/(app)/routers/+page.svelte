@@ -7,16 +7,19 @@
         deleteRouter,
         provisionRouter,
         repairRouter,
+        getZonas,
     } from "$lib/api";
     import DataTable from "$lib/components/DataTable.svelte";
     import ProvisionModal from "$lib/components/ProvisionModal.svelte";
     import type { Router, RouterCreate, RouterUpdate } from "$lib/types/router";
+    import type { Zona } from "$lib/types/zona";
     import { notify } from "$lib/stores/notifications";
     import { goto } from "$app/navigation";
 
 
     // ── Estado principal ──────────────────────────────────────────────────
     let routers = $state<Router[]>([]);
+    let zonas = $state<Zona[]>([]);
     let loading = $state(true);
 
     // ── Modal Crear/Editar ────────────────────────────────────────────────
@@ -36,6 +39,7 @@
     let fWanInterface = $state("");
     let fVendor = $state("mikrotik");
     let fIsProvisioned = $state(false);
+    let fZonaId = $state<number | "">("");
 
     // ── Modal Confirmar Eliminar ─────────────────────────────────────────
     let showDeleteModal = $state(false);
@@ -75,9 +79,14 @@
     async function loadRouters() {
         loading = true;
         try {
-            routers = await getRouters();
+            const [fetchedRouters, fetchedZonas] = await Promise.all([
+                getRouters(),
+                getZonas()
+            ]);
+            routers = fetchedRouters;
+            zonas = fetchedZonas;
         } catch (e: any) {
-            notify.error(e?.response?.data?.detail ?? "Error al cargar los routers.");
+            notify.error(e?.response?.data?.detail ?? "Error al cargar datos.");
         } finally {
             loading = false;
         }
@@ -96,6 +105,7 @@
         fWanInterface = "";
         fVendor = "mikrotik";
         fIsProvisioned = false;
+        fZonaId = "";
         modalError = null;
     }
 
@@ -119,6 +129,7 @@
         fWanInterface = r.wan_interface ?? "";
         fVendor = r.vendor ?? "mikrotik";
         fIsProvisioned = r.is_provisioned ?? false;
+        fZonaId = r.zona_id ?? "";
         modalError = null;
         showModal = true;
     }
@@ -143,6 +154,7 @@
                     is_enabled: fIsEnabled,
                     vendor: fVendor,
                     is_provisioned: fIsProvisioned,
+                    zona_id: Number(fZonaId),
                 };
                 await createRouter(payload);
                 showModal = false;
@@ -165,6 +177,7 @@
                     wan_interface: fWanInterface.trim() || null,
                     vendor: fVendor,
                     is_provisioned: fIsProvisioned,
+                    zona_id: fZonaId === "" ? null : Number(fZonaId),
                 };
                 if (fPassword.trim()) {
                     payload.password = fPassword;
@@ -624,17 +637,31 @@
                 {/if}
 
                 <!-- Vendor -->
-                <label class="form-control w-full">
-                    <div class="label">
-                        <span class="label-text font-semibold">Marca (Vendor)</span>
-                    </div>
-                    <select class="select select-bordered select-sm w-full" bind:value={fVendor}>
-                        <option value="mikrotik">MikroTik</option>
-                        <option value="ubiquiti">Ubiquiti</option>
-                        <option value="cisco">Cisco</option>
-                        <option value="otro">Otro</option>
-                    </select>
-                </label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                    <label class="form-control w-full">
+                        <div class="label">
+                            <span class="label-text font-semibold">Marca (Vendor) *</span>
+                        </div>
+                        <select class="select select-bordered select-sm w-full" bind:value={fVendor} required>
+                            <option value="mikrotik">MikroTik</option>
+                            <option value="ubiquiti">Ubiquiti</option>
+                            <option value="cisco">Cisco</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                    </label>
+
+                    <label class="form-control w-full">
+                        <div class="label">
+                            <span class="label-text font-semibold">Zona *</span>
+                        </div>
+                        <select class="select select-bordered select-sm w-full" bind:value={fZonaId} required>
+                            <option value="" disabled selected>Seleccione una zona</option>
+                            {#each zonas as zona}
+                                <option value={zona.id}>{zona.nombre}</option>
+                            {/each}
+                        </select>
+                    </label>
+                </div>
 
                 <!-- Habilitado -->
                 <div style="display:flex;align-items:center;gap:0.75rem;">

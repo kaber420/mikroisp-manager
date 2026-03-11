@@ -216,7 +216,6 @@ tmp/
 # Generated Assets
 static/qr_codes/
 data/qr_codes/
-
 Caddyfile
 .git_backup/
 *.bak

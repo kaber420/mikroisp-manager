@@ -199,8 +199,23 @@ app.add_middleware(
 )
 
 # --- SEGURIDAD: TRUSTED HOSTS ---
-allowed_hosts = settings.ALLOWED_HOSTS.split(",")
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
+allowed_hosts_env = settings.ALLOWED_HOSTS.split(",")
+allowed_hosts = set(allowed_hosts_env)
+allowed_hosts.update(["localhost", "127.0.0.1"])
+
+# Auto-detectar IP local para entornos LAN (Out-of-the-Box)
+import socket
+try:
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        allowed_hosts.add(local_ip)
+        app_port = settings.UVICORN_PORT
+        allowed_hosts.add(f"{local_ip}:{app_port}")
+except Exception:
+    pass
+
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(allowed_hosts))
 
 # --- SEGURIDAD: CSP con Nonces ---
 app.add_middleware(CSPMiddleware)

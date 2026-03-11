@@ -12,7 +12,13 @@ const config = {
 			fallback: 'index.html',
 			precompress: false,
 			strict: false
-		})
+		}),
+		prerender: {
+			entries: ['*'],
+			handleHttpError: 'warn',
+			handleMissingId: 'warn',
+			handleUnseenRoutes: 'ignore'
+		}
 	}
 };
 
