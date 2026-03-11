@@ -1,0 +1,70 @@
+/* Main Styles for MonitorApp */
+
+Screen {
+
+    background: $surface;
+}
+
+/* Header/Footer customization usually done via widget attrs or classes */
+Header {
+    dock: top;
+    height: 1;
+    background: $primary;
+    color: $text;
+}
+
+Footer {
+    dock: bottom;
+    height: 1;
+    background: $primary-darken-2;
+}
+
+/* Dashboard Grid */
+Dashboard {
+    layout: grid;
+    grid-size: 2 2;
+    grid-columns: 1fr 2fr;
+    grid-rows: 1fr 2fr;
+    grid-gutter: 1;
+    padding: 1;
+}
+
+/* Widget General Styles */
+Static {
+    border: solid $accent;
+    background: $surface-lighten-1;
+    padding: 1;
+}
+
+/* Specific Widgets */
+ResourceWidget {
+    column-span: 1;
+    row-span: 1;
+    border-title-align: center;
+}
+
+HealthWidget {
+    column-span: 1;
+    row-span: 1;
+}
+
+LogsWidget {
+    column-span: 2;
+    row-span: 1;
+    height: 100%;
+    scrollbar-gutter: stable;
+    overflow-y: scroll;
+    border: solid $success;
+}
+
+/* Status Colors */
+.status-running {
+    color: $success;
+}
+.status-stopped {
+    color: $error;
+}
+.status-error {
+    color: $warning;
+    text-style: bold;
+}

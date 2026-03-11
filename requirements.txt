@@ -1,0 +1,33 @@
+fastapi
+uvicorn[standard]; sys_platform != 'win32'
+uvicorn; sys_platform == 'win32'
+watchfiles; sys_platform == 'win32'
+python-dotenv
+passlib[argon2]
+python-jose[cryptography]
+python-multipart
+sqlalchemy>=2.0.0
+sqlmodel>=0.0.14
+fastapi-users[sqlmodel]>=12.0.0
+fastapi-users-db-sqlalchemy
+httpx
+routeros-api
+paramiko
+scp
+aiofiles
+aiosqlite
+apscheduler
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+slowapi
+python-dateutil
+pydantic-settings
+textual
+python-telegram-bot>=20.0
+redis[hiredis]>=5.0.0
+asyncpg
+psycopg2-binary
+psutil
+uvloop; sys_platform != 'win32'
+qrcode[pil]

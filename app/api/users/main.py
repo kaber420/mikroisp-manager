@@ -1,0 +1,60 @@
+# app/api/users/main.py
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlmodel import Session
+
+from ...core.users import require_admin
+from ...db.engine_sync import get_sync_session
+from ...models.user import User
+from ...schemas.user import UserCreate, UserRead, UserUpdate
+from ...services.business.user_service import UserService
+
+router = APIRouter()
+
+
+# --- Inyección de Dependencias Actualizada ---
+# Ahora inyectamos la sesión de SQLModel
+def get_user_service(session: Session = Depends(get_sync_session)) -> UserService:
+    return UserService(session)
+
+
+@router.get("/users", response_model=list[UserRead])
+def api_get_all_users(
+    service: UserService = Depends(get_user_service),
+    current_user: User = Depends(require_admin),
+):
+    return service.get_all_users()
+
+
+@router.post("/users", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+def api_create_user(
+    user_data: UserCreate,
+    service: UserService = Depends(get_user_service),
+    current_user: User = Depends(require_admin),
+):
+    return service.create_user(user_data)
+
+
+@router.put("/users/{username}", response_model=UserRead)
+def api_update_user(
+    username: str,
+    user_data: UserUpdate,
+    service: UserService = Depends(get_user_service),
+    current_user: User = Depends(require_admin),
+):
+    return service.update_user(username, user_data)
+
+
+@router.delete("/users/{username}", status_code=status.HTTP_204_NO_CONTENT)
+def api_delete_user(
+    username: str,
+    request: Request,
+    service: UserService = Depends(get_user_service),
+    current_user: User = Depends(require_admin),
+):
+    from ...core.audit import log_action
+
+    if username == current_user.username:
+        raise HTTPException(status_code=403, detail="No puedes eliminar tu propia cuenta.")
+    service.delete_user(username)
+    log_action("DELETE", "user", username, user=current_user, request=request)
