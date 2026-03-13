@@ -27,6 +27,15 @@ class InfrastructureService:
             return {"status": "error", "message": "Docker no está disponible."}
 
         PORTS = {"postgres": 5432, "redict": 6379}
+        import os
+        from app.utils.services_config import read_services_config
+        srv = read_services_config()
+        suggested_pass = None
+        if srv.get("db") and srv["db"].get("provider") == "postgres":
+            suggested_pass = srv["db"].get("password")
+        if not suggested_pass:
+            suggested_pass = os.environ.get("POSTGRES_PASSWORD", None)
+
         services: Dict[str, Any] = {
             "postgres": {
                 "port": PORTS["postgres"], 
@@ -35,7 +44,7 @@ class InfrastructureService:
                 "suggested": {
                     "user": "umanager",
                     "db": "umanager_db",
-                    "password": settings.POSTGRES_PASSWORD if hasattr(settings, "POSTGRES_PASSWORD") else None
+                    "password": suggested_pass
                 }
             },
             "redict": {

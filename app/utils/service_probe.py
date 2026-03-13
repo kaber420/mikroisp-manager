@@ -10,7 +10,10 @@ def test_postgres_connection(host: str, port: int, user: str, password: str, db:
     No afecta al motor principal.
     """
     # Usamos psycopg ya que es el driver estándar en este proyecto
-    url = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{db}"
+    if password:
+        url = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{db}"
+    else:
+        url = f"postgresql+psycopg://{user}@{host}:{port}/{db}"
     
     start = time.time()
     try:
