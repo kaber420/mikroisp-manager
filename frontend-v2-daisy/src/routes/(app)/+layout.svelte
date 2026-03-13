@@ -230,7 +230,7 @@
 				<span
 					class="text-xl font-black bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
 				>
-					UManager
+					OmniWISP
 				</span>
 				<span
 					class="badge badge-outline badge-sm border-base-300 font-mono"
@@ -373,7 +373,7 @@
 		class="footer footer-center py-3 bg-base-100 text-base-content/40 text-xs border-t border-base-200"
 	>
 		<p>
-			UManager v2 &mdash; DaisyUI Edition &copy; {new Date().getFullYear()}
+			OmniWISP v2 &mdash; DaisyUI Edition &copy; {new Date().getFullYear()}
 		</p>
 	</footer>
 

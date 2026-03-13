@@ -65,11 +65,11 @@
 		<div class="navbar-start gap-4">
 			<a href="/portal" class="flex items-center gap-2 group">
 				<div class="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    <span class="text-white font-bold text-xl">U</span>
+                    <span class="text-white font-bold text-xl">O</span>
                 </div>
 				<div class="flex flex-col">
                     <span class="text-lg font-black bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent leading-none">
-                        UManager
+                        OmniWISP
                     </span>
                     <span class="text-[10px] font-bold uppercase tracking-wider opacity-50 leading-none">
                         Portal Clientes
@@ -111,7 +111,7 @@
 					class="dropdown-content mt-3 z-[60] p-2 shadow-2xl bg-base-200 rounded-2xl w-52 border border-base-300"
 				>
                     <li class="px-4 py-3 border-b border-base-300 mb-2">
-                        <p class="font-bold text-sm truncate">{$user?.username || "Cliente uManager"}</p>
+                        <p class="font-bold text-sm truncate">{$user?.username || "Cliente OmniWISP"}</p>
                         <p class="text-[10px] opacity-50 uppercase tracking-tighter">Acceso Cliente</p>
                     </li>
 					<li>
@@ -140,7 +140,7 @@
 		class="footer footer-center py-6 bg-base-100 text-base-content/40 text-xs border-t border-base-200"
 	>
 		<div class="flex flex-col gap-1">
-			<p class="font-bold">UManager Portal &bull; Edición Suscriptores</p>
+			<p class="font-bold">OmniWISP Portal &bull; Edición Suscriptores</p>
             <p>&copy; {new Date().getFullYear()} Todos los derechos reservados.</p>
 		</div>
 	</footer>

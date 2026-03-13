@@ -163,7 +163,7 @@
 </script>
 
 <svelte:head>
-    <title>Difusión — UManager v2</title>
+    <title>Difusión — OmniWISP</title>
 </svelte:head>
 
 <!-- ===== ENCABEZADO ===== -->

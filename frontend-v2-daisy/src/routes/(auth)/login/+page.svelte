@@ -69,7 +69,7 @@
 </script>
 
 <svelte:head>
-    <title>Login — UMonitor V2</title>
+    <title>Login — OmniWISP</title>
 </svelte:head>
 
 <div class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
@@ -89,7 +89,7 @@
                 />
             </svg>
             <h1 class="text-2xl font-bold text-gray-800">
-                µMonitor <span class="text-indigo-600">V2</span>
+                OmniWISP
             </h1>
             <p class="text-gray-500 text-sm mt-1">
                 Ingresa tus credenciales para continuar
@@ -147,7 +147,7 @@
         </form>
 
         <p class="text-center text-gray-400 text-xs mt-6">
-            © 2025 µISP Monitor System
+            © 2026 OmniWISP
         </p>
     </div>
 </div>

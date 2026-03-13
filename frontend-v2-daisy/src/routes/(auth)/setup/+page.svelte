@@ -63,7 +63,7 @@
 </script>
 
 <svelte:head>
-    <title>Setup Inicial — UMonitor V2</title>
+    <title>Setup Inicial — OmniWISP</title>
 </svelte:head>
 
 <div class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
@@ -85,7 +85,7 @@
             </svg>
 
             <h1 class="text-2xl font-bold text-gray-800">
-                ¡Bienvenido a <span class="text-indigo-600">UMonitor V2</span>!
+                ¡Bienvenido a <span class="text-indigo-600">OmniWISP</span>!
             </h1>
             <p class="text-gray-500 text-sm mt-1 text-center">
                 Crea tu cuenta de administrador de sistema para continuar
@@ -191,7 +191,7 @@
         </form>
 
         <p class="text-center text-gray-400 text-xs mt-6">
-            © 2025 µISP Monitor System
+            © 2026 OmniWISP
         </p>
     </div>
 </div>

@@ -13,7 +13,7 @@ import os
 from typing import Optional
 from telegram.ext import Application
 from telegram.error import Conflict, NetworkError, TimedOut
-from app.utils.settings_utils import get_setting_sync
+from app.utils.settings_utils import get_setting_sync, set_setting_sync
 from app.bot.bot_client.bot_client import create_application as create_client_app
 from app.bot.bot_tech import create_application as create_tech_app
 
@@ -133,8 +133,23 @@ class BotManager:
                     task = asyncio.create_task(self._polling_wrapper("ClientBot", self.client_app.updater))
                     self.polling_tasks.append(task)
                     logger.info("✅ Client Bot Polling started")
+                    
+                    # Automáticamente obtener y guardar el username
+                    try:
+                        me = await self.client_app.bot.get_me()
+                        set_setting_sync("client_bot_username", me.username)
+                        logger.info(f"📝 Client Bot username updated to: @{me.username}")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Could not fetch Client Bot username: {e}")
                 else:
                     logger.info("✅ Client Bot initialized (send-only mode)")
+                    # También intentar obtenerlo en modo send-only si somos los primeros en arrancar
+                    try:
+                        me = await self.client_app.bot.get_me()
+                        set_setting_sync("client_bot_username", me.username)
+                    except Exception:
+                        pass
+
 
             except Exception as e:
                 logger.error(f"❌ Failed to start Client Bot: {e}")

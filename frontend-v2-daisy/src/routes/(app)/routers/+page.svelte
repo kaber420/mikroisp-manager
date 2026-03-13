@@ -272,7 +272,7 @@
 </script>
 
 <svelte:head>
-    <title>Routers — UManager</title>
+    <title>Routers — OmniWISP</title>
 </svelte:head>
 
 <!-- ── CONTENEDOR PRINCIPAL ───────────────────────────────────────────── -->
@@ -810,7 +810,7 @@
             </h3>
             <p style="margin:0;font-size:0.9rem;opacity:0.8;">
                 El router <strong style="font-family:monospace;">{postCreateRouter.host}</strong> fue creado exitosamente.
-                El aprovisionamiento habilita la conexión segura (API-SSL) para que UManager pueda monitorear y gestionar el router.
+                El aprovisionamiento habilita la conexión segura (API-SSL) para que OmniWISP pueda monitorear y gestionar el router.
             </p>
             <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
                 <button

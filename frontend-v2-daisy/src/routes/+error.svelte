@@ -37,7 +37,7 @@
 </script>
 
 <svelte:head>
-	<title>Error {$page.status} — UManager v2</title>
+	<title>Error {$page.status} — OmniWISP</title>
 </svelte:head>
 
 <LavaLampBackground />
@@ -140,7 +140,7 @@
 
 			<!-- Footer de la tarjeta -->
 			<p class="text-[11px] text-base-content/30 pt-1">
-				UManager v2 — Si el problema persiste, contacta al administrador del sistema.
+				OmniWISP — Si el problema persiste, contacta al administrador del sistema.
 			</p>
 		</div>
 	</div>

@@ -6,10 +6,18 @@
     let { data } = $props<{ data: PageData }>();
     
     // State
-    // svelte-ignore state_referenced_locally
     let tickets = $state(data.tickets);
     // svelte-ignore state_referenced_locally
     let totalTickets = $state(data.total || 0);
+
+    // Sync state when data props change
+    $effect(() => {
+        tickets = data.tickets;
+        totalTickets = data.total || 0;
+    });
+
+    const publicSettings = $derived(data.publicSettings);
+    const botUsername = $derived(publicSettings?.client_bot_username || "OmniWispBot");
     
     // Pagination
     let currentPage = $state(1);
@@ -128,7 +136,7 @@
 </script>
 
 <svelte:head>
-	<title>Soporte Técnico | Portal de Clientes</title>
+	<title>Soporte Técnico | Portal de Clientes — OmniWISP</title>
 </svelte:head>
 
 <div class="space-y-8" in:fade={{ duration: 400 }}>
@@ -231,7 +239,7 @@
                 <p class="text-primary-content/80 text-lg">Nuestro bot de Telegram está disponible 24/7 para pruebas de velocidad y reinicios remotos.</p>
             </div>
             <div class="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                <a href="https://t.me/TuISP_Bot" target="_blank" class="btn btn-neutral rounded-xl px-8 gap-2 border-none">
+                <a href="https://t.me/{botUsername.replace('@','')}" target="_blank" class="btn btn-neutral rounded-xl px-8 gap-2 border-none">
                     <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.14-.26.26-.54.26l.213-3.054 5.56-5.022c.24-.213-.053-.334-.374-.12l-6.873 4.33-2.955-.924c-.642-.204-.654-.642.134-.95l11.535-4.45c.533-.204 1 .116.84.808z"/></svg>
                     Abrir Telegram
                 </a>

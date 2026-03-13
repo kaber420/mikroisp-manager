@@ -239,7 +239,7 @@
 </script>
 
 <svelte:head>
-    <title>Access Points — UManager</title>
+    <title>Access Points — OmniWISP</title>
 </svelte:head>
 
 <!-- ── CONTENEDOR PRINCIPAL ───────────────────────────────────────────── -->

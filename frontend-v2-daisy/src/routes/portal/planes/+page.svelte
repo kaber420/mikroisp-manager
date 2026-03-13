@@ -8,7 +8,7 @@
 </script>
 
 <svelte:head>
-	<title>Mis Planes | Portal de Clientes</title>
+	<title>Mis Planes | Portal de Clientes — OmniWISP</title>
 </svelte:head>
 
 <div class="space-y-8" in:fade={{ duration: 400 }}>

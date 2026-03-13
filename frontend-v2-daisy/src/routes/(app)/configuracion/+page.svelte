@@ -432,7 +432,7 @@
 </script>
 
 <svelte:head>
-    <title>Configuración Global — UManager</title>
+    <title>Configuración Global — OmniWISP</title>
 </svelte:head>
 
 
@@ -1549,7 +1549,7 @@
                     onclick={async () => {
                         sysSaving = true;
                         try {
-                            await updateSystemSettings(sysConfig);
+                            await updateSystemServices(sysConfig);
                             notify.success("¡Configuración global aplicada!");
                             await loadInfraStatus();
                         } catch(e) {
@@ -1714,7 +1714,7 @@
                                         <div class="alert alert-success py-3 flex gap-2">
                                             <span class="text-xl">✓</span>
                                             <div>
-                                                <div class="text-sm font-bold">omniwisp_postgres activo</div>
+                                                <div class="text-sm font-bold">OmniWISP_postgres activo</div>
                                                 <div class="text-[10px] opacity-70">Puerto: {infraStatus.services.postgres.port}</div>
                                             </div>
                                         </div>
@@ -1861,7 +1861,7 @@
                                         <div class="alert alert-info py-3 flex gap-2">
                                             <span class="text-xl">⚡</span>
                                             <div>
-                                                <div class="text-sm font-bold">omniwisp_redict activo</div>
+                                                <div class="text-sm font-bold">OmniWISP_redict activo</div>
                                                 <div class="text-[10px] opacity-70">Redis-compatible, Puerto {infraStatus.services.redict.port}</div>
                                             </div>
                                         </div>

@@ -47,7 +47,8 @@ async def api_get_public_settings(
         "ticket_footer_message", 
         "billing_address",
         "cpe_signal_warning_threshold",
-        "cpe_signal_danger_threshold"
+        "cpe_signal_danger_threshold",
+        "client_bot_username"
     ]
     return {k: v for k, v in settings.items() if k in public_keys}
 
