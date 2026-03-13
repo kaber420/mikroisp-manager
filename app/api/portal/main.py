@@ -25,6 +25,8 @@ from .models import (
     PortalTicketMessageCreate,
     PortalTicketListResponse
 )
+from ...models.portal_announcement import PortalAnnouncement
+from ...schemas.portal_announcement import PortalAnnouncementRead
 
 router = APIRouter(prefix="/portal", tags=["Portal de Clientes"])
 
@@ -230,3 +232,31 @@ async def list_portal_planes(
             ip_address=s.ip_address
         ))
     return responses
+
+@router.get("/announcements", response_model=List[PortalAnnouncementRead])
+async def list_active_announcements(
+    current_user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_session)
+):
+    """Obtiene los anuncios del CMS que están activos y dentro del rango de fecha válido para el portal."""
+    if not current_user.client_id:
+        raise HTTPException(status_code=403, detail="Not a client user")
+        
+    now = datetime.utcnow()
+    
+    query = (
+        select(PortalAnnouncement)
+        .where(PortalAnnouncement.is_active == True)
+        .where(PortalAnnouncement.start_date <= now)
+        .order_by(desc(PortalAnnouncement.priority), desc(PortalAnnouncement.created_at))
+    )
+    result = await session.execute(query)
+    announcements = result.scalars().all()
+    
+    # Filtrar en Python por end_date (si lo hiciéramos en SQL usaríamos una condición OR, pero esto es simple)
+    valid_announcements = []
+    for ann in announcements:
+        if ann.end_date is None or ann.end_date >= now:
+            valid_announcements.append(ann)
+            
+    return valid_announcements

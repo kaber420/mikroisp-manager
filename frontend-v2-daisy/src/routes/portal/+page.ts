@@ -1,22 +1,25 @@
 import type { PageLoad } from './$types';
-import { getPortalMe, getPortalTickets } from '$lib/api/portal';
+import { getPortalMe, getPortalTickets, getPortalAnnouncements } from '$lib/api/portal';
 
 export const load: PageLoad = async () => {
     try {
-        const [me, tickets] = await Promise.all([
+        const [me, tickets, announcements] = await Promise.all([
             getPortalMe(),
-            getPortalTickets()
+            getPortalTickets(),
+            getPortalAnnouncements()
         ]);
 
         return {
             me,
-            tickets
+            tickets,
+            announcements
         };
     } catch (error) {
         console.error('Error loading portal data:', error);
         return {
             me: null,
-            tickets: []
+            tickets: { items: [], total: 0 },
+            announcements: []
         };
     }
 };
