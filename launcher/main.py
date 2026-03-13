@@ -173,6 +173,8 @@ def main():
     parser.add_argument("--show", action="store_true", help="Mostrar configuración actual y salir")
     parser.add_argument("--interactive", action="store_true", help="Forzar creación interactiva del primer usuario en terminal")
     parser.add_argument("--frontend", nargs="?", const="v2", default=None, choices=["v2", "daisy", "shadcn"], help="Iniciar frontend SvelteKit (opcional: v2, daisy, shadcn). Por defecto: v2")
+    parser.add_argument("--use-sqlite", action="store_true", help="Forzar el uso de SQLite como base de datos")
+    parser.add_argument("--use-local-cache", action="store_true", help="Forzar el uso de caché local (memoria) en lugar de Redis")
 
     args = parser.parse_args()
 
@@ -232,6 +234,12 @@ def main():
     args.headless = is_headless
     args.web_workers = web_workers
     args.resolved_port = port
+
+    # Inyectar flags de base de datos y caché en el entorno para que app/core/config.py los vea
+    if args.use_sqlite:
+        os.environ["FORCE_SQLITE"] = "true"
+    if args.use_local_cache:
+        os.environ["FORCE_LOCAL_CACHE"] = "true"
 
     if args.command in commands:
         commands[args.command].run(args)

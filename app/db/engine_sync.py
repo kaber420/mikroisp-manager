@@ -10,10 +10,15 @@ from collections.abc import Generator
 from sqlalchemy import event
 from sqlmodel import Session, SQLModel, create_engine
 from app.core.config import settings
+from app.db.resilience import probe_database_connection
+
+# --- Probar conexión antes de inicializar motores ---
+probe_database_connection()
 
 # --- Database URL Configuration ---
-# Read DATABASE_URL_SYNC from settings.
+# Read DATABASE_URL_SYNC from settings (might have changed if probe failed)
 DATABASE_URL_SYNC = settings.DATABASE_URL_SYNC
+
 
 # Detect dialect from URL
 _is_sqlite = DATABASE_URL_SYNC.startswith("sqlite")

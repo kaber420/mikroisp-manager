@@ -10,3 +10,28 @@ from .setting import Setting
 from .user import User
 from .zona import Zona, ZonaDocumento, ZonaInfra, ZonaNote
 from .ticket import Ticket, TicketMessage
+from .preference import UserPreference, UserPreferenceBase, UserPreferenceCreate, UserPreferenceRead, UserPreferenceUpdate
+
+__all__ = [
+    "AP",
+    "Client",
+    "CPE",
+    "Payment",
+    "Plan",
+    "Router",
+    "Switch",
+    "ClientService",
+    "Setting",
+    "User",
+    "Zona",
+    "ZonaDocumento",
+    "ZonaInfra",
+    "ZonaNote",
+    "Ticket",
+    "TicketMessage",
+    "UserPreference",
+    "UserPreferenceBase",
+    "UserPreferenceCreate",
+    "UserPreferenceRead",
+    "UserPreferenceUpdate",
+]

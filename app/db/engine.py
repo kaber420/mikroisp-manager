@@ -13,10 +13,16 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.config import settings
+from app.db.resilience import probe_database_connection
+
+# --- Probar conexión antes de inicializar motores ---
+# Esto asegura que si Postgres falló en el probe sync, aquí ya usemos SQLite
+probe_database_connection()
 
 # --- Database URL Configuration ---
 # Read DATABASE_URL from settings
 DATABASE_URL = settings.DATABASE_URL
+
 
 # Detect dialect from URL
 _is_sqlite = DATABASE_URL.startswith("sqlite")

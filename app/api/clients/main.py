@@ -9,7 +9,9 @@ logger = logging.getLogger(__name__)
 
 from ...core.users import require_billing
 from ...db.engine_sync import get_sync_session
+from ...middleware.degraded_mode import verify_not_degraded
 from ...models.user import User
+
 
 # Import service classes
 from ...services.business.billing_service import BillingService
@@ -78,6 +80,7 @@ def api_create_client(
     client: ClientCreate,
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
+    _: bool = Depends(verify_not_degraded),
 ):
     new_client = service.create_client(client.model_dump())
     return new_client
@@ -89,6 +92,7 @@ def api_update_client(
     client_update: ClientUpdate,
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
+    _: bool = Depends(verify_not_degraded),
 ):
     update_fields = client_update.model_dump(exclude_unset=True)
     updated_client = service.update_client(client_id, update_fields)
@@ -101,6 +105,7 @@ def api_delete_client(
     request: Request,
     service: ClientManagerService = Depends(get_client_service),
     current_user: User = Depends(require_billing),
+    _: bool = Depends(verify_not_degraded),
 ):
     from ...core.audit import log_action
 
@@ -265,6 +270,7 @@ def api_register_payment_and_reactivate(
     billing_service: BillingService = Depends(get_billing_service),
     payment_service: PaymentService = Depends(get_payment_service),
     current_user: User = Depends(require_billing),
+    _: bool = Depends(verify_not_degraded),
 ):
     """
     Register a payment and execute reactivation logic (if applicable).

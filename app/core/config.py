@@ -21,9 +21,38 @@ class Settings(BaseSettings):
     # Base de Datos
     DATABASE_URL: Optional[str] = None
     DATABASE_URL_SYNC: Optional[str] = None
+    DEGRADED_MODE: bool = False  # Indica si estamos en modo de emergencia por fallo de servicios
+    IS_FORCED_SQLITE: bool = False # Indica si se forzó por flag explicitly
+
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        
+        # 0. Leer configuración de servicios gestionada por la UI (data/services.json)
+        from app.utils.services_config import read_services_config
+        srv = read_services_config()
+        
+        if srv.get("db"):
+            db_conf = srv["db"]
+            if db_conf.get("provider") == "postgres":
+                url_sync = f"postgresql+psycopg://{db_conf['user']}:{db_conf['password']}@{db_conf['host']}:{db_conf['port']}/{db_conf['database']}"
+                url_async = f"postgresql+asyncpg://{db_conf['user']}:{db_conf['password']}@{db_conf['host']}:{db_conf['port']}/{db_conf['database']}"
+                self.DATABASE_URL = url_async
+                self.DATABASE_URL_SYNC = url_sync
+
+        if srv.get("cache"):
+            cache_conf = srv["cache"]
+            self.CACHE_BACKEND = cache_conf.get("provider", "memory")
+            if self.CACHE_BACKEND == "redict":
+                auth = f":{cache_conf['password']}@" if cache_conf.get("password") else ""
+                self.REDICT_URL = f"redis://{auth}{cache_conf['host']}:{cache_conf['port']}/{cache_conf.get('db', 0)}"
+
+        # 1. Comprobar si se forzó SQLite por bandera de launcher (Highest priority)
+        if os.getenv("FORCE_SQLITE") == "true":
+            self.IS_FORCED_SQLITE = True
+            self.DATABASE_URL = None # Forzar recalculo a SQLite
+            self.DATABASE_URL_SYNC = None
+
         if not self.DATABASE_URL:
             # Default to SQLite in data/db/
             DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
@@ -36,6 +65,11 @@ class Settings(BaseSettings):
             DATABASE_FILE = os.path.join(DATA_DIR, "db", "inventory.sqlite")
             os.makedirs(os.path.dirname(DATABASE_FILE), exist_ok=True)
             self.DATABASE_URL_SYNC = f"sqlite:///{DATABASE_FILE}"
+
+        # 2. Comprobar si se forzó Caché Local por bandera (Highest priority)
+        if os.getenv("FORCE_LOCAL_CACHE") == "true":
+            self.CACHE_BACKEND = "memory"
+
 
     # Caché y Redis
     CACHE_BACKEND: str = "memory"

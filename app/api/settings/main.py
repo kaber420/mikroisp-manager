@@ -11,7 +11,12 @@ from ...services.core.settings_service import SettingsService
 from ...utils.env_manager import update_env_file, get_env_context
 from .models import SystemSettingsRequest
 
+from .preferences import router as preferences_router
+from .infra import router as infra_router
+
 router = APIRouter()
+router.include_router(preferences_router, prefix="/preferences", tags=["Preferences"])
+router.include_router(infra_router, prefix="/infra", tags=["Infrastructure"])
 
 
 async def get_settings_service(
@@ -58,58 +63,107 @@ async def api_update_settings(
 
 
 
-@router.get("/settings/system", response_model=dict[str, str])
-async def api_get_system_settings(
-    current_user: User = Depends(require_admin),
-):
-    """
-    Returns current system configuration from .env context.
-    """
-    return get_env_context()
+from ...utils.services_config import read_services_config, write_services_config
+from ...utils.service_probe import test_postgres_connection, test_sqlite_connection, test_redict_connection, test_memory_cache_connection
+from ...core.config import settings
+import re
+from pydantic import BaseModel
+from typing import Optional
 
-@router.post("/settings/system", status_code=status.HTTP_200_OK)
-async def api_update_system_settings(
-    config: SystemSettingsRequest,
-    current_user: User = Depends(require_admin),
-):
-    """
-    Updates system configuration (DB & Cache) in .env file.
-    """
-    updates = {}
-    
-    # 1. Database Configuration
-    if config.db_provider == "postgres":
-        # Construct SQLAlchemy URL: postgresql+psycopg://user:pass@host:port/db
-        db_url = f"postgresql+psycopg://{config.postgres_user}:{config.postgres_password}@{config.postgres_host}:{config.postgres_port}/{config.postgres_db}"
-        updates["DATABASE_URL_SYNC"] = db_url
-    else:
-        # Revert to SQLite (remove var or set to default? removing is safer to fallback logic)
-        # But here we explicitly set connection string if needed, or better, we can just remove the var.
-        # However, our env_manager updates keys. Let's set it to sqlite explicitly if that's the logic.
-        # The engine_sync.py logic checks if DATABASE_URL_SYNC starts with sqlite or is None.
-        # So we can set it to a default sqlite path or empty to trigger default.
-        # Ideally, we should just remove it to use default, but env_manager updates values.
-        # Let's simple set it to sqlite:///data/db/inventory.sqlite to be explicit.
-        updates["DATABASE_URL_SYNC"] = "sqlite:///data/db/inventory.sqlite"
+class ServiceTestRequest(BaseModel):
+    provider: str # postgres, sqlite, redict, memory
+    host: Optional[str] = "localhost"
+    port: Optional[int] = None
+    user: Optional[str] = ""
+    password: Optional[str] = ""
+    database: Optional[str] = ""
 
-    # 2. Cache Configuration
-    if config.cache_provider == "redict":
-        updates["CACHE_BACKEND"] = "redict"
-        if config.redict_url:
-            updates["REDICT_URL"] = config.redict_url
-    else:
-        updates["CACHE_BACKEND"] = "memory"
-        # We don't remove REDICT_URL, just ignore it if backend is memory
+@router.get("/settings/system/services")
+async def api_get_services_config(current_user: User = Depends(require_admin)):
+    """
+    Lee la configuración de servicios desde data/services.json
+    """
+    return read_services_config()
 
-    # 3. Apply Updates
+@router.post("/settings/system/services")
+async def api_save_services_config(config: dict, current_user: User = Depends(require_admin)):
+    """
+    Guarda la configuración de servicios en data/services.json.
+    """
     try:
-        update_env_file(updates)
-        return {"message": "Configuration updated. Please restart the system."}
+        write_services_config(config)
+        return {"message": "Configuración guardada. Los cambios se aplicarán en el próximo reinicio."}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update configuration: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/settings/system/test-connection")
+async def api_test_service_connection(req: ServiceTestRequest, current_user: User = Depends(require_admin)):
+    if req.provider == "postgres":
+        return test_postgres_connection(req.host, req.port or 5432, req.user or "umanager", req.password or "", req.database or "umanager_db")
+    elif req.provider == "sqlite":
+        return test_sqlite_connection()
+    elif req.provider == "redict":
+        return test_redict_connection(req.host, req.port or 6379, req.password or "", int(req.database or 0))
+    elif req.provider == "memory":
+        return test_memory_cache_connection()
+    raise HTTPException(status_code=400, detail="Provider no soportado")
+
+@router.get("/settings/system/status")
+async def api_get_system_status(current_user: User = Depends(require_admin)):
+    """
+    Devuelve el estado de los servicios actuales y si están respondiendo.
+    """
+    # 1. Database
+    db_backend = "sqlite" if settings.DATABASE_URL and settings.DATABASE_URL.startswith("sqlite") else "postgres"
+    if settings.DATABASE_URL is None: 
+        db_backend = "sqlite" 
+    
+    db_online = True
+    if db_backend == "postgres" and settings.DATABASE_URL_SYNC:
+        m = re.match(r"postgresql\+psycopg://(.*?):(.*?)@(.*?):(\d+)/(.*)", settings.DATABASE_URL_SYNC)
+        if m:
+            res = test_postgres_connection(m.group(3), int(m.group(4)), m.group(1), m.group(2), m.group(5))
+            db_online = res["ok"]
+        else:
+            db_online = False
+    else:
+        db_online = test_sqlite_connection()["ok"]
+
+    # 2. Caché
+    cache_backend = settings.CACHE_BACKEND
+    cache_online = True
+    if cache_backend == "redict" and settings.REDICT_URL:
+        m = re.match(r"redis://(:(.*?)@)?(.*?):(\d+)/(.*)", settings.REDICT_URL)
+        if m:
+            pwd = m.group(2) if m.group(2) else ""
+            res = test_redict_connection(m.group(3), int(m.group(4)), pwd, int(m.group(5)))
+            cache_online = res["ok"]
+        else:
+            cache_online = False
+            
+    mode = "degraded" if settings.DEGRADED_MODE else "normal"
+    
+    # Hide passwords from URLs for the UI
+    db_url_safe = re.sub(r":([^:@]+)@", ":***@", settings.DATABASE_URL_SYNC) if settings.DATABASE_URL_SYNC else "sqlite:///"
+    cache_url_safe = re.sub(r":([^:@]+)@", ":***@", settings.REDICT_URL) if settings.REDICT_URL else ""
+    
+    return {
+        "mode": mode,
+        "is_forced_sqlite": settings.IS_FORCED_SQLITE,
+        "db": {
+            "backend": db_backend,
+            "url": db_url_safe,
+            "online": db_online
+        },
+        "cache": {
+            "backend": cache_backend,
+            "url": cache_url_safe,
+            "online": cache_online
+        }
+    }
 
 # --- NUEVOS ENDPOINTS DE GESTIÓN MANUAL ---
+
 
 
 @router.post("/settings/force-billing", status_code=200)

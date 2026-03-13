@@ -16,6 +16,8 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.users import require_admin, require_technician
+from ...middleware.degraded_mode import verify_not_degraded
+
 
 from ...db.engine import get_session
 from ...models.user import User
@@ -180,6 +182,7 @@ async def create_router(
     router_data: RouterCreate,
     current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(verify_not_degraded),
 ):
     # router_data.model_dump() -> dict
     new_router = await create_router_service(session, router_data.model_dump())
@@ -197,6 +200,7 @@ async def update_router(
     router_data: RouterUpdate,
     current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(verify_not_degraded),
 ):
     update_fields = router_data.model_dump(exclude_unset=True)
     if not update_fields:
@@ -221,6 +225,7 @@ async def delete_router(
     request: Request,
     current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(verify_not_degraded),
 ):
     from ...core.audit import log_action
 
@@ -238,6 +243,7 @@ async def provision_router_endpoint(
     request: Request,
     current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(verify_not_degraded),
 ):
     """
     Unified Provisioning Endpoint.
@@ -455,6 +461,7 @@ async def repair_router_connection(
     reset_provision: bool = False,  # Keep for backward compatibility
     current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(verify_not_degraded),
 ):
     """
     Repairs or recovers a router in an error state.

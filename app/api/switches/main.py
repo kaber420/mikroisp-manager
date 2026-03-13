@@ -15,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.audit import log_action
 from ...core.constants import DeviceStatus
 from ...core.users import require_admin, require_technician
+from ...middleware.degraded_mode import verify_not_degraded
+
 from ...db.engine import get_session
 from ...models.user import User
 from ...services.network import switch_service
@@ -186,6 +188,7 @@ async def create_switch(
     switch: SwitchCreate,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
+    _: bool = Depends(verify_not_degraded),
 ):
     """
     Register a new Switch in the system.
@@ -234,6 +237,7 @@ async def update_switch(
     switch_update: SwitchUpdate,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
+    _: bool = Depends(verify_not_degraded),
 ):
     """
     Update an existing switch configuration.
@@ -267,6 +271,7 @@ async def delete_switch(
     host: str,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
+    _: bool = Depends(verify_not_degraded),
 ):
     """
     Delete a switch from the system.
@@ -564,6 +569,7 @@ async def provision_switch(
     request: Request,
     current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(verify_not_degraded),
 ):
     """
     Provisiona un Switch MikroTik con acceso API-SSL seguro.
@@ -650,6 +656,7 @@ async def repair_switch_ssl(
     body: SwitchRepairRequest | None = None,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_admin),
+    _: bool = Depends(verify_not_degraded),
 ):
     """
     Repairs SSL configuration on a switch.

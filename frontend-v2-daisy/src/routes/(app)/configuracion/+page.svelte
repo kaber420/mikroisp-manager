@@ -4,21 +4,22 @@
     import {
         getSettings,
         updateSettings,
-        getSystemSettings,
-        updateSystemSettings,
+        getSystemServicesStatus,
+        getSystemServices,
+        updateSystemServices,
+        testServiceConnection,
         getAuditLogs,
         getAuditLogFilters,
         forceBilling,
         backupNow,
         restartBots,
         type AuditLog,
-        type SystemSettingsPayload,
     } from "$lib/api";
     import { notify } from "$lib/stores/notifications";
 
     // ─── Estado de tabs ────────────────────────────────────────────────
     let activeTab = $state<
-        "general" | "auditoria" | "bots" | "sistema" | "apariencia"
+        "general" | "auditoria" | "bots" | "apariencia" | "infraestructura"
     >("general");
 
 
@@ -176,9 +177,9 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // TAB 4: SISTEMA
+    // TAB 4: SISTEMA (Infraestructura)
     // ═══════════════════════════════════════════════════════════════════
-    let sysConfig = $state<SystemSettingsPayload>({
+    let sysConfig = $state<any>({
         db_provider: "sqlite",
         postgres_host: "",
         postgres_port: 5432,
@@ -186,35 +187,40 @@
         postgres_user: "postgres",
         postgres_password: "",
         cache_provider: "memory",
-        redict_url: "",
+        redict_host: "localhost",
+        redict_port: 6379,
+        redict_password: "",
+        redict_db: 0,
     });
+    let sysStatus = $state<any>(null);
     let sysLoading = $state(true);
     let sysSaving = $state(false);
 
+    let dbTesting = $state(false);
+    let cacheTesting = $state(false);
+
     async function loadSystemSettings() {
         try {
-            const env = await getSystemSettings();
-            const dbUrl = env["DATABASE_URL_SYNC"] ?? "";
-            sysConfig.db_provider = dbUrl.startsWith("postgresql")
-                ? "postgres"
-                : "sqlite";
-            if (sysConfig.db_provider === "postgres") {
-                try {
-                    const match = dbUrl.match(
-                        /postgresql\+psycopg:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/,
-                    );
-                    if (match) {
-                        sysConfig.postgres_user = match[1];
-                        sysConfig.postgres_password = match[2];
-                        sysConfig.postgres_host = match[3];
-                        sysConfig.postgres_port = parseInt(match[4]);
-                        sysConfig.postgres_db = match[5];
-                    }
-                } catch {}
+            sysStatus = await getSystemServicesStatus();
+            sysConfig.db_provider = sysStatus.db?.backend || 'sqlite';
+            sysConfig.cache_provider = sysStatus.cache?.backend || 'memory';
+
+            const srv = await getSystemServices();
+            if (srv.db) {
+                if (srv.db.provider) sysConfig.db_provider = srv.db.provider;
+                if (srv.db.host) sysConfig.postgres_host = srv.db.host;
+                if (srv.db.port) sysConfig.postgres_port = srv.db.port;
+                if (srv.db.database) sysConfig.postgres_db = srv.db.database;
+                if (srv.db.user) sysConfig.postgres_user = srv.db.user;
+                if (srv.db.password) sysConfig.postgres_password = srv.db.password;
             }
-            sysConfig.cache_provider =
-                env["CACHE_BACKEND"] === "redict" ? "redict" : "memory";
-            sysConfig.redict_url = env["REDICT_URL"] ?? "";
+            if (srv.cache) {
+                if (srv.cache.provider) sysConfig.cache_provider = srv.cache.provider;
+                if (srv.cache.host) sysConfig.redict_host = srv.cache.host;
+                if (srv.cache.port) sysConfig.redict_port = srv.cache.port;
+                if (srv.cache.db !== undefined) sysConfig.redict_db = srv.cache.db;
+                if (srv.cache.password) sysConfig.redict_password = srv.cache.password;
+            }
         } catch {
             notify.error("Error al cargar config del sistema");
         } finally {
@@ -225,12 +231,72 @@
     async function saveSystemSettings() {
         sysSaving = true;
         try {
-            const res = await updateSystemSettings(sysConfig);
+            const data = {
+                db: sysConfig.db_provider === 'sqlite' ? { provider: 'sqlite' } : {
+                    provider: 'postgres',
+                    host: sysConfig.postgres_host,
+                    port: sysConfig.postgres_port,
+                    user: sysConfig.postgres_user,
+                    password: sysConfig.postgres_password,
+                    database: sysConfig.postgres_db
+                },
+                cache: sysConfig.cache_provider === 'memory' ? { provider: 'memory' } : {
+                    provider: 'redict',
+                    host: sysConfig.redict_host,
+                    port: sysConfig.redict_port,
+                    db: sysConfig.redict_db,
+                    password: sysConfig.redict_password
+                }
+            };
+            const res = await updateSystemServices(data);
             notify.success(res.message);
-        } catch {
-            notify.error("Error al guardar config del sistema");
+            await loadInfraStatus(); // Refresh both UI statuses
+            await loadSystemSettings();
+        } catch(e: any) {
+            notify.error("Error al guardar config del sistema: " + (e?.response?.data?.detail || e.message));
         } finally {
             sysSaving = false;
+        }
+    }
+
+    async function testDbConnection() {
+        dbTesting = true;
+        try {
+            const data: any = { provider: sysConfig.db_provider };
+            if (data.provider === 'postgres') {
+                data.host = sysConfig.postgres_host;
+                data.port = sysConfig.postgres_port;
+                data.user = sysConfig.postgres_user;
+                data.password = sysConfig.postgres_password;
+                data.database = sysConfig.postgres_db;
+            }
+            const res = await testServiceConnection(data);
+            if (res.ok) notify.success(`✅ Conexión OK (${res.latency_ms}ms)`);
+            else notify.error(`❌ Fallo: ${res.error}`);
+        } catch (e: any) {
+            notify.error("Error en test de BD");
+        } finally {
+            dbTesting = false;
+        }
+    }
+
+    async function testCacheConnection() {
+        cacheTesting = true;
+        try {
+            const data: any = { provider: sysConfig.cache_provider };
+            if (data.provider === 'redict') {
+                data.host = sysConfig.redict_host;
+                data.port = sysConfig.redict_port;
+                data.db = sysConfig.redict_db;
+                data.password = sysConfig.redict_password;
+            }
+            const res = await testServiceConnection(data);
+            if (res.ok) notify.success(`✅ Conexión OK (${res.latency_ms}ms)`);
+            else notify.error(`❌ Fallo: ${res.error}`);
+        } catch (e: any) {
+            notify.error("Error en test de Caché");
+        } finally {
+            cacheTesting = false;
         }
     }
 
@@ -260,17 +326,107 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════
+    // TAB 6: INFRAESTRUCTURA (DOCKER)
+    // ═══════════════════════════════════════════════════════════════════
+    import { getInfraStatus, deployInfraStack, type InfraStatusResponse, type DeployActions, type DeployResult } from "$lib/api/infra";
+
+    let infraStatus = $state<InfraStatusResponse | null>(null);
+    let infraLoading = $state(true);
+    let infraDeploying = $state(false);
+    let infraDeployResult = $state<DeployResult | null>(null);
+
+    let infraDeployActions = $state<DeployActions>({ postgres: 'create', redict: 'create' });
+    let lastGeneratedPostgresPassword = $state("");
+
+    async function loadInfraStatus() {
+        infraLoading = true;
+        try {
+            infraStatus = await getInfraStatus();
+            // Auto-seleccionar "reuse" si hay conflicto detectado
+            if (infraStatus?.services?.postgres?.conflict) {
+                infraDeployActions.postgres = 'reuse';
+            }
+            if (infraStatus?.services?.redict?.conflict) {
+                infraDeployActions.redict = 'reuse';
+            }
+        } catch {
+            notify.error("No se pudo cargar el estado de la infraestructura.");
+        } finally {
+            infraLoading = false;
+        }
+    }
+
+    // Funciones de autocompletado
+    function fillPostgresLocal() {
+        if (!infraStatus?.services?.postgres || infraStatus.services.postgres.omniwisp_container !== 'running') {
+            notify.warning("El contenedor local no está corriendo.");
+            return;
+        }
+        sysConfig.postgres_host = 'localhost';
+        sysConfig.postgres_port = infraStatus.services.postgres.port;
+        // El backend nos da la sugerencia en infraStatus si ya está corriendo o en el deploy result
+        const suggested = infraStatus.services.postgres.suggested || {};
+        sysConfig.postgres_user = suggested.user || 'umanager';
+        sysConfig.postgres_db = suggested.db || 'umanager_db';
+        if (suggested.password) {
+            sysConfig.postgres_password = suggested.password;
+        } else if (lastGeneratedPostgresPassword) {
+            sysConfig.postgres_password = lastGeneratedPostgresPassword;
+        }
+        notify.info("Datos de Postgres local cargados.");
+    }
+
+    function fillRedictLocal() {
+        if (!infraStatus?.services?.redict || infraStatus.services.redict.omniwisp_container !== 'running') {
+            notify.warning("El servicio local no está activo.");
+            return;
+        }
+        sysConfig.redict_host = 'localhost';
+        sysConfig.redict_port = infraStatus.services.redict.port;
+        sysConfig.redict_db = 0;
+        notify.info("Datos de Redict local cargados.");
+    }
+
+    async function onDeployInfra() {
+        infraDeploying = true;
+        infraDeployResult = null;
+        try {
+            const res = await deployInfraStack({
+                actions: infraDeployActions,
+            });
+            infraDeployResult = res;
+            notify.success(res.message || "Acciones completadas.");
+            
+            // Si el despliegue devolvió una contraseña, sugerirla para el formulario
+            if (res.postgres_password) {
+                lastGeneratedPostgresPassword = res.postgres_password;
+                sysConfig.postgres_password = res.postgres_password;
+                notify.info("Se ha sugerido la contraseña generada en el formulario.");
+            }
+
+            await loadInfraStatus();
+        } catch (err: any) {
+            notify.error("Falló el despliegue: " + (err?.response?.data?.detail || err.message || "Error desconocido"));
+        } finally {
+            infraDeploying = false;
+        }
+    }
+
+
+    // ═══════════════════════════════════════════════════════════════════
     // INIT
     // ═══════════════════════════════════════════════════════════════════
     onMount(async () => {
         await Promise.all([loadGeneralSettings(), loadSystemSettings()]);
     });
 
-    // Cargar audit logs solo cuando se active esa tab
+    // Cargar audit logs / infra logs solo cuando se active esa tab
     $effect(() => {
         if (activeTab === "auditoria") {
             loadAuditFilters();
             loadAuditLogs();
+        } else if (activeTab === "infraestructura") {
+            loadInfraStatus();
         }
     });
 </script>
@@ -361,23 +517,6 @@
         </button>
         <button
             role="tab"
-            aria-selected={activeTab === "sistema"}
-            onclick={() => (activeTab = "sistema")}
-            style="padding:0.85rem 0;font-size:0.85rem;font-weight:{activeTab ===
-            'sistema'
-                ? '800'
-                : '600'};color:{activeTab === 'sistema'
-                ? 'oklch(from var(--color-primary) l c h)'
-                : 'inherit'};opacity:{activeTab === 'sistema'
-                ? '1'
-                : '0.5'};border-bottom:3px solid {activeTab === 'sistema'
-                ? 'oklch(from var(--color-primary) l c h)'
-                : 'transparent'};background:none;cursor:pointer;transition:all 0.2s;"
-        >
-            🗄️ Sistema
-        </button>
-        <button
-            role="tab"
             aria-selected={activeTab === "apariencia"}
             onclick={() => (activeTab = "apariencia")}
             style="padding:0.85rem 0;font-size:0.85rem;font-weight:{activeTab ===
@@ -392,6 +531,23 @@
                 : 'transparent'};background:none;cursor:pointer;transition:all 0.2s;"
         >
             🎨 Apariencia
+        </button>
+        <button
+            role="tab"
+            aria-selected={activeTab === "infraestructura"}
+            onclick={() => (activeTab = "infraestructura")}
+            style="padding:0.85rem 0;font-size:0.85rem;font-weight:{activeTab ===
+            'infraestructura'
+                ? '800'
+                : '600'};color:{activeTab === 'infraestructura'
+                ? 'oklch(from var(--color-primary) l c h)'
+                : 'inherit'};opacity:{activeTab === 'infraestructura'
+                ? '1'
+                : '0.5'};border-bottom:3px solid {activeTab === 'infraestructura'
+                ? 'oklch(from var(--color-primary) l c h)'
+                : 'transparent'};background:none;cursor:pointer;transition:all 0.2s;"
+        >
+            ⛴️ Infraestructura
         </button>
     </div>
 </div>
@@ -1303,207 +1459,8 @@
     {/if}
 {/if}
 
-<!-- ══════════════════ TAB 4: SISTEMA ══════════════════ -->
-{#if activeTab === "sistema"}
-    {#if sysLoading}
-        <div class="flex justify-center py-16">
-            <span class="loading loading-spinner loading-lg"></span>
-        </div>
-    {:else}
-        <div class="alert alert-warning mb-4">
-            <span
-                >⚠️ <strong>Atención:</strong> Cambiar estos ajustes requiere reiniciar
-                el servidor backend para que tengan efecto.</span
-            >
-        </div>
-        <div class="card bg-base-100 shadow-xl border border-base-200">
-            <div class="card-body space-y-8">
-                <!-- BASE DE DATOS -->
-                <section>
-                    <h2
-                        class="text-lg font-semibold mb-4 flex items-center gap-2"
-                    >
-                        🗄️ Base de Datos
-                    </h2>
-                    <div class="flex gap-6 mb-4">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="radio"
-                                name="db_provider"
-                                class="radio radio-primary"
-                                value="sqlite"
-                                checked={sysConfig.db_provider === "sqlite"}
-                                onchange={() =>
-                                    (sysConfig.db_provider = "sqlite")}
-                            />
-                            <span>SQLite (Archivo Local)</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="radio"
-                                name="db_provider"
-                                class="radio radio-primary"
-                                value="postgres"
-                                checked={sysConfig.db_provider === "postgres"}
-                                onchange={() =>
-                                    (sysConfig.db_provider = "postgres")}
-                            />
-                            <span>PostgreSQL (Remoto/Docker)</span>
-                        </label>
-                    </div>
 
-                    {#if sysConfig.db_provider === "postgres"}
-                        <div
-                            class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-base-200 rounded-lg"
-                        >
-                            <div class="md:col-span-2 form-control">
-                                <label class="label"
-                                    ><span class="label-text">Host</span></label
-                                >
-                                <input
-                                    type="text"
-                                    class="input input-bordered"
-                                    placeholder="localhost"
-                                    bind:value={sysConfig.postgres_host}
-                                />
-                            </div>
-                            <div class="form-control">
-                                <label class="label"
-                                    ><span class="label-text">Puerto</span
-                                    ></label
-                                >
-                                <input
-                                    type="number"
-                                    class="input input-bordered"
-                                    placeholder="5432"
-                                    bind:value={sysConfig.postgres_port}
-                                />
-                            </div>
-                            <div class="form-control">
-                                <label class="label"
-                                    ><span class="label-text"
-                                        >Base de Datos</span
-                                    ></label
-                                >
-                                <input
-                                    type="text"
-                                    class="input input-bordered"
-                                    placeholder="umanager"
-                                    bind:value={sysConfig.postgres_db}
-                                />
-                            </div>
-                            <div class="form-control">
-                                <label class="label"
-                                    ><span class="label-text">Usuario</span
-                                    ></label
-                                >
-                                <input
-                                    type="text"
-                                    class="input input-bordered"
-                                    placeholder="postgres"
-                                    bind:value={sysConfig.postgres_user}
-                                />
-                            </div>
-                            <div class="form-control">
-                                <label class="label"
-                                    ><span class="label-text">Contraseña</span
-                                    ></label
-                                >
-                                <input
-                                    type="password"
-                                    class="input input-bordered"
-                                    placeholder="••••••"
-                                    bind:value={sysConfig.postgres_password}
-                                />
-                            </div>
-                        </div>
-                    {:else}
-                        <div
-                            class="p-4 bg-base-200 rounded-lg text-sm text-base-content/70"
-                        >
-                            Se usará el archivo SQLite en <code
-                                class="font-mono">data/db/inventory.sqlite</code
-                            >
-                        </div>
-                    {/if}
-                </section>
 
-                <div class="divider"></div>
-
-                <!-- CACHÉ -->
-                <section>
-                    <h2 class="text-lg font-semibold mb-4">
-                        ⚡ Cache / Cola de Mensajes
-                    </h2>
-                    <div class="flex gap-6 mb-4">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="radio"
-                                name="cache_provider"
-                                class="radio radio-primary"
-                                value="memory"
-                                checked={sysConfig.cache_provider === "memory"}
-                                onchange={() =>
-                                    (sysConfig.cache_provider = "memory")}
-                            />
-                            <span>Memoria (Solo Dev)</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="radio"
-                                name="cache_provider"
-                                class="radio radio-primary"
-                                value="redict"
-                                checked={sysConfig.cache_provider === "redict"}
-                                onchange={() =>
-                                    (sysConfig.cache_provider = "redict")}
-                            />
-                            <span>Redict / Redis (Producción)</span>
-                        </label>
-                    </div>
-
-                    {#if sysConfig.cache_provider === "redict"}
-                        <div class="p-4 bg-base-200 rounded-lg">
-                            <div class="form-control">
-                                <label class="label"
-                                    ><span class="label-text"
-                                        >URL de Conexión</span
-                                    ></label
-                                >
-                                <input
-                                    type="text"
-                                    class="input input-bordered"
-                                    placeholder="redis://localhost:6379/0"
-                                    bind:value={sysConfig.redict_url}
-                                />
-                                <label class="label"
-                                    ><span
-                                        class="label-text-alt text-base-content/50"
-                                        >Formato:
-                                        redis://[:password@]host:port/db</span
-                                    ></label
-                                >
-                            </div>
-                        </div>
-                    {/if}
-                </section>
-            </div>
-
-            <div class="border-t border-base-200 px-6 py-4 flex justify-end">
-                <button
-                    class="btn btn-warning"
-                    onclick={saveSystemSettings}
-                    disabled={sysSaving}
-                >
-                    {#if sysSaving}<span
-                            class="loading loading-spinner loading-sm"
-                        ></span>{/if}
-                    Guardar y Solicitar Reinicio
-                </button>
-            </div>
-        </div>
-    {/if}
-{/if}
 
 <!-- ══════════════════ TAB 5: APARIENCIA ══════════════════ -->
 {#if activeTab === "apariencia"}
@@ -1573,3 +1530,364 @@
         </div>
     </div>
 {/if}
+
+<!-- ══════════════════ TAB 6: INFRAESTRUCTURA ══════════════════ -->
+{#if activeTab === "infraestructura"}
+    <div class="card bg-base-100 shadow-xl border border-base-200">
+        <div class="card-body gap-8">
+            <div>
+            <!-- Cabecera de Infraestructura -->
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
+                <div>
+                    <h2 class="text-3xl font-black flex items-center gap-3">
+                        <span class="text-4xl">🏢</span> Infraestructura
+                    </h2>
+                    <p class="text-sm opacity-60">Gestione contenedores Docker y proveedores de datos del sistema.</p>
+                </div>
+                <button 
+                    class="btn btn-primary px-10 shadow-lg shadow-primary/20 w-full md:w-auto" 
+                    onclick={async () => {
+                        sysSaving = true;
+                        try {
+                            await updateSystemSettings(sysConfig);
+                            notify.success("¡Configuración global aplicada!");
+                            await loadInfraStatus();
+                        } catch(e) {
+                            notify.error("Error al guardar proveedores.");
+                        } finally {
+                            sysSaving = false;
+                        }
+                    }}
+                    disabled={sysSaving}
+                >
+                    {#if sysSaving}<span class="loading loading-spinner loading-sm"></span>{/if}
+                    💾 Guardar y Reiniciar
+                </button>
+            </div>
+            </div>
+
+            {#if infraLoading}
+                <div class="flex flex-col items-center justify-center py-24 gap-3">
+                    <span class="loading loading-spinner loading-lg text-primary"></span>
+                    <p class="text-sm font-medium animate-pulse">Cargando estado del sistema...</p>
+                </div>
+            {:else if !infraStatus || infraStatus.status === 'error'}
+                <div class="alert alert-warning shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    <div class="flex-1">
+                        <h3 class="font-bold">Modo de Configuración Manual</h3>
+                        <p class="text-xs">No se detectó Docker. Puede configurar servidores externos manualmente abajo.</p>
+                    </div>
+                </div>
+            {/if}
+
+            <div class="space-y-12">
+                
+                <!-- 🐘 SECCIÓN BASE DE DATOS -->
+                <section class="space-y-6">
+                    <div class="flex items-center justify-between border-b border-base-300 pb-3">
+                        <h3 class="text-lg font-bold flex items-center gap-3">
+                            🐘 Almacenamiento de Datos
+                        </h3>
+                        {#if sysStatus && sysStatus.db}
+                            <div class="badge badge-lg gap-2 text-xs font-bold {sysStatus.db.online ? 'badge-success text-success-content' : 'badge-error text-error-content'}">
+                                <span class="w-2 h-2 rounded-full {sysStatus.db.online ? 'bg-success-content' : 'bg-error-content'}"></span>
+                                {sysStatus.db.online ? 'En Línea' : 'Desconectado'}
+                            </div>
+                        {/if}
+                    </div>
+
+                    <!-- Selector de Proveedor -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <button 
+                            class="relative flex items-start gap-4 p-5 rounded-2xl border-2 transition-all text-left {sysConfig.db_provider === 'sqlite' ? 'border-primary bg-primary/5' : 'border-base-300 hover:border-base-content/20'}"
+                            onclick={() => sysConfig.db_provider = 'sqlite'}
+                        >
+                            <div class="text-4xl">📁</div>
+                            <div>
+                                <div class="font-bold text-lg">SQLite (Archivo Local)</div>
+                                <p class="text-xs opacity-60">Ideal para entornos pequeños y simplicidad total.</p>
+                            </div>
+                            {#if sysConfig.db_provider === 'sqlite'}
+                                <div class="absolute top-3 right-3 badge badge-primary badge-sm font-bold">SELECCIONADO</div>
+                            {/if}
+                        </button>
+
+                        <button 
+                            class="relative flex items-start gap-4 p-5 rounded-2xl border-2 transition-all text-left {sysConfig.db_provider === 'postgres' ? 'border-primary bg-primary/5' : 'border-base-300 hover:border-base-content/20'}"
+                            onclick={() => sysConfig.db_provider = 'postgres'}
+                        >
+                            <div class="text-4xl">🐘</div>
+                            <div>
+                                <div class="font-bold text-lg">PostgreSQL</div>
+                                <p class="text-xs opacity-60">Alta disponibilidad, escalabilidad y robustez.</p>
+                            </div>
+                            {#if sysConfig.db_provider === 'postgres'}
+                                <div class="absolute top-3 right-3 badge badge-primary badge-sm font-bold">SELECCIONADO</div>
+                            {/if}
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- Lado 1: Configuración de Credenciales (Siempre visible si es Postgres) -->
+                        <div class="space-y-4">
+                            {#if sysConfig.db_provider === 'postgres'}
+                                <div class="bg-base-200/50 p-6 rounded-2xl border border-base-300 space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <p class="text-xs font-bold uppercase opacity-50 tracking-wider">Conexión PostgreSQL</p>
+                                        <div class="flex items-center gap-2">
+                                            <button class="btn btn-xs btn-outline btn-info gap-1" onclick={testDbConnection} disabled={dbTesting}>
+                                                {#if dbTesting}<span class="loading loading-spinner loading-xs"></span>{/if}
+                                                <span>🔌</span> Probar Conexión
+                                            </button>
+                                            {#if infraStatus?.services?.postgres?.omniwisp_container === 'running'}
+                                                <button class="btn btn-xs btn-outline btn-primary gap-1" onclick={fillPostgresLocal}>
+                                                    <span>🪄</span> Autocompletar Local
+                                                </button>
+                                            {/if}
+                                        </div>
+                                    </div>
+                                    <div class="form-control">
+                                        <label class="label p-1" for="db_host"><span class="label-text font-bold">Host</span></label>
+                                        <input id="db_host" type="text" class="input input-bordered" bind:value={sysConfig.postgres_host} placeholder="localhost o IP" />
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div class="form-control">
+                                            <label class="label p-1" for="db_port"><span class="label-text font-bold">Puerto</span></label>
+                                            <input id="db_port" type="number" class="input input-bordered" bind:value={sysConfig.postgres_port} />
+                                        </div>
+                                        <div class="form-control">
+                                            <label class="label p-1" for="db_name"><span class="label-text font-bold">Base de Datos</span></label>
+                                            <input id="db_name" type="text" class="input input-bordered" bind:value={sysConfig.postgres_db} />
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4 text-xs">
+                                        <div class="form-control">
+                                            <label class="label p-1" for="db_user"><span class="label-text font-bold">Usuario</span></label>
+                                            <input id="db_user" type="text" class="input input-bordered" bind:value={sysConfig.postgres_user} />
+                                        </div>
+                                        <div class="form-control">
+                                            <label class="label p-1" for="db_pass"><span class="label-text font-bold">Contraseña</span></label>
+                                            <input id="db_pass" type="password" class="input input-bordered" bind:value={sysConfig.postgres_password} />
+                                        </div>
+                                    </div>
+
+                                    {#if infraStatus?.services?.postgres?.suggested?.password}
+                                        <div class="mt-4 p-3 bg-primary/10 border border-primary/20 rounded-xl text-[11px] space-y-2">
+                                            <div class="flex items-center justify-between font-bold text-primary">
+                                                <span>📍 Credenciales Locales Detectadas</span>
+                                                <button class="btn btn-xs btn-primary btn-ghost h-auto min-h-0 py-0" onclick={fillPostgresLocal}>Aplicar Todo 🪄</button>
+                                            </div>
+                                            <div class="grid grid-cols-1 gap-1 opacity-80">
+                                                <p><strong>DB:</strong> {infraStatus.services.postgres.suggested.db}</p>
+                                                <p><strong>Usuario:</strong> {infraStatus.services.postgres.suggested.user}</p>
+                                                <div class="flex items-center gap-2">
+                                                    <strong>Password:</strong> 
+                                                    <code class="bg-base-100 px-1 rounded">{infraStatus.services.postgres.suggested.password}</code>
+                                                    <button class="hover:text-primary" onclick={() => { navigator.clipboard.writeText(infraStatus?.services?.postgres?.suggested?.password || ''); notify.success("Copiado"); }}>📋</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {/if}
+                                </div>
+                            {:else}
+                                <div class="bg-primary/5 p-8 rounded-2xl border border-dashed border-primary/30 flex flex-col items-center text-center gap-3">
+                                    <span class="text-4xl text-primary">📦</span>
+                                    <div>
+                                        <p class="font-bold text-primary">Modo Independiente (SQLite)</p>
+                                        <p class="text-xs opacity-70">Los datos se almacenan en un solo archivo plano. Sin dependencias externas.</p>
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
+
+                        <!-- Lado 2: Gestión de Infraestructura (Solo si Docker está disponible) -->
+                        <div class="space-y-4">
+                            <p class="text-xs font-bold uppercase opacity-50 tracking-wider">Control de Infraestructura</p>
+                            {#if !infraStatus || infraStatus.status === 'error'}
+                                <div class="p-6 rounded-2xl bg-base-200 border border-base-300 text-center">
+                                    <p class="text-xs opacity-60">Docker no disponible para gestión automática.</p>
+                                </div>
+                            {:else}
+                                <div class="flex flex-col gap-3">
+                                    {#if infraStatus.services?.postgres?.omniwisp_container === 'running'}
+                                        <div class="alert alert-success py-3 flex gap-2">
+                                            <span class="text-xl">✓</span>
+                                            <div>
+                                                <div class="text-sm font-bold">omniwisp_postgres activo</div>
+                                                <div class="text-[10px] opacity-70">Puerto: {infraStatus.services.postgres.port}</div>
+                                            </div>
+                                        </div>
+                                        <div class="flex gap-2">
+                                            <button class="btn btn-warning btn-sm flex-1" onclick={() => { infraDeployActions.postgres = 'stop'; onDeployInfra(); }}>Detener</button>
+                                            <button class="btn btn-error btn-sm flex-1" onclick={() => { if(confirm('¿Eliminar y perder datos no persistidos?')) { infraDeployActions.postgres = 'delete'; onDeployInfra(); } }}>Eliminar</button>
+                                        </div>
+                                    {:else}
+                                        <div class="bg-base-200 p-4 rounded-xl border border-base-300 space-y-3">
+                                            <p class="text-xs italic opacity-60">Contenedor local no detectado o detenido.</p>
+                                            {#if infraStatus.services?.postgres?.conflict}
+                                                <button class="btn btn-info btn-sm btn-block" onclick={() => { infraDeployActions.postgres = 'reuse'; onDeployInfra(); }}>Reutilizar {infraStatus.services.postgres.conflict.name}</button>
+                                            {/if}
+                                            <button class="btn btn-primary btn-sm btn-block" onclick={() => { infraDeployActions.postgres = 'create'; onDeployInfra(); }}>
+                                                {infraStatus.services?.postgres?.omniwisp_container === 'missing' ? 'Desplegar PostgreSQL (Docker)' : 'Iniciar PostgreSQL'}
+                                            </button>
+                                        </div>
+                                    {/if}
+
+                                    {#if infraDeployResult?.postgres_password}
+                                        <div class="bg-primary/20 p-4 rounded-xl border border-primary/30 mt-2">
+                                            <p class="text-[10px] font-bold uppercase opacity-70">🔑 Contraseña Generada</p>
+                                            <div class="flex items-center gap-2 mt-1">
+                                                <code class="bg-base-100 px-2 py-1 rounded text-xs flex-1 select-all font-mono">{infraDeployResult.postgres_password}</code>
+                                                <button class="btn btn-xs btn-ghost" onclick={() => { navigator.clipboard.writeText(infraDeployResult?.postgres_password || ''); notify.success("Copiado"); }}>📋</button>
+                                            </div>
+                                            <p class="text-[9px] mt-2 opacity-60">Guárdala o usa el botón de autocompletar.</p>
+                                        </div>
+                                    {/if}
+                                </div>
+                            {/if}
+                        </div>
+                    </div>
+                </section>
+
+                <div class="divider"></div>
+
+                <!-- ⚡ SECCIÓN CACHÉ -->
+                <section class="space-y-6">
+                    <div class="flex items-center justify-between border-b border-base-300 pb-3">
+                        <h3 class="text-lg font-bold flex items-center gap-3">
+                            ⚡ Cache y Mensajería
+                        </h3>
+                        {#if sysStatus && sysStatus.cache}
+                            <div class="badge badge-lg gap-2 text-xs font-bold {sysStatus.cache.online ? 'badge-success text-success-content' : 'badge-error text-error-content'}">
+                                <span class="w-2 h-2 rounded-full {sysStatus.cache.online ? 'bg-success-content' : 'bg-error-content'}"></span>
+                                {sysStatus.cache.online ? 'En Línea' : 'Desconectado'}
+                            </div>
+                        {/if}
+                    </div>
+
+                    <!-- Selector de Proveedor -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <button 
+                            class="relative flex items-start gap-4 p-5 rounded-2xl border-2 transition-all text-left {sysConfig.cache_provider === 'memory' ? 'border-secondary bg-secondary/5' : 'border-base-300 hover:border-base-content/20'}"
+                            onclick={() => sysConfig.cache_provider = 'memory'}
+                        >
+                            <div class="text-4xl">🧠</div>
+                            <div>
+                                <div class="font-bold text-lg">RAM (Local)</div>
+                                <p class="text-xs opacity-60">Memoria del proceso principal. Muy rápido pero volátil.</p>
+                            </div>
+                            {#if sysConfig.cache_provider === 'memory'}
+                                <div class="absolute top-3 right-3 badge badge-secondary badge-sm font-bold">SELECCIONADO</div>
+                            {/if}
+                        </button>
+
+                        <button 
+                            class="relative flex items-start gap-4 p-5 rounded-2xl border-2 transition-all text-left {sysConfig.cache_provider === 'redict' ? 'border-secondary bg-secondary/5' : 'border-base-300 hover:border-base-content/20'}"
+                            onclick={() => sysConfig.cache_provider = 'redict'}
+                        >
+                            <div class="text-4xl">⚡</div>
+                            <div>
+                                <div class="font-bold text-lg">Redict / Redis</div>
+                                <p class="text-xs opacity-60">Persistencia y comunicación rápida entre servicios.</p>
+                            </div>
+                            {#if sysConfig.cache_provider === 'redict'}
+                                <div class="absolute top-3 right-3 badge badge-secondary badge-sm font-bold">SELECCIONADO</div>
+                            {/if}
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- Lado 1: Configuración -->
+                        <div class="space-y-4">
+                            {#if sysConfig.cache_provider === 'redict'}
+                                <div class="bg-base-200/50 p-6 rounded-2xl border border-base-300 space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <p class="text-xs font-bold uppercase opacity-50 tracking-wider">Conexión Redict</p>
+                                        <div class="flex items-center gap-2">
+                                            <button class="btn btn-xs btn-outline btn-info gap-1" onclick={testCacheConnection} disabled={cacheTesting}>
+                                                {#if cacheTesting}<span class="loading loading-spinner loading-xs"></span>{/if}
+                                                <span>🔌</span> Probar Conexión
+                                            </button>
+                                            {#if infraStatus?.services?.redict?.omniwisp_container === 'running'}
+                                                <button class="btn btn-xs btn-outline btn-secondary gap-1" onclick={fillRedictLocal}>
+                                                    <span>🪄</span> Autocompletar Local
+                                                </button>
+                                            {/if}
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div class="form-control">
+                                            <label class="label p-1" for="cache_host"><span class="label-text font-bold">Host</span></label>
+                                            <input id="cache_host" type="text" class="input input-bordered" bind:value={sysConfig.redict_host} />
+                                        </div>
+                                        <div class="form-control">
+                                            <label class="label p-1" for="cache_port"><span class="label-text font-bold">Puerto</span></label>
+                                            <input id="cache_port" type="number" class="input input-bordered" bind:value={sysConfig.redict_port} />
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div class="form-control">
+                                            <label class="label p-1" for="cache_db"><span class="label-text font-bold">DB index</span></label>
+                                            <input id="cache_db" type="number" class="input input-bordered" bind:value={sysConfig.redict_db} />
+                                        </div>
+                                        <div class="form-control">
+                                            <label class="label p-1" for="cache_pass"><span class="label-text font-bold">Password</span></label>
+                                            <input id="cache_pass" type="password" class="input input-bordered" bind:value={sysConfig.redict_password} />
+                                        </div>
+                                    </div>
+                                </div>
+                            {:else}
+                                <div class="bg-secondary/5 p-8 rounded-2xl border border-dashed border-secondary/30 flex flex-col items-center text-center gap-3">
+                                    <span class="text-4xl">🧠</span>
+                                    <div>
+                                        <p class="font-bold text-secondary">Caché en Memoria Local</p>
+                                        <p class="text-xs opacity-70">Usa RAM del proceso. No apto para múltiples nodos o alta carga.</p>
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
+
+                        <!-- Lado 2: Gestión de Infraestructura -->
+                        <div class="space-y-4">
+                            <p class="text-xs font-bold uppercase opacity-50 tracking-wider">Control de Infraestructura</p>
+                            {#if !infraStatus || infraStatus.status === 'error'}
+                                <div class="p-6 rounded-2xl bg-base-200 border border-base-300 text-center">
+                                    <p class="text-xs opacity-60">Gestión automática no disponible.</p>
+                                </div>
+                            {:else}
+                                <div class="flex flex-col gap-3">
+                                    {#if infraStatus.services?.redict?.omniwisp_container === 'running'}
+                                        <div class="alert alert-info py-3 flex gap-2">
+                                            <span class="text-xl">⚡</span>
+                                            <div>
+                                                <div class="text-sm font-bold">omniwisp_redict activo</div>
+                                                <div class="text-[10px] opacity-70">Redis-compatible, Puerto {infraStatus.services.redict.port}</div>
+                                            </div>
+                                        </div>
+                                        <div class="flex gap-2">
+                                            <button class="btn btn-warning btn-sm flex-1" onclick={() => { infraDeployActions.redict = 'stop'; onDeployInfra(); }}>Detener</button>
+                                            <button class="btn btn-error btn-sm flex-1" onclick={() => { if(confirm('¿Eliminar?')) { infraDeployActions.redict = 'delete'; onDeployInfra(); } }}>Eliminar</button>
+                                        </div>
+                                    {:else}
+                                        <div class="bg-base-200 p-4 rounded-xl border border-base-300 space-y-3">
+                                            <p class="text-xs italic opacity-60">Servicio local no iniciado.</p>
+                                            {#if infraStatus.services?.redict?.conflict}
+                                                <button class="btn btn-info btn-sm btn-block" onclick={() => { infraDeployActions.redict = 'reuse'; onDeployInfra(); }}>Reutilizar {infraStatus.services.redict.conflict.name}</button>
+                                            {/if}
+                                            <button class="btn btn-primary btn-sm btn-block" onclick={() => { infraDeployActions.redict = 'create'; onDeployInfra(); }}>Desplegar Redict Server</button>
+                                        </div>
+                                    {/if}
+                                </div>
+                            {/if}
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ESPACIO FINAL -->
+            <div class="h-20"></div>
+        </div>
+    </div>
+{/if}
+

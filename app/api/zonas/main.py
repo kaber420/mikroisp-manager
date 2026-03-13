@@ -5,7 +5,9 @@ from sqlmodel import Session
 
 from ...core.users import require_technician
 from ...db.engine_sync import get_sync_session
+from ...middleware.degraded_mode import verify_not_degraded
 from ...models.user import User
+
 from ...services.network.zone_service import ZoneService
 from .models import (
     Zona,
@@ -33,6 +35,7 @@ def create_zona(
     zona: ZonaCreate,
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
+    _: bool = Depends(verify_not_degraded),
 ):
     new_zona = service.create_zona(zona.nombre)
     return new_zona
@@ -62,6 +65,7 @@ def update_zona(
     zona_update: ZonaUpdate,
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
+    _: bool = Depends(verify_not_degraded),
 ):
     updates = zona_update.model_dump(exclude_unset=True)
     updated_zona = service.update_zona(zona_id, updates)
@@ -74,6 +78,7 @@ def delete_zona(
     request: Request,
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
+    _: bool = Depends(verify_not_degraded),
 ):
     from ...core.audit import log_action
 
@@ -98,6 +103,7 @@ def update_infraestructura(
     infra_update: ZonaInfra,
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
+    _: bool = Depends(verify_not_degraded),
 ):
     update_data = infra_update.model_dump(exclude={"id", "zona_id"}, exclude_unset=True)
     updated_infra = service.update_infraestructura(zona_id, update_data)
@@ -115,6 +121,7 @@ async def upload_documento(
     descripcion: str | None = Form(None),
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
+    _: bool = Depends(verify_not_degraded),
 ):
     new_doc = await service.upload_documento(zona_id, file, descripcion)
     return new_doc
@@ -131,6 +138,7 @@ def create_note(
     note: ZonaNoteCreate,
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
+    _: bool = Depends(verify_not_degraded),
 ):
     new_note = service.create_note_for_zona(
         zona_id, note.title, note.content, note.is_encrypted
@@ -144,6 +152,7 @@ def update_note(
     note: ZonaNoteUpdate,
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
+    _: bool = Depends(verify_not_degraded),
 ):
     updated_note = service.update_note(note_id, note.title, note.content, note.is_encrypted)
     return updated_note
@@ -155,6 +164,7 @@ def delete_note(
     request: Request,
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
+    _: bool = Depends(verify_not_degraded),
 ):
     from ...core.audit import log_action
 
@@ -169,6 +179,7 @@ def delete_documento(
     request: Request,
     service: ZoneService = Depends(get_zone_service),
     current_user: User = Depends(require_technician),
+    _: bool = Depends(verify_not_degraded),
 ):
     from ...core.audit import log_action
 

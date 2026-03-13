@@ -67,7 +67,8 @@ class RedictManager:
                 self._url, 
                 encoding="utf-8", 
                 decode_responses=False,
-                max_connections=50
+                max_connections=50,
+                socket_connect_timeout=3.0 # Timeout de 3 segundos para no congelar la app
             )
             # Solo asignamos el loop si existe. Si es None, esperamos al primer uso con loop.
             self._pool_loop = current_loop

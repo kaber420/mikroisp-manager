@@ -6,7 +6,9 @@ from sqlmodel import Session
 
 from ...core.users import require_admin, require_technician
 from ...db.engine_sync import get_sync_session
+from ...middleware.degraded_mode import verify_not_degraded
 from ...models.user import User
+
 from ...services.business.plan_service import PlanService
 
 router = APIRouter()
@@ -103,6 +105,7 @@ def create_plan(
     plan: PlanCreate,
     service: PlanService = Depends(get_plan_service),
     current_user: User = Depends(require_admin),
+    _: bool = Depends(verify_not_degraded),
 ):
     new_plan = service.create_plan(plan.model_dump())
     # Devolvemos el modelo, router_name será null por defecto en la respuesta inmediata
@@ -115,6 +118,7 @@ def update_plan(
     plan: PlanUpdate,
     service: PlanService = Depends(get_plan_service),
     current_user: User = Depends(require_admin),
+    _: bool = Depends(verify_not_degraded),
 ):
     """Actualiza un plan existente."""
     existing = service.get_by_id(plan_id)
@@ -135,6 +139,7 @@ def delete_plan(
     request: Request,
     service: PlanService = Depends(get_plan_service),
     current_user: User = Depends(require_admin),
+    _: bool = Depends(verify_not_degraded),
 ):
     from ...core.audit import log_action
 
