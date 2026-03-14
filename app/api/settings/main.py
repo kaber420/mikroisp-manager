@@ -8,7 +8,6 @@ from ...db.engine_sync import get_sync_session
 from ...models.user import User
 from ...services.business.billing_service import BillingService
 from ...services.core.settings_service import SettingsService
-from ...utils.env_manager import update_env_file, get_env_context
 from .models import SystemSettingsRequest
 
 from .preferences import router as preferences_router

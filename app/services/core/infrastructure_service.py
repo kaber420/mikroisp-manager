@@ -4,7 +4,6 @@ import time
 from typing import Dict, Any
 
 from app.core.config import settings
-from app.utils.env_manager import update_env_file
 
 class InfrastructureService:
     """
@@ -97,21 +96,26 @@ class InfrastructureService:
         srv = status.get("services", {})
         results = {}
 
+        from app.utils.services_config import read_services_config, write_services_config
+        srv_config = read_services_config()
+        if not srv_config.get("db"): srv_config["db"] = {}
+        if not srv_config.get("cache"): srv_config["cache"] = {}
+
         # --- Redict ---
         act_rd = actions.get("redict", "create")
         if act_rd == "skip":
             results["redict"] = "skipped"
         elif act_rd == "reuse":
             results["redict"] = "reused_existing"
-            update_env_file({"CACHE_BACKEND": "redict"})
+            srv_config["cache"]["provider"] = "redict"
         elif act_rd == "delete":
             self._stop_and_remove("omniwisp_redict")
             results["redict"] = "deleted"
-            update_env_file({"CACHE_BACKEND": "memory"})
+            srv_config["cache"]["provider"] = "memory"
         elif act_rd == "stop":
             self._stop_only("omniwisp_redict")
             results["redict"] = "stopped"
-            update_env_file({"CACHE_BACKEND": "memory"})
+            srv_config["cache"]["provider"] = "memory"
         else: # create
             conf = srv.get("redict", {}).get("conflict")
             if conf:
@@ -124,6 +128,7 @@ class InfrastructureService:
                     command="redict-server --save 60 1 --loglevel warning",
                     volumes={"deployments_redict_data": {"bind": "/data", "mode": "rw"}}
                 )
+                srv_config["cache"]["provider"] = "redict"
             except Exception as e:
                 results["redict"] = f"error: {str(e)}"
 
@@ -133,15 +138,16 @@ class InfrastructureService:
             results["postgres"] = "skipped"
         elif act_pg == "reuse":
             results["postgres"] = "reused_existing"
-            update_env_file({"POSTGRES_PASSWORD": postgres_password})
+            srv_config["db"]["provider"] = "postgres"
+            srv_config["db"]["password"] = postgres_password
         elif act_pg == "delete":
             self._stop_and_remove("omniwisp_postgres")
             results["postgres"] = "deleted"
-            update_env_file({"DB_PROVIDER": "sqlite"})
+            srv_config["db"]["provider"] = "sqlite"
         elif act_pg == "stop":
             self._stop_only("omniwisp_postgres")
             results["postgres"] = "stopped"
-            update_env_file({"DB_PROVIDER": "sqlite"})
+            srv_config["db"]["provider"] = "sqlite"
         else: # create
             conf = srv.get("postgres", {}).get("conflict")
             if conf:
@@ -158,10 +164,12 @@ class InfrastructureService:
                     },
                     volumes={"deployments_postgres_data": {"bind": "/var/lib/postgresql/data", "mode": "rw"}}
                 )
-                update_env_file({"POSTGRES_PASSWORD": postgres_password})
-                update_env_file({"DB_PROVIDER": "postgres"})
+                srv_config["db"]["provider"] = "postgres"
+                srv_config["db"]["password"] = postgres_password
             except Exception as e:
                 results["postgres"] = f"error: {str(e)}"
+
+        write_services_config(srv_config)
 
         has_err = any("error" in str(v) for v in results.values())
         return {
