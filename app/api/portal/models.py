@@ -55,3 +55,25 @@ class PortalPlanRead(BaseModel):
 class PortalTicketListResponse(BaseModel):
     items: List[PortalTicketRead]
     total: int
+
+class PortalVideoCallStart(BaseModel):
+    """Request para iniciar videollamada."""
+    subject: str
+    description: str
+    priority: str = "normal"
+
+class PortalVideoCallResponse(BaseModel):
+    """Respuesta con token de videollamada."""
+    ticket_id: str
+    token: str
+    room: str
+    server_url: str
+    subject: str
+
+class PortalSupportStatus(BaseModel):
+    """Estado del área de soporte."""
+    is_available: bool
+    techs_online: int = 0
+    pool_size: int = 0
+    estimated_wait_minutes: int = 0
+    message: str = ""

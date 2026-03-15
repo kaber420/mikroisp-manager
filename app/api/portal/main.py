@@ -11,10 +11,13 @@ from sqlalchemy.orm import selectinload
 from ...db.engine import get_session
 from ...models.user import User
 from ...models.client import Client
-from ...models.ticket import Ticket, TicketMessage
+from ...models.ticket import Ticket, TicketMessage, SupportChannel
 from ...models.service import ClientService
 from ...models.plan import Plan
+from ...models.video_session import VideoSessionLog
 from ...core.users import current_active_user
+from ...core.config import settings
+from ...services.livekit_service import create_room_token
 
 from .models import (
     PortalClientRead,
@@ -23,7 +26,10 @@ from .models import (
     PortalPlanRead,
     PortalTicketMessageRead,
     PortalTicketMessageCreate,
-    PortalTicketListResponse
+    PortalTicketListResponse,
+    PortalVideoCallStart,
+    PortalVideoCallResponse,
+    PortalSupportStatus
 )
 from pydantic import BaseModel, ConfigDict
 from ...models.portal_announcement import PortalAnnouncement
@@ -273,5 +279,109 @@ async def list_active_announcements(
     for ann in announcements:
         if ann.end_date is None or ann.end_date >= now:
             valid_announcements.append(ann)
-            
+
     return valid_announcements
+
+
+@router.get("/support/status", response_model=PortalSupportStatus)
+async def get_support_status(
+    current_user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Verifica el estado del área de soporte técnico.
+    Retorna disponibilidad, técnicos en línea y tamaño del pool.
+    """
+    # Contar tickets de video_call abiertos o pendientes
+    pool_query = select(func.count()).select_from(Ticket).where(
+        Ticket.channel == SupportChannel.VIDEO_CALL.value,
+        Ticket.status.in_(["open", "pending"])
+    )
+    pool_size = (await session.exec(pool_query)).one()
+    
+    # Estimación simple de espera (5 min por ticket en cola)
+    estimated_wait = pool_size * 5
+    
+    # Determinar si está disponible (menos de 10 tickets en cola)
+    is_available = pool_size < 10
+    
+    return PortalSupportStatus(
+        is_available=is_available,
+        techs_online=0,  # Se podría mejorar con WebSocket de técnicos activos
+        pool_size=pool_size,
+        estimated_wait_minutes=estimated_wait,
+        message="En línea" if is_available else "Alta demanda. Tiempo de espera mayor."
+    )
+
+
+@router.post("/videollamada/iniciar", response_model=PortalVideoCallResponse)
+async def iniciar_videollamada(
+    video_in: PortalVideoCallStart,
+    current_user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Inicia una videollamada desde el portal del cliente.
+    Crea un ticket de tipo video_call y genera un token LiveKit.
+    """
+    if not current_user.client_id:
+        raise HTTPException(status_code=403, detail="No es un cliente autorizado")
+    
+    # Obtener nombre del cliente
+    client = await session.get(Client, current_user.client_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Perfil de cliente no encontrado")
+    
+    # Crear ticket de videollamada
+    ticket = Ticket(
+        client_id=current_user.client_id,
+        subject=video_in.subject,
+        description=video_in.description,
+        priority=video_in.priority,
+        ticket_type="support",
+        channel=SupportChannel.VIDEO_CALL.value,
+        status="open",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow()
+    )
+    
+    session.add(ticket)
+    await session.commit()
+    await session.refresh(ticket)
+    
+    # Generar nombre de sala único
+    room_name = f"ticket_{ticket.id}"
+    
+    # Generar token LiveKit para el cliente
+    try:
+        token = create_room_token(
+            room_name=room_name,
+            participant_identity=str(current_user.client_id),
+            participant_name=client.name or f"Cliente {ticket.id}",
+            is_tech=False  # El cliente NO es admin de la sala
+        )
+    except ValueError as e:
+        # LiveKit no configurado
+        raise HTTPException(
+            status_code=503,
+            detail="Servicio de videollamadas no disponible. Contacte al administrador."
+        )
+    
+    # Registrar sesión de video
+    video_log = VideoSessionLog(
+        ticket_id=ticket.id,
+        tech_id=None,  # Aún no hay técnico asignado
+        room_name=room_name,
+        started_at=datetime.utcnow()
+    )
+    session.add(video_log)
+    await session.commit()
+    
+    return PortalVideoCallResponse(
+        ticket_id=str(ticket.id),
+        token=token,
+        room=room_name,
+        server_url=settings.LIVEKIT_URL,
+        subject=ticket.subject
+    )
+

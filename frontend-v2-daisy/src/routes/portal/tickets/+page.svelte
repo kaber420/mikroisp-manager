@@ -2,13 +2,15 @@
     import { fade, fly } from "svelte/transition";
     import type { PageData } from './$types';
     import { createPortalTicket, sendTicketMessage, getPortalTickets } from '$lib/api/portal';
+    import VideoCallModal from '$lib/components/video/VideoCallModal.svelte';
 
     let { data } = $props<{ data: PageData }>();
-    
+
     // State
     let tickets = $state(data.tickets);
     // svelte-ignore state_referenced_locally
     let totalTickets = $state(data.total || 0);
+    let showVideoModal = $state(false);
 
     // Sync state when data props change
     $effect(() => {
@@ -243,7 +245,15 @@
                     <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.14-.26.26-.54.26l.213-3.054 5.56-5.022c.24-.213-.053-.334-.374-.12l-6.873 4.33-2.955-.924c-.642-.204-.654-.642.134-.95l11.535-4.45c.533-.204 1 .116.84.808z"/></svg>
                     Abrir Telegram
                 </a>
-                <button class="btn btn-white bg-white text-primary hover:bg-white/90 border-none rounded-xl px-8">Llamar a Soporte</button>
+                <button 
+                    class="btn btn-white bg-white text-primary hover:bg-white/90 border-none rounded-xl px-8 gap-2"
+                    onclick={() => showVideoModal = true}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                    </svg>
+                    📹 Llamar a Soporte
+                </button>
             </div>
         </div>
     </div>
@@ -404,3 +414,6 @@
         <button onclick={() => showDetailModal = false}>close</button>
     </form>
 </dialog>
+
+<!-- Modal de Videollamada -->
+<VideoCallModal bind:isOpen={showVideoModal} />

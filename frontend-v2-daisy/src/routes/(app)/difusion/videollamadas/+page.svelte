@@ -1,10 +1,12 @@
 <script lang="ts">
   import { user } from '$lib/stores/auth';
   import PoolList from '$lib/components/video/PoolList.svelte';
+  import WaitingRoomSettingsModal from '$lib/components/video/WaitingRoomSettingsModal.svelte';
 
   let isConnected = $state(false);
   let isLoading = $state(false);
   let poolList: any = $state();
+  let showSettingsModal = $state(false);
 </script>
 
 <svelte:head>
@@ -53,6 +55,14 @@
       <span class="text-[10px] tracking-widest">{isConnected ? 'EN LÍNEA' : 'DESCONECTADO'}</span>
     </div>
 
+    <button class="btn btn-outline border-base-300 gap-2 shadow-sm" onclick={() => showSettingsModal = true}>
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4h4" />
+      </svg>
+      Sala de Espera
+    </button>
+    
     <a href="/configuracion" class="btn btn-ghost border-base-300 gap-2 shadow-sm">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -64,3 +74,5 @@
 </div>
 
 <PoolList bind:this={poolList} techId={$user?.id || ''} bind:isConnected bind:isLoading />
+
+<WaitingRoomSettingsModal bind:showModal={showSettingsModal} />

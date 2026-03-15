@@ -4,7 +4,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from datetime import datetime
 
-from app.api.deps import get_current_user, get_session
+from app.core.users import current_active_user
+from app.db.engine import get_session
 from app.models.user import User
 from app.models.ticket import Ticket
 from app.models.video_session import VideoSessionLog
@@ -16,7 +17,7 @@ router = APIRouter()
 @router.get("/token/{ticket_id}")
 async def get_livekit_token(
     ticket_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_session)
 ):
     """

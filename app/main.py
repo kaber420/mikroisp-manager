@@ -53,6 +53,7 @@ from .api.health import router as health_router
 from .api.setup import main as setup_api
 from .api.portal import main as portal_api
 from .api.broadcast import announcements as broadcast_announcements_api
+from .api.waiting_room import endpoints as waiting_room_api
 
 # Shared Core Modules
 
@@ -605,6 +606,7 @@ app.include_router(tickets_main_api.router, prefix="/api", tags=["Tickets"])
 app.include_router(portal_api.router, prefix="/api", tags=["Portal de Clientes"])
 app.include_router(broadcast_main_api.router, prefix="/api/broadcast", tags=["Broadcast"])
 app.include_router(broadcast_announcements_api.router, prefix="/api/broadcast", tags=["Broadcast - CMS"])
+app.include_router(waiting_room_api.router, prefix="/api/waiting-room", tags=["Waiting Room"])
 app.include_router(health_router, prefix="/api", tags=["Health"])
 
 # --- WEBHOOKS PARA BOTS ---

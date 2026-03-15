@@ -12,6 +12,7 @@ from .zona import Zona, ZonaDocumento, ZonaInfra, ZonaNote
 from .ticket import Ticket, TicketMessage
 from .preference import UserPreference, UserPreferenceBase, UserPreferenceCreate, UserPreferenceRead, UserPreferenceUpdate
 from .portal_announcement import PortalAnnouncement
+from .waiting_room import WaitingRoomConfig
 
 __all__ = [
     "AP",
@@ -36,4 +37,5 @@ __all__ = [
     "UserPreferenceRead",
     "UserPreferenceUpdate",
     "PortalAnnouncement",
+    "WaitingRoomConfig",
 ]
