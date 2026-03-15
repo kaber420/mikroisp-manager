@@ -143,16 +143,25 @@
 		],
 		"/tickets": [
 			{ href: "/tickets", label: "Tickets de Soporte" },
+			{ href: "/difusion/videollamadas", label: "📹 Videollamadas" },
 			{ href: "/difusion", label: "Difusión de Mensajes" },
 			{ href: "/difusion/cms", label: "Portal Web (CMS)" },
 		],
 		"/difusion": [
 			{ href: "/tickets", label: "Tickets de Soporte" },
+			{ href: "/difusion/videollamadas", label: "📹 Videollamadas" },
+			{ href: "/difusion", label: "Difusión de Mensajes" },
+			{ href: "/difusion/cms", label: "Portal Web (CMS)" },
+		],
+		"/difusion/videollamadas": [
+			{ href: "/tickets", label: "Tickets de Soporte" },
+			{ href: "/difusion/videollamadas", label: "📹 Videollamadas" },
 			{ href: "/difusion", label: "Difusión de Mensajes" },
 			{ href: "/difusion/cms", label: "Portal Web (CMS)" },
 		],
 		"/difusion/cms": [
 			{ href: "/tickets", label: "Tickets de Soporte" },
+			{ href: "/difusion/videollamadas", label: "📹 Videollamadas" },
 			{ href: "/difusion", label: "Difusión de Mensajes" },
 			{ href: "/difusion/cms", label: "Portal Web (CMS)" },
 		],

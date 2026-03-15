@@ -72,6 +72,9 @@ def read_services_config() -> Dict[str, Any]:
         if "cache" in data and "password" in data["cache"]:
             data["cache"]["password"] = decrypt_password(data["cache"]["password"])
             
+        if "livekit" in data and "api_secret" in data["livekit"]:
+            data["livekit"]["api_secret"] = decrypt_password(data["livekit"]["api_secret"])
+            
         return data
     except Exception as e:
         logger.error(f"Error reading {SERVICES_JSON}: {e}")
@@ -94,6 +97,9 @@ def write_services_config(config: Dict[str, Any]):
         
     if "cache" in data and "password" in data["cache"]:
         data["cache"]["password"] = encrypt_password(data["cache"]["password"])
+        
+    if "livekit" in data and "api_secret" in data["livekit"]:
+        data["livekit"]["api_secret"] = encrypt_password(data["livekit"]["api_secret"])
         
     try:
         with open(SERVICES_JSON, "w") as f:

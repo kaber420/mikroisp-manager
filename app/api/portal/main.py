@@ -25,6 +25,7 @@ from .models import (
     PortalTicketMessageCreate,
     PortalTicketListResponse
 )
+from pydantic import BaseModel, ConfigDict
 from ...models.portal_announcement import PortalAnnouncement
 from ...schemas.portal_announcement import PortalAnnouncementRead
 
@@ -167,12 +168,26 @@ async def create_portal_ticket(
     if not current_user.client_id:
         raise HTTPException(status_code=403, detail="Not a client user")
         
+    # Hack temporal para leer 'channel' si viene en dict ya que no está en PortalTicketCreate
+    channel_val = "web_chat"
+    if hasattr(ticket_in, "model_dump"):
+        data_dump = ticket_in.model_dump()
+        channel_val = data_dump.get("channel", "web_chat")
+    elif isinstance(ticket_in, dict):
+        channel_val = ticket_in.get("channel", "web_chat")
+    else:
+        try:
+            channel_val = getattr(ticket_in, "channel", "web_chat")
+        except:
+            pass
+
     new_ticket = Ticket(
         client_id=current_user.client_id,
         subject=ticket_in.subject,
         description=ticket_in.description,
         priority=ticket_in.priority,
         ticket_type="support", # Siempre forzar a "support"
+        channel=channel_val,
         status="open",
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow()

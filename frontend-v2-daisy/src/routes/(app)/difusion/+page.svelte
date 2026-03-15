@@ -2,8 +2,10 @@
     import { uploadBroadcastImage, sendBroadcast } from "$lib/api";
     import type { PageData } from "./$types";
     import type { BroadcastTargetType } from "$lib/types/broadcast";
+    import { user } from "$lib/stores/auth";
 
     let { data }: { data: PageData } = $props();
+
 
     // --- Estado del formulario ---
     let targetType: BroadcastTargetType = $state("clients");
@@ -167,28 +169,32 @@
 </svelte:head>
 
 <!-- ===== ENCABEZADO ===== -->
-<div class="mb-6 flex items-center gap-3">
-    <div class="bg-warning/10 text-warning rounded-xl p-3">
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-7 w-7"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-        >
-            <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
-            />
-        </svg>
-    </div>
-    <div>
-        <h1 class="text-2xl font-bold">Difusión Masiva</h1>
-        <p class="text-base-content/60 text-sm">
-            Envía mensajes por Telegram a clientes o personal
-        </p>
+<div class="mb-6 flex sm:flex-row flex-col items-center justify-between gap-4 p-6 bg-base-100/60 backdrop-blur-md rounded-2xl shadow-sm border border-base-200">
+    <div class="flex items-center gap-4">
+        <div class="bg-warning/10 text-warning rounded-xl p-3">
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-7 w-7"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+            >
+                <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
+            </svg>
+        </div>
+        <div>
+            <h1 class="text-3xl font-black bg-gradient-to-br from-primary to-secondary bg-clip-text text-transparent drop-shadow-sm">
+                Difusión Masiva
+            </h1>
+            <p class="text-base-content/60 font-medium mt-1">
+                Envía mensajes masivos vía Telegram a clientes o personal
+            </p>
+        </div>
     </div>
 </div>
 

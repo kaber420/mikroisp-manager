@@ -67,6 +67,18 @@
         aps.filter((a) => a.vendor === "mikrotik").length,
     );
 
+    let percentAPs = $derived(
+        totalAPs > 0 ? Math.round((onlineAPs / totalAPs) * 100) : 0
+    );
+
+    const theme = {
+        text: "text-sky-400",
+        bgLight: "bg-sky-500/10",
+        borderLight: "border-sky-500/20",
+        glow: "drop-shadow-[0_0_8px_rgba(14,165,233,0.3)]",
+        blob: "bg-sky-500/10 group-hover:bg-sky-500/15",
+    };
+
     // ── Carga inicial ─────────────────────────────────────────────────────
     async function loadAPs() {
         loading = true;
@@ -296,107 +308,103 @@
 
     <!-- KPI Cards -->
     {#if !loading}
-        <div
-            style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;"
-        >
-            <div
-                class="glass-card-flat"
-                style="padding:1rem;border-radius:0.875rem;display:flex;align-items:center;gap:0.875rem;"
-            >
+        <div class="flex flex-wrap gap-6">
+            <!-- Card Principal (Salud APs) -->
+            <div class="max-w-sm w-full">
                 <div
-                    style="font-size:1.75rem;width:2.5rem;height:2.5rem;display:flex;align-items:center;justify-content:center;background:oklch(from var(--color-primary) l c h / 0.12);border-radius:0.625rem;"
+                    class="glass-panel-dona p-5 flex items-center justify-between group relative overflow-hidden"
                 >
-                    📡
-                </div>
-                <div>
-                    <p
-                        style="margin:0;font-size:0.7rem;opacity:0.5;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;"
+                    <!-- Columna izquierda: Datos -->
+                    <div class="flex flex-col z-10">
+                        <span
+                            class="text-[11px] font-bold tracking-[0.15em] text-slate-400 uppercase mb-1"
+                        >
+                            Access Points
+                        </span>
+                        <span
+                            class="text-3xl font-extrabold text-white leading-none"
+                        >
+                            {totalAPs}
+                        </span>
+                        <!-- Badges de Up / Down -->
+                        <div class="mt-3 flex gap-2 text-xs">
+                            <span
+                                class="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 px-2 py-0.5 rounded border font-medium"
+                            >
+                                {onlineAPs}
+                            </span>
+                            <span
+                                class="bg-rose-500/10 text-rose-400 border-rose-500/20 px-2 py-0.5 rounded border font-medium"
+                            >
+                                {offlineAPs}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Columna derecha: Dona (Radial Progress) -->
+                    <div
+                        class="z-10 {theme.text} radial-progress donut-sm {theme.glow}"
+                        style="--value:{percentAPs};"
+                        role="progressbar"
                     >
-                        Total
-                    </p>
-                    <p style="margin:0;font-size:1.5rem;font-weight:700;">
-                        {totalAPs}
-                    </p>
-                </div>
-            </div>
-            <div
-                class="glass-card-flat"
-                style="padding:1rem;border-radius:0.875rem;display:flex;align-items:center;gap:0.875rem;"
-            >
-                <div
-                    style="font-size:1.75rem;width:2.5rem;height:2.5rem;display:flex;align-items:center;justify-content:center;background:oklch(from var(--color-success) l c h / 0.12);border-radius:0.625rem;"
-                >
-                    ✅
-                </div>
-                <div>
-                    <p
-                        style="margin:0;font-size:0.7rem;opacity:0.5;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;"
-                    >
-                        Online
-                    </p>
-                    <p
-                        style="margin:0;font-size:1.5rem;font-weight:700;color:oklch(from var(--color-success) l c h);"
-                    >
-                        {onlineAPs}
-                    </p>
+                        <span class="text-white text-xs font-bold"
+                            >{percentAPs}%</span
+                        >
+                    </div>
+
+                    <!-- Fondo mancha -->
+                    <div
+                        class="absolute right-0 top-0 w-32 h-32 blur-[40px] rounded-full pointer-events-none transition-colors {theme.blob}"
+                    ></div>
                 </div>
             </div>
 
+            <!-- Card Secundaria (Distribución de Marcas) -->
             <div
-                class="glass-card-flat"
-                style="padding:1rem;border-radius:0.875rem;display:flex;align-items:center;gap:0.875rem;"
+                class="glass-panel-dona p-5 flex items-center gap-6 group relative overflow-hidden flex-1 min-w-[300px]"
             >
+                <div class="flex flex-col z-10 flex-1">
+                    <span
+                        class="text-[11px] font-bold tracking-[0.15em] text-slate-400 uppercase mb-3"
+                    >
+                        Fabricantes
+                    </span>
+                    
+                    <div class="space-y-3">
+                        <!-- Ubiquiti -->
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="font-bold text-sky-400">Ubiquiti</span>
+                                <span class="opacity-60 font-mono">{ubiquitiAPs}</span>
+                            </div>
+                            <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                <div 
+                                    class="h-full bg-sky-500 rounded-full transition-all duration-500"
+                                    style="width: {totalAPs > 0 ? (ubiquitiAPs / totalAPs) * 100 : 0}%"
+                                ></div>
+                            </div>
+                        </div>
+
+                        <!-- MikroTik -->
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="font-bold text-slate-300">MikroTik</span>
+                                <span class="opacity-60 font-mono">{mikrotikAPs}</span>
+                            </div>
+                            <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                <div 
+                                    class="h-full bg-slate-400 rounded-full transition-all duration-500"
+                                    style="width: {totalAPs > 0 ? (mikrotikAPs / totalAPs) * 100 : 0}%"
+                                ></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fondo decorativo sutil -->
                 <div
-                    style="font-size:1.75rem;width:2.5rem;height:2.5rem;display:flex;align-items:center;justify-content:center;background:transparent;border-radius:0.625rem;"
-                >
-                    <!-- Icono generico para Ubiquiti -->
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="w-7 h-7"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        ><path
-                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-12h2v4h-2zm0 6h2v2h-2z"
-                        /></svg
-                    >
-                </div>
-                <div>
-                    <p
-                        style="margin:0;font-size:0.7rem;opacity:0.5;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;"
-                    >
-                        Ubiquiti
-                    </p>
-                    <p style="margin:0;font-size:1.5rem;font-weight:700;">
-                        {ubiquitiAPs}
-                    </p>
-                </div>
-            </div>
-            <div
-                class="glass-card-flat"
-                style="padding:1rem;border-radius:0.875rem;display:flex;align-items:center;gap:0.875rem;"
-            >
-                <div
-                    style="font-size:1.75rem;width:2.5rem;height:2.5rem;display:flex;align-items:center;justify-content:center;background:transparent;border-radius:0.625rem;"
-                >
-                    <!-- Icono generico para MikroTik -->
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="w-7 h-7"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        ><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" /></svg
-                    >
-                </div>
-                <div>
-                    <p
-                        style="margin:0;font-size:0.7rem;opacity:0.5;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;"
-                    >
-                        MikroTik
-                    </p>
-                    <p style="margin:0;font-size:1.5rem;font-weight:700;">
-                        {mikrotikAPs}
-                    </p>
-                </div>
+                    class="absolute right-0 top-0 w-32 h-32 blur-[50px] rounded-full pointer-events-none transition-colors bg-white/5 group-hover:bg-white/10"
+                ></div>
             </div>
         </div>
     {/if}

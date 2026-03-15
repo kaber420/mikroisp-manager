@@ -47,6 +47,15 @@ class Settings(BaseSettings):
                 auth = f":{cache_conf['password']}@" if cache_conf.get("password") else ""
                 self.REDICT_URL = f"redis://{auth}{cache_conf['host']}:{cache_conf['port']}/{cache_conf.get('db', 0)}"
 
+        if srv.get("livekit"):
+            lk_conf = srv["livekit"]
+            if lk_conf.get("url"):
+                self.LIVEKIT_URL = lk_conf["url"]
+            if lk_conf.get("api_key"):
+                self.LIVEKIT_API_KEY = lk_conf["api_key"]
+            if lk_conf.get("api_secret"):
+                self.LIVEKIT_API_SECRET = lk_conf["api_secret"]
+
         # 1. Comprobar si se forzó SQLite por bandera de launcher (Highest priority)
         if os.getenv("FORCE_SQLITE") == "true":
             self.IS_FORCED_SQLITE = True
@@ -94,6 +103,11 @@ class Settings(BaseSettings):
     ADMIN_EMAIL: Optional[str] = None
     ADMIN_PASSWORD: Optional[str] = None
     ADMIN_USERNAME: str = "admin"
+
+    # LiveKit
+    LIVEKIT_API_KEY: Optional[str] = None
+    LIVEKIT_API_SECRET: Optional[str] = None
+    LIVEKIT_URL: str = "ws://localhost:7880"
 
     model_config = SettingsConfigDict(
         env_file=".env", 

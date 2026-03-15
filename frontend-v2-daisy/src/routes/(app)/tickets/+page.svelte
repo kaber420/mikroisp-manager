@@ -190,7 +190,7 @@
                 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;"
             >
                 <div>
-                    <h1 style="margin:0;font-size:1.5rem;font-weight:800;">
+                    <h1 class="text-3xl font-black bg-gradient-to-br from-primary to-secondary bg-clip-text text-transparent drop-shadow-sm">
                         Tickets de Soporte
                     </h1>
                     <p

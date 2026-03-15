@@ -19,7 +19,7 @@
 
     // ─── Estado de tabs ────────────────────────────────────────────────
     let activeTab = $state<
-        "general" | "auditoria" | "bots" | "apariencia" | "infraestructura"
+        "general" | "auditoria" | "bots" | "apariencia" | "infraestructura" | "videollamadas"
     >("general");
 
 
@@ -187,10 +187,11 @@
         postgres_user: "postgres",
         postgres_password: "",
         cache_provider: "memory",
-        redict_host: "localhost",
-        redict_port: 6379,
         redict_password: "",
         redict_db: 0,
+        livekit_url: "ws://localhost:7880",
+        livekit_api_key: "",
+        livekit_api_secret: ""
     });
     let sysStatus = $state<any>(null);
     let sysLoading = $state(true);
@@ -221,6 +222,11 @@
                 if (srv.cache.db !== undefined) sysConfig.redict_db = srv.cache.db;
                 if (srv.cache.password) sysConfig.redict_password = srv.cache.password;
             }
+            if (srv.livekit) {
+                if (srv.livekit.url) sysConfig.livekit_url = srv.livekit.url;
+                if (srv.livekit.api_key) sysConfig.livekit_api_key = srv.livekit.api_key;
+                if (srv.livekit.api_secret) sysConfig.livekit_api_secret = srv.livekit.api_secret;
+            }
         } catch {
             notify.error("Error al cargar config del sistema");
         } finally {
@@ -246,6 +252,11 @@
                     port: sysConfig.redict_port,
                     db: sysConfig.redict_db,
                     password: sysConfig.redict_password
+                },
+                livekit: {
+                    url: sysConfig.livekit_url,
+                    api_key: sysConfig.livekit_api_key,
+                    api_secret: sysConfig.livekit_api_secret
                 }
             };
             const res = await updateSystemServices(data);
@@ -548,6 +559,23 @@
                 : 'transparent'};background:none;cursor:pointer;transition:all 0.2s;"
         >
             ⛴️ Infraestructura
+        </button>
+        <button
+            role="tab"
+            aria-selected={activeTab === "videollamadas"}
+            onclick={() => (activeTab = "videollamadas")}
+            style="padding:0.85rem 0;font-size:0.85rem;font-weight:{activeTab ===
+            'videollamadas'
+                ? '800'
+                : '600'};color:{activeTab === 'videollamadas'
+                ? 'oklch(from var(--color-primary) l c h)'
+                : 'inherit'};opacity:{activeTab === 'videollamadas'
+                ? '1'
+                : '0.5'};border-bottom:3px solid {activeTab === 'videollamadas'
+                ? 'oklch(from var(--color-primary) l c h)'
+                : 'transparent'};background:none;cursor:pointer;transition:all 0.2s;"
+        >
+            🎥 Videollamadas
         </button>
     </div>
 </div>
@@ -1886,6 +1914,106 @@
             </div>
 
             <!-- ESPACIO FINAL -->
+            <div class="h-20"></div>
+        </div>
+    </div>
+{/if}
+
+<!-- ══════════════════ TAB 7: VIDEOLLAMADAS ══════════════════ -->
+{#if activeTab === "videollamadas"}
+    <div class="card bg-base-100 shadow-xl border border-base-200">
+        <div class="card-body gap-8">
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-3xl font-black flex items-center gap-3">
+                        <span class="text-4xl">🎥</span> Videollamadas
+                    </h2>
+                    <p class="text-sm opacity-60">Configuración del servidor de señalización LiveKit.</p>
+                </div>
+                <button 
+                    class="btn btn-primary px-10 shadow-lg shadow-primary/20 w-full md:w-auto" 
+                    onclick={saveSystemSettings}
+                    disabled={sysSaving}
+                >
+                    {#if sysSaving}<span class="loading loading-spinner loading-sm"></span>{/if}
+                    💾 Guardar Cambios
+                </button>
+            </div>
+
+            <div class="alert alert-info shadow-sm py-3">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <div class="text-xs">
+                    <p class="font-bold">Nota de Seguridad</p>
+                    <p>Las credenciales se almacenan cifradas en el servidor. Después de guardar, los cambios se aplican inmediatamente para nuevas llamadas.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="space-y-6">
+                    <div class="form-control">
+                        <label class="label" for="lk_url">
+                            <span class="label-text font-bold">URL del Servidor LiveKit</span>
+                        </label>
+                        <input 
+                            id="lk_url"
+                            type="text" 
+                            class="input input-bordered focus:input-primary" 
+                            placeholder="ws://mi-servidor:7880"
+                            bind:value={sysConfig.livekit_url}
+                        />
+                        <label class="label">
+                            <span class="label-text-alt opacity-50 text-[10px]">Ejemplo: wss://livekit.mi-dominio.com</span>
+                        </label>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label" for="lk_key">
+                            <span class="label-text font-bold">API Key (Clave Pública)</span>
+                        </label>
+                        <input 
+                            id="lk_key"
+                            type="text" 
+                            class="input input-bordered focus:input-primary font-mono text-sm" 
+                            placeholder="devkey"
+                            bind:value={sysConfig.livekit_api_key}
+                        />
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label" for="lk_secret">
+                            <span class="label-text font-bold">API Secret (Clave Privada)</span>
+                        </label>
+                        <input 
+                            id="lk_secret"
+                            type="password" 
+                            class="input input-bordered focus:input-primary" 
+                            placeholder="••••••••••••••••"
+                            bind:value={sysConfig.livekit_api_secret}
+                        />
+                        <label class="label">
+                            <span class="label-text-alt opacity-50 text-[10px]">Nunca compartas esta clave. Se guardará de forma cifrada.</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="bg-base-200/50 p-6 rounded-2xl border border-dashed border-base-300 flex flex-col items-center justify-center text-center gap-4">
+                    <div class="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center text-2xl">
+                        💡
+                    </div>
+                    <div class="max-w-xs">
+                        <h4 class="font-bold">¿Cómo funciona?</h4>
+                        <p class="text-[11px] opacity-70 leading-relaxed mt-2">
+                            LiveKit es el motor que permite las videollamadas entre técnicos y clientes. 
+                            Una vez configurado, OmniWISP generará automáticamente tokens seguros para cada sesión de soporte.
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap justify-center gap-2 mt-2">
+                        <a href="https://docs.livekit.io" target="_blank" class="btn btn-xs btn-ghost text-primary uppercase tracking-tighter">Documentación ↗</a>
+                        <a href="/difusion/videollamadas" class="btn btn-xs btn-ghost text-primary uppercase tracking-tighter">Ir al Panel 🎥</a>
+                    </div>
+                </div>
+            </div>
+            
             <div class="h-20"></div>
         </div>
     </div>

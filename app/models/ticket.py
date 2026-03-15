@@ -6,11 +6,18 @@ Integrates directly with inventory.sqlite.
 
 import uuid as uuid_pkg
 from datetime import datetime
+from enum import Enum
 from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship
 
 # Forward reference for Client if needed, but for now we just store client_id
 # from app.models.client import Client
+
+class SupportChannel(str, Enum):
+    WEB_CHAT = "web_chat"
+    TELEGRAM = "telegram"
+    VIDEO_CALL = "video_call"
+
 
 class Ticket(SQLModel, table=True):
     """
@@ -39,6 +46,11 @@ class Ticket(SQLModel, table=True):
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Nuevos campos para omnicanalidad y feedback
+    channel: str = Field(default=SupportChannel.WEB_CHAT.value, index=True)
+    rating: Optional[int] = Field(default=None) # 1 a 5
+    feedback_comments: Optional[str] = Field(default=None)
     
     # New fields for Installations
     ticket_type: str = Field(default="support", index=True) # support, installation
