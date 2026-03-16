@@ -5,7 +5,7 @@ from sqlmodel import select
 from ...db.engine import get_session
 from ...models.preference import UserPreference, UserPreferenceCreate, UserPreferenceUpdate
 from ...models.user import User
-from ...core.users import current_active_user
+from app.core.security import current_active_user
 
 router = APIRouter()
 

@@ -15,7 +15,7 @@ from ...models.ticket import Ticket, TicketMessage, SupportChannel
 from ...models.service import ClientService
 from ...models.plan import Plan
 from ...models.video_session import VideoSessionLog
-from ...core.users import current_active_user
+from app.core.security import current_active_user
 from ...core.config import settings
 from ...services.livekit_service import create_room_token
 

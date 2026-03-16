@@ -3,19 +3,25 @@
 
 import asyncio
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Cookie
+from typing import Optional
 
 from ...db.engine import async_session_maker
 from ...models.ap import AP as APModel
 from ...services.monitoring.ap_monitor_scheduler import ap_monitor_scheduler
 from ...utils.cache import cache_manager, ap_live_history
 from ...utils.security import decrypt_data
+from ...core.security import verify_ws_origin_and_token
 
 router = APIRouter()
 
 
 @router.websocket("/ws/aps/{host}/resources")
-async def ap_resources_stream(websocket: WebSocket, host: str):
+async def ap_resources_stream(
+    websocket: WebSocket, 
+    host: str,
+    umonitorpro_access_token_v2: Optional[str] = Cookie(None)
+):
     """
     Canal de streaming para datos en vivo del AP.
 
@@ -24,6 +30,13 @@ async def ap_resources_stream(websocket: WebSocket, host: str):
     - Se suscribe al APMonitorScheduler.
     - Lee del CacheManager local (compartido entre usuarios).
     """
+    if not await verify_ws_origin_and_token(
+        websocket, 
+        umonitorpro_access_token_v2, 
+        allowed_roles=["admin", "technician"]
+    ):
+        return
+
     await websocket.accept()
 
     try:

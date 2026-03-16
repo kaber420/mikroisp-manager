@@ -11,7 +11,7 @@ import uuid
 from app.core.config import settings
 from pathlib import Path
 
-from ...core.users import require_admin
+from app.core.security import require_admin
 from ..settings.main import get_settings_service
 from ...models.client import Client
 from ...models.service import ClientService
@@ -154,13 +154,10 @@ async def get_broadcast_zones(
     """Gets a list of zones that have at least one client with a linked Telegram account."""
     session = settings.session
     
-    # We want zones that have routers, which have services, which have clients with telegram_contact
-    # This query allows the frontend to show only relevant zones
+    # We want zones that have clients directly linked to them with telegram_contact
     statement = (
         select(Zona.id, Zona.nombre)
-        .join(Router, Router.zona_id == Zona.id)
-        .join(ClientService, ClientService.router_host == Router.host)
-        .join(Client, ClientService.client_id == Client.id)
+        .join(Client, Client.zona_id == Zona.id)
         .where(Client.telegram_contact != None)
         .distinct()
     )
@@ -195,13 +192,11 @@ async def send_broadcast(
             .where(Client.telegram_contact != None)
         )
         
-        # If specific zones are selected, join tables to filter
+        # If specific zones are selected, filter by Client.zona_id
         if request.zone_ids:
             query = (
                 query
-                .join(ClientService, ClientService.client_id == Client.id)
-                .join(Router, ClientService.router_host == Router.host)
-                .where(col(Router.zona_id).in_(request.zone_ids))
+                .where(col(Client.zona_id).in_(request.zone_ids))
             )
             
         result = await session.execute(query)

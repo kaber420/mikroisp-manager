@@ -19,22 +19,31 @@ async def save_router_monitor_stats(
 ) -> bool:
     """Guarda estadísticas de router."""
     try:
+        # Normalización de tipos para PostgreSQL (Mikrotik suele devolver strings)
+        def to_float(v): 
+            try: return float(v) if v is not None else None
+            except: return None
+            
+        def to_int(v):
+            try: return int(v) if v is not None else None
+            except: return None
+
         router_stats = RouterStats(
             router_host=router_host,
-            cpu_load=stats.get("cpu_load"),
-            free_memory=stats.get("free_memory"),
-            total_memory=stats.get("total_memory"),
-            free_hdd=stats.get("free_disk"),  # Normalized to model field
-            total_hdd=stats.get("total_disk"),
-            voltage=stats.get("voltage"),
-            temperature=stats.get("temperature"),
+            cpu_load=to_float(stats.get("cpu_load")),
+            free_memory=to_int(stats.get("free_memory")),
+            total_memory=to_int(stats.get("total_memory")),
+            free_hdd=to_int(stats.get("free_disk")),
+            total_hdd=to_int(stats.get("total_disk")),
+            voltage=to_float(stats.get("voltage")),
+            temperature=to_int(stats.get("temperature")),
             uptime=stats.get("uptime"),
             board_name=stats.get("board_name"),
             version=stats.get("version"),
-            wan_rx_bps=stats.get("wan_rx_bps"),
-            wan_tx_bps=stats.get("wan_tx_bps"),
-            wan_rx_bytes=stats.get("wan_rx_bytes"),
-            wan_tx_bytes=stats.get("wan_tx_bytes"),
+            wan_rx_bps=to_int(stats.get("wan_rx_bps")),
+            wan_tx_bps=to_int(stats.get("wan_tx_bps")),
+            wan_rx_bytes=to_int(stats.get("wan_rx_bytes")),
+            wan_tx_bytes=to_int(stats.get("wan_tx_bytes")),
         )
         session.add(router_stats)
         await session.commit()
@@ -71,28 +80,36 @@ async def save_device_stats(
 ):
     """Guarda estado del AP y sus clientes (CPEs)."""
     try:
+        def to_float(v):
+            try: return float(v) if v is not None else None
+            except: return None
+            
+        def to_int(v):
+            try: return int(v) if v is not None else None
+            except: return None
+
         # 1. AP Stats
         ap_stats = APStats(
             ap_host=ap_host,
             vendor=vendor,
             uptime=status.uptime,
-            cpuload=status.extra.get("cpu_load"),
-            freeram=status.extra.get("free_memory"),
-            client_count=status.client_count,
-            noise_floor=status.noise_floor,
-            total_throughput_tx=status.tx_throughput,
-            total_throughput_rx=status.rx_throughput,
-            airtime_usage=status.airtime_usage,
-            airtime_tx=status.extra.get("airtime_tx"),
-            airtime_rx=status.extra.get("airtime_rx"),
-            frequency=status.frequency,
-            chanbw=status.channel_width,
+            cpuload=to_float(status.extra.get("cpu_load")),
+            freeram=to_int(status.extra.get("free_memory")),
+            client_count=to_int(status.client_count),
+            noise_floor=to_int(status.noise_floor),
+            total_throughput_tx=to_int(status.tx_throughput),
+            total_throughput_rx=to_int(status.rx_throughput),
+            airtime_usage=to_float(status.airtime_usage),
+            airtime_tx=to_float(status.extra.get("airtime_tx")),
+            airtime_rx=to_float(status.extra.get("airtime_rx")),
+            frequency=to_int(status.frequency),
+            chanbw=to_int(status.channel_width),
             essid=status.essid,
-            total_tx_bytes=status.tx_bytes,
-            total_rx_bytes=status.rx_bytes,
-            gps_lat=status.gps_lat,
-            gps_lon=status.gps_lon,
-            gps_sats=status.extra.get("gps_sats"),
+            total_tx_bytes=to_int(status.tx_bytes),
+            total_rx_bytes=to_int(status.rx_bytes),
+            gps_lat=to_float(status.gps_lat),
+            gps_lon=to_float(status.gps_lon),
+            gps_sats=to_int(status.extra.get("gps_sats")),
         )
         session.add(ap_stats)
 
@@ -104,26 +121,26 @@ async def save_device_stats(
                 cpe_mac=client.mac,
                 cpe_hostname=client.hostname,
                 ip_address=client.ip_address,
-                signal=client.signal,
-                signal_chain0=client.signal_chain0,
-                signal_chain1=client.signal_chain1,
-                noisefloor=client.noisefloor,
-                cpe_tx_power=client.extra.get("tx_power"),
-                distance=client.extra.get("distance"),
-                dl_capacity=client.extra.get("dl_capacity"),
-                ul_capacity=client.extra.get("ul_capacity"),
-                airmax_cinr_rx=client.extra.get("airmax_cinr_rx"),
-                airmax_usage_rx=client.extra.get("airmax_usage_rx"),
-                airmax_cinr_tx=client.extra.get("airmax_cinr_tx"),
-                airmax_usage_tx=client.extra.get("airmax_usage_tx"),
-                throughput_rx_kbps=client.rx_throughput_kbps,
-                throughput_tx_kbps=client.tx_throughput_kbps,
-                total_rx_bytes=client.rx_bytes,
-                total_tx_bytes=client.tx_bytes,
-                cpe_uptime=client.uptime,
-                ccq=client.ccq,
-                tx_rate=client.tx_rate,
-                rx_rate=client.rx_rate,
+                signal=to_int(client.signal),
+                signal_chain0=to_int(client.signal_chain0),
+                signal_chain1=to_int(client.signal_chain1),
+                noisefloor=to_int(client.noisefloor),
+                cpe_tx_power=to_int(client.extra.get("tx_power")),
+                distance=to_int(client.extra.get("distance")),
+                dl_capacity=to_int(client.extra.get("dl_capacity")),
+                ul_capacity=to_int(client.extra.get("ul_capacity")),
+                airmax_cinr_rx=to_int(client.extra.get("airmax_cinr_rx")),
+                airmax_usage_rx=to_int(client.extra.get("airmax_usage_rx")),
+                airmax_cinr_tx=to_int(client.extra.get("airmax_cinr_tx")),
+                airmax_usage_tx=to_int(client.extra.get("airmax_usage_tx")),
+                throughput_rx_kbps=to_int(client.rx_throughput_kbps),
+                throughput_tx_kbps=to_int(client.tx_throughput_kbps),
+                total_rx_bytes=to_int(client.rx_bytes),
+                total_tx_bytes=to_int(client.tx_bytes),
+                cpe_uptime=to_int(client.uptime),
+                ccq=to_int(client.ccq),
+                tx_rate=to_int(client.tx_rate),
+                rx_rate=to_int(client.rx_rate),
                 ssid=client.ssid,
                 band=client.band,
             )

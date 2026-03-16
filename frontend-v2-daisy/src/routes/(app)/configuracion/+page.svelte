@@ -15,7 +15,16 @@
         restartBots,
         type AuditLog,
     } from "$lib/api";
+    import { 
+        type DeployActions, 
+        type AdvancedConfig, 
+        type DeployResult,
+        type InfraStatusResponse,
+        deployInfraStack,
+        getInfraStatus
+    } from "$lib/api/infra";
     import { notify } from "$lib/stores/notifications";
+    import ServiceControlCard from "$lib/components/infra/ServiceControlCard.svelte";
 
     // ─── Estado de tabs ────────────────────────────────────────────────
     let activeTab = $state<
@@ -339,15 +348,23 @@
     // ═══════════════════════════════════════════════════════════════════
     // TAB 6: INFRAESTRUCTURA (DOCKER)
     // ═══════════════════════════════════════════════════════════════════
-    import { getInfraStatus, deployInfraStack, type InfraStatusResponse, type DeployActions, type DeployResult } from "$lib/api/infra";
 
     let infraStatus = $state<InfraStatusResponse | null>(null);
     let infraLoading = $state(true);
     let infraDeploying = $state(false);
     let infraDeployResult = $state<DeployResult | null>(null);
 
-    let infraDeployActions = $state<DeployActions>({ postgres: 'create', redict: 'create' });
+    let infraDeployActions = $state<DeployActions>({ postgres: 'skip', redict: 'skip' });
+    let infraAdvanced = $state<Record<string, AdvancedConfig>>({ 
+        postgres: { env: {}, network: 'bridge', port: 5432 }, 
+        redict: { env: {}, network: 'bridge', port: 6379 } 
+    });
     let lastGeneratedPostgresPassword = $state("");
+
+    // Estados de modales
+    let showDbModal = $state(false);
+    let showCacheModal = $state(false);
+    let showLkModal = $state(false);
 
     async function loadInfraStatus() {
         infraLoading = true;
@@ -403,11 +420,15 @@
         infraDeployResult = null;
         try {
             const res = await deployInfraStack({
+                postgres_password: sysConfig.postgres_password || undefined,
+                postgres_user: sysConfig.postgres_user || 'umanager',
+                postgres_db: sysConfig.postgres_db || 'umanager_db',
                 actions: infraDeployActions,
+                advanced: infraAdvanced
             });
             infraDeployResult = res;
             notify.success(res.message || "Acciones completadas.");
-            
+
             // Si el despliegue devolvió una contraseña, sugerirla para el formulario
             if (res.postgres_password) {
                 lastGeneratedPostgresPassword = res.postgres_password;
@@ -1561,460 +1582,190 @@
 
 <!-- ══════════════════ TAB 6: INFRAESTRUCTURA ══════════════════ -->
 {#if activeTab === "infraestructura"}
-    <div class="card bg-base-100 shadow-xl border border-base-200">
-        <div class="card-body gap-8">
-            <div>
-            <!-- Cabecera de Infraestructura -->
-            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
-                <div>
-                    <h2 class="text-3xl font-black flex items-center gap-3">
-                        <span class="text-4xl">🏢</span> Infraestructura
-                    </h2>
-                    <p class="text-sm opacity-60">Gestione contenedores Docker y proveedores de datos del sistema.</p>
-                </div>
-                <button 
-                    class="btn btn-primary px-10 shadow-lg shadow-primary/20 w-full md:w-auto" 
-                    onclick={async () => {
-                        sysSaving = true;
-                        try {
-                            await updateSystemServices(sysConfig);
-                            notify.success("¡Configuración global aplicada!");
-                            await loadInfraStatus();
-                        } catch(e) {
-                            notify.error("Error al guardar proveedores.");
-                        } finally {
-                            sysSaving = false;
-                        }
-                    }}
-                    disabled={sysSaving}
-                >
-                    {#if sysSaving}<span class="loading loading-spinner loading-sm"></span>{/if}
-                    💾 Guardar y Reiniciar
-                </button>
-            </div>
-            </div>
+    <div class="space-y-6">
 
-            {#if infraLoading}
-                <div class="flex flex-col items-center justify-center py-24 gap-3">
-                    <span class="loading loading-spinner loading-lg text-primary"></span>
-                    <p class="text-sm font-medium animate-pulse">Cargando estado del sistema...</p>
-                </div>
-            {:else if !infraStatus || infraStatus.status === 'error'}
-                <div class="alert alert-warning shadow-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                    <div class="flex-1">
-                        <h3 class="font-bold">Modo de Configuración Manual</h3>
-                        <p class="text-xs">No se detectó Docker. Puede configurar servidores externos manualmente abajo.</p>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            
+            <!-- TARJETA POSTGRESQL -->
+            <div class="card bg-base-100 shadow-xl border border-base-200">
+                <div class="card-body">
+                    <div class="flex justify-between items-center border-b border-base-200 pb-2 mb-4">
+                        <h2 class="card-title text-2xl flex items-center gap-2">🐘  PostgreSQL</h2>
+                        <div class="badge {sysStatus?.db?.online ? 'badge-success' : 'badge-error'}">{sysStatus?.db?.online ? 'Conectado' : 'Desconectado'}</div>
                     </div>
-                </div>
-            {/if}
 
-            <div class="space-y-12">
-                
-                <!-- 🐘 SECCIÓN BASE DE DATOS -->
-                <section class="space-y-6">
-                    <div class="flex items-center justify-between border-b border-base-300 pb-3">
-                        <h3 class="text-lg font-bold flex items-center gap-3">
-                            🐘 Almacenamiento de Datos
-                        </h3>
-                        {#if sysStatus && sysStatus.db}
-                            <div class="badge badge-lg gap-2 text-xs font-bold {sysStatus.db.online ? 'badge-success text-success-content' : 'badge-error text-error-content'}">
-                                <span class="w-2 h-2 rounded-full {sysStatus.db.online ? 'bg-success-content' : 'bg-error-content'}"></span>
-                                {sysStatus.db.online ? 'En Línea' : 'Desconectado'}
+                    <!-- Estado real de BD activa -->
+                    {#if infraStatus?.system_state}
+                        <div class="alert {infraStatus.system_state.active_db === 'postgres' ? 'alert-success' : (infraStatus.system_state.degraded ? 'alert-error' : 'alert-info')} py-2 mb-3 text-sm">
+                            <span>{infraStatus.system_state.active_db === 'postgres' ? '🐘' : '📁'}</span>
+                            <span>
+                                <strong>Motor activo: {infraStatus.system_state.active_db.toUpperCase()}</strong>
+                                {#if infraStatus.system_state.db_warning}
+                                    &nbsp;— {infraStatus.system_state.db_warning}
+                                {/if}
+                            </span>
+                        </div>
+                    {/if}
+
+                    <div class="flex flex-col gap-1 mb-6">
+                        <label class="px-1" for="db_prov">
+                            <span class="text-sm font-semibold opacity-70">Modo de Operación</span>
+                        </label>
+                        <select id="db_prov" class="select select-bordered w-full" bind:value={sysConfig.db_provider}>
+                            <option value="sqlite">Local (SQLite) - Sin contenedor</option>
+                            <option value="postgres">Docker (PostgreSQL) - Recomendado</option>
+                        </select>
+                    </div>
+
+                    {#if sysConfig.db_provider === 'postgres'}
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                            <div class="flex flex-col gap-1">
+                                <label class="px-1" for="db_name">
+                                    <span class="text-sm font-semibold opacity-70">Base de Datos</span>
+                                </label>
+                                <input id="db_name" type="text" class="input input-bordered input-sm w-full" bind:value={sysConfig.postgres_db} />
                             </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="px-1" for="db_user">
+                                    <span class="text-sm font-semibold opacity-70">Usuario</span>
+                                </label>
+                                <input id="db_user" type="text" class="input input-bordered input-sm w-full" bind:value={sysConfig.postgres_user} />
+                            </div>
+                            <div class="flex flex-col gap-1 md:col-span-2">
+                                <label class="px-1" for="db_pass">
+                                    <span class="text-sm font-semibold opacity-70">Contraseña</span>
+                                </label>
+                                <input id="db_pass" type="text" class="input input-bordered input-sm w-full font-mono" bind:value={sysConfig.postgres_password} placeholder="Mínimo 8 caracteres" />
+                            </div>
+                        </div>
+
+                        <ServiceControlCard 
+                            title="PostgreSQL"
+                            serviceKey="postgres"
+                            status={infraStatus?.services?.postgres}
+                            testing={dbTesting}
+                            onTest={testDbConnection}
+                            onAction={(act, adv) => {
+                                // Limpiar acciones previas para asegurar aislamiento total
+                                infraDeployActions.postgres = 'skip';
+                                infraDeployActions.redict = 'skip';
+                                
+                                infraDeployActions.postgres = act;
+                                infraAdvanced.postgres = adv;
+
+                                if (act === 'create') {
+                                    saveSystemSettings().then(onDeployInfra);
+                                } else {
+                                    onDeployInfra();
+                                }
+                            }}
+                        />
+                    {:else}
+                        <div class="p-6 mt-4 bg-blue-500/5 border border-dashed border-blue-500/30 rounded-2xl flex flex-col items-center gap-3 text-center">
+                            <span class="text-4xl text-blue-500">📁</span>
+                            <p class="text-sm">SQLite está activo.<br>Los datos se guardan en <code>data/db/inventory.sqlite</code>.</p>
+                            <button class="btn btn-sm btn-primary mt-2" onclick={async () => { await saveSystemSettings(); }}>💾 Confirmar Modo Local</button>
+                        </div>
+                    {/if}
+                </div>
+            </div>
+
+            <!-- TARJETA REDICT & LIVEKIT -->
+            <div class="space-y-6">
+                <!-- Redict / Redis -->
+                <div class="card bg-base-100 shadow-xl border border-base-200">
+                    <div class="card-body">
+                        <div class="flex justify-between items-center border-b border-base-200 pb-2 mb-4">
+                            <h2 class="card-title text-xl flex items-center gap-2">⚡ Caché (Redict)</h2>
+                            <div class="badge {sysStatus?.cache?.online ? 'badge-success' : 'badge-error'}">{sysStatus?.cache?.online ? 'Online' : 'Offline'}</div>
+                        </div>
+
+                        <div class="flex flex-col gap-1 mb-4">
+                            <label class="px-1" for="cache_prov_select">
+                                <span class="text-sm font-semibold opacity-70">Proveedor de Caché</span>
+                            </label>
+                            <select id="cache_prov_select" class="select select-bordered select-sm w-full" bind:value={sysConfig.cache_provider}>
+                                <option value="memory">Local RAM (Volátil)</option>
+                                <option value="redict">Docker Redict (Persistente)</option>
+                            </select>
+                        </div>
+
+                        {#if sysConfig.cache_provider === 'redict'}
+                            <div class="flex flex-col gap-1">
+                                <label class="px-1" for="c_pass">
+                                    <span class="text-sm font-semibold opacity-70">Contraseña</span>
+                                </label>
+                                <input id="c_pass" type="text" class="input input-bordered input-sm w-full" bind:value={sysConfig.redict_password} />
+                            </div>
+
+                            <ServiceControlCard 
+                                title="Redict"
+                                serviceKey="redict"
+                                status={infraStatus?.services?.redict}
+                                testing={cacheTesting}
+                                onTest={testCacheConnection}
+                                onAction={(act, adv) => {
+                                    // Limpiar acciones previas para asegurar aislamiento total
+                                    infraDeployActions.postgres = 'skip';
+                                    infraDeployActions.redict = 'skip';
+
+                                    infraDeployActions.redict = act;
+                                    infraAdvanced.redict = adv;
+
+                                    if (act === 'create') {
+                                        saveSystemSettings().then(onDeployInfra);
+                                    } else {
+                                        onDeployInfra();
+                                    }
+                                }}
+                            />
+                        {:else}
+                            <button class="btn btn-sm btn-primary w-full" onclick={saveSystemSettings}>💾 Guardar Configuración</button>
                         {/if}
                     </div>
+                </div>
 
-                    <!-- Selector de Proveedor -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <button 
-                            class="relative flex items-start gap-4 p-5 rounded-2xl border-2 transition-all text-left {sysConfig.db_provider === 'sqlite' ? 'border-primary bg-primary/5' : 'border-base-300 hover:border-base-content/20'}"
-                            onclick={() => sysConfig.db_provider = 'sqlite'}
-                        >
-                            <div class="text-4xl">📁</div>
-                            <div>
-                                <div class="font-bold text-lg">SQLite (Archivo Local)</div>
-                                <p class="text-xs opacity-60">Ideal para entornos pequeños y simplicidad total.</p>
+                <!-- LiveKit -->
+                <div class="card bg-base-100 shadow-xl border border-base-200">
+                    <div class="card-body">
+                         <h2 class="card-title text-xl flex items-center gap-2 border-b border-base-200 pb-2 mb-4">🎥 Servidor LiveKit</h2>
+                          <div class="flex flex-col gap-4">
+                            <div class="flex flex-col gap-1">
+                                <label class="px-1" for="lk_url_inp"><span class="text-sm font-semibold opacity-70">Dsn / Url</span></label>
+                                <input id="lk_url_inp" type="text" class="input input-bordered input-sm w-full" bind:value={sysConfig.livekit_url} placeholder="wss://mi-livekit.com" />
                             </div>
-                            {#if sysConfig.db_provider === 'sqlite'}
-                                <div class="absolute top-3 right-3 badge badge-primary badge-sm font-bold">SELECCIONADO</div>
-                            {/if}
-                        </button>
-
-                        <button 
-                            class="relative flex items-start gap-4 p-5 rounded-2xl border-2 transition-all text-left {sysConfig.db_provider === 'postgres' ? 'border-primary bg-primary/5' : 'border-base-300 hover:border-base-content/20'}"
-                            onclick={() => sysConfig.db_provider = 'postgres'}
-                        >
-                            <div class="text-4xl">🐘</div>
-                            <div>
-                                <div class="font-bold text-lg">PostgreSQL</div>
-                                <p class="text-xs opacity-60">Alta disponibilidad, escalabilidad y robustez.</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="flex flex-col gap-1">
+                                    <label class="px-1" for="lk_key_inp"><span class="text-sm font-semibold opacity-70">API Key</span></label>
+                                    <input id="lk_key_inp" type="text" class="input input-bordered input-sm w-full" bind:value={sysConfig.livekit_api_key} placeholder="AK..." />
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <label class="px-1" for="lk_secret_inp"><span class="text-sm font-semibold opacity-70">API Secret</span></label>
+                                    <input id="lk_secret_inp" type="password" class="input input-bordered input-sm w-full" bind:value={sysConfig.livekit_api_secret} placeholder="🔒 Secret" />
+                                </div>
                             </div>
-                            {#if sysConfig.db_provider === 'postgres'}
-                                <div class="absolute top-3 right-3 badge badge-primary badge-sm font-bold">SELECCIONADO</div>
-                            {/if}
-                        </button>
-                    </div>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <!-- Lado 1: Configuración de Credenciales (Siempre visible si es Postgres) -->
-                        <div class="space-y-4">
-                            {#if sysConfig.db_provider === 'postgres'}
-                                <div class="bg-base-200/50 p-6 rounded-2xl border border-base-300 space-y-4">
-                                    <div class="flex items-center justify-between">
-                                        <p class="text-xs font-bold uppercase opacity-50 tracking-wider">Conexión PostgreSQL</p>
-                                        <div class="flex items-center gap-2">
-                                            <button class="btn btn-xs btn-outline btn-info gap-1" onclick={testDbConnection} disabled={dbTesting}>
-                                                {#if dbTesting}<span class="loading loading-spinner loading-xs"></span>{/if}
-                                                <span>🔌</span> Probar Conexión
-                                            </button>
-                                            {#if infraStatus?.services?.postgres?.omniwisp_container === 'running'}
-                                                <button class="btn btn-xs btn-outline btn-primary gap-1" onclick={fillPostgresLocal}>
-                                                    <span>🪄</span> Autocompletar Local
-                                                </button>
-                                            {/if}
-                                        </div>
-                                    </div>
-                                    <div class="form-control">
-                                        <label class="label p-1" for="db_host"><span class="label-text font-bold">Host</span></label>
-                                        <input id="db_host" type="text" class="input input-bordered" bind:value={sysConfig.postgres_host} placeholder="localhost o IP" />
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div class="form-control">
-                                            <label class="label p-1" for="db_port"><span class="label-text font-bold">Puerto</span></label>
-                                            <input id="db_port" type="number" class="input input-bordered" bind:value={sysConfig.postgres_port} />
-                                        </div>
-                                        <div class="form-control">
-                                            <label class="label p-1" for="db_name"><span class="label-text font-bold">Base de Datos</span></label>
-                                            <input id="db_name" type="text" class="input input-bordered" bind:value={sysConfig.postgres_db} />
-                                        </div>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-4 text-xs">
-                                        <div class="form-control">
-                                            <label class="label p-1" for="db_user"><span class="label-text font-bold">Usuario</span></label>
-                                            <input id="db_user" type="text" class="input input-bordered" bind:value={sysConfig.postgres_user} />
-                                        </div>
-                                        <div class="form-control">
-                                            <label class="label p-1" for="db_pass"><span class="label-text font-bold">Contraseña</span></label>
-                                            <input id="db_pass" type="password" class="input input-bordered" bind:value={sysConfig.postgres_password} />
-                                        </div>
-                                    </div>
-
-                                    {#if infraStatus?.services?.postgres?.suggested?.password}
-                                        <div class="mt-4 p-3 bg-primary/10 border border-primary/20 rounded-xl text-[11px] space-y-2">
-                                            <div class="flex items-center justify-between font-bold text-primary">
-                                                <span>📍 Credenciales Locales Detectadas</span>
-                                                <button class="btn btn-xs btn-primary btn-ghost h-auto min-h-0 py-0" onclick={fillPostgresLocal}>Aplicar Todo 🪄</button>
-                                            </div>
-                                            <div class="grid grid-cols-1 gap-1 opacity-80">
-                                                <p><strong>DB:</strong> {infraStatus.services.postgres.suggested.db}</p>
-                                                <p><strong>Usuario:</strong> {infraStatus.services.postgres.suggested.user}</p>
-                                                <div class="flex items-center gap-2">
-                                                    <strong>Password:</strong> 
-                                                    <code class="bg-base-100 px-1 rounded">{infraStatus.services.postgres.suggested.password}</code>
-                                                    <button class="hover:text-primary" onclick={() => { navigator.clipboard.writeText(infraStatus?.services?.postgres?.suggested?.password || ''); notify.success("Copiado"); }}>📋</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    {/if}
-                                </div>
-                            {:else}
-                                <div class="bg-primary/5 p-8 rounded-2xl border border-dashed border-primary/30 flex flex-col items-center text-center gap-3">
-                                    <span class="text-4xl text-primary">📦</span>
-                                    <div>
-                                        <p class="font-bold text-primary">Modo Independiente (SQLite)</p>
-                                        <p class="text-xs opacity-70">Los datos se almacenan en un solo archivo plano. Sin dependencias externas.</p>
-                                    </div>
-                                </div>
-                            {/if}
-                        </div>
-
-                        <!-- Lado 2: Gestión de Infraestructura (Solo si Docker está disponible) -->
-                        <div class="space-y-4">
-                            <p class="text-xs font-bold uppercase opacity-50 tracking-wider">Control de Infraestructura</p>
-                            {#if !infraStatus || infraStatus.status === 'error'}
-                                <div class="p-6 rounded-2xl bg-base-200 border border-base-300 text-center">
-                                    <p class="text-xs opacity-60">Docker no disponible para gestión automática.</p>
-                                </div>
-                            {:else}
-                                <div class="flex flex-col gap-3">
-                                    {#if infraStatus.services?.postgres?.omniwisp_container === 'running'}
-                                        <div class="alert alert-success py-3 flex gap-2">
-                                            <span class="text-xl">✓</span>
-                                            <div>
-                                                <div class="text-sm font-bold">OmniWISP_postgres activo</div>
-                                                <div class="text-[10px] opacity-70">Puerto: {infraStatus.services.postgres.port}</div>
-                                            </div>
-                                        </div>
-                                        <div class="flex gap-2">
-                                            <button class="btn btn-warning btn-sm flex-1" onclick={() => { infraDeployActions.postgres = 'stop'; onDeployInfra(); }}>Detener</button>
-                                            <button class="btn btn-error btn-sm flex-1" onclick={() => { if(confirm('¿Eliminar y perder datos no persistidos?')) { infraDeployActions.postgres = 'delete'; onDeployInfra(); } }}>Eliminar</button>
-                                        </div>
-                                    {:else}
-                                        <div class="bg-base-200 p-4 rounded-xl border border-base-300 space-y-3">
-                                            <p class="text-xs italic opacity-60">Contenedor local no detectado o detenido.</p>
-                                            {#if infraStatus.services?.postgres?.conflict}
-                                                <button class="btn btn-info btn-sm btn-block" onclick={() => { infraDeployActions.postgres = 'reuse'; onDeployInfra(); }}>Reutilizar {infraStatus.services.postgres.conflict.name}</button>
-                                            {/if}
-                                            <button class="btn btn-primary btn-sm btn-block" onclick={() => { infraDeployActions.postgres = 'create'; onDeployInfra(); }}>
-                                                {infraStatus.services?.postgres?.omniwisp_container === 'missing' ? 'Desplegar PostgreSQL (Docker)' : 'Iniciar PostgreSQL'}
-                                            </button>
-                                        </div>
-                                    {/if}
-
-                                    {#if infraDeployResult?.postgres_password}
-                                        <div class="bg-primary/20 p-4 rounded-xl border border-primary/30 mt-2">
-                                            <p class="text-[10px] font-bold uppercase opacity-70">🔑 Contraseña Generada</p>
-                                            <div class="flex items-center gap-2 mt-1">
-                                                <code class="bg-base-100 px-2 py-1 rounded text-xs flex-1 select-all font-mono">{infraDeployResult.postgres_password}</code>
-                                                <button class="btn btn-xs btn-ghost" onclick={() => { navigator.clipboard.writeText(infraDeployResult?.postgres_password || ''); notify.success("Copiado"); }}>📋</button>
-                                            </div>
-                                            <p class="text-[9px] mt-2 opacity-60">Guárdala o usa el botón de autocompletar.</p>
-                                        </div>
-                                    {/if}
-                                </div>
-                            {/if}
+                            <div class="pt-2">
+                                <button class="btn btn-sm btn-primary w-full md:w-auto px-8" onclick={saveSystemSettings}>💾 Aplicar LiveKit</button>
+                            </div>
                         </div>
                     </div>
-                </section>
-
-                <div class="divider"></div>
-
-                <!-- ⚡ SECCIÓN CACHÉ -->
-                <section class="space-y-6">
-                    <div class="flex items-center justify-between border-b border-base-300 pb-3">
-                        <h3 class="text-lg font-bold flex items-center gap-3">
-                            ⚡ Cache y Mensajería
-                        </h3>
-                        {#if sysStatus && sysStatus.cache}
-                            <div class="badge badge-lg gap-2 text-xs font-bold {sysStatus.cache.online ? 'badge-success text-success-content' : 'badge-error text-error-content'}">
-                                <span class="w-2 h-2 rounded-full {sysStatus.cache.online ? 'bg-success-content' : 'bg-error-content'}"></span>
-                                {sysStatus.cache.online ? 'En Línea' : 'Desconectado'}
-                            </div>
-                        {/if}
-                    </div>
-
-                    <!-- Selector de Proveedor -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <button 
-                            class="relative flex items-start gap-4 p-5 rounded-2xl border-2 transition-all text-left {sysConfig.cache_provider === 'memory' ? 'border-secondary bg-secondary/5' : 'border-base-300 hover:border-base-content/20'}"
-                            onclick={() => sysConfig.cache_provider = 'memory'}
-                        >
-                            <div class="text-4xl">🧠</div>
-                            <div>
-                                <div class="font-bold text-lg">RAM (Local)</div>
-                                <p class="text-xs opacity-60">Memoria del proceso principal. Muy rápido pero volátil.</p>
-                            </div>
-                            {#if sysConfig.cache_provider === 'memory'}
-                                <div class="absolute top-3 right-3 badge badge-secondary badge-sm font-bold">SELECCIONADO</div>
-                            {/if}
-                        </button>
-
-                        <button 
-                            class="relative flex items-start gap-4 p-5 rounded-2xl border-2 transition-all text-left {sysConfig.cache_provider === 'redict' ? 'border-secondary bg-secondary/5' : 'border-base-300 hover:border-base-content/20'}"
-                            onclick={() => sysConfig.cache_provider = 'redict'}
-                        >
-                            <div class="text-4xl">⚡</div>
-                            <div>
-                                <div class="font-bold text-lg">Redict / Redis</div>
-                                <p class="text-xs opacity-60">Persistencia y comunicación rápida entre servicios.</p>
-                            </div>
-                            {#if sysConfig.cache_provider === 'redict'}
-                                <div class="absolute top-3 right-3 badge badge-secondary badge-sm font-bold">SELECCIONADO</div>
-                            {/if}
-                        </button>
-                    </div>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <!-- Lado 1: Configuración -->
-                        <div class="space-y-4">
-                            {#if sysConfig.cache_provider === 'redict'}
-                                <div class="bg-base-200/50 p-6 rounded-2xl border border-base-300 space-y-4">
-                                    <div class="flex items-center justify-between">
-                                        <p class="text-xs font-bold uppercase opacity-50 tracking-wider">Conexión Redict</p>
-                                        <div class="flex items-center gap-2">
-                                            <button class="btn btn-xs btn-outline btn-info gap-1" onclick={testCacheConnection} disabled={cacheTesting}>
-                                                {#if cacheTesting}<span class="loading loading-spinner loading-xs"></span>{/if}
-                                                <span>🔌</span> Probar Conexión
-                                            </button>
-                                            {#if infraStatus?.services?.redict?.omniwisp_container === 'running'}
-                                                <button class="btn btn-xs btn-outline btn-secondary gap-1" onclick={fillRedictLocal}>
-                                                    <span>🪄</span> Autocompletar Local
-                                                </button>
-                                            {/if}
-                                        </div>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div class="form-control">
-                                            <label class="label p-1" for="cache_host"><span class="label-text font-bold">Host</span></label>
-                                            <input id="cache_host" type="text" class="input input-bordered" bind:value={sysConfig.redict_host} />
-                                        </div>
-                                        <div class="form-control">
-                                            <label class="label p-1" for="cache_port"><span class="label-text font-bold">Puerto</span></label>
-                                            <input id="cache_port" type="number" class="input input-bordered" bind:value={sysConfig.redict_port} />
-                                        </div>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div class="form-control">
-                                            <label class="label p-1" for="cache_db"><span class="label-text font-bold">DB index</span></label>
-                                            <input id="cache_db" type="number" class="input input-bordered" bind:value={sysConfig.redict_db} />
-                                        </div>
-                                        <div class="form-control">
-                                            <label class="label p-1" for="cache_pass"><span class="label-text font-bold">Password</span></label>
-                                            <input id="cache_pass" type="password" class="input input-bordered" bind:value={sysConfig.redict_password} />
-                                        </div>
-                                    </div>
-                                </div>
-                            {:else}
-                                <div class="bg-secondary/5 p-8 rounded-2xl border border-dashed border-secondary/30 flex flex-col items-center text-center gap-3">
-                                    <span class="text-4xl">🧠</span>
-                                    <div>
-                                        <p class="font-bold text-secondary">Caché en Memoria Local</p>
-                                        <p class="text-xs opacity-70">Usa RAM del proceso. No apto para múltiples nodos o alta carga.</p>
-                                    </div>
-                                </div>
-                            {/if}
-                        </div>
-
-                        <!-- Lado 2: Gestión de Infraestructura -->
-                        <div class="space-y-4">
-                            <p class="text-xs font-bold uppercase opacity-50 tracking-wider">Control de Infraestructura</p>
-                            {#if !infraStatus || infraStatus.status === 'error'}
-                                <div class="p-6 rounded-2xl bg-base-200 border border-base-300 text-center">
-                                    <p class="text-xs opacity-60">Gestión automática no disponible.</p>
-                                </div>
-                            {:else}
-                                <div class="flex flex-col gap-3">
-                                    {#if infraStatus.services?.redict?.omniwisp_container === 'running'}
-                                        <div class="alert alert-info py-3 flex gap-2">
-                                            <span class="text-xl">⚡</span>
-                                            <div>
-                                                <div class="text-sm font-bold">OmniWISP_redict activo</div>
-                                                <div class="text-[10px] opacity-70">Redis-compatible, Puerto {infraStatus.services.redict.port}</div>
-                                            </div>
-                                        </div>
-                                        <div class="flex gap-2">
-                                            <button class="btn btn-warning btn-sm flex-1" onclick={() => { infraDeployActions.redict = 'stop'; onDeployInfra(); }}>Detener</button>
-                                            <button class="btn btn-error btn-sm flex-1" onclick={() => { if(confirm('¿Eliminar?')) { infraDeployActions.redict = 'delete'; onDeployInfra(); } }}>Eliminar</button>
-                                        </div>
-                                    {:else}
-                                        <div class="bg-base-200 p-4 rounded-xl border border-base-300 space-y-3">
-                                            <p class="text-xs italic opacity-60">Servicio local no iniciado.</p>
-                                            {#if infraStatus.services?.redict?.conflict}
-                                                <button class="btn btn-info btn-sm btn-block" onclick={() => { infraDeployActions.redict = 'reuse'; onDeployInfra(); }}>Reutilizar {infraStatus.services.redict.conflict.name}</button>
-                                            {/if}
-                                            <button class="btn btn-primary btn-sm btn-block" onclick={() => { infraDeployActions.redict = 'create'; onDeployInfra(); }}>Desplegar Redict Server</button>
-                                        </div>
-                                    {/if}
-                                </div>
-                            {/if}
-                        </div>
-                    </div>
-                </section>
+                </div>
             </div>
 
-            <!-- ESPACIO FINAL -->
-            <div class="h-20"></div>
         </div>
     </div>
 {/if}
 
-<!-- ══════════════════ TAB 7: VIDEOLLAMADAS ══════════════════ -->
+<!-- TAB 7 se integró en la anterior, pero mantenemos una referencia simple o mensaje si es necesario -->
 {#if activeTab === "videollamadas"}
     <div class="card bg-base-100 shadow-xl border border-base-200">
-        <div class="card-body gap-8">
-            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div>
-                    <h2 class="text-3xl font-black flex items-center gap-3">
-                        <span class="text-4xl">🎥</span> Videollamadas
-                    </h2>
-                    <p class="text-sm opacity-60">Configuración del servidor de señalización LiveKit.</p>
-                </div>
-                <button 
-                    class="btn btn-primary px-10 shadow-lg shadow-primary/20 w-full md:w-auto" 
-                    onclick={saveSystemSettings}
-                    disabled={sysSaving}
-                >
-                    {#if sysSaving}<span class="loading loading-spinner loading-sm"></span>{/if}
-                    💾 Guardar Cambios
-                </button>
-            </div>
-
-            <div class="alert alert-info shadow-sm py-3">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <div class="text-xs">
-                    <p class="font-bold">Nota de Seguridad</p>
-                    <p>Las credenciales se almacenan cifradas en el servidor. Después de guardar, los cambios se aplican inmediatamente para nuevas llamadas.</p>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div class="space-y-6">
-                    <div class="form-control">
-                        <label class="label" for="lk_url">
-                            <span class="label-text font-bold">URL del Servidor LiveKit</span>
-                        </label>
-                        <input 
-                            id="lk_url"
-                            type="text" 
-                            class="input input-bordered focus:input-primary" 
-                            placeholder="ws://mi-servidor:7880"
-                            bind:value={sysConfig.livekit_url}
-                        />
-                        <label class="label">
-                            <span class="label-text-alt opacity-50 text-[10px]">Ejemplo: wss://livekit.mi-dominio.com</span>
-                        </label>
-                    </div>
-
-                    <div class="form-control">
-                        <label class="label" for="lk_key">
-                            <span class="label-text font-bold">API Key (Clave Pública)</span>
-                        </label>
-                        <input 
-                            id="lk_key"
-                            type="text" 
-                            class="input input-bordered focus:input-primary font-mono text-sm" 
-                            placeholder="devkey"
-                            bind:value={sysConfig.livekit_api_key}
-                        />
-                    </div>
-
-                    <div class="form-control">
-                        <label class="label" for="lk_secret">
-                            <span class="label-text font-bold">API Secret (Clave Privada)</span>
-                        </label>
-                        <input 
-                            id="lk_secret"
-                            type="password" 
-                            class="input input-bordered focus:input-primary" 
-                            placeholder="••••••••••••••••"
-                            bind:value={sysConfig.livekit_api_secret}
-                        />
-                        <label class="label">
-                            <span class="label-text-alt opacity-50 text-[10px]">Nunca compartas esta clave. Se guardará de forma cifrada.</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="bg-base-200/50 p-6 rounded-2xl border border-dashed border-base-300 flex flex-col items-center justify-center text-center gap-4">
-                    <div class="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center text-2xl">
-                        💡
-                    </div>
-                    <div class="max-w-xs">
-                        <h4 class="font-bold">¿Cómo funciona?</h4>
-                        <p class="text-[11px] opacity-70 leading-relaxed mt-2">
-                            LiveKit es el motor que permite las videollamadas entre técnicos y clientes. 
-                            Una vez configurado, OmniWISP generará automáticamente tokens seguros para cada sesión de soporte.
-                        </p>
-                    </div>
-                    <div class="flex flex-wrap justify-center gap-2 mt-2">
-                        <a href="https://docs.livekit.io" target="_blank" class="btn btn-xs btn-ghost text-primary uppercase tracking-tighter">Documentación ↗</a>
-                        <a href="/difusion/videollamadas" class="btn btn-xs btn-ghost text-primary uppercase tracking-tighter">Ir al Panel 🎥</a>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="h-20"></div>
+        <div class="card-body items-center text-center py-20">
+            <span class="text-6xl mb-6">🚀</span>
+            <h2 class="text-2xl font-bold">Panel Unificado</h2>
+            <p class="max-w-md opacity-60">La configuración de videollamadas ahora forma parte del centro de infraestructura para una gestión más intuitiva.</p>
+            <button class="btn btn-primary mt-6" onclick={() => activeTab = "infraestructura"}>
+                Ir a Infraestructura
+            </button>
         </div>
     </div>
 {/if}

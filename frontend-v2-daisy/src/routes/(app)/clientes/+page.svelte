@@ -1,10 +1,12 @@
 <script lang="ts">
     import type { PageData } from "./$types";
-    import { getClients, createClient } from "$lib/api";
+    import { getClients, createClient, getZonas } from "$lib/api";
     import DataTable from "$lib/components/DataTable.svelte";
     import type { Client, ClientCreate } from "$lib/types/client";
+    import type { Zona } from "$lib/types/zona";
     import { goto } from "$app/navigation";
     import { notify } from "$lib/stores/notifications";
+    import { onMount } from "svelte";
 
     let { data }: { data: PageData } = $props();
 
@@ -21,6 +23,21 @@
     let fBillingDay = $state<number | null>(null);
     let fNotes = $state("");
     let fTelegramContact = $state("");
+    let fZonaId = $state<number | null>(null);
+    
+    let zonas = $state<Zona[]>([]);
+
+    async function loadZonas() {
+        try {
+            zonas = await getZonas();
+        } catch (e: any) {
+            console.error("Error cargando zonas:", e);
+        }
+    }
+
+    onMount(() => {
+        loadZonas();
+    });
 
     function resetForm() {
         fName = "";
@@ -31,6 +48,7 @@
         fBillingDay = null;
         fNotes = "";
         fTelegramContact = "";
+        fZonaId = null;
     }
 
     function openCreate() {
@@ -55,7 +73,8 @@
                 billing_day: fBillingDay || undefined,
                 notes: fNotes.trim() || undefined,
                 telegram_contact: fTelegramContact.trim() || undefined,
-                service_status: "active"
+                service_status: "active",
+                zona_id: fZonaId || undefined
             };
 
             await createClient(payload);
@@ -230,7 +249,6 @@
         <div
             style="background:var(--color-base-100);border-radius:1rem;width:100%;max-width:520px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.4);overflow:hidden;margin:auto;"
             role="document"
-            tabindex="0"
             onclick={(e) => e.stopPropagation()}
         >
             <!-- Header del modal -->
@@ -346,6 +364,19 @@
                         bind:value={fTelegramContact}
                         placeholder="ej: 123456789"
                     />
+                </label>
+
+                <!-- Zona -->
+                <label class="form-control w-full">
+                    <div class="label">
+                        <span class="label-text font-semibold">Zona (Opcional)</span>
+                    </div>
+                    <select class="select select-bordered select-sm w-full" bind:value={fZonaId}>
+                        <option value={null}>-- Sin asignar --</option>
+                        {#each zonas as z}
+                            <option value={z.id}>{z.nombre}</option>
+                        {/each}
+                    </select>
                 </label>
 
                 <!-- Notas -->

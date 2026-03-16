@@ -3,7 +3,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from ...core.users import current_active_user as get_current_active_user
+from app.core.security import current_active_user as get_current_active_user
 from ...models.user import User
 
 # --- CORRECCIÓN DE IMPORTS ---

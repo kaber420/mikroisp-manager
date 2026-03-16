@@ -4,7 +4,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from datetime import datetime
 
-from app.core.users import current_active_user
+from app.core.security import current_active_user
 from app.db.engine import get_session
 from app.models.user import User
 from app.models.ticket import Ticket

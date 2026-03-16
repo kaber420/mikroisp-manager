@@ -9,7 +9,7 @@ from enum import Enum
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from ...core.users import require_admin, require_technician
+from app.core.security import require_admin, require_technician
 from ...models.user import User
 from ...services.business.pki_service import PKIService
 from ...services.network.router_service import get_router_service_for_provisioning

@@ -37,11 +37,16 @@ logger = logging.getLogger(__name__)
 
 
 class MonitorService:
-    async def get_active_devices(self, session: AsyncSession):
+    async def get_active_devices(self):
         """Recupera todos los dispositivos habilitados para monitorear."""
-        # Execute sequentially to avoid "concurrent operations" error on single AsyncSession
-        aps = await get_enabled_aps_for_monitor(session)
-        routers = await get_enabled_routers_from_db(session)
+        # Cada consulta usa su propia sesión corta para evitar conflictos en entornos async complejos
+        from app.db.engine import async_session_maker
+        
+        async with async_session_maker() as session:
+            aps = await get_enabled_aps_for_monitor(session)
+        
+        async with async_session_maker() as session:
+            routers = await get_enabled_routers_from_db(session)
         
         return {
             "aps": aps,

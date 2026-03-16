@@ -36,13 +36,16 @@ def probe_database_connection() -> bool:
         # Activar MODO DEGRADADO
         settings.DEGRADED_MODE = True
         
-        # Reconfigurar URLs a SQLite de emergencia
         import os
+        from pathlib import Path
         DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
-        DATABASE_FILE = os.path.join(DATA_DIR, "db", "inventory.sqlite")
+        db_path = Path(DATA_DIR) / "db" / "inventory.sqlite"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
         
-        settings.DATABASE_URL = f"sqlite+aiosqlite:///{DATABASE_FILE}"
-        settings.DATABASE_URL_SYNC = f"sqlite:///{DATABASE_FILE}"
+        path_str = str(db_path.absolute())
         
-        logger.warning(f"⚠️ FALLBACK: Application starting in DEGRADED MODE using SQLite: {DATABASE_FILE}")
+        settings.DATABASE_URL = f"sqlite+aiosqlite:///{path_str}"
+        settings.DATABASE_URL_SYNC = f"sqlite:///{path_str}"
+        
+        logger.warning(f"⚠️ FALLBACK: Application starting in DEGRADED MODE using SQLite: {path_str}")
         return False

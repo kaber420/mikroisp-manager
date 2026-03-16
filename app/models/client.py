@@ -6,7 +6,8 @@ Client model for ISP customer management.
 import uuid
 from datetime import datetime
 
-from sqlmodel import Field, SQLModel
+from typing import Optional
+from sqlmodel import Field, SQLModel, Relationship
 
 
 class Client(SQLModel, table=True):
@@ -42,6 +43,9 @@ class Client(SQLModel, table=True):
     service_status: str = Field(default="active", nullable=False)
     billing_day: int | None = Field(default=None)
     created_at: datetime | None = Field(default_factory=datetime.utcnow)
+    zona_id: int | None = Field(default=None, foreign_key="zonas.id")
+
+    zona: Optional["Zona"] = Relationship(back_populates="clients")
 
     # Relationships (commented to avoid circular imports, can be enabled later)
     # services: List["ClientService"] = Relationship(back_populates="client")

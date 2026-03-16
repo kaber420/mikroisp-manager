@@ -7,7 +7,7 @@ from sqlmodel import Session
 
 logger = logging.getLogger(__name__)
 
-from ...core.users import require_billing
+from app.core.security import require_billing
 from ...db.engine_sync import get_sync_session
 from ...middleware.degraded_mode import verify_not_degraded
 from ...models.user import User

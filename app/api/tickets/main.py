@@ -14,7 +14,7 @@ from ...db.engine import get_session
 from ...models.user import User
 from ...models.client import Client
 from ...models.ticket import Ticket, TicketMessage
-from ...core.users import require_technician, current_active_user
+from app.core.security import require_technician, current_active_user
 
 from .models import (
     TicketCreate,

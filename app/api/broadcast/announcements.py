@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...db.engine import get_session
 from ...models.portal_announcement import PortalAnnouncement
-from ...core.users import require_admin
+from app.core.security import require_admin
 from ...schemas.portal_announcement import (
     PortalAnnouncementCreate,
     PortalAnnouncementRead,

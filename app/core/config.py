@@ -26,6 +26,10 @@ class Settings(BaseSettings):
 
 
     def __init__(self, **kwargs):
+        # Asegurar carga de .env antes de cualquier lógica que dependa de él
+        from dotenv import load_dotenv
+        load_dotenv(".env")
+        
         super().__init__(**kwargs)
         
         # 0. Leer configuración de servicios gestionada por la UI (data/services.json)
@@ -35,8 +39,15 @@ class Settings(BaseSettings):
         if srv.get("db"):
             db_conf = srv["db"]
             if db_conf.get("provider") == "postgres":
-                url_sync = f"postgresql+psycopg://{db_conf['user']}:{db_conf['password']}@{db_conf['host']}:{db_conf['port']}/{db_conf['database']}"
-                url_async = f"postgresql+asyncpg://{db_conf['user']}:{db_conf['password']}@{db_conf['host']}:{db_conf['port']}/{db_conf['database']}"
+                host = db_conf.get('host', 'localhost')
+                port = db_conf.get('port', 5432)
+                user = db_conf.get('user', 'postgres')
+                db = db_conf.get('database', 'umanager_db')
+                password = db_conf.get("password", "")
+                
+                auth = f"{user}:{password}@" if password else f"{user}@"
+                url_sync = f"postgresql+psycopg://{auth}{host}:{port}/{db}"
+                url_async = f"postgresql+asyncpg://{auth}{host}:{port}/{db}"
                 self.DATABASE_URL = url_async
                 self.DATABASE_URL_SYNC = url_sync
 
@@ -44,8 +55,10 @@ class Settings(BaseSettings):
             cache_conf = srv["cache"]
             self.CACHE_BACKEND = cache_conf.get("provider", "memory")
             if self.CACHE_BACKEND == "redict":
+                cache_host = cache_conf.get('host', 'localhost')
+                cache_port = cache_conf.get('port', 6379)
                 auth = f":{cache_conf['password']}@" if cache_conf.get("password") else ""
-                self.REDICT_URL = f"redis://{auth}{cache_conf['host']}:{cache_conf['port']}/{cache_conf.get('db', 0)}"
+                self.REDICT_URL = f"redis://{auth}{cache_host}:{cache_port}/{cache_conf.get('db', 0)}"
 
         if srv.get("livekit"):
             lk_conf = srv["livekit"]
@@ -108,6 +121,43 @@ class Settings(BaseSettings):
     LIVEKIT_API_KEY: Optional[str] = None
     LIVEKIT_API_SECRET: Optional[str] = None
     LIVEKIT_URL: str = "ws://localhost:7880"
+
+    def get_allowed_origins(self) -> list[str]:
+        """
+        Calcula dinámicamente la lista de orígenes permitidos para CORS y WebSockets.
+        Incluye orígenes de configuración, puertos de desarrollo y detección de IP local.
+        """
+        import socket
+        
+        # 1. Orígenes base desde .env
+        origins = self.ALLOWED_ORIGINS.split(",")
+        
+        # 2. Orígenes de desarrollo fijos
+        dev_ports = [5173, 5174, 5175, 5176]
+        for port in dev_ports:
+            origins.append(f"http://localhost:{port}")
+            origins.append(f"http://127.0.0.1:{port}")
+            
+        if self.FLUTTER_DEV:
+            origins.append("http://localhost:33000")
+            
+        # 3. Detección dinámica de IP local (LAN)
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                local_ip = s.getsockname()[0]
+                for port in dev_ports:
+                    origins.append(f"http://{local_ip}:{port}")
+                # También permitir el puerto de la aplicación en la IP local
+                origins.append(f"http://{local_ip}:{self.UVICORN_PORT}")
+        except Exception:
+            pass
+            
+        # 4. Orígenes seguros adicionales
+        origins.extend(["https://localhost", "https://127.0.0.1"])
+        
+        # Limpiar duplicados y normalizar
+        return list(set(o.rstrip("/") for o in origins if o))
 
     model_config = SettingsConfigDict(
         env_file=".env", 

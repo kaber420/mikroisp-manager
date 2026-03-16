@@ -6,7 +6,7 @@ import subprocess
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
 
-from ...core.users import current_active_user, require_admin, require_technician
+from app.core.security import current_active_user, require_admin, require_technician
 from ...models.user import User
 
 router = APIRouter()

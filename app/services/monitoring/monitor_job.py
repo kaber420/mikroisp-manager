@@ -64,36 +64,39 @@ async def run_monitor_cycle_async(max_workers: int):
     monitor_service = MonitorService()
     logger.info(f"--- Iniciando ciclo de escaneo (concurrency: {max_workers}) ---")
 
-    async with async_session_maker() as session:
-        devices = await monitor_service.get_active_devices(session)
-        aps = devices["aps"]
-        routers = devices["routers"]
+    devices = await monitor_service.get_active_devices()
+    aps = devices["aps"]
+    routers = devices["routers"]
 
-        all_tasks = []
-        # Create a semaphore to limit concurrency equivalent to max_workers
-        sem = asyncio.Semaphore(max_workers)
+    all_tasks = []
+    # Create a semaphore to limit concurrency equivalent to max_workers
+    sem = asyncio.Semaphore(max_workers)
 
-        async def sem_check_ap(ap_obj):
-            async with sem:
+    async def sem_check_ap(ap_obj):
+        async with sem:
+            # Cada tarea debe tener su propia sesión para evitar "another operation is in progress"
+            async with async_session_maker() as session:
                 await monitor_service.check_ap(session, ap_obj)
 
-        async def sem_check_router(router_obj):
-            async with sem:
+    async def sem_check_router(router_obj):
+        async with sem:
+            # Cada tarea debe tener su propia sesión para evitar "another operation is in progress"
+            async with async_session_maker() as session:
                 await monitor_service.check_router(session, router_obj)
 
-        if not aps and not routers:
-            logger.info("No hay dispositivos para monitorear.")
-        else:
-            if aps:
-                for ap in aps:
-                    all_tasks.append(sem_check_ap(ap))
-            
-            if routers:
-                for router in routers:
-                    all_tasks.append(sem_check_router(router))
+    if not aps and not routers:
+        logger.info("No hay dispositivos para monitorear.")
+    else:
+        if aps:
+            for ap in aps:
+                all_tasks.append(sem_check_ap(ap))
+        
+        if routers:
+            for router in routers:
+                all_tasks.append(sem_check_router(router))
 
-            if all_tasks:
-                await asyncio.gather(*all_tasks)
+        if all_tasks:
+            await asyncio.gather(*all_tasks)
 
             # Notificar a la API
             logger.info(

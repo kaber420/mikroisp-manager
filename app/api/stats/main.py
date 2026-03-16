@@ -7,7 +7,7 @@ from sqlalchemy import func, text
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from ...core.users import require_technician, current_active_user
+from app.core.security import require_technician, current_active_user
 from ...db.engine import get_session
 from ...models.ap import AP
 from ...models.cpe import CPE

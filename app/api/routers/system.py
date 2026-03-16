@@ -9,8 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...core.users import require_technician as get_require_technician
-from ...core.users import current_active_user as get_current_active_user
+from app.core.security import require_technician as get_require_technician
+from app.core.security import current_active_user as get_current_active_user
 from ...repositories import router_repository
 from ...db.engine import get_session
 from ...models.user import User

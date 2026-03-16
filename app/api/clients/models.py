@@ -21,6 +21,7 @@ class ClientRead(BaseModel):
     service_status: str
     billing_day: int | None = None
     created_at: datetime
+    zona_id: int | None = None
     cpe_count: int | None = 0
     model_config = ConfigDict(from_attributes=True)
 
@@ -45,6 +46,7 @@ class ClientCreate(BaseModel):
     billing_day: int | None = None
     notes: str | None = None
     telegram_contact: str | None = None
+    zona_id: int | None = None
 
 
 class ClientUpdate(BaseModel):
@@ -57,6 +59,7 @@ class ClientUpdate(BaseModel):
     billing_day: int | None = None
     notes: str | None = None
     telegram_contact: str | None = None
+    zona_id: int | None = None
 
 
 class AssignedCPE(BaseModel):

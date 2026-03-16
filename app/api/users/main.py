@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session
 
-from ...core.users import require_admin
+from app.core.security import require_admin
 from ...db.engine_sync import get_sync_session
 from ...models.user import User
 from ...schemas.user import UserCreate, UserRead, UserUpdate

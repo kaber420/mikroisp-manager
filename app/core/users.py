@@ -169,15 +169,36 @@ class RoleChecker:
     def __init__(self, allowed_roles: list[str]):
         self.allowed_roles = allowed_roles
 
-    def __call__(self, user: User = Depends(current_active_user)) -> User:
+    async def __call__(self, user: User = Depends(fastapi_users.current_user(optional=True))) -> User:
         from fastapi import HTTPException, status
+        from sqlalchemy import select
+        from app.db.engine import engine
+        from sqlalchemy.ext.asyncio import AsyncSession
+        
+        # 1. Si hay un usuario autenticado, verificamos su rol normalmente
+        if user:
+            if user.role not in self.allowed_roles:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Access denied. Required role: {', '.join(self.allowed_roles)}. Your role: {user.role}",
+                )
+            return user
+            
+        # 2. Si NO hay usuario, comprobamos si es porque el sistema está vacío (Bootstrap Mode)
+        async with AsyncSession(engine) as session:
+            result = await session.execute(select(User).limit(1))
+            has_any_user = result.first() is not None
+            
+        if not has_any_user:
+            # En modo bootstrap, devolvemos un objeto User falso con rol admin
+            # para permitir que las dependencias de los routers pasen.
+            return User(username="bootstrap_admin", role="admin", is_superuser=True)
 
-        if user.role not in self.allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied. Required role: {', '.join(self.allowed_roles)}. Your role: {user.role}",
-            )
-        return user
+        # 3. Si hay usuarios pero el cliente no envió credenciales
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
 
 
 # Pre-configured role checkers for common use cases

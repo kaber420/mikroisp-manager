@@ -380,13 +380,14 @@
 
                 <!-- Búsqueda de cliente -->
                 <div style="position:relative;">
-                    <label class="label pb-1"
+                    <label class="label pb-1" for="client-search"
                         ><span
                             class="label-text text-xs font-bold uppercase opacity-60"
                             >Cliente *</span
                         ></label
                     >
                     <input
+                        id="client-search"
                         type="text"
                         class="input input-bordered w-full input-sm"
                         placeholder="Buscar cliente por nombre..."
@@ -417,13 +418,14 @@
                     style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;"
                 >
                     <div>
-                        <label class="label pb-1"
+                        <label class="label pb-1" for="ticket-type"
                             ><span
                                 class="label-text text-xs font-bold uppercase opacity-60"
                                 >Tipo *</span
                             ></label
                         >
                         <select
+                            id="ticket-type"
                             class="select select-bordered select-sm w-full"
                             bind:value={form.ticket_type}
                         >
@@ -432,13 +434,14 @@
                         </select>
                     </div>
                     <div>
-                        <label class="label pb-1"
+                        <label class="label pb-1" for="ticket-priority"
                             ><span
                                 class="label-text text-xs font-bold uppercase opacity-60"
                                 >Prioridad</span
                             ></label
                         >
                         <select
+                            id="ticket-priority"
                             class="select select-bordered select-sm w-full"
                             bind:value={form.priority}
                         >
@@ -460,24 +463,26 @@
                             Datos de Instalación
                         </p>
                         <div>
-                            <label class="label pb-1"
+                            <label class="label pb-1" for="scheduled-at"
                                 ><span class="label-text text-xs"
                                     >Fecha programada</span
                                 ></label
                             >
                             <input
+                                id="scheduled-at"
                                 type="datetime-local"
                                 class="input input-bordered input-sm w-full"
                                 bind:value={form.scheduled_at}
                             />
                         </div>
                         <div>
-                            <label class="label pb-1"
+                            <label class="label pb-1" for="coordinates"
                                 ><span class="label-text text-xs"
                                     >Coordenadas (Lat, Lon)</span
                                 ></label
                             >
                             <input
+                                id="coordinates"
                                 type="text"
                                 class="input input-bordered input-sm w-full"
                                 placeholder="-20.1234, -98.5678"
@@ -485,12 +490,13 @@
                             />
                         </div>
                         <div>
-                            <label class="label pb-1"
+                            <label class="label pb-1" for="address-notes"
                                 ><span class="label-text text-xs"
                                     >Notas de acceso</span
                                 ></label
                             >
                             <input
+                                id="address-notes"
                                 type="text"
                                 class="input input-bordered input-sm w-full"
                                 placeholder="Ej: Portón azul, llamar al llegar"
@@ -502,13 +508,14 @@
 
                 <!-- Asunto -->
                 <div>
-                    <label class="label pb-1"
+                    <label class="label pb-1" for="ticket-subject"
                         ><span
                             class="label-text text-xs font-bold uppercase opacity-60"
                             >Asunto *</span
                         ></label
                     >
                     <input
+                        id="ticket-subject"
                         type="text"
                         class="input input-bordered input-sm w-full"
                         placeholder="Resumen breve..."
@@ -518,13 +525,14 @@
 
                 <!-- Descripción -->
                 <div>
-                    <label class="label pb-1"
+                    <label class="label pb-1" for="ticket-description"
                         ><span
                             class="label-text text-xs font-bold uppercase opacity-60"
                             >Descripción *</span
                         ></label
                     >
                     <textarea
+                        id="ticket-description"
                         class="textarea textarea-bordered w-full textarea-sm"
                         rows="3"
                         placeholder="Descripción detallada..."

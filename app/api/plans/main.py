@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from ...core.users import require_admin, require_technician
+from app.core.security import require_admin, require_technician
 from ...db.engine_sync import get_sync_session
 from ...middleware.degraded_mode import verify_not_degraded
 from ...models.user import User

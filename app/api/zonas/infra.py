@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
-from ...core.users import require_technician
+from app.core.security import require_technician
 from ...repositories import switch_repository
 from ...db.engine_sync import get_sync_session
 from ...models.router import Router

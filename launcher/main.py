@@ -119,30 +119,31 @@ def run_server(args):
         service_manager.stop_all()
         sys.exit(0)
 
+# Ensure app path is in sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from launcher.constants import ENV_FILE
+from launcher.network import get_lan_ip
+
 def main():
     multiprocessing.freeze_support()
     
     # Ensure environment exists
     _ensure_env()
 
-    # Load .env early for fallback values
+    # --- CRITICAL: Load .env FIRST before any app imports ---
     load_dotenv(ENV_FILE)
-    
-    # --- FIX: Forza a Pydantic Settings a recargar con el nuevo env ---
-    # Al requerir "get_settings" diferido aseguramos que tome el .env que recien creamos
-    try:
-        from app.core.config import settings
-        # Si la ENCRYPTION_KEY quedo huerfana de memory, la inyectamos
-        if not settings.ENCRYPTION_KEY:
-            settings.ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
-        if not settings.SECRET_KEY:
-            settings.SECRET_KEY = os.getenv("SECRET_KEY")
-    except ImportError:
-        pass
     
     # Import components that depend on settings AFTER loading env
     from launcher.user_setup import check_and_create_first_user
     from launcher.config import config_manager
+    from app.core.config import settings
+    
+    # Force sync settings keys from environment
+    if not settings.ENCRYPTION_KEY:
+        settings.ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
+    if not settings.SECRET_KEY:
+        settings.SECRET_KEY = os.getenv("SECRET_KEY")
     from launcher.commands.diagnose import DiagnoseCommand
     from launcher.commands.management import ManagementCommand
     from launcher.commands.setup import SetupCommand

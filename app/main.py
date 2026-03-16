@@ -164,43 +164,9 @@ APP_ENV = settings.APP_ENV
 
 
 # --- SEGURIDAD: CONFIGURACIÓN CORS ESTRICTA ---
-allowed_origins_env = settings.ALLOWED_ORIGINS
-origins = allowed_origins_env.split(",")
+origins = settings.get_allowed_origins()
 
-# Flutter Mobile App Development Support
-# Set FLUTTER_DEV=true in .env to allow Flutter web dev server (port 33000)
-if settings.FLUTTER_DEV:
-    origins.append("http://localhost:33000")
-    print("🦋 Flutter development mode enabled (port 33000)")
-
-# Allow SvelteKit Dev Server ports
-origins.extend([
-    "http://localhost:5173", "http://127.0.0.1:5173", 
-    "http://localhost:5174", "http://127.0.0.1:5174",
-    "http://localhost:5175", "http://127.0.0.1:5175",
-    "http://localhost:5176", "http://127.0.0.1:5176",
-])
-# Also allow local network IPs for SvelteKit based on the host IP
-import socket
-try:
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect(("8.8.8.8", 80))
-    local_ip = s.getsockname()[0]
-    s.close()
-    for port in [5173, 5174, 5175, 5176]:
-        origins.append(f"http://{local_ip}:{port}")
-except Exception:
-    pass
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["*"],
-)
-
-# --- SEGURIDAD: TRUSTED HOSTS ---
+# Auto-detectar hosts permitidos
 allowed_hosts_env = settings.ALLOWED_HOSTS.split(",")
 allowed_hosts = set(allowed_hosts_env)
 allowed_hosts.update(["localhost", "127.0.0.1"])

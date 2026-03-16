@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.audit import log_action
 from ...core.constants import DeviceStatus
-from ...core.users import require_admin, require_technician
+from app.core.security import require_admin, require_technician
 from ...middleware.degraded_mode import verify_not_degraded
 
 from ...db.engine import get_session

@@ -21,6 +21,8 @@ class SetupMiddleware(BaseHTTPMiddleware):
     EXEMPT_PATHS = {
         "/setup",       # Página SPA del setup (GET)
         "/api/setup",   # Endpoint real del backend (POST)
+        "/api/infra",   # Permitir configuración de infraestructura sin usuarios
+        "/api/settings/system", # Permitir configuración de servicios sin usuarios
         "/uploads",
         "/docs",
         "/openapi.json",
@@ -33,6 +35,9 @@ class SetupMiddleware(BaseHTTPMiddleware):
 
     def _is_exempt(self, path: str) -> bool:
         if path in self.EXEMPT_PATHS:
+            return True
+        # Soporte para subrutas
+        if any(path.startswith(p + "/") for p in self.EXEMPT_PATHS):
             return True
         if path.startswith("/_app/") or path.startswith("/assets/"):
             return True

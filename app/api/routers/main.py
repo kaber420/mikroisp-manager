@@ -5,6 +5,7 @@ import logging
 
 from fastapi import (
     APIRouter,
+    Cookie,
     Depends,
     HTTPException,
     Request,
@@ -15,7 +16,8 @@ from fastapi import (
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...core.users import require_admin, require_technician
+from typing import Optional
+from app.core.security import require_admin, require_technician, verify_ws_origin_and_token
 from ...middleware.degraded_mode import verify_not_degraded
 
 
@@ -46,7 +48,11 @@ router = APIRouter(prefix="/routers")
 
 
 @router.websocket("/{host}/ws/resources")
-async def router_resources_stream(websocket: WebSocket, host: str):
+async def router_resources_stream(
+    websocket: WebSocket, 
+    host: str,
+    umonitorpro_access_token_v2: Optional[str] = Cookie(None)
+):
     """
     Canal de streaming para datos en vivo del router (CPU, RAM, etc).
 
@@ -55,6 +61,13 @@ async def router_resources_stream(websocket: WebSocket, host: str):
     - Se suscribe al MonitorScheduler.
     - Lee del CacheManager local.
     """
+    if not await verify_ws_origin_and_token(
+        websocket, 
+        umonitorpro_access_token_v2, 
+        allowed_roles=["admin", "technician"]
+    ):
+        return
+
     await websocket.accept()
 
     # 1. Obtener credenciales (BD)

@@ -114,7 +114,7 @@
             </div>
         {/if}
 
-        <form onsubmit={handleSubmit} class="space-y-4">
+        <form class="space-y-4" onsubmit={(e) => { e.preventDefault(); handleSubmit(e); }} action="javascript:void(0)">
             <div>
                 <label
                     for="username"

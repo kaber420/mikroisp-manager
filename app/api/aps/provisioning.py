@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.audit import log_action
-from ...core.users import require_admin, require_technician
+from app.core.security import require_admin, require_technician
 from ...db.engine import get_session
 from ...models.ap import AP as APModel
 from ...models.user import User

@@ -5,7 +5,7 @@ from datetime import datetime
 import uuid
 from typing import List
 
-from app.core.users import require_admin
+from app.core.security import require_admin
 from app.db.engine import get_session
 from app.models.user import User
 from app.models.waiting_room import WaitingRoomConfig

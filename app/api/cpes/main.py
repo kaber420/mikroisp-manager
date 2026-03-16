@@ -4,7 +4,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session
 
-from ...core.users import require_technician
+from app.core.security import require_technician
 from ...db.engine_sync import get_sync_session
 from ...models.user import User
 from ...services.network.cpe_service import CPEService

@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 from sqlmodel import Field, SQLModel
+from sqlalchemy import Column, BigInteger
 
 
 class RouterStats(SQLModel, table=True):
@@ -8,19 +9,19 @@ class RouterStats(SQLModel, table=True):
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     router_host: str
     cpu_load: Optional[float] = None
-    free_memory: Optional[int] = None
-    total_memory: Optional[int] = None
-    free_hdd: Optional[int] = None
-    total_hdd: Optional[int] = None
+    free_memory: Optional[int] = Field(default=None, sa_column=Column(BigInteger))
+    total_memory: Optional[int] = Field(default=None, sa_column=Column(BigInteger))
+    free_hdd: Optional[int] = Field(default=None, sa_column=Column(BigInteger))
+    total_hdd: Optional[int] = Field(default=None, sa_column=Column(BigInteger))
     voltage: Optional[float] = None
     temperature: Optional[int] = None
     uptime: Optional[str] = None
     board_name: Optional[str] = None
     version: Optional[str] = None
-    wan_rx_bps: Optional[int] = None
-    wan_tx_bps: Optional[int] = None
-    wan_rx_bytes: Optional[int] = None
-    wan_tx_bytes: Optional[int] = None
+    wan_rx_bps: Optional[int] = Field(default=None, sa_column=Column(BigInteger))
+    wan_tx_bps: Optional[int] = Field(default=None, sa_column=Column(BigInteger))
+    wan_rx_bytes: Optional[int] = Field(default=None, sa_column=Column(BigInteger))
+    wan_tx_bytes: Optional[int] = Field(default=None, sa_column=Column(BigInteger))
 
 
 class APStats(SQLModel, table=True):
@@ -30,7 +31,7 @@ class APStats(SQLModel, table=True):
     vendor: Optional[str] = "ubiquiti"
     uptime: Optional[int] = None
     cpuload: Optional[float] = None
-    freeram: Optional[int] = None
+    freeram: Optional[int] = Field(default=None, sa_column=Column(BigInteger))
     client_count: Optional[int] = None
     noise_floor: Optional[int] = None
     total_throughput_tx: Optional[float] = None
@@ -41,8 +42,8 @@ class APStats(SQLModel, table=True):
     frequency: Optional[int] = None
     chanbw: Optional[int] = None
     essid: Optional[str] = None
-    total_tx_bytes: Optional[int] = None
-    total_rx_bytes: Optional[int] = None
+    total_tx_bytes: Optional[int] = Field(default=None, sa_column=Column(BigInteger))
+    total_rx_bytes: Optional[int] = Field(default=None, sa_column=Column(BigInteger))
     gps_lat: Optional[float] = None
     gps_lon: Optional[float] = None
     gps_sats: Optional[int] = None

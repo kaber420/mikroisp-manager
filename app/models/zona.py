@@ -20,6 +20,7 @@ class Zona(SQLModel, table=True):
     )
     documentos: list["ZonaDocumento"] = Relationship(back_populates="zona")
     notes: list["ZonaNote"] = Relationship(back_populates="zona")
+    clients: list["Client"] = Relationship(back_populates="zona")
 
 
 # Modelos Satélite
