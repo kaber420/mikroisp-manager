@@ -39,15 +39,20 @@ logger = logging.getLogger(__name__)
 class MonitorService:
     async def get_active_devices(self):
         """Recupera todos los dispositivos habilitados para monitorear."""
-        # Cada consulta usa su propia sesión corta para evitar conflictos en entornos async complejos
         from app.db.engine import async_session_maker
-        
-        async with async_session_maker() as session:
+        return await self.get_active_devices_with_session(async_session_maker)
+
+    async def get_active_devices_with_session(self, session_maker):
+        """
+        Recupera todos los dispositivos habilitados usando el session_maker provisto.
+        Permite usar un engine aislado (ej. desde el monitor job).
+        """
+        async with session_maker() as session:
             aps = await get_enabled_aps_for_monitor(session)
-        
-        async with async_session_maker() as session:
+
+        async with session_maker() as session:
             routers = await get_enabled_routers_from_db(session)
-        
+
         return {
             "aps": aps,
             "routers": routers,

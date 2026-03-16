@@ -385,13 +385,6 @@
 		{@render children()}
 	</main>
 
-	<footer
-		class="footer footer-center py-3 bg-base-100 text-base-content/40 text-xs border-t border-base-200"
-	>
-		<p>
-			OmniWISP v2 &mdash; DaisyUI Edition &copy; {new Date().getFullYear()}
-		</p>
-	</footer>
 
 	<SessionMonitor timeoutMinutes={15} warningMinutes={1} />
 	<NotificationContainer />
