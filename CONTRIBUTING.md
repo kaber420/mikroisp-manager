@@ -13,7 +13,8 @@
 
 ## 📜 Estándares de Código
 
-### Python (Backend)
+### Python (App)
+
 - Usar **Python 3.10+**.
 - **Estilo**: Seguir PEP 8.
 - **Tipado**: Usar *Type Hints* en todas las funciones.
@@ -31,6 +32,7 @@
 - Documentar funciones complejas usando docstrings estilo **Google**.
 
 ## 📦 Gestión de Dependencias
+
 - Usar `pyproject.toml` para la configuración general.
 - Para añadir una librería:
   1. Instalarla en el venv.
