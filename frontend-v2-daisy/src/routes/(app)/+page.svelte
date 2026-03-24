@@ -325,25 +325,17 @@
                 <div
                     style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;"
                 >
-                    <!-- Mobile Setup Button -->
+                    <!-- Unified Setup Button -->
                     <button 
                         onclick={() => showMobileModal = true}
-                        class="btn btn-sm bg-base-100 hover:bg-base-200 border-base-content/10 rounded-xl gap-2 shadow-sm normal-case"
+                        class="btn btn-sm bg-base-100 hover:bg-base-200 border-base-content/10 rounded-xl gap-2 shadow-sm normal-case flex items-center"
+                        title="Configurar App Móvil y Certificado CA"
                     >
-                        <span class="text-base">📱</span>
-                        <span class="hidden sm:inline">Móvil</span>
-                    </button>
-
-                    <!-- CA Download Button -->
-                    <button 
-                        onclick={() => window.open(securityApi.getCaCertificateUrl(), "_blank")}
-                        class="btn btn-sm bg-base-100 hover:bg-base-200 border-base-content/10 rounded-xl gap-2 shadow-sm normal-case"
-                        title="Descargar Certificado CA"
-                    >
-                        <span class="text-base">🛡️</span>
-                        <span class="hidden sm:inline">Certificado CA</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-70"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v.01"/></svg>
+                        <span class="font-bold tracking-tight">Certificado</span>
                     </button>
                 </div>
+
             </div>
         </div>
     </div>

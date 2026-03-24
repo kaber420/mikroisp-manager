@@ -49,12 +49,15 @@
 <div class="modal modal-open">
     <div class="modal-box max-w-2xl bg-gradient-to-br from-base-100 to-base-200">
         <div class="flex items-center gap-4 mb-6">
-            <div class="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center text-2xl">📱</div>
+            <div class="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center text-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v.01"/></svg>
+            </div>
             <div>
-                <h3 class="font-black text-xl">Configura la App Móvil</h3>
-                <p class="text-xs opacity-60">Escanea el código para vincular tu cuenta admin de forma segura.</p>
+                <h3 class="font-black text-xl">Certificado & App</h3>
+                <p class="text-xs opacity-60 font-medium">Configura el acceso seguro para tu móvil y navegadores.</p>
             </div>
         </div>
+
         
         <div class="tabs tabs-boxed bg-base-200/50 p-1 mb-4 flex">
             <button class="tab flex-1 {activeTab === 'qr' ? 'tab-active bg-primary text-primary-content font-bold shadow-lg' : ''}" onclick={() => activeTab = 'qr'}>
