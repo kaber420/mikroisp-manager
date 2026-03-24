@@ -58,11 +58,13 @@ export interface ZonaNoteCreate {
 }
 
 export interface ZonaDocumento {
-    id: string;
-    filename: string;
+    id: number;
+    zona_id: number;
+    filename?: string;
     nombre_original: string;
-    tipo: 'pdf' | 'imagen' | 'otro';
-    url: string;
+    nombre_guardado: string;          // actual saved filename on disk
+    tipo: 'pdf' | 'image' | 'document'; // backend uses English values
+    url?: string;                     // optional if provided by backend
     creado_en: string;
     descripcion?: string;
 }

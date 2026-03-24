@@ -248,7 +248,7 @@ export async function deleteZona(id: number | string) {
 }
 
 export async function getZonaDetails(id: number | string) {
-    return request(`/zonas/${id}`);
+    return request(`/zonas/${id}/details`);
 }
 
 export async function updateZona(id: number | string, payload: any) {

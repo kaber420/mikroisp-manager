@@ -37,6 +37,10 @@ export default defineConfig(({ mode }) => {
                     target: backendUrl.replace('http', 'ws'),
                     ws: true,
                     changeOrigin: true,
+                },
+                '/uploads': {
+                    target: backendUrl,
+                    changeOrigin: true,
                 }
             }
         },
