@@ -1,0 +1,130 @@
+<script lang="ts">
+    import { securityApi } from "$lib/api";
+    import { setUser } from "$lib/stores/auth";
+    import { goto } from "$app/navigation";
+
+    let username = $state("");
+    let password = $state("");
+    let errorMsg = $state("");
+    let loading = $state(false);
+
+    async function handleSubmit(e: Event) {
+        e.preventDefault();
+        loading = true;
+        errorMsg = "";
+
+        try {
+            // Usar securityApi centralizado (ahora con Axios)
+            await securityApi.login({ username, password });
+
+            // Cargar datos del usuario para el store
+            const userData = await securityApi.getMe();
+            
+            // Actualizar store y persistencia
+            setUser(userData);
+            localStorage.setItem('user', JSON.stringify(userData));
+
+            // Redirección según rol
+            if (userData.role === "client") {
+                goto("/portal");
+            } else {
+                goto("/");
+            }
+        } catch (err: any) {
+            console.error("Login error:", err);
+            if (err.response?.status === 401 || err.response?.status === 400 || err.response?.status === 422) {
+                errorMsg = "Usuario o contraseña incorrectos";
+            } else if (err.response?.status === 429) {
+                errorMsg = "⚠️ Demasiados intentos. Por favor, espera un momento.";
+            } else {
+                errorMsg = "Error de conexión. Intenta de nuevo.";
+            }
+        } finally {
+            loading = false;
+        }
+    }
+</script>
+
+<svelte:head>
+    <title>Login — OmniWISP</title>
+</svelte:head>
+
+<div class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
+        <div class="flex flex-col items-center mb-8">
+            <svg
+                class="h-12 w-12 text-indigo-600 mb-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+            >
+                <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"
+                />
+            </svg>
+            <h1 class="text-2xl font-bold text-gray-800">
+                OmniWISP
+            </h1>
+            <p class="text-gray-500 text-sm mt-1">
+                Ingresa tus credenciales para continuar
+            </p>
+        </div>
+
+        {#if errorMsg}
+            <div
+                class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-5 text-center"
+            >
+                {errorMsg}
+            </div>
+        {/if}
+
+        <form onsubmit={handleSubmit} class="space-y-5">
+            <div>
+                <label
+                    for="username"
+                    class="block text-xs font-semibold uppercase text-gray-500 mb-1"
+                >
+                    Usuario
+                </label>
+                <input
+                    id="username"
+                    type="text"
+                    bind:value={username}
+                    required
+                    placeholder="admin"
+                    class="w-full border border-gray-300 rounded-xl py-2.5 px-4 text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all"
+                />
+            </div>
+            <div>
+                <label
+                    for="password"
+                    class="block text-xs font-semibold uppercase text-gray-500 mb-1"
+                >
+                    Contraseña
+                </label>
+                <input
+                    id="password"
+                    type="password"
+                    bind:value={password}
+                    required
+                    placeholder="••••••••"
+                    class="w-full border border-gray-300 rounded-xl py-2.5 px-4 text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all"
+                />
+            </div>
+            <button
+                type="submit"
+                disabled={loading}
+                class="w-full h-11 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold rounded-xl transition-colors shadow-md"
+            >
+                {loading ? "Ingresando..." : "Iniciar Sesión"}
+            </button>
+        </form>
+
+        <p class="text-center text-gray-400 text-xs mt-6">
+            © 2026 OmniWISP
+        </p>
+    </div>
+</div>

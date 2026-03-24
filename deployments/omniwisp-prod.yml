@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  redict:
+    image: registry.redict.io/redict:7.3.0
+    container_name: omniwisp_redict
+    restart: always
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redict_data:/data
+    command: redict-server --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "redict-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: omniwisp_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-umanager}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
+      POSTGRES_DB: ${POSTGRES_DB:-umanager_db}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-umanager} -d ${POSTGRES_DB:-umanager_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  redict_data:
+    driver: local
+  postgres_data:
+    driver: local

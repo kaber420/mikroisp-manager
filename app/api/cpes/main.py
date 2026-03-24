@@ -1,0 +1,99 @@
+# app/api/cpes/main.py
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlmodel import Session
+
+from app.core.security import require_technician
+from ...db.engine_sync import get_sync_session
+from ...models.user import User
+from ...services.network.cpe_service import CPEService
+from .models import AssignedCPE, CPEGlobalInfo, CPEUpdate, CPEPagination
+
+router = APIRouter()
+
+
+# --- Dependencia del Inyector de Servicio ---
+def get_cpe_service(session: Session = Depends(get_sync_session)) -> CPEService:
+    return CPEService(session)
+
+
+# --- Endpoints de la API ---
+@router.get("/cpes/unassigned", response_model=list[AssignedCPE])
+def api_get_unassigned_cpes(
+    service: CPEService = Depends(get_cpe_service),
+    current_user: User = Depends(require_technician),
+):
+    return service.get_unassigned_cpes()
+
+
+@router.post("/cpes/{mac}/assign/{client_id}", response_model=AssignedCPE)
+def api_assign_cpe_to_client(
+    mac: str,
+    client_id: uuid.UUID,
+    service: CPEService = Depends(get_cpe_service),
+    current_user: User = Depends(require_technician),
+):
+    return service.assign_cpe_to_client(mac, client_id)
+
+
+@router.post("/cpes/{mac}/unassign", response_model=AssignedCPE)
+def api_unassign_cpe(
+    mac: str,
+    service: CPEService = Depends(get_cpe_service),
+    current_user: User = Depends(require_technician),
+):
+    return service.unassign_cpe(mac)
+
+
+@router.post("/cpes/{mac}/disable", status_code=status.HTTP_200_OK)
+def api_disable_cpe(
+    mac: str,
+    service: CPEService = Depends(get_cpe_service),
+    current_user: User = Depends(require_technician),
+):
+    """Deshabilita un CPE (soft-delete)."""
+    service.disable_cpe(mac)
+    return {"message": "CPE disabled successfully"}
+
+
+@router.delete("/cpes/{mac}", status_code=status.HTTP_204_NO_CONTENT)
+def api_delete_cpe(
+    mac: str,
+    service: CPEService = Depends(get_cpe_service),
+    current_user: User = Depends(require_technician),
+):
+    """Elimina un CPE de la base de datos de forma permanente.
+    
+    El CPE debe estar deshabilitado antes de poder eliminarlo.
+    """
+    service.hard_delete_cpe(mac)
+    return None
+
+
+@router.put("/cpes/{mac}", response_model=AssignedCPE)
+def api_update_cpe(
+    mac: str,
+    update_data: CPEUpdate,
+    service: CPEService = Depends(get_cpe_service),
+    current_user: User = Depends(require_technician),
+):
+    """Update CPE properties (IP address, hostname, model)."""
+    return service.update_cpe(mac, update_data.model_dump(exclude_none=True))
+
+
+@router.get("/cpes/all", response_model=CPEPagination)
+def api_get_all_cpes_globally(
+    page: int = 1,
+    page_size: int = 10,
+    search: str | None = None,
+    status_filter: str | None = Query(
+        None, alias="status", description="Filter by status: 'active', 'offline', 'disabled'"
+    ),
+    service: CPEService = Depends(get_cpe_service),
+    current_user: User = Depends(require_technician),
+):
+    """Get all CPEs globally with status (active/fallen/disabled) and pagination."""
+    return service.get_all_cpes_globally(
+        page=page, page_size=page_size, search=search, status_filter=status_filter
+    )

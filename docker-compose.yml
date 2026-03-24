@@ -1,0 +1,19 @@
+services:
+  redict:
+    image: registry.redict.io/redict:7.3.0
+    container_name: umanager_redict
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redict_data:/data
+    command: redict-server --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "redict-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  redict_data:
+    driver: local

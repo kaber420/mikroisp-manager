@@ -1,0 +1,118 @@
+# app/api/clients/models.py
+import uuid
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict
+
+
+# --- Modelos Pydantic (Cliente) ---
+class ClientRead(BaseModel):
+    """DTO de lectura para clientes. Usado como response_model en endpoints."""
+
+    id: uuid.UUID
+    name: str
+    address: str | None = None
+    phone_number: str | None = None
+    whatsapp_number: str | None = None
+    email: str | None = None
+    telegram_contact: str | None = None
+    coordinates: str | None = None
+    notes: str | None = None
+    service_status: str
+    billing_day: int | None = None
+    created_at: datetime
+    zona_id: int | None = None
+    cpe_count: int | None = 0
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ClientPagination(BaseModel):
+    """DTO para respuestas paginadas de clientes."""
+
+    items: list[ClientRead]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class ClientCreate(BaseModel):
+    name: str
+    address: str | None = None
+    phone_number: str | None = None
+    whatsapp_number: str | None = None
+    email: str | None = None
+    service_status: str = "active"
+    billing_day: int | None = None
+    notes: str | None = None
+    telegram_contact: str | None = None
+    zona_id: int | None = None
+
+
+class ClientUpdate(BaseModel):
+    name: str | None = None
+    address: str | None = None
+    phone_number: str | None = None
+    whatsapp_number: str | None = None
+    email: str | None = None
+    service_status: str | None = None
+    billing_day: int | None = None
+    notes: str | None = None
+    telegram_contact: str | None = None
+    zona_id: int | None = None
+
+
+class AssignedCPE(BaseModel):
+    mac: str
+    hostname: str | None = None
+    ip_address: str | None = None
+    service_id: int | None = None  # CPE can be assigned to a specific service
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Modelos Pydantic (Servicios) ---
+class ClientServiceBase(BaseModel):
+    router_host: str
+    service_type: str
+    pppoe_username: str | None = None
+    router_secret_id: str | None = None
+    profile_name: str | None = None
+    plan_id: int | None = None
+    ip_address: str | None = None
+    suspension_method: str
+    address: str | None = None
+    status: str = "active"
+    billing_day: int | None = None
+    notes: str | None = None
+
+
+class ClientServiceCreate(ClientServiceBase):
+    pass
+
+
+class ClientService(ClientServiceBase):
+    id: int
+    client_id: uuid.UUID
+    created_at: datetime
+    plan_name: str | None = None
+    plan_price: float | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Modelos Pydantic (Pagos) ---
+class PaymentBase(BaseModel):
+    monto: float
+    mes_correspondiente: str
+    metodo_pago: str | None = None
+    notas: str | None = None
+
+
+class PaymentCreate(PaymentBase):
+    pass
+
+
+class Payment(PaymentBase):
+    id: int
+    client_id: uuid.UUID
+    fecha_pago: datetime
+    model_config = ConfigDict(from_attributes=True)
