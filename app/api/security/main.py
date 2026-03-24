@@ -2,6 +2,7 @@
 import json
 import os
 import subprocess
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
@@ -11,15 +12,17 @@ from ...models.user import User
 
 router = APIRouter()
 
-# Path to the CA certificate (copied by install_proxy.sh)
-CA_CERT_PATH = "/etc/ssl/umonitor/rootCA.pem"
-STATIC_CA_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "..", "static", "ca.crt")
+# Dynamically resolve project root based on this file's location
+# This file is app/api/security/main.py, so parent.parent.parent.parent is root
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+CA_CERT_PATH = PROJECT_ROOT / "data" / "pki" / "rootCA.pem"
+STATIC_CA_PATH = PROJECT_ROOT / "static" / "ca.crt"
 
 
 def _get_ca_fingerprint() -> str | None:
     """Calculate SHA256 fingerprint of the CA certificate."""
-    cert_path = STATIC_CA_PATH if os.path.exists(STATIC_CA_PATH) else CA_CERT_PATH
-    if not os.path.exists(cert_path):
+    cert_path = STATIC_CA_PATH if STATIC_CA_PATH.exists() else CA_CERT_PATH
+    if not cert_path.exists():
         return None
 
     try:
