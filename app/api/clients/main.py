@@ -18,7 +18,7 @@ from ...services.business.billing_service import BillingService
 from ...services.business.client_service import ClientService as ClientManagerService
 from ...services.business.payment_service import PaymentService
 from ...services.business.user_service import UserService
-from ...schemas.user import UserCreate, UserRead
+from ...schemas.user import UserCreate, UserRead, UserUpdate
 from .models import (
     AssignedCPE,
     ClientCreate,
@@ -133,11 +133,30 @@ def api_generate_client_access(
 ):
     """
     Genera credenciales de acceso vinculadas a un cliente específico.
+    Si ya existe un usuario para este cliente, actualiza sus datos en lugar de fallar.
     """
     # Verificar que el cliente existe
     client = client_service.get_client_by_id(client_id)
     if not client:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+    # Buscar si ya existe un usuario para este cliente
+    existing_user = user_service.get_user_by_client_id(client_id)
+
+    if existing_user:
+        # Actualizar usuario existente
+        update_data = UserUpdate(
+            username=user_data.username,
+            email=user_data.email,
+            password=user_data.password,
+            telegram_chat_id=user_data.telegram_chat_id,
+            is_active=True
+        )
+        try:
+            return user_service.update_user(existing_user.username, update_data)
+        except Exception as e:
+            logger.error(f"Error actualizando acceso para cliente {client_id}: {e}")
+            raise HTTPException(status_code=400, detail=str(e))
 
     # Asegurar que el client_id en user_data coincide con el de la URL
     user_data.client_id = client_id

@@ -1,4 +1,5 @@
 # app/services/user_service.py
+import uuid as uuid_pkg
 
 from fastapi_users.password import PasswordHelper
 from sqlalchemy.exc import IntegrityError
@@ -100,3 +101,6 @@ class UserService:
 
     def get_user_by_username(self, username: str) -> User | None:
         return self.session.exec(select(User).where(User.username == username)).first()
+
+    def get_user_by_client_id(self, client_id: str | uuid_pkg.UUID) -> User | None:
+        return self.session.exec(select(User).where(User.client_id == client_id)).first()

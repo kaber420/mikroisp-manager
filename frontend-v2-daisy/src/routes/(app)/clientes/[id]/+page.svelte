@@ -15,7 +15,6 @@
         getQueueStats,
         generateClientAccess,
         getUsers,
-        api,
     } from '$lib/api';
 import type { User, UserCreate } from '$lib/types/user';
 
@@ -270,10 +269,18 @@ import type { User, UserCreate } from '$lib/types/user';
             // Buscamos un usuario que tenga este client_id
             const allUsers = await getUsers();
             clientUser = allUsers.find(u => u.client_id === client.id) || null;
-            if (!clientUser) {
-                // Sugerir username basado en email o nombre
+            
+            // Pre-llenar el formulario con datos existentes o sugerencias
+            if (clientUser) {
+                accessForm.username = clientUser.username;
+                accessForm.telegram_chat_id = clientUser.telegram_chat_id || '';
+                // La contraseña se deja vacía por seguridad al editar
+                accessForm.password = '';
+            } else {
+                // Sugerir username basado en email o nombre si es nuevo
                 accessForm.username = client.email?.split('@')[0] || client.name.toLowerCase().replace(/\s+/g, '.');
                 accessForm.telegram_chat_id = client.telegram_contact || '';
+                accessForm.password = '';
             }
         } catch (e: any) {
             accessError = 'No se pudo cargar la información de acceso.';
@@ -290,7 +297,7 @@ import type { User, UserCreate } from '$lib/types/user';
             const payload = {
                 username: accessForm.username,
                 email: client.email || `${accessForm.username}@mikroisp.local`,
-                password: accessForm.password,
+                password: accessForm.password || undefined,
                 role: 'client',
                 client_id: client.id,
                 telegram_chat_id: accessForm.telegram_chat_id || null,
@@ -298,8 +305,10 @@ import type { User, UserCreate } from '$lib/types/user';
             await generateClientAccess(client.id, payload);
             showAccessModal = false;
             await loadAccessInfo();
+            // Limpiar password para seguridad
+            accessForm.password = '';
         } catch (e: any) {
-            accessError = e?.response?.data?.detail ?? e?.message ?? 'Error al crear el acceso.';
+            accessError = e?.response?.data?.detail ?? e?.message ?? 'Error al procesar el acceso';
         } finally {
             creatingAccess = false;
         }
@@ -778,6 +787,9 @@ import type { User, UserCreate } from '$lib/types/user';
                             </div>
                         </div>
                     </div>
+                    <button class="btn btn-outline btn-sm mt-4" onclick={() => showAccessModal = true}>
+                        Actualizar Credenciales / Telegram
+                    </button>
                 {:else}
                     <div style="background:color-mix(in oklch,var(--color-primary,oklch(60% 0.15 240)) 10%,transparent);padding:2rem;border-radius:50%;margin-bottom:0.5rem;">
                         <svg class="w-16 h-16 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -804,7 +816,7 @@ import type { User, UserCreate } from '$lib/types/user';
     <div style="position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,0.6);">
         <div class="glass-card-flat" style="border-radius:1rem;width:100%;max-width:460px;overflow:hidden;">
             <div style="padding:1.25rem 1.5rem;font-weight:700;font-size:1.1rem;border-bottom:1px solid color-mix(in oklch,currentColor 10%,transparent);display:flex;justify-content:space-between;align-items:center;">
-                <span>Crear Acceso al Portal</span>
+                <span>{clientUser ? 'Gestionar' : 'Crear'} Acceso al Portal</span>
                 <button class="btn btn-ghost btn-xs btn-circle" onclick={() => { showAccessModal = false; }}>✕</button>
             </div>
             <form onsubmit={handleCreateAccess} style="padding:1.5rem;display:flex;flex-direction:column;gap:1rem;">
@@ -813,12 +825,17 @@ import type { User, UserCreate } from '$lib/types/user';
                     <input type="text" bind:value={accessForm.username} required class="input input-bordered" placeholder="Ej: pablo.perez" />
                 </div>
                 <div class="form-control">
-                    <label class="label"><span class="label-text">Contraseña</span></label>
-                    <input type="password" bind:value={accessForm.password} required class="input input-bordered" placeholder="••••••••" />
+                    <label class="label">
+                        <span class="label-text">Contraseña</span>
+                        {#if clientUser}
+                            <span class="label-text-alt text-warning">Dejar vacío para no cambiar</span>
+                        {/if}
+                    </label>
+                    <input type="password" bind:value={accessForm.password} required={!clientUser} class="input input-bordered" placeholder="••••••••" />
                 </div>
                 <div class="form-control">
                     <label class="label">
-                        <span class="label-text">Telegram Chat ID (Opcional)</span>
+                        <span class="label-text">Telegram Chat ID</span>
                         <span class="label-text-alt text-info">Para comandos /password</span>
                     </label>
                     <input type="text" bind:value={accessForm.telegram_chat_id} class="input input-bordered" placeholder="Ej: 123456789" />
@@ -832,7 +849,7 @@ import type { User, UserCreate } from '$lib/types/user';
                     <button type="button" class="btn btn-ghost" onclick={() => { showAccessModal = false; }}>Cancelar</button>
                     <button type="submit" class="btn btn-primary" disabled={creatingAccess}>
                         {#if creatingAccess}<span class="loading loading-spinner loading-xs"></span>{/if}
-                        Habilitar Acceso
+                        {clientUser ? 'Guardar Cambios' : 'Habilitar Acceso'}
                     </button>
                 </div>
             </form>
