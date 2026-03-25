@@ -31,7 +31,7 @@
                     {/if}
 
                     <div class="p-8 flex-1">
-                        <h3 class="text-2xl font-bold mb-1">{plan.perfil}</h3>
+                        <h3 class="text-2xl font-bold mb-1">{plan.name}</h3>
                         <div class="flex items-baseline gap-1 mb-6">
                             <span class="text-4xl font-black">${plan.price}</span>
                             <span class="text-sm opacity-50 font-medium">/mes</span>
@@ -42,7 +42,7 @@
                                 <span class="text-2xl">⚡</span>
                                 <div>
                                     <p class="text-[10px] uppercase font-bold opacity-50 leading-none">Usuario PPPoE / IP</p>
-                                    <p class="font-bold text-xs">{plan.pppoe_user || 'Sin asignar'} &bull; {plan.ipv4_address || 'Sin IP'}</p>
+                                    <p class="font-bold text-xs">{plan.pppoe_username || 'Sin asignar'} &bull; {plan.ip_address || 'Sin IP'}</p>
                                 </div>
                             </div>
 
@@ -58,13 +58,13 @@
                     </div>
 
                     <div class="p-6 bg-base-200/30 border-t border-base-200 mt-auto">
-                        {#if plan.estado_servicio === 'Activo'}
+                        {#if plan.status === 'Activo'}
                             <button class="btn btn-outline btn-block rounded-xl border-base-300 no-animation cursor-default opacity-50 mb-2">
                                 Servicio Activo
                             </button>
                         {:else}
                             <button class="btn btn-warning btn-block rounded-xl shadow-lg shadow-warning/20 mb-2">
-                                {plan.estado_servicio}
+                                {plan.status}
                             </button>
                         {/if}
                         <button class="btn btn-primary btn-block rounded-xl shadow-lg shadow-primary/20 group-hover:shadow-primary/40 transition-shadow">

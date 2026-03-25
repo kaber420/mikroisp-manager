@@ -13,7 +13,16 @@
     const criticalAlerts = $derived(announcements.filter((a: any) => a.type === 'critical'));
     const newsFeeds = $derived(announcements.filter((a: any) => a.type !== 'critical'));
     
-    const serviceStatus = $derived(client?.estado || "Desconocido");
+    const serviceStatus = $derived(client?.service_status || "Desconocido");
+    
+    function fmtDate(date: string | null) {
+        if (!date) return "--";
+        // Asegurar que se interprete como UTC si falta el indicador de zona
+        const hasTZ = date.includes('Z') || date.includes('+');
+        const d = new Date(hasTZ ? date : date + 'Z');
+        if (isNaN(d.getTime())) return date;
+        return d.toLocaleDateString("es-ES", { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
 </script>
 
 <svelte:head>
@@ -211,7 +220,7 @@
                                 <div class="text-sm opacity-80 mt-1 space-y-2 [&>p]:mb-2 [&>ul]:list-disc [&>ul]:ml-4">
                                     {@html marked(news.content)}
                                 </div>
-                                <span class="text-[10px] opacity-40 mt-2 font-mono">{new Date(news.start_date).toLocaleDateString()}</span>
+                                <span class="text-[10px] opacity-40 mt-2 font-mono">{fmtDate(news.start_date)}</span>
                             </div>
                         </div>
                     {/each}

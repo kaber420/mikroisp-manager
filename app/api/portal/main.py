@@ -43,10 +43,26 @@ async def get_portal_me(
     session: AsyncSession = Depends(get_session)
 ):
     """Obtiene el perfil del cliente asociado al usuario actual."""
+    # Bypass for admin preview
+    try:
+        is_admin = (getattr(current_user, "role", "") == "admin") or getattr(current_user, "is_superuser", False)
+    except Exception:
+        is_admin = False
+
     if not current_user.client_id:
+        if is_admin:
+            return PortalClientRead(
+                id=current_user.id,
+                name=f"Admin: {current_user.username}",
+                address="Acceso Administrativo",
+                phone_number="N/A",
+                email=current_user.email,
+                service_status="active",
+                billing_day=1
+            )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is not associated with a client profile."
+            detail="Portal Access Denied: Requires Client Account"
         )
     
     client = await session.get(Client, current_user.client_id)
@@ -260,8 +276,15 @@ async def list_active_announcements(
     session: AsyncSession = Depends(get_session)
 ):
     """Obtiene los anuncios del CMS que están activos y dentro del rango de fecha válido para el portal."""
+    try:
+        is_admin = (getattr(current_user, "role", "") == "admin") or getattr(current_user, "is_superuser", False)
+    except Exception:
+        is_admin = False
+    
     if not current_user.client_id:
-        raise HTTPException(status_code=403, detail="Not a client user")
+        if not is_admin:
+            raise HTTPException(status_code=403, detail="Portal Access Denied: Requires Client Account")
+        return []
         
     now = datetime.utcnow()
     

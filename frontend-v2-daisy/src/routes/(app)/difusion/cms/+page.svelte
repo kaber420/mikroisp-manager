@@ -11,7 +11,7 @@
     let showModal = false;
 
     // Form data
-    let fdType: "critical" | "info" | "promotion" = "info";
+    let fdType: "critical" | "info" | "promotion" | "offer" | "notice" | "holiday" | "alert" = "info";
     let fdTitle = "";
     let fdContent = "";
     let fdImageUrl = "";
@@ -27,10 +27,29 @@
     // Convierte una fecha genérica o string (UTC o local) a YYYY-MM-DDTHH:mm para inputs
     function toLocalISOString(date: Date | string | null | undefined): string {
         if (!date) return "";
-        const d = date instanceof Date ? date : new Date(date);
+        let d: Date;
+        if (date instanceof Date) {
+            d = date;
+        } else {
+            // Si el string no indica zona horaria (Z o +), el navegador lo asume local.
+            // Forzamos que se interprete como UTC añadiendo 'Z' si falta.
+            const hasTZ = date.includes('Z') || date.includes('+');
+            d = new Date(hasTZ ? date : date + 'Z');
+        }
         if (isNaN(d.getTime())) return "";
+        
+        // Ajustamos por el offset local para que el valor sea correcto en un input 'datetime-local'
         const tzo = d.getTimezoneOffset() * 60000;
         return new Date(d.getTime() - tzo).toISOString().slice(0, 16);
+    }
+
+    function fmtDate(date: string | null | undefined) {
+        if (!date) return "--";
+        // Asegurar que se interprete como UTC
+        const hasTZ = date.includes('Z') || date.includes('+');
+        const d = new Date(hasTZ ? date : date + 'Z');
+        if (isNaN(d.getTime())) return date;
+        return d.toLocaleDateString("es-ES", { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
 
     async function loadItems() {
@@ -211,12 +230,12 @@
                         <div class="mt-4 flex flex-wrap gap-2 text-xs opacity-60">
                             <div class="flex items-center gap-1">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M5.75 2a.75.75 0 011.5 0v1.5h5.5V2a.75.75 0 011.5 0v1.5h1.085a1.5 1.5 0 011.5 1.5v2.5H3.165V5a1.5 1.5 0 011.5-1.5h1.085V2zM3.165 9.5h13.67v6a1.5 1.5 0 01-1.5 1.5h-10.67a1.5 1.5 0 01-1.5-1.5v-6zM6 12a1 1 0 011-1h1a1 1 0 011 1v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-1z" clip-rule="evenodd" /></svg>
-                                {new Date(item.start_date).toLocaleDateString()}
+                                {fmtDate(item.start_date)}
                             </div>
                             {#if item.end_date}
                                 <span>-</span>
                                 <div class="flex items-center gap-1 text-error">
-                                    {new Date(item.end_date).toLocaleDateString()}
+                                    {fmtDate(item.end_date)}
                                 </div>
                             {/if}
                         </div>

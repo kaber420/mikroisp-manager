@@ -49,7 +49,7 @@
     let statusFilter = $state('Todos');
 
     const filteredTickets = $derived(
-        statusFilter === 'Todos' ? tickets : tickets.filter((t: any) => t.estado === statusFilter)
+        statusFilter === 'Todos' ? tickets : tickets.filter((t: any) => t.status === statusFilter)
     );
 
     // Form state
@@ -57,9 +57,9 @@
     let errorMsg = $state('');
     let showModal = $state(false);
     let formData = $state({
-        asunto: '',
-        descripcion: '',
-        prioridad: 'normal'
+        subject: '',
+        description: '',
+        priority: 'normal'
     });
 
     // Detail Modal State
@@ -107,7 +107,7 @@
     }
 
     async function handleSubmit() {
-        if (!formData.asunto || !formData.descripcion) {
+        if (!formData.subject || !formData.description) {
             errorMsg = "Por favor, completa todos los campos requeridos.";
             return;
         }
@@ -117,9 +117,9 @@
             errorMsg = '';
             
             const newTicket = await createPortalTicket({
-                asunto: formData.asunto,
-                descripcion: formData.descripcion,
-                prioridad: formData.prioridad
+                subject: formData.subject,
+                description: formData.description,
+                priority: formData.priority
             });
             
             tickets = [newTicket, ...tickets];
@@ -127,7 +127,7 @@
             
             // Cierra el modal y limpia el form
             showModal = false;
-            formData = { asunto: '', descripcion: '', prioridad: 'normal' };
+            formData = { subject: '', description: '', priority: 'normal' };
         } catch (err: any) {
             console.error(err);
             errorMsg = err.response?.data?.detail || "Ocurrió un error al crear el ticket.";
@@ -187,16 +187,16 @@
                         <div>
                             <div class="flex items-center gap-2 mb-1">
                                 <span class="text-[10px] font-mono font-bold opacity-40">{ticket.id.slice(0,8)}</span>
-                                <span class="badge {getStatusClass(ticket.estado)} badge-xs uppercase font-bold tracking-tighter">{ticket.estado}</span>
+                                <span class="badge {getStatusClass(ticket.status)} badge-xs uppercase font-bold tracking-tighter">{ticket.status}</span>
                             </div>
-                            <h3 class="font-bold text-lg leading-tight group-hover:text-primary transition-colors">{ticket.asunto}</h3>
+                            <h3 class="font-bold text-lg leading-tight group-hover:text-primary transition-colors">{ticket.subject}</h3>
                         </div>
                     </div>
                     
                     <div class="flex items-center justify-end gap-3 shrink-0">
                         <div class="hidden md:block text-right">
                             <p class="text-[10px] uppercase font-bold opacity-30">Creado el</p>
-                            <p class="text-xs font-medium">{new Date(ticket.fecha_creacion).toLocaleDateString()}</p>
+                            <p class="text-xs font-medium">{new Date(ticket.created_at).toLocaleDateString()}</p>
                         </div>
                     </div>
                 </div>
@@ -284,7 +284,7 @@
                     </label>
                     <select 
                         id="asunto-select"
-                        bind:value={formData.asunto}
+                        bind:value={formData.subject}
                         class="select select-bordered w-full" 
                         required 
                         disabled={isCreating}
@@ -304,7 +304,7 @@
                     </label>
                     <textarea 
                         id="descripcion-input"
-                        bind:value={formData.descripcion}
+                        bind:value={formData.description}
                         class="textarea textarea-bordered h-28 w-full block" 
                         placeholder="Por favor, detalla tu problema..."
                         required
@@ -338,19 +338,19 @@
     <div class="modal-box p-0 overflow-hidden max-w-2xl flex flex-col h-[80vh]">
         {#if selectedTicket}
         <div class="bg-base-200 p-6 border-b border-base-300">
-            <h3 class="font-black text-2xl mb-1">{selectedTicket.asunto}</h3>
+            <h3 class="font-black text-2xl mb-1">{selectedTicket.subject}</h3>
             <div class="flex items-center gap-2 text-sm opacity-70">
                 <span class="font-mono">#{selectedTicket.id.slice(0,8)}</span>
                 <span>&bull;</span>
-                <span>Creado el {new Date(selectedTicket.fecha_creacion).toLocaleDateString()}</span>
+                <span>Creado el {new Date(selectedTicket.created_at).toLocaleDateString()}</span>
             </div>
             
             <div class="mt-6">
                 <!-- Barra de progreso -->
                 <ul class="steps w-full">
                     <li class="step step-primary">Abierto</li>
-                    <li class="step {selectedTicket.estado === 'pending' || selectedTicket.estado === 'resolved' || selectedTicket.estado === 'closed' ? 'step-primary' : ''}">En Proceso</li>
-                    <li class="step {selectedTicket.estado === 'closed' || selectedTicket.estado === 'resolved' ? 'step-primary' : ''}">Cerrado</li>
+                    <li class="step {selectedTicket.status === 'pending' || selectedTicket.status === 'resolved' || selectedTicket.status === 'closed' ? 'step-primary' : ''}">En Proceso</li>
+                    <li class="step {selectedTicket.status === 'closed' || selectedTicket.status === 'resolved' ? 'step-primary' : ''}">Cerrado</li>
                 </ul>
             </div>
             
@@ -367,9 +367,9 @@
             <div class="chat chat-start">
                 <div class="chat-header opacity-50 text-xs mb-1">
                     Tú
-                    <time class="text-xs opacity-50 ml-1">{new Date(selectedTicket.fecha_creacion).toLocaleDateString()}</time>
+                    <time class="text-xs opacity-50 ml-1">{new Date(selectedTicket.created_at).toLocaleDateString()}</time>
                 </div>
-                <div class="chat-bubble chat-bubble-primary">{selectedTicket.descripcion}</div>
+                <div class="chat-bubble chat-bubble-primary">{selectedTicket.description}</div>
             </div>
             
             <!-- Resto de Mensajes -->
@@ -393,12 +393,12 @@
                     bind:value={replyMsg} 
                     placeholder="Escribe tu mensaje..." 
                     class="input input-bordered flex-1"
-                    disabled={isReplying || selectedTicket.estado === 'closed'}
+                    disabled={isReplying || selectedTicket.status === 'closed'}
                 />
                 <button 
                     type="submit" 
                     class="btn btn-primary"
-                    disabled={isReplying || !replyMsg.trim() || selectedTicket.estado === 'closed'}
+                    disabled={isReplying || !replyMsg.trim() || selectedTicket.status === 'closed'}
                 >
                     {#if isReplying}
                         <span class="loading loading-spinner loading-sm"></span>

@@ -518,7 +518,7 @@ export async function replyTicket(id: string, payload: any) {
 
 export async function updateTicketStatus(id: string, payload: any) {
     return request(`/tickets/${id}/status`, {
-        method: 'PATCH',
+        method: 'PUT',
         body: JSON.stringify(payload)
     });
 }

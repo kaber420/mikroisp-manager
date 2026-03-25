@@ -26,6 +26,32 @@ export async function createPortalTicket(data: any) {
 export async function sendTicketMessage(ticketId: string, message: string) {
     return request(`/portal/tickets/${ticketId}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ message })
+        body: JSON.stringify({ content: message })
+    });
+}
+
+// --- Admin Portal CMS (Announcements) ---
+
+export async function getAdminPortalAnnouncements() {
+    return request('/broadcast/announcements/');
+}
+
+export async function createAdminPortalAnnouncement(data: any) {
+    return request('/broadcast/announcements/', {
+        method: 'POST',
+        body: JSON.stringify(data)
+    });
+}
+
+export async function updateAdminPortalAnnouncement(id: string, data: any) {
+    return request(`/broadcast/announcements/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+    });
+}
+
+export async function deleteAdminPortalAnnouncement(id: string) {
+    return request(`/broadcast/announcements/${id}`, {
+        method: 'DELETE'
     });
 }
