@@ -61,7 +61,20 @@ class PKIService:
         if not HAS_CERTBERUS:
             logger.error("Certberus not found in path")
             return None
-        return CertberusPKI()
+            
+        try:
+            pki = CertberusPKI()
+            # Ensure CAs are initialized
+            if not pki.root_ca_path.exists():
+                logger.info("Initializing Certberus Root CA...")
+                pki.create_root_ca()
+            if not pki.inter_ca_path.exists():
+                logger.info("Initializing Certberus Intermediate CA...")
+                pki.create_intermediate_ca()
+            return pki
+        except Exception as e:
+            logger.error(f"Failed to initialize Certberus PKI: {e}")
+            return None
 
     @staticmethod
     def get_ca_root_path() -> Path:
@@ -98,6 +111,10 @@ class PKIService:
         Ensures web-downloadable CA matches the actual signing CA.
         """
         try:
+            # Use get_certberus_instance to ensure CA init if we are using certberus
+            if HAS_CERTBERUS:
+                pki = PKIService._get_certberus_instance()
+                
             ca_root = PKIService.get_ca_root_path()
             source_ca = ca_root / "rootCA.pem"
 
@@ -139,17 +156,12 @@ class PKIService:
             return PKIService._sign_internal_csr(csr_pem)
 
         try:
-            # Certberus uses sign_certificate which signs with Intermediate CA
-            # and automatically adds SAN/EKU if configured.
-            # However, we need to handle CSRs. 
-            # Let's check if Certberus has a sign_csr method.
-            # Looking at pki.py, it only has sign_certificate (full pair).
-            # I should add sign_csr to Certberus PKIService too.
-            pass
+            cert_pem, cert_obj = pki.sign_csr(csr_pem, profile="router")
+            logger.info(f"Successfully signed CSR for {output_name} using Certberus")
+            return True, cert_pem.decode()
         except Exception as e:
             logger.error(f"Certberus signing failed: {e}")
-            
-        return PKIService._sign_internal_csr(csr_pem)
+            return False, str(e)
 
     @staticmethod
     def _sign_internal_csr(csr_pem: str) -> tuple[bool, str]:
@@ -217,7 +229,7 @@ class PKIService:
             return True, key_pem.decode(), cert_pem.decode()
         except Exception as e:
             logger.error(f"Certberus generation failed: {e}")
-            return PKIService._generate_internal_cert_pair(common_name)
+            return False, "", str(e)
 
     @staticmethod
     def _generate_internal_ca() -> bool:
