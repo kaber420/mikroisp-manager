@@ -126,7 +126,7 @@ export async function getRouterHistory(host: string, hours = 24) {
 export async function provisionRouter(host: string, user: string, pass?: string, method = 'ssh') {
     return request(`/routers/${host}/provision`, {
         method: 'POST',
-        body: JSON.stringify({ user, pass, method })
+        body: JSON.stringify({ new_api_user: user, new_api_password: pass, method })
     });
 }
 
@@ -139,18 +139,18 @@ export async function repairRouter(host: string, action: string) {
 
 // Router Advanced System
 export async function getRouterUsers(host: string) {
-    return request(`/routers/${host}/users`);
+    return request(`/routers/${host}/system/users`);
 }
 
 export async function createRouterUser(host: string, payload: any) {
-    return request(`/routers/${host}/users`, {
+    return request(`/routers/${host}/system/users`, {
         method: 'POST',
         body: JSON.stringify(payload)
     });
 }
 
 export async function deleteRouterUser(host: string, userId: string) {
-    return request(`/routers/${host}/users/${encodeURIComponent(userId)}`, {
+    return request(`/routers/${host}/system/users/${encodeURIComponent(userId)}`, {
         method: 'DELETE'
     });
 }
@@ -416,7 +416,7 @@ export async function getPPPoEProfiles(host: string) {
 }
 
 export async function getPPPoEServers(host: string) {
-    return request(`/routers/${host}/pppoe/servers`);
+    return request(`/routers/${host}/pppoe-servers`);
 }
 
 export async function createPPPoESecret(host: string, payload: any) {
@@ -452,14 +452,14 @@ export async function killPPPoEConnection(host: string, username: string) {
 }
 
 export async function addPPPoEServer(host: string, payload: any) {
-    return request(`/routers/${host}/pppoe/servers`, {
+    return request(`/routers/${host}/write/add-pppoe-server`, {
         method: 'POST',
         body: JSON.stringify(payload)
     });
 }
 
 export async function deletePPPoEServer(host: string, serviceName: string) {
-    return request(`/routers/${host}/pppoe/servers/${encodeURIComponent(serviceName)}`, {
+    return request(`/routers/${host}/write/delete-pppoe-server?service_name=${encodeURIComponent(serviceName)}`, {
         method: 'DELETE'
     });
 }
@@ -590,41 +590,41 @@ export interface BackupCreatePayload {
 }
 
 export async function getRouterFiles(host: string) {
-    return request(`/routers/${host}/backups/router-files`);
+    return request(`/routers/${host}/system/files`);
 }
 
 export async function createRouterBackup(host: string, payload: BackupCreatePayload) {
-    return request(`/routers/${host}/backups/create`, {
+    return request(`/routers/${host}/system/create-backup`, {
         method: 'POST',
         body: JSON.stringify(payload)
     });
 }
 
 export async function deleteRouterFile(host: string, fileId: string) {
-    return request(`/routers/${host}/backups/router-files/${encodeURIComponent(fileId)}`, {
+    return request(`/routers/${host}/system/files/${encodeURIComponent(fileId)}`, {
         method: 'DELETE'
     });
 }
 
 export async function saveBackupToServer(host: string, filename: string) {
-    return request(`/routers/${host}/backups/save-to-server?filename=${encodeURIComponent(filename)}`, {
+    return request(`/routers/${host}/system/save-to-server?filename=${encodeURIComponent(filename)}`, {
         method: 'POST'
     });
 }
 
 export async function getLocalBackups(host: string) {
-    return request(`/routers/${host}/backups/local-files`);
+    return request(`/routers/${host}/system/local-backups`);
 }
 
 export async function deleteLocalBackup(host: string, filename: string) {
-    return request(`/routers/${host}/backups/local-files/${encodeURIComponent(filename)}`, {
+    return request(`/routers/${host}/system/local-backups?filename=${encodeURIComponent(filename)}`, {
         method: 'DELETE'
     });
 }
 
 export function getLocalBackupDownloadUrl(host: string, filename: string) {
     const baseUrl = import.meta.env.VITE_API_URL || '';
-    return `${baseUrl}/routers/${host}/backups/download/${encodeURIComponent(filename)}`;
+    return `${baseUrl}/api/routers/${host}/system/local-backups/download?filename=${encodeURIComponent(filename)}`;
 }
 
 // --- Router Users ---

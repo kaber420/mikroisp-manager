@@ -39,8 +39,10 @@
     async function loadRouterFiles() {
         filesLoading = true;
         try {
-            routerFiles = await getRouterFiles(host);
+            const data = await getRouterFiles(host);
+            routerFiles = Array.isArray(data) ? data : [];
         } catch (e: any) {
+            routerFiles = [];
             notify.error(
                 e?.response?.data?.detail ??
                 "Error al cargar archivos del router."
@@ -53,8 +55,10 @@
     async function loadLocalFiles() {
         localLoading = true;
         try {
-            localFiles = await getLocalBackups(host);
+            const data = await getLocalBackups(host);
+            localFiles = Array.isArray(data) ? data : [];
         } catch (e: any) {
+            localFiles = [];
             notify.error(
                 e?.response?.data?.detail ?? "Error al cargar backups locales."
             );

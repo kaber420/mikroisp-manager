@@ -393,7 +393,9 @@ async def get_router_service(host: str, session: AsyncSession = Depends(get_sess
         # Entregar el servicio al endpoint que lo solicitó
         yield service
 
-    except (RouterConnectionError, RouterNotProvisionedError) as e:
+    except RouterNotProvisionedError as e:
+        raise HTTPException(status_code=status.HTTP_412_PRECONDITION_FAILED, detail=str(e))
+    except RouterConnectionError as e:
         # Manejo de errores si no se pudo conectar al inicio
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:

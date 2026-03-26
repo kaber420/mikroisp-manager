@@ -42,9 +42,7 @@ async def get_router_resources(
     session: AsyncSession = Depends(get_session),
 ):
     try:
-        # service is already connected via dependency
         resources = service.get_system_resources()
-        # Actualizamos la DB con la info obtenida
         update_data = {
             "hostname": resources.get("name"),
             "model": resources.get("board-name"),
@@ -88,15 +86,11 @@ async def api_create_backup(
             raise HTTPException(status_code=409, detail=f"El archivo '{target_name}' ya existe.")
 
         if request.backup_type == "backup":
-            if not request.backup_name.endswith(".backup"):
-                request.backup_name += ".backup"
-            service.create_backup(request.backup_name, overwrite=request.overwrite)
-            message = f"Archivo .backup '{request.backup_name}' creado."
+            service.create_backup(target_name, overwrite=request.overwrite)
+            message = f"Archivo .backup '{target_name}' creado."
         elif request.backup_type == "export":
-            if not request.backup_name.endswith(".rsc"):
-                request.backup_name += ".rsc"
-            service.create_export_script(request.backup_name)
-            message = f"Archivo .rsc '{request.backup_name}' creado."
+            service.create_export_script(target_name)
+            message = f"Archivo .rsc '{target_name}' creado."
         else:
             raise HTTPException(
                 status_code=400,
@@ -120,8 +114,6 @@ async def api_remove_backup_file(
 
     try:
         service.remove_file(file_id)
-        # Note: log_action might be sync, assuming it handles itself or we might need asyncio.to_thread if passing DB session
-        # For now, keeping as is (audit log usually separate)
         log_action("DELETE", "backup_file", f"{host}/{file_id}", user=user, request=request)
         return
     except RouterCommandError as e:
@@ -228,19 +220,13 @@ async def api_get_local_backup_files(
     user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """
-    Lista archivos de backup locales (en el servidor) para un router específico.
-    """
-    # Obtener datos del router para encontrar su carpeta
     router_info = await router_repository.get_router_by_host(session, host)
     if not router_info:
         raise HTTPException(status_code=404, detail="Router no encontrado")
 
-    # Determinar la carpeta del router
     zona_id = router_info.zona_id
     hostname = router_info.hostname or host
 
-    # Buscar la carpeta por zona
     zona_folder = None
     if zona_id:
         zona = await session.get(Zona, zona_id)
@@ -282,9 +268,6 @@ async def api_download_local_backup(
     user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """
-    Descarga un archivo de backup local.
-    """
     router_info = await router_repository.get_router_by_host(session, host)
     if not router_info:
         raise HTTPException(status_code=404, detail="Router no encontrado")
@@ -313,7 +296,10 @@ async def api_download_local_backup(
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
 
     return FileResponse(
-        path=str(file_path), filename=filename, media_type="application/octet-stream"
+        path=str(file_path),
+        filename=filename,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -325,9 +311,6 @@ async def api_delete_local_backup(
     user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """
-    Elimina un archivo de backup local del servidor.
-    """
     from ...core.audit import log_action
 
     router_info = await router_repository.get_router_by_host(session, host)
@@ -342,7 +325,7 @@ async def api_delete_local_backup(
         zona = await session.get(Zona, zona_id)
         if zona:
             zona_folder = zona.nombre.replace(" ", "_").replace("/", "-")
-            
+
     if not zona_folder:
         zona_folder = f"Zona_{zona_id}" if zona_id else "Sin_Zona"
 
@@ -373,10 +356,8 @@ async def api_save_backup_to_server(
     user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """
-    Descarga un archivo de backup del router y lo guarda en el servidor local.
-    """
     from ...services.core.backup_service import save_file_to_server
+    import asyncio
 
     router_info = await router_repository.get_router_by_host(session, host)
     if not router_info:
@@ -385,19 +366,14 @@ async def api_save_backup_to_server(
     zona_id = router_info.zona_id
     hostname = router_info.hostname or host
     username = router_info.username
-    password = router_info.password  # Already decrypted
+    password = router_info.password
 
-    # Obtener nombre de zona
     zona_name = "Sin_Zona"
     if zona_id:
         zona = await session.get(Zona, zona_id)
         if zona:
             zona_name = zona.nombre
 
-    # Llamar al servicio de backup (Blocking function must be run in thread?)
-    # Since save_file_to_server is blocking, we should wrap it to avoid blocking async loop.
-    import asyncio
-    
     result = await asyncio.to_thread(
         save_file_to_server,
         host=host,
