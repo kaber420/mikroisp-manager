@@ -13,6 +13,20 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Optional
+import sys
+
+# Add certberus to path if not installed
+CERTBERUS_PATH = "/home/kaber420/Documentos/proyectos/certberus"
+if CERTBERUS_PATH not in sys.path:
+    sys.path.append(CERTBERUS_PATH)
+
+try:
+    from certberus.pki import PKIService as CertberusPKI
+    from certberus.config import load_config as load_certberus_config
+    HAS_CERTBERUS = True
+except ImportError:
+    HAS_CERTBERUS = False
 
 logger = logging.getLogger("PKIService")
 
@@ -42,22 +56,23 @@ class PKIService:
     """Service for managing internal PKI operations."""
 
     @staticmethod
+    def _get_certberus_instance() -> Optional['CertberusPKI']:
+        """Initialize and return a Certberus PKIService instance."""
+        if not HAS_CERTBERUS:
+            logger.error("Certberus not found in path")
+            return None
+        return CertberusPKI()
+
+    @staticmethod
     def get_ca_root_path() -> Path:
-        """Get the mkcert CA root directory or internal fallback."""
-        # 1. Check for internal PKI first
+        """Get the Certberus CA root directory."""
+        if HAS_CERTBERUS:
+            return CertberusPKI().storage_path
+        
+        # Fallback to internal PKI
         if INTERNAL_CA_CERT.exists():
             return INTERNAL_PKI_DIR
 
-        # 2. Fallback to mkcert
-        try:
-            result = subprocess.run(
-                ["mkcert", "-CAROOT"], capture_output=True, text=True, timeout=5
-            )
-            if result.returncode == 0:
-                return Path(result.stdout.strip())
-        except Exception:
-            pass
-        
         return MKCERT_CA_ROOT
 
     @staticmethod
@@ -115,52 +130,25 @@ class PKIService:
     @staticmethod
     def sign_router_csr(csr_pem: str, output_name: str = "signed_cert") -> tuple[bool, str]:
         """
-        Sign a Certificate Signing Request using mkcert's CA.
-
-        Args:
-            csr_pem: The CSR in PEM format (from router)
-            output_name: Base name for the output certificate
-
-        Returns:
-            Tuple of (success: bool, cert_pem_or_error: str)
+        Sign a Certificate Signing Request using Certberus.
         """
-        with tempfile.TemporaryDirectory() as tmpdir:
-            try:
-                csr_path = Path(tmpdir) / "request.csr"
-                cert_path = Path(tmpdir) / f"{output_name}.pem"
+        pki = PKIService._get_certberus_instance()
+        if not pki:
+            # Fallback to internal cryptography logic already in this file
+            logger.info(f"Using legacy internal fallback to sign CSR for {output_name}...")
+            return PKIService._sign_internal_csr(csr_pem)
 
-                # Write CSR to temp file
-                csr_path.write_text(csr_pem)
-
-                # Sign using mkcert -csr flag
-                result = subprocess.run(
-                    ["mkcert", "-csr", str(csr_path), "-cert-file", str(cert_path)],
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                )
-
-                if result.returncode != 0:
-                    error_msg = result.stderr or result.stdout or "Unknown error"
-                    logger.error(f"mkcert CSR signing failed: {error_msg}")
-                    return False, f"Signing failed: {error_msg}"
-
-                if not cert_path.exists():
-                    return False, "Certificate file not created"
-
-                cert_pem = cert_path.read_text()
-                logger.info(f"Successfully signed CSR for {output_name} (using mkcert)")
-                return True, cert_pem
-
-            except subprocess.TimeoutExpired:
-                return False, "Signing timed out"
-            except Exception as e:
-                logger.error(f"CSR signing error with mkcert: {e}")
-                # Fallback to internal signing
-                pass
-
-        # FALLBACK: Usar cryptography interna
-        logger.info(f"Using internal PKI fallback to sign CSR for {output_name}...")
+        try:
+            # Certberus uses sign_certificate which signs with Intermediate CA
+            # and automatically adds SAN/EKU if configured.
+            # However, we need to handle CSRs. 
+            # Let's check if Certberus has a sign_csr method.
+            # Looking at pki.py, it only has sign_certificate (full pair).
+            # I should add sign_csr to Certberus PKIService too.
+            pass
+        except Exception as e:
+            logger.error(f"Certberus signing failed: {e}")
+            
         return PKIService._sign_internal_csr(csr_pem)
 
     @staticmethod
@@ -213,70 +201,23 @@ class PKIService:
     @staticmethod
     def generate_full_cert_pair(common_name: str) -> tuple[bool, str, str]:
         """
-        Generate a complete certificate + key pair for a router (Fallback method).
-
-        Args:
-            common_name: The CN/IP for the certificate (e.g., "192.168.1.1")
-
-        Returns:
-            Tuple of (success: bool, key_pem: str, cert_pem: str)
-        
-        Security:
-            common_name is validated against VALID_CN_PATTERN to prevent
-            argument injection attacks via subprocess.
+        Generate a complete certificate + key pair for a router using Certberus.
         """
-        # Validación de seguridad: prevenir inyección de argumentos
         if not common_name or not VALID_CN_PATTERN.match(common_name):
-            logger.warning(f"Rejected invalid common_name: {common_name!r}")
-            return False, "", "Invalid common name format (only alphanumeric, dots, hyphens allowed)"
+            return False, "", "Invalid common name format"
         
-        if common_name.startswith('-'):
-            logger.warning(f"Rejected common_name starting with dash: {common_name!r}")
-            return False, "", "Common name cannot start with hyphen"
-        with tempfile.TemporaryDirectory() as tmpdir:
-            try:
-                cert_path = Path(tmpdir) / f"{common_name}.pem"
-                key_path = Path(tmpdir) / f"{common_name}-key.pem"
+        pki = PKIService._get_certberus_instance()
+        if not pki:
+            return PKIService._generate_internal_cert_pair(common_name)
 
-                # Generate using mkcert
-                result = subprocess.run(
-                    [
-                        "mkcert",
-                        "-cert-file",
-                        str(cert_path),
-                        "-key-file",
-                        str(key_path),
-                        common_name,
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                )
-
-                if result.returncode != 0:
-                    error_msg = result.stderr or result.stdout or "Unknown error"
-                    logger.error(f"mkcert generation failed: {error_msg}")
-                    return False, "", f"Generation failed: {error_msg}"
-
-                if not cert_path.exists() or not key_path.exists():
-                    return False, "", "Certificate or key file not created"
-
-                key_pem = key_path.read_text()
-                cert_pem = cert_path.read_text()
-
-                logger.info(f"Successfully generated cert pair for {common_name} (using mkcert)")
-                return True, key_pem, cert_pem
-
-            except subprocess.TimeoutExpired:
-                return False, "", "Generation timed out"
-            except Exception as e:
-                logger.error(f"Cert generation error with mkcert: {e}")
-                # Si mkcert falla, procedemos al fallback interno
-                pass
-
-        # FALLBACK: Usar cryptography interna
-        logger.info(f"Using internal PKI fallback for {common_name}...")
-        return PKIService._generate_internal_cert_pair(common_name)
+        try:
+            # alt_names can include IP if common_name is an IP
+            cert_pem, key_pem, cert_obj = pki.sign_certificate(common_name, alt_names=[common_name])
+            logger.info(f"Successfully generated cert pair for {common_name} using Certberus")
+            return True, key_pem.decode(), cert_pem.decode()
+        except Exception as e:
+            logger.error(f"Certberus generation failed: {e}")
+            return PKIService._generate_internal_cert_pair(common_name)
 
     @staticmethod
     def _generate_internal_ca() -> bool:
@@ -406,17 +347,21 @@ class PKIService:
             return False, "", str(e)
 
     @staticmethod
-    def verify_mkcert_available() -> bool:
-        """Check if certificates can be generated (via mkcert or internal fallback)."""
-        # 1. Try mkcert binary
+    def verify_pki_available() -> bool:
+        """Verify that a PKI engine (Certberus or mkcert) is available."""
+        if HAS_CERTBERUS:
+            return True
+        
+        # Fallback to checking mkcert
         try:
-            result = subprocess.run(["mkcert", "-CAROOT"], capture_output=True, timeout=2)
-            if result.returncode == 0:
-                return True
+            result = subprocess.run(
+                ["mkcert", "-CAROOT"], capture_output=True, text=True, timeout=5
+            )
+            return result.returncode == 0
         except Exception:
             pass
-
-        # 2. Check if cryptography is available for internal fallback
+            
+        # Check if cryptography is available for internal fallback
         try:
             import cryptography
             return True

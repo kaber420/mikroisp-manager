@@ -80,11 +80,11 @@ def provision_ssl(
     """
     pki = PKIService()
 
-    # Verify mkcert is available
-    if not pki.verify_mkcert_available():
+    # Verify PKI engine is available
+    if not pki.verify_pki_available():
         raise HTTPException(
             status_code=500,
-            detail="mkcert is not available. Install it to enable SSL provisioning.",
+            detail="PKI engine (Certberus) is not available. Ensure it is installed to enable SSL provisioning.",
         )
 
     host = ctx.host
