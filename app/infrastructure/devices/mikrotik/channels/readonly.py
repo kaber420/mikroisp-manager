@@ -22,17 +22,17 @@ class ReadOnlyChannelManager:
             cls._instance._lock = RLock()
         return cls._instance
 
-    def acquire(self, host: str, username: str, password: str, port: int = 8729):
+    def acquire(self, host: str, username: str, password: str, port: int = 8729, use_ssl: bool = True):
         """
         Obtiene o crea un canal de lectura. Incrementa ref count.
         """
-        key = f"{host}:{port}"
+        key = f"{host}:{port}:{'ssl' if use_ssl else 'plain'}"
 
         with self._lock:
             # Check if pool exists and is connected
             if key not in self._channels:
-                logger.info(f"[ReadOnlyChannel] Creando conexión persistente para {host}")
-                self._channels[key] = self._create_pool(host, username, password, port)
+                logger.info(f"[ReadOnlyChannel] Creando conexión persistente ({'SSL' if use_ssl else 'PLAIN'}) para {host}")
+                self._channels[key] = self._create_pool(host, username, password, port, use_ssl)
                 self._ref_counts[key] = 0
 
             self._ref_counts[key] += 1
@@ -46,14 +46,14 @@ class ReadOnlyChannelManager:
                     f"[ReadOnlyChannel] Error obteniendo API para {host}: {e}. Retrying."
                 )
                 self._force_disconnect(key)
-                self._channels[key] = self._create_pool(host, username, password, port)
+                self._channels[key] = self._create_pool(host, username, password, port, use_ssl)
                 return self._channels[key].get_api()
 
-    def release(self, host: str, port: int = 8729):
+    def release(self, host: str, port: int = 8729, use_ssl: bool = True):
         """
         Libera referencia. Si llega a 0, cierra la conexión.
         """
-        key = f"{host}:{port}"
+        key = f"{host}:{port}:{'ssl' if use_ssl else 'plain'}"
 
         with self._lock:
             if key in self._ref_counts:
@@ -74,7 +74,7 @@ class ReadOnlyChannelManager:
                 logger.error(f"[ReadOnlyChannel] Error cerrando {key}: {e}")
             del self._channels[key]
 
-    def _create_pool(self, host, username, password, port):
+    def _create_pool(self, host, username, password, port, use_ssl):
         import ssl
 
         ssl_context = ssl.create_default_context()
@@ -86,11 +86,11 @@ class ReadOnlyChannelManager:
             username=username,
             password=password,
             port=port,
-            use_ssl=True,
-            ssl_context=ssl_context,
+            use_ssl=use_ssl,
+            ssl_context=ssl_context if use_ssl else None,
             plaintext_login=True,
         )
-        pool.set_timeout(30)
+        pool.set_timeout(5)
         return pool
 
 

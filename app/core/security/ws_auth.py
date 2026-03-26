@@ -38,16 +38,28 @@ async def verify_ws_origin_and_token(
     is_authorized = False
     authenticated_user = None
     
+    # Intentar obtener token de la cabecera si no vino por cookie (útil en dev/proxies)
+    if not access_token:
+        auth_header = websocket.headers.get("authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            access_token = auth_header.split(" ")[1]
+            print("DEBUG: WS Auth - Token obtained from Authorization header")
+
+    print(f"DEBUG: WS Auth - access_token exists: {access_token is not None}")
+    if not access_token:
+        print(f"DEBUG: WS Auth - Headers: {dict(websocket.headers)}")
+
     if access_token:
         try:
             strategy = get_jwt_strategy()
             import jwt
             try:
-                # FastAPI-Users typical audience is ["fastapi-users:auth"]
+                # FastAPI-Users typical audience is ["fastapi-users:auth"], but current strategy doesn't set it.
+                # We disable audience verification to stay compatible with the global JWTStrategy.
                 data = jwt.decode(
                     access_token, 
                     strategy.secret, 
-                    audience=["fastapi-users:auth"], 
+                    options={"verify_aud": False}, 
                     algorithms=[strategy.algorithm]
                 )
             except jwt.PyJWTError as e:
@@ -55,18 +67,32 @@ async def verify_ws_origin_and_token(
                 data = None
                 
             if data and "sub" in data:
-                user_id = data["sub"]
-                from app.db.engine import async_session_maker
-                from sqlalchemy import select
-                from app.models.user import User
-                async with async_session_maker() as session:
-                    result = await session.execute(select(User).where(User.id == user_id))
-                    authenticated_user = result.scalars().first()
+                import uuid
+                try:
+                    user_id_str = data["sub"]
+                    user_id = uuid.UUID(user_id_str)
+                    from app.db.engine import async_session_maker
+                    from sqlalchemy import select
+                    from app.models.user import User
+                    async with async_session_maker() as session:
+                        result = await session.execute(select(User).where(User.id == user_id))
+                        authenticated_user = result.scalars().first()
                     
+                    if authenticated_user:
+                        print(f"DEBUG: WS Auth - User Found: {authenticated_user.username}, Role: {authenticated_user.role}")
+                    else:
+                        print(f"DEBUG: WS Auth - User NOT Found in DB for ID: {user_id}")
+                except Exception as e:
+                    print(f"DEBUG: WS Auth - Error identifying user from sub '{data.get('sub')}': {e}")
+                
             if authenticated_user and authenticated_user.is_active and authenticated_user.role in allowed_roles:
                 is_authorized = True
+            else:
+                reason = "No user found" if not authenticated_user else f"Inactive or wrong role ({authenticated_user.role})"
+                print(f"DEBUG: WS Auth - Authorization failed: {reason}. Allowed: {allowed_roles}")
         except Exception as e:
-            logger.debug(f"Error validando token WS: {e}")
+            print(f"DEBUG: WS Auth - Global Exception: {e}")
+            logger.error(f"Error fatal validando token WS: {e}", exc_info=True)
 
     if not is_authorized:
         logger.warning(f"🛡️ WebSocket RECHAZADO: Falla de autenticación o rol insuficiente. Roles requeridos: {allowed_roles}")

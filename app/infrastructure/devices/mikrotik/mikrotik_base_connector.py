@@ -20,12 +20,14 @@ class MikrotikBaseConnector(BaseDeviceConnector):
             creds[CredentialKeys.USERNAME],
             creds[CredentialKeys.PASSWORD],
             creds.get(CredentialKeys.PORT, 8729),
+            creds.get("use_ssl", True),
         )
 
     async def _disconnect(self, host: str) -> None:
         creds = self.get_credentials(host)
         port = creds.get(CredentialKeys.PORT, 8729)
-        await asyncio.to_thread(readonly_channels.release, host, port)
+        use_ssl = creds.get("use_ssl", True)
+        await asyncio.to_thread(readonly_channels.release, host, port, use_ssl)
 
     @contextlib.contextmanager
     def api_session(self, host: str, creds: dict = None):
@@ -59,6 +61,7 @@ class MikrotikBaseConnector(BaseDeviceConnector):
                 username,
                 password,
                 port,
+                use_ssl=creds.get("use_ssl", True) if creds else stored_creds.get("use_ssl", True),
             )
             yield api
         finally:

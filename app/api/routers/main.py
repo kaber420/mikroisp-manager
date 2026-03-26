@@ -99,34 +99,42 @@ async def router_resources_stream(
         
         # However, monitor_scheduler expects what?
         # router_repository.get_router_by_host returns decrypted object.
-        creds = {
-            "username": router.username,
-            "password": router.password, # Already decrypted
-            "port": router.api_ssl_port,
-        }
+    # Zero Trust: Usar SSL obligatoriamente si el router está aprovisionado
+    use_ssl = router.is_provisioned
+    port = router.api_ssl_port if use_ssl else router.api_port
+    
+    creds = {
+        "username": router.username,
+        "password": router.password,
+        "port": port,
+        "use_ssl": use_ssl
+    }
 
     # 2. Suscribir al Scheduler (esto inicia la conexión background si es necesario)
     await monitor_scheduler.subscribe(host, creds, wan_interface=router.wan_interface)
+    
+    # 3. Loop de lectura del Cache (Usando métodos ASYNC)
+    stats_cache = cache_manager.get_store("router_stats")
+    
+    # NUEVO: Forzar primer poll solo si el cache está vacío para no bloquear el inicio
+    if not await stats_cache.get_async(host):
+        # Spawneamos el refresh pero no lo esperamos para no bloquear el 101 Switching Protocols
+        asyncio.create_task(monitor_scheduler.refresh_host(host))
+        
+    # Leer intervalo dinámico UNA VEZ antes del loop para reducir carga
+    try:
+        async with async_session_maker() as session:
+            from ...services.core.settings_service import SettingsService
+            svc = SettingsService(session)
+            interval_setting = await svc.get_setting_value("dashboard_refresh_interval")
+        interval = max(1, int(interval_setting or 2))
+    except:
+        interval = 2
 
     try:
-        # 3. Loop de lectura del Cache
-        stats_cache = cache_manager.get_store("router_stats")
-
         while True:
-            # Leer intervalo dinámico
-            try:
-                # Use async session to get setting
-                async with async_session_maker() as session:
-                    from ...services.core.settings_service import SettingsService
-                    svc = SettingsService(session)
-                    interval_setting = await svc.get_setting_value("dashboard_refresh_interval")
-                
-                interval = max(1, int(interval_setting or 2))
-            except:
-                interval = 2
-
-            # Leer del Cache
-            data = stats_cache.get(host)
+            # Leer del Cache (MÉTODO ASÍNCRONO)
+            data = await stats_cache.get_async(host)
 
             if data:
                 if "error" in data:

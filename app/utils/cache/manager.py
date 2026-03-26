@@ -72,6 +72,20 @@ class CacheStore:
         with self._lock:
             return len(self._data)
 
+    # --- Métodos Async para uniformidad de interfaz (Duck Typing con RedictStore) ---
+
+    async def get_async(self, key: str) -> Any | None:
+        return self.get(key)
+
+    async def set_async(self, key: str, value: Any, ttl: int | None = None) -> None:
+        self.set(key, value, ttl)
+
+    async def delete_async(self, key: str) -> bool:
+        return self.delete(key)
+
+    async def clear_async(self) -> None:
+        self.clear()
+
 
 class CacheManager:
     """
