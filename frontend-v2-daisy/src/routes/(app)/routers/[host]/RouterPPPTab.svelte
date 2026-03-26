@@ -17,69 +17,73 @@
     } from "$lib/api";
     import { notify } from "$lib/stores/notifications";
 
-    export let host: string;
+    let { host }: { host: string } = $props();
 
     // Sub-tab activo (4 sub-tabs)
-    let activeTab: "secrets" | "active" | "servers" | "profiles" = "secrets";
+    let activeTab = $state<"secrets" | "active" | "servers" | "profiles">("secrets");
 
     // Estado común
-    let loadingSecrets = false;
-    let loadingActive = false;
-    let loadingServers = false;
-    let loadingProfiles = false;
+    let loadingSecrets = $state(false);
+    let loadingActive = $state(false);
+    let loadingServers = $state(false);
+    let loadingProfiles = $state(false);
 
     // Datos
-    let secrets: any[] = [];
-    let activeSessions: any[] = [];
-    let profiles: any[] = [];
-    let servers: any[] = [];
-    let interfaces: string[] = [];
-    let notProvisioned = false;
+    let secrets = $state<any[]>([]);
+    let activeSessions = $state<any[]>([]);
+    let profiles = $state<any[]>([]);
+    let servers = $state<any[]>([]);
+    let interfaces = $state<string[]>([]);
+    let notProvisioned = $state(false);
 
     // ── SECRETOS ──────────────────────────────────────────────────────────────
-    let showSecretModal = false;
-    let editingSecret: any | null = null;
-    let secretForm = {
+    let showSecretModal = $state(false);
+    let editingSecret = $state<any | null>(null);
+    let secretForm = $state({
         username: "",
         password: "",
         profile: "",
         service: "pppoe",
         comment: "",
-    };
-    let formError = "";
-    let savingSecret = false;
-    let deleteSecretTarget: string | null = null;
-    let killSessionTarget: string | null = null;
-    let searchSecrets = "";
-    let searchActive = "";
+    });
+    let formError = $state("");
+    let savingSecret = $state(false);
+    let deleteSecretTarget = $state<string | null>(null);
+    let killSessionTarget = $state<string | null>(null);
+    let searchSecrets = $state("");
+    let searchActive = $state("");
 
-    $: filteredSecrets = secrets.filter(
-        (s) =>
-            !searchSecrets ||
-            (s.name || "").toLowerCase().includes(searchSecrets.toLowerCase()),
+    let filteredSecrets = $derived(
+        secrets.filter(
+            (s) =>
+                !searchSecrets ||
+                (s.name || "").toLowerCase().includes(searchSecrets.toLowerCase()),
+        )
     );
-    $: filteredSessions = activeSessions.filter(
-        (s) =>
-            !searchActive ||
-            (s.name || "").toLowerCase().includes(searchActive.toLowerCase()),
+    let filteredSessions = $derived(
+        activeSessions.filter(
+            (s) =>
+                !searchActive ||
+                (s.name || "").toLowerCase().includes(searchActive.toLowerCase()),
+        )
     );
 
     // ── SERVIDORES ────────────────────────────────────────────────────────────
-    let showServerModal = false;
-    let serverForm = {
+    let showServerModal = $state(false);
+    let serverForm = $state({
         service_name: "pppoe-server",
         interface: "",
         default_profile: "",
         one_session_per_host: true,
         keepalive_timeout: 10,
-    };
-    let serverFormError = "";
-    let savingServer = false;
-    let deleteServerTarget: string | null = null;
+    });
+    let serverFormError = $state("");
+    let savingServer = $state(false);
+    let deleteServerTarget = $state<string | null>(null);
 
     // ── PERFILES ──────────────────────────────────────────────────────────────
-    let showProfileModal = false;
-    let profileForm = {
+    let showProfileModal = $state(false);
+    let profileForm = $state({
         plan_name: "",
         rate_limit: "",
         local_address: "",
@@ -88,10 +92,10 @@
         pool_mode: "new",
         pool_range: "",
         remote_address: "",
-    };
-    let profileFormError = "";
-    let savingProfile = false;
-    let deleteProfileTarget: string | null = null;
+    });
+    let profileFormError = $state("");
+    let savingProfile = $state(false);
+    let deleteProfileTarget = $state<string | null>(null);
 
     const SYSTEM_PROFILES = ["default", "default-encryption"];
 
@@ -102,13 +106,11 @@
         try {
             secrets = await getPPPoESecrets(host);
         } catch (e: any) {
-            if (e?.response?.status === 412) {
+            const detail = e?.response?.data?.detail || "";
+            if (e?.response?.status === 404 && detail.includes("no está aprovisionado")) {
                 notProvisioned = true;
             } else {
-                notify.error(
-                    e?.response?.data?.detail ||
-                        "Error al cargar los secretos PPP.",
-                );
+                notify.error(detail || "Error al cargar los secretos PPP.");
             }
         } finally {
             loadingSecrets = false;
@@ -244,13 +246,14 @@
         }
     }
 
-    async function handleDeleteSecret(secretId: string) {
+    async function handleDeleteSecret(secret_id: string) {
         try {
-            await deletePPPoESecret(host, secretId);
+            await deletePPPoESecret(host, secret_id);
             notify.success("Secreto eliminado correctamente.");
             deleteSecretTarget = null;
             await loadSecrets();
         } catch (e: any) {
+            console.error("Error deleting secret:", e);
             notify.error(
                 e?.response?.data?.detail || "Error al eliminar el secreto.",
             );
@@ -458,7 +461,7 @@
             </div>
             <button
                 class="btn btn-sm btn-ghost"
-                on:click={() => {
+                onclick={() => {
                     loadSecrets();
                     loadActive();
                     loadServers();
@@ -481,17 +484,17 @@
         </div>
 
         <!-- Sub-tabs -->
-        <div class="tabs tabs-boxed w-fit flex-wrap">
+        <div class="tabs tabs-box bg-base-200/50 p-1 rounded-xl w-fit flex-wrap">
             <button
                 class="tab {activeTab === 'secrets' ? 'tab-active' : ''}"
-                on:click={() => (activeTab = "secrets")}
+                onclick={() => (activeTab = "secrets")}
             >
                 🔑 Secretos
                 <span class="badge badge-sm ml-2">{secrets.length}</span>
             </button>
             <button
                 class="tab {activeTab === 'active' ? 'tab-active' : ''}"
-                on:click={() => (activeTab = "active")}
+                onclick={() => (activeTab = "active")}
             >
                 📡 Activas
                 <span class="badge badge-sm badge-success ml-2"
@@ -500,7 +503,7 @@
             </button>
             <button
                 class="tab {activeTab === 'servers' ? 'tab-active' : ''}"
-                on:click={() => (activeTab = "servers")}
+                onclick={() => (activeTab = "servers")}
             >
                 🖥️ Servidores
                 <span class="badge badge-sm badge-info ml-2"
@@ -509,7 +512,7 @@
             </button>
             <button
                 class="tab {activeTab === 'profiles' ? 'tab-active' : ''}"
-                on:click={() => (activeTab = "profiles")}
+                onclick={() => (activeTab = "profiles")}
             >
                 📋 Perfiles
                 <span class="badge badge-sm badge-neutral ml-2"
@@ -530,7 +533,7 @@
                     />
                     <button
                         class="btn btn-sm btn-primary gap-1"
-                        on:click={openCreateModal}
+                        onclick={openCreateModal}
                     >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -624,7 +627,7 @@
                                                     s.disabled === true
                                                         ? "Habilitar"
                                                         : "Deshabilitar"}
-                                                    on:click={() =>
+                                                    onclick={() =>
                                                         toggleSecretStatus(s)}
                                                 >
                                                     {#if s.disabled === "true" || s.disabled === true}
@@ -663,7 +666,7 @@
                                                 <button
                                                     class="btn btn-xs btn-ghost"
                                                     title="Editar"
-                                                    on:click={() =>
+                                                    onclick={() =>
                                                         openEditModal(s)}
                                                 >
                                                     <svg
@@ -683,9 +686,9 @@
                                                 <button
                                                     class="btn btn-xs btn-ghost text-error"
                                                     title="Eliminar"
-                                                    on:click={() =>
+                                                    onclick={() =>
                                                         (deleteSecretTarget =
-                                                            s[".id"])}
+                                                            s[".id"] || s.id)}
                                                 >
                                                     <svg
                                                         xmlns="http://www.w3.org/2000/svg"
@@ -780,7 +783,7 @@
                                             <button
                                                 class="btn btn-xs btn-error btn-outline gap-1"
                                                 title="Desconectar sesión"
-                                                on:click={() =>
+                                                onclick={() =>
                                                     (killSessionTarget =
                                                         s.name)}
                                             >
@@ -823,7 +826,7 @@
                 <div class="flex justify-end">
                     <button
                         class="btn btn-sm btn-primary gap-1"
-                        on:click={openServerModal}
+                        onclick={openServerModal}
                     >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -921,7 +924,7 @@
                                             <button
                                                 class="btn btn-xs btn-ghost text-error"
                                                 title="Eliminar servidor"
-                                                on:click={() =>
+                                                onclick={() =>
                                                     (deleteServerTarget =
                                                         srv["service-name"] ||
                                                         srv.name)}
@@ -960,7 +963,7 @@
                 <div class="flex justify-end">
                     <button
                         class="btn btn-sm btn-primary gap-1"
-                        on:click={openProfileModal}
+                        onclick={openProfileModal}
                     >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -1041,7 +1044,7 @@
                                                 <button
                                                     class="btn btn-xs btn-ghost text-error"
                                                     title="Eliminar perfil"
-                                                    on:click={() =>
+                                                    onclick={() =>
                                                         (deleteProfileTarget =
                                                             p.name)}
                                                 >
@@ -1099,7 +1102,7 @@
             {#if formError}<div class="alert alert-error py-2 mb-3 text-sm">
                     {formError}
                 </div>{/if}
-            <form on:submit|preventDefault={handleSaveSecret} class="space-y-3">
+            <form onsubmit={(e) => { e.preventDefault(); handleSaveSecret(); }} class="space-y-3">
                 {#if !editingSecret}
                     <label class="form-control">
                         <span class="label-text">Usuario PPP</span>
@@ -1175,7 +1178,7 @@
                     <button
                         type="button"
                         class="btn btn-sm btn-ghost"
-                        on:click={() => (showSecretModal = false)}
+                        onclick={() => (showSecretModal = false)}
                         >Cancelar</button
                     >
                     <button
@@ -1196,13 +1199,13 @@
             class="modal-backdrop"
             role="button"
             tabindex="-1"
-            on:click={() => (showSecretModal = false)}
-            on:keydown={(e) => e.key === "Escape" && (showSecretModal = false)}
+            onclick={() => (showSecretModal = false)}
+            onkeydown={(e) => e.key === "Escape" && (showSecretModal = false)}
         ></div>
     </dialog>
 {/if}
 
-{#if deleteSecretTarget !== null}
+{#if deleteSecretTarget}
     <dialog class="modal modal-open">
         <div class="modal-box max-w-sm">
             <h3 class="font-bold text-lg">¿Eliminar secreto?</h3>
@@ -1212,14 +1215,12 @@
             <div class="modal-action">
                 <button
                     class="btn btn-sm btn-ghost"
-                    on:click={() => (deleteSecretTarget = null)}
+                    onclick={() => (deleteSecretTarget = null)}
                     >Cancelar</button
                 >
                 <button
                     class="btn btn-sm btn-error"
-                    on:click={() =>
-                        deleteSecretTarget &&
-                        handleDeleteSecret(deleteSecretTarget)}
+                    onclick={() => handleDeleteSecret(deleteSecretTarget!)}
                     >Sí, eliminar</button
                 >
             </div>
@@ -1229,8 +1230,8 @@
             class="modal-backdrop"
             role="button"
             tabindex="-1"
-            on:click={() => (deleteSecretTarget = null)}
-            on:keydown={(e) =>
+            onclick={() => (deleteSecretTarget = null)}
+            onkeydown={(e) =>
                 e.key === "Escape" && (deleteSecretTarget = null)}
         ></div>
     </dialog>
@@ -1248,11 +1249,11 @@
             <div class="modal-action">
                 <button
                     class="btn btn-sm btn-ghost"
-                    on:click={() => (killSessionTarget = null)}>Cancelar</button
+                    onclick={() => (killSessionTarget = null)}>Cancelar</button
                 >
                 <button
                     class="btn btn-sm btn-warning"
-                    on:click={() =>
+                    onclick={() =>
                         killSessionTarget &&
                         handleKillSession(killSessionTarget)}
                     >Sí, desconectar</button
@@ -1264,8 +1265,8 @@
             class="modal-backdrop"
             role="button"
             tabindex="-1"
-            on:click={() => (killSessionTarget = null)}
-            on:keydown={(e) => e.key === "Escape" && (killSessionTarget = null)}
+            onclick={() => (killSessionTarget = null)}
+            onkeydown={(e) => e.key === "Escape" && (killSessionTarget = null)}
         ></div>
     </dialog>
 {/if}
@@ -1283,7 +1284,7 @@
                 >
                     {serverFormError}
                 </div>{/if}
-            <form on:submit|preventDefault={handleSaveServer} class="space-y-3">
+            <form onsubmit={(e) => { e.preventDefault(); handleSaveServer(); }} class="space-y-3">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label class="form-control">
                         <span class="label-text">Nombre del Servicio</span>
@@ -1360,7 +1361,7 @@
                     <button
                         type="button"
                         class="btn btn-sm btn-ghost"
-                        on:click={() => (showServerModal = false)}
+                        onclick={() => (showServerModal = false)}
                         >Cancelar</button
                     >
                     <button
@@ -1381,8 +1382,8 @@
             class="modal-backdrop"
             role="button"
             tabindex="-1"
-            on:click={() => (showServerModal = false)}
-            on:keydown={(e) => e.key === "Escape" && (showServerModal = false)}
+            onclick={() => (showServerModal = false)}
+            onkeydown={(e) => e.key === "Escape" && (showServerModal = false)}
         ></div>
     </dialog>
 {/if}
@@ -1399,12 +1400,12 @@
             <div class="modal-action">
                 <button
                     class="btn btn-sm btn-ghost"
-                    on:click={() => (deleteServerTarget = null)}
+                    onclick={() => (deleteServerTarget = null)}
                     >Cancelar</button
                 >
                 <button
                     class="btn btn-sm btn-error"
-                    on:click={() =>
+                    onclick={() =>
                         deleteServerTarget &&
                         handleDeleteServer(deleteServerTarget)}
                     >Sí, eliminar</button
@@ -1416,8 +1417,8 @@
             class="modal-backdrop"
             role="button"
             tabindex="-1"
-            on:click={() => (deleteServerTarget = null)}
-            on:keydown={(e) =>
+            onclick={() => (deleteServerTarget = null)}
+            onkeydown={(e) =>
                 e.key === "Escape" && (deleteServerTarget = null)}
         ></div>
     </dialog>
@@ -1445,7 +1446,7 @@
                     {profileFormError}
                 </div>{/if}
             <form
-                on:submit|preventDefault={handleSaveProfile}
+                onsubmit={(e) => { e.preventDefault(); handleSaveProfile(); }}
                 class="space-y-3"
             >
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1567,7 +1568,7 @@
                     <button
                         type="button"
                         class="btn btn-sm btn-ghost"
-                        on:click={() => (showProfileModal = false)}
+                        onclick={() => (showProfileModal = false)}
                         >Cancelar</button
                     >
                     <button
@@ -1588,8 +1589,8 @@
             class="modal-backdrop"
             role="button"
             tabindex="-1"
-            on:click={() => (showProfileModal = false)}
-            on:keydown={(e) => e.key === "Escape" && (showProfileModal = false)}
+            onclick={() => (showProfileModal = false)}
+            onkeydown={(e) => e.key === "Escape" && (showProfileModal = false)}
         ></div>
     </dialog>
 {/if}
@@ -1606,12 +1607,12 @@
             <div class="modal-action">
                 <button
                     class="btn btn-sm btn-ghost"
-                    on:click={() => (deleteProfileTarget = null)}
+                    onclick={() => (deleteProfileTarget = null)}
                     >Cancelar</button
                 >
                 <button
                     class="btn btn-sm btn-error"
-                    on:click={() =>
+                    onclick={() =>
                         deleteProfileTarget &&
                         handleDeleteProfile(deleteProfileTarget)}
                     >Sí, eliminar perfil y pool</button
@@ -1623,8 +1624,8 @@
             class="modal-backdrop"
             role="button"
             tabindex="-1"
-            on:click={() => (deleteProfileTarget = null)}
-            on:keydown={(e) =>
+            onclick={() => (deleteProfileTarget = null)}
+            onkeydown={(e) =>
                 e.key === "Escape" && (deleteProfileTarget = null)}
         ></div>
     </dialog>

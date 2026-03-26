@@ -216,7 +216,7 @@ def enable_disable_pppoe_secret(
 
 
 def remove_pppoe_secret(api: RouterOsApi, secret_id: str) -> None:
-    api.get_resource("/ppp/secret").remove(id=secret_id)
+    api.get_resource("/ppp/secret").call("remove", {"id": secret_id})
 
 
 def kill_active_pppoe_connection(api: RouterOsApi, username: str) -> dict[str, Any]:

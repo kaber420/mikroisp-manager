@@ -222,7 +222,7 @@ def add_router_user(api: RouterOsApi, username: str, password: str, group: str) 
 
 
 def remove_router_user(api: RouterOsApi, user_id: str) -> None:
-    api.get_resource("/user").remove(id=user_id)
+    api.get_resource("/user").call("remove", {"id": user_id})
 
 
 # --- ¡FUNCIONES CORREGIDAS! ---

@@ -427,20 +427,20 @@ export async function createPPPoESecret(host: string, payload: any) {
 }
 
 export async function updatePPPoESecret(host: string, secretId: string, payload: any) {
-    return request(`/routers/${host}/pppoe/secrets/${secretId}`, {
+    return request(`/routers/${host}/pppoe/secrets/${encodeURIComponent(secretId)}`, {
         method: 'PATCH',
         body: JSON.stringify(payload)
     });
 }
 
 export async function disablePPPoESecret(host: string, secretId: string, disabled: boolean) {
-    return request(`/routers/${host}/pppoe/secrets/${secretId}/disable?disabled=${disabled}`, {
+    return request(`/routers/${host}/pppoe/secrets/${encodeURIComponent(secretId)}/disable?disabled=${disabled}`, {
         method: 'POST'
     });
 }
 
 export async function deletePPPoESecret(host: string, secretId: string) {
-    return request(`/routers/${host}/pppoe/secrets/${secretId}`, {
+    return request(`/routers/${host}/pppoe/secrets/${encodeURIComponent(secretId)}`, {
         method: 'DELETE'
     });
 }
