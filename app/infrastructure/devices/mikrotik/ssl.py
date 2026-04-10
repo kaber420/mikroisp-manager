@@ -503,7 +503,7 @@ def get_ssl_status(api: RouterOsApi) -> dict[str, Any]:
     issuer_lower = issuer.lower() if issuer else ""
 
     # A certificate is considered trusted ONLY if signed by a recognized CA.
-    is_mkcert = "mkcert" in issuer_lower
+    is_managed_pki = any(x in issuer_lower for x in ["mkcert", "umonitor", "certberus", "mikroisp"])
     is_root_ca = "root ca" in issuer_lower
     is_marked_trusted = cert.get("trusted") == "true"
 
@@ -517,7 +517,7 @@ def get_ssl_status(api: RouterOsApi) -> dict[str, Any]:
         is_self_signed = True
 
     # Final Trust Decision
-    is_trusted = (is_mkcert or is_root_ca) and is_marked_trusted
+    is_trusted = (is_managed_pki or is_root_ca) and is_marked_trusted
 
     if is_self_signed:
         is_trusted = False

@@ -301,12 +301,11 @@ class MikrotikProvisioningService:
         3. Configure and enable api-ssl service.
         """
         from app.services.business.pki_service import PKIService
-
         pki = PKIService()
-        if not pki.verify_mkcert_available():
+        if not pki.verify_pki_available():
             return {
                 "status": "error",
-                "message": "mkcert no está disponible. Instálalo para habilitar SSL.",
+                "message": "El motor PKI no está disponible. Verifique la configuración de Certberus.",
             }
 
         # 1. Upload and import CA certificate
@@ -538,10 +537,10 @@ class MikrotikProvisioningService:
 
             # 2. Setup SSL via PKI Service
             pki = PKIService()
-            if not pki.verify_mkcert_available():
+            if not pki.verify_pki_available():
                 return {
                     "status": "error",
-                    "message": "mkcert no está disponible. Instálalo para habilitar SSL.",
+                    "message": "El motor PKI no está disponible (Certberus/Internal).",
                 }
 
             # Install CA on router

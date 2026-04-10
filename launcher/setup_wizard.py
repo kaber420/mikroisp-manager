@@ -85,7 +85,7 @@ def run_setup_wizard() -> None:
         try:
             from app.services.business.pki_service import PKIService
 
-            if PKIService.verify_mkcert_available():
+            if PKIService.verify_pki_available():
                 print("⚙️  Configurando certificados...")
 
                 # Sincronizar CA
@@ -131,7 +131,7 @@ def run_setup_wizard() -> None:
                     print(f"⚠️  Error generando certificados: {cert_pem}")
                     print("   Continuando sin HTTPS...")
             else:
-                print("⚠️  No hay motor de certificados disponible (mkcert o cryptography).")
+                print("⚠️  No hay motor de certificados disponible (Certberus o cryptography).")
                 print("   Continuando sin HTTPS...")
         except ImportError:
             print("⚠️  PKIService no disponible. Continuando sin HTTPS...")

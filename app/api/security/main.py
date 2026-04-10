@@ -65,10 +65,10 @@ def download_ca_certificate(current_user: User = Depends(require_technician)):
     Serves the CA certificate for download.
     Users can install this certificate on their devices to trust the local HTTPS.
     """
-    if not os.path.isfile(CA_CERT_PATH):
+    if not CA_CERT_PATH.exists():
         raise HTTPException(
             status_code=404,
-            detail="Certificado CA no encontrado. Ejecuta 'sudo bash scripts/install_proxy.sh' con la opción mkcert.",
+            detail="Certificado CA no encontrado. Asegúrese de que el motor PKI (Certberus) esté inicializado.",
         )
 
     return FileResponse(

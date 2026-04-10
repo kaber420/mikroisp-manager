@@ -1,9 +1,6 @@
-# app/services/pki_service.py
 """
-PKI Service: Manages Certificate Authority operations for router provisioning.
-
-Uses mkcert for certificate signing. Supports both router-side CSR flow
-and server-side key generation as fallback.
+Uses Certberus for certificate signing. Supports both router-side CSR flow
+and server-side key generation via internal cryptography as fallback.
 """
 
 import logging
@@ -38,9 +35,8 @@ INTERNAL_PKI_DIR = PROJECT_ROOT / "data" / "pki"
 INTERNAL_CA_KEY = INTERNAL_PKI_DIR / "rootCA-key.pem"
 INTERNAL_CA_CERT = INTERNAL_PKI_DIR / "rootCA.pem"
 
-MKCERT_CA_ROOT = Path.home() / ".local" / "share" / "mkcert"
+# Fallback path for system-wide CA
 if sys.platform == "win32":
-    MKCERT_CA_ROOT = Path(os.environ["LOCALAPPDATA"]) / "mkcert"
     SYSTEM_CA_PATH = Path(os.environ.get("PROGRAMDATA", "C:\\ProgramData")) / "umonitor"
 else:
     SYSTEM_CA_PATH = Path("/etc/ssl/umonitor")
@@ -78,15 +74,12 @@ class PKIService:
 
     @staticmethod
     def get_ca_root_path() -> Path:
-        """Get the Certberus CA root directory."""
+        """Get the current active CA root directory."""
         if HAS_CERTBERUS:
             return CertberusPKI().storage_path
         
-        # Fallback to internal PKI
-        if INTERNAL_CA_CERT.exists():
-            return INTERNAL_PKI_DIR
-
-        return MKCERT_CA_ROOT
+        # Default to internal PKI storage
+        return INTERNAL_PKI_DIR
 
     @staticmethod
     def get_ca_pem() -> str | None:
@@ -107,7 +100,7 @@ class PKIService:
     @staticmethod
     def sync_ca_files() -> dict:
         """
-        Synchronize the mkcert CA to the system-wide location.
+        Synchronize the PKI CA to the system-wide location.
         Ensures web-downloadable CA matches the actual signing CA.
         """
         try:
@@ -120,14 +113,8 @@ class PKIService:
 
             if not source_ca.exists():
                 # Try to generate it if we are using internal PKI
-                if ca_root == INTERNAL_PKI_DIR:
-                    if not PKIService._generate_internal_ca():
-                        return {"status": "error", "message": "Failed to generate internal CA"}
-                else:
-                    return {
-                        "status": "error",
-                        "message": "Source CA not found. Run 'mkcert -install' first.",
-                    }
+                if not PKIService._generate_internal_ca():
+                    return {"status": "error", "message": "Failed to generate internal CA"}
 
             # Ensure target directory exists
             SYSTEM_CA_PATH.mkdir(parents=True, exist_ok=True)
@@ -360,19 +347,10 @@ class PKIService:
 
     @staticmethod
     def verify_pki_available() -> bool:
-        """Verify that a PKI engine (Certberus or mkcert) is available."""
+        """Verify that a PKI engine (Certberus or Internal) is available."""
         if HAS_CERTBERUS:
             return True
         
-        # Fallback to checking mkcert
-        try:
-            result = subprocess.run(
-                ["mkcert", "-CAROOT"], capture_output=True, text=True, timeout=5
-            )
-            return result.returncode == 0
-        except Exception:
-            pass
-            
         # Check if cryptography is available for internal fallback
         try:
             import cryptography
