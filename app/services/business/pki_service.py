@@ -13,11 +13,6 @@ from pathlib import Path
 from typing import Optional
 import sys
 
-# Add certberus to path if not installed
-CERTBERUS_PATH = "/home/kaber420/Documentos/proyectos/certberus"
-if CERTBERUS_PATH not in sys.path:
-    sys.path.append(CERTBERUS_PATH)
-
 try:
     from certberus.pki import PKIService as CertberusPKI
     from certberus.config import load_config as load_certberus_config

@@ -98,4 +98,4 @@ wrapt==2.1.2
 livekit-api
 livekit
 toml==0.10.2
--e /home/kaber420/Documentos/proyectos/certberus
+certberus @ git+https://github.com/kaber420/certberus.git@v0.1.0
