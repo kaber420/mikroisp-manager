@@ -4,21 +4,21 @@
     import type { PortalAnnouncement, PortalAnnouncementCreate, PortalAnnouncementUpdate } from "$lib/types/portalAnnouncements";
     import { notify as notifications } from "$lib/stores/notifications";
 
-    let items: PortalAnnouncement[] = [];
-    let loading = true;
-    let selectedItem: PortalAnnouncement | null = null;
-    let isEditing = false;
-    let showModal = false;
+    let items = $state<PortalAnnouncement[]>([]);
+    let loading = $state(true);
+    let selectedItem = $state<PortalAnnouncement | null>(null);
+    let isEditing = $state(false);
+    let showModal = $state(false);
 
     // Form data
-    let fdType: "critical" | "info" | "promotion" | "offer" | "notice" | "holiday" | "alert" = "info";
-    let fdTitle = "";
-    let fdContent = "";
-    let fdImageUrl = "";
-    let fdPriority = 10;
-    let fdStartDate = "";
-    let fdEndDate = "";
-    let fdIsActive = true;
+    let fdType = $state<"critical" | "info" | "promotion" | "offer" | "notice" | "holiday" | "alert">("info");
+    let fdTitle = $state("");
+    let fdContent = $state("");
+    let fdImageUrl = $state("");
+    let fdPriority = $state(10);
+    let fdStartDate = $state("");
+    let fdEndDate = $state("");
+    let fdIsActive = $state(true);
 
     onMount(async () => {
         await loadItems();

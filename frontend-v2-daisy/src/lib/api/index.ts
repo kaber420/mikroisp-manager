@@ -502,7 +502,9 @@ export async function createTicket(payload: any) {
 }
 
 export async function searchClientsForTicket(query: string) {
-    return request(`/clients/search?query=${encodeURIComponent(query)}`);
+    // El backend usa /clients?search=... y requiere el permiso correspondiente.
+    // Usamos el parámetro 'search' en la ruta base de clientes.
+    return request(`/clients?search=${encodeURIComponent(query)}`);
 }
 
 export async function getTicket(id: string) {
@@ -510,7 +512,7 @@ export async function getTicket(id: string) {
 }
 
 export async function replyTicket(id: string, payload: any) {
-    return request(`/tickets/${id}/replies`, {
+    return request(`/tickets/${id}/reply`, {
         method: 'POST',
         body: JSON.stringify(payload)
     });
