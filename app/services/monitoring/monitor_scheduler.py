@@ -49,6 +49,12 @@ class MonitorScheduler:
             if wan_interface is not None:
                 self._subscribed_routers[host]["wan_interface"] = wan_interface
 
+    async def update_wan_interface(self, host: str, wan_interface: str | None) -> None:
+        """Actualiza la interfaz WAN de un router ya suscrito."""
+        if host in self._subscribed_routers:
+            self._subscribed_routers[host]["wan_interface"] = wan_interface
+            logger.info(f"[MonitorScheduler] Updated WAN interface for {host} to {wan_interface}")
+
         info = self._subscribed_routers[host]
 
         # Check backoff: si hubo error reciente, no intentar reconectar aún

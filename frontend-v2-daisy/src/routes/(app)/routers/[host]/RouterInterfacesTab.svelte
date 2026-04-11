@@ -4,12 +4,17 @@
         getRouterFullDetails,
         updateInterfaceState,
         deleteInterface,
+        updateRouter,
     } from "$lib/api";
     import type { InterfaceData } from "$lib/types/router";
     import VlanModal from "./VlanModal.svelte";
     import BridgeModal from "./BridgeModal.svelte";
 
-    let { routerHost } = $props<{ routerHost: string }>();
+    let { routerHost, currentWanInterface, onWanUpdated } = $props<{ 
+        routerHost: string, 
+        currentWanInterface?: string | null,
+        onWanUpdated?: (newWan: string | null) => void
+    }>();
 
     let loading = $state(true);
     let errorMsg = $state<string | null>(null);
@@ -83,6 +88,16 @@
                 "Error al cargar interfaces";
         } finally {
             loading = false;
+        }
+    }
+
+    async function setAsWan(ifaceName: string) {
+        if (!confirm(`¿Estás seguro de que quieres configurar la interfaz "${ifaceName}" como la interfaz WAN para el monitoreo de tráfico?`)) return;
+        try {
+            await updateRouter(routerHost, { wan_interface: ifaceName });
+            if (onWanUpdated) onWanUpdated(ifaceName);
+        } catch (e: any) {
+             alert(`Error: ${e.response?.data?.detail || e.message}`);
         }
     }
 
@@ -300,7 +315,7 @@
                             <tr
                                 class="hover focus:outline-none focus:bg-base-200 {isDisabled
                                     ? 'opacity-50'
-                                    : ''}"
+                                    : ''} {iface.name === currentWanInterface ? 'bg-primary/5' : ''}"
                             >
                                 <td class="text-center">
                                     <div
@@ -315,8 +330,12 @@
                                     ></div>
                                 </td>
                                 <td class="font-medium whitespace-nowrap"
-                                    >{iface.name}</td
-                                >
+                                    >
+                                    {iface.name}
+                                    {#if iface.name === currentWanInterface}
+                                        <span class="badge badge-primary badge-xs ml-2 font-bold">WAN</span>
+                                    {/if}
+                                </td>
                                 <td
                                     ><span class="badge badge-sm badge-ghost"
                                         >{iface.type}</span
@@ -409,6 +428,27 @@
                                                     >
                                                 </button>
                                             {/if}
+                                        {/if}
+
+                                        {#if iface.name !== currentWanInterface}
+                                            <button
+                                                class="btn btn-ghost btn-xs btn-square text-info"
+                                                onclick={() => setAsWan(iface.name)}
+                                                title="Configurar como WAN"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                                                    <path fill-rule="evenodd" d="M10 1a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 1ZM5.05 3.05a.75.75 0 0 1 1.06 0l1.061 1.06a.75.75 0 1 1-1.06 1.06l-1.06-1.06a.75.75 0 0 1 0-1.06Zm9.9 0a.75.75 0 0 1 0 1.06l-1.06 1.06a.75.75 0 1 1-1.06-1.06l1.06-1.06a.75.75 0 0 1 1.06 0ZM10 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM1 10a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5A.75.75 0 0 1 1 10Zm14.25 0a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75ZM3.05 14.95a.75.75 0 0 1 1.06 1.06l-1.06 1.061a.75.75 0 1 1-1.06-1.06l1.06-1.06Zm12.84 1.06a.75.75 0 1 1 1.06-1.06l1.06 1.06a.75.75 0 1 1-1.06 1.06l-1.06-1.06ZM10 15.75a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+                                                </svg>
+                                            </button>
+                                        {:else}
+                                             <button
+                                                class="btn btn-ghost btn-xs btn-square text-primary cursor-default"
+                                                title="Interfaz WAN actual"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                                                    <path fill-rule="evenodd" d="m9.69 18.94.027.013a1.474 1.474 0 0 0 1.566-.013l.026-.013c.407-.204.83-.487 1.258-.813a10.88 10.88 0 0 0 3.033-3.41c1.076-1.9 1.6-3.804 1.6-5.454 0-4.305-3.238-7.75-7.2-7.75-3.962 0-7.2 3.445-7.2 7.75 0 1.65.524 3.554 1.6 5.454a10.88 10.88 0 0 0 3.033 3.41c.428.326.85.609 1.258.813Zm.31-7.19a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" clip-rule="evenodd" />
+                                                </svg>
+                                            </button>
                                         {/if}
 
                                         {#if canBeDeleted}

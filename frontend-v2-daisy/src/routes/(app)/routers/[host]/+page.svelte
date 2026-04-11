@@ -606,9 +606,17 @@
                 >
                     <div style="flex:1;text-align:center;padding:0 0.5rem;">
                         <span
-                            style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;opacity:0.5;"
-                            >Total TX (WAN)</span
-                        >
+                            style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;opacity:0.5;display:flex;align-items:center;justify-content:center;gap:0.35rem;"
+                            >
+                            Total TX (WAN)
+                            <button 
+                                class="btn btn-ghost btn-xs btn-circle opacity-40 hover:opacity-100 transition-opacity" 
+                                onclick={() => showEditModal = true}
+                                title="Configurar interfaz WAN"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </button>
+                        </span>
                         <div
                             style="font-size:1.5rem;font-weight:800;margin-top:0.25rem;color:oklch(from var(--color-info) l c h);"
                         >
@@ -627,9 +635,17 @@
                         style="flex:1;text-align:center;padding:0 0.5rem;border-left:1px solid oklch(from var(--color-base-content) l c h / 0.1);"
                     >
                         <span
-                            style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;opacity:0.5;"
-                            >Total RX (WAN)</span
-                        >
+                            style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;opacity:0.5;display:flex;align-items:center;justify-content:center;gap:0.35rem;"
+                            >
+                            Total RX (WAN)
+                            <button 
+                                class="btn btn-ghost btn-xs btn-circle opacity-40 hover:opacity-100 transition-opacity" 
+                                onclick={() => showEditModal = true}
+                                title="Configurar interfaz WAN"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </button>
+                        </span>
                         <div
                             style="font-size:1.5rem;font-weight:800;margin-top:0.25rem;color:oklch(from var(--color-primary) l c h);"
                         >
@@ -1252,7 +1268,11 @@
     {#if activeTab === "planes"}
         <RouterPlansTab routerHost={router.host} />
     {:else if activeTab === "interfaces"}
-        <RouterInterfacesTab routerHost={router.host} />
+        <RouterInterfacesTab 
+            routerHost={router.host} 
+            currentWanInterface={router.wan_interface}
+            onWanUpdated={(newWan) => { router.wan_interface = newWan; }}
+        />
     {:else if activeTab === "queues"}
         <QueuesTab routerHost={router.host} />
     {:else if activeTab === "network"}

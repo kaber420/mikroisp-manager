@@ -21,6 +21,7 @@
     let sshPort = $state(0);
     let zonaId = $state<number | null>(null);
     let isEnabled = $state(true);
+    let wanInterface = $state('');
 
     let zonas = $state<Zona[]>([]);
     let saving = $state(false);
@@ -36,6 +37,7 @@
             sshPort = router.ssh_port ?? 22;
             zonaId = router.zona_id ?? null;
             isEnabled = router.is_enabled ?? true;
+            wanInterface = router.wan_interface ?? '';
             errorMsg = null;
             successMsg = null;
         }
@@ -60,6 +62,7 @@
                 ssh_port: sshPort,
                 zona_id: zonaId,
                 is_enabled: isEnabled,
+                wan_interface: wanInterface.trim() || null,
             };
             if (password.trim()) {
                 payload.password = password;
@@ -183,6 +186,19 @@
                         <option value={z.id}>{z.nombre}</option>
                     {/each}
                 </select>
+            </div>
+            
+            <!-- Interfaz WAN -->
+            <div>
+                <label style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;display:block;margin-bottom:0.35rem;">
+                    Interfaz WAN <span style="opacity:0.5;text-transform:none;font-weight:400;">(ej: ether1, sfp-sfpplus1)</span>
+                </label>
+                <input
+                    type="text"
+                    class="input input-bordered w-full input-sm font-mono"
+                    bind:value={wanInterface}
+                    placeholder="ether1"
+                />
             </div>
 
             <!-- Habilitado -->

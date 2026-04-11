@@ -235,6 +235,10 @@ async def update_router(
     if not rows:
         raise HTTPException(status_code=404, detail="Router not found OR no changes made.")
 
+    # Notify scheduler if WAN interface changed
+    if "wan_interface" in update_fields:
+        await monitor_scheduler.update_wan_interface(host, update_fields["wan_interface"])
+
     # Return updated object
     updated_router = await get_router_by_host_service(session, host)
     return updated_router
