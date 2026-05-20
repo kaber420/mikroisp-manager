@@ -292,17 +292,50 @@
             <div
                 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;"
             >
-                <div>
-                    <h1 style="margin:0;font-size:1.5rem;font-weight:800;">
-                        Routers
-                    </h1>
-                    <p
-                        style="margin:0.25rem 0 0;font-size:0.85rem;opacity:0.5;"
-                    >
-                        {loading
-                            ? "Cargando..."
-                            : `${totalRouters} router${totalRouters !== 1 ? "s" : ""} registrado${totalRouters !== 1 ? "s" : ""}`}
-                    </p>
+                <div style="display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;">
+                    <div>
+                        <h1 style="margin:0;font-size:1.5rem;font-weight:800;letter-spacing:-0.025em;">
+                            Routers
+                        </h1>
+                    </div>
+                    
+                    {#if !loading}
+                        <div style="display:flex;align-items:center;gap:0.6rem;background:oklch(from var(--color-base-content) l c h / 0.03);padding:0.35rem 0.75rem;border-radius:0.75rem;border:1px solid oklch(from var(--color-base-content) l c h / 0.05);">
+                            <!-- Total -->
+                            <span class="text-xs font-semibold text-slate-400" style="padding-right:0.25rem;">
+                                Total: <span class="text-white font-extrabold">{totalRouters}</span>
+                            </span>
+                            
+                            <div style="width:1px;height:12px;background:oklch(from var(--color-base-content) l c h / 0.12);"></div>
+                            
+                            <!-- Online -->
+                            <span class="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                                <span class="relative flex h-2 w-2">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                                {onlineRouters} <span class="font-medium text-slate-400">Online</span>
+                            </span>
+                            
+                            <div style="width:1px;height:12px;background:oklch(from var(--color-base-content) l c h / 0.12);"></div>
+                            
+                            <!-- Offline -->
+                            <span class="inline-flex items-center gap-1.5 text-xs font-bold text-rose-400">
+                                <span class="h-2 w-2 rounded-full bg-rose-500"></span>
+                                {offlineRouters} <span class="font-medium text-slate-400">Offline</span>
+                            </span>
+
+                            {#if totalRouters > 0}
+                                <div style="width:1px;height:12px;background:oklch(from var(--color-base-content) l c h / 0.12);"></div>
+                                <!-- Salud -->
+                                <span class="badge badge-sm badge-primary font-bold text-[10px]">
+                                    {percentRouters}% OK
+                                </span>
+                            {/if}
+                        </div>
+                    {:else}
+                        <div style="height:1.75rem;width:120px;border-radius:0.5rem;background:oklch(from var(--color-base-content) l c h / 0.08);animation:pulseSkel 1.5s infinite;"></div>
+                    {/if}
                 </div>
                 <div
                     style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;"
@@ -330,58 +363,6 @@
             </div>
         </div>
     </div>
-
-    <!-- KPI Cards -->
-    {#if !loading}
-        <div class="max-w-sm">
-            <div
-                class="glass-panel-dona p-5 flex items-center justify-between group relative overflow-hidden"
-            >
-                <!-- Columna izquierda: Datos -->
-                <div class="flex flex-col z-10">
-                    <span
-                        class="text-[11px] font-bold tracking-[0.15em] text-slate-400 uppercase mb-1"
-                    >
-                        Routers
-                    </span>
-                    <span
-                        class="text-3xl font-extrabold text-white leading-none"
-                    >
-                        {totalRouters}
-                    </span>
-                    <!-- Badges de Up / Down -->
-                    <div class="mt-3 flex gap-2 text-xs">
-                        <span
-                            class="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 px-2 py-0.5 rounded border font-medium"
-                        >
-                            {onlineRouters}
-                        </span>
-                        <span
-                            class="bg-rose-500/10 text-rose-400 border-rose-500/20 px-2 py-0.5 rounded border font-medium"
-                        >
-                            {offlineRouters}
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Columna derecha: Dona (Radial Progress) -->
-                <div
-                    class="z-10 {theme.text} radial-progress donut-sm {theme.glow}"
-                    style="--value:{percentRouters};"
-                    role="progressbar"
-                >
-                    <span class="text-white text-xs font-bold"
-                        >{percentRouters}%</span
-                    >
-                </div>
-
-                <!-- Fondo mancha -->
-                <div
-                    class="absolute right-0 top-0 w-32 h-32 blur-[40px] rounded-full pointer-events-none transition-colors {theme.blob}"
-                ></div>
-            </div>
-        </div>
-    {/if}
 
     <!-- El error ahora se muestra como Toast -->
 

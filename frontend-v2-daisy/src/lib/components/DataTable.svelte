@@ -41,10 +41,20 @@
     let searchQuery = $state("");
     let loading = $state(false);
 
-    // Sync items if provided as a prop
+    // Sync items and apply client-side search filtering if no remote loadData is active
     $effect(() => {
         if (items !== null) {
-            currentItems = items;
+            if (!loadData && searchQuery) {
+                const query = searchQuery.toLowerCase().trim();
+                currentItems = items.filter((item: any) => {
+                    return Object.entries(item).some(([_, val]) => {
+                        if (val === null || val === undefined || typeof val === 'object' || typeof val === 'function') return false;
+                        return String(val).toLowerCase().includes(query);
+                    });
+                });
+            } else {
+                currentItems = items;
+            }
         }
     });
 
