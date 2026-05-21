@@ -4,11 +4,11 @@
     import { notify } from "$lib/stores/notifications";
 
     // Subcomponentes de cada pestaña
-    import GeneralTab from "./GeneralTab.svelte";
-    import AuditoriaTab from "./AuditoriaTab.svelte";
-    import BotsTab from "./BotsTab.svelte";
-    import AparienciaTab from "./AparienciaTab.svelte";
-    import InfraestructuraTab from "./InfraestructuraTab.svelte";
+    import GeneralTab from "$lib/components/configuracion/GeneralTab.svelte";
+    import AuditoriaTab from "$lib/components/configuracion/AuditoriaTab.svelte";
+    import BotsTab from "$lib/components/configuracion/BotsTab.svelte";
+    import AparienciaTab from "$lib/components/configuracion/AparienciaTab.svelte";
+    import InfraestructuraTab from "$lib/components/configuracion/InfraestructuraTab.svelte";
 
     // ─── Estado de tabs ────────────────────────────────────────────────
     let activeTab = $state<

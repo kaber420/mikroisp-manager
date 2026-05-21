@@ -4,8 +4,8 @@
     import DataTable from "$lib/components/DataTable.svelte";
     import type { AP } from "$lib/types/ap";
     import type { Zona } from "$lib/types/zona";
-    import APFormModal from "./APFormModal.svelte";
-    import APDeleteModal from "./APDeleteModal.svelte";
+    import APFormModal from "$lib/components/access-points/APFormModal.svelte";
+    import APDeleteModal from "$lib/components/access-points/APDeleteModal.svelte";
 
     // ── Estado principal ──────────────────────────────────────────────────
     let aps = $state<AP[]>([]);

@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import { getPlansByRouter, deletePlan } from "$lib/api";
     import type { Plan } from "$lib/types/plan";
-    import PlanFormModal from "../../planes/PlanFormModal.svelte";
+    import PlanFormModal from "$lib/components/planes/PlanFormModal.svelte";
 
     export let routerHost: string;
 

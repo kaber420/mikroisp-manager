@@ -2,15 +2,15 @@
     import { onMount, onDestroy } from "svelte";
     import { getRouterHistory, provisionRouter, repairRouter } from "$lib/api";
     import type { Router, RouterHistoryPoint } from "$lib/types/router";
-    import RouterPlansTab from "./RouterPlansTab.svelte";
-    import RouterInterfacesTab from "./RouterInterfacesTab.svelte";
-    import RouterEditModal from "./RouterEditModal.svelte";
-    import RouterBackupsTab from "./RouterBackupsTab.svelte";
-    import QueuesTab from "./QueuesTab.svelte";
-    import RouterNetworkTab from "./RouterNetworkTab.svelte";
-    import RouterFirewallTab from "./RouterFirewallTab.svelte";
-    import RouterUsersTab from "./RouterUsersTab.svelte";
-    import RouterPPPTab from "./RouterPPPTab.svelte";
+    import RouterPlansTab from "$lib/components/routers/RouterPlansTab.svelte";
+    import RouterInterfacesTab from "$lib/components/routers/RouterInterfacesTab.svelte";
+    import RouterEditModal from "$lib/components/routers/RouterEditModal.svelte";
+    import RouterBackupsTab from "$lib/components/routers/RouterBackupsTab.svelte";
+    import QueuesTab from "$lib/components/routers/QueuesTab.svelte";
+    import RouterNetworkTab from "$lib/components/routers/RouterNetworkTab.svelte";
+    import RouterFirewallTab from "$lib/components/routers/RouterFirewallTab.svelte";
+    import RouterUsersTab from "$lib/components/routers/RouterUsersTab.svelte";
+    import RouterPPPTab from "$lib/components/routers/RouterPPPTab.svelte";
     import ProvisionModal from "$lib/components/ProvisionModal.svelte";
     import { notify } from "$lib/stores/notifications";
 

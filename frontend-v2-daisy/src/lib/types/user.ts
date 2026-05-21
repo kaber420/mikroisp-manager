@@ -2,7 +2,7 @@ export interface User {
     id: string;
     username: string;
     email: string;
-    role: 'admin' | 'tecnico' | 'cobranza';
+    role: 'admin' | 'tecnico' | 'cobranza' | 'client';
     full_name: string;
     is_active: boolean;
     is_superuser: boolean;
@@ -10,6 +10,7 @@ export interface User {
     receive_alerts: boolean;
     receive_device_down_alerts: boolean;
     receive_announcements: boolean;
+    client_id?: string;
 }
 
 export interface UserCreate {

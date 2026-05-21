@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import { getPlans, deletePlan } from "$lib/api";
     import type { Plan } from "$lib/types/plan";
-    import PlanFormModal from "./PlanFormModal.svelte";
+    import PlanFormModal from "$lib/components/planes/PlanFormModal.svelte";
 
     let plans: Plan[] = [];
     let loading = true;
