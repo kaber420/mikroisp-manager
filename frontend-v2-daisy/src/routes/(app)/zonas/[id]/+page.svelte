@@ -14,6 +14,7 @@
     let loading = $state(true);
     let pageError = $state<string | null>(null);
     let activeTab = $state<"general" | "infra" | "notas" | "docs">("general");
+    let editMode = $state(false);
 
     async function loadDetalle() {
         loading = true;
@@ -26,6 +27,10 @@
         } finally {
             loading = false;
         }
+    }
+
+    function activateEdit() {
+        editMode = true;
     }
 
     onMount(loadDetalle);
@@ -65,6 +70,9 @@
         <div>
             <h2 style="font-size:1.4rem;font-weight:800;margin:0;display:flex;align-items:center;gap:0.5rem;">
                 🗺️ {zona.nombre}
+                {#if editMode}
+                    <span class="badge badge-warning badge-sm">✏️ Editando</span>
+                {/if}
             </h2>
             {#if zona.direccion}
                 <p style="margin:0.3rem 0 0;font-size:0.85rem;opacity:0.5;">📍 {zona.direccion}</p>
@@ -76,7 +84,11 @@
         </div>
         <div style="display:flex;gap:0.5rem;align-items:center;">
             <a href="/zonas" class="btn btn-ghost btn-sm">← Volver</a>
-            <a href="/zonas/{zonaId}/editar" class="btn btn-primary btn-sm">✏️ Editar</a>
+            {#if editMode}
+                <button class="btn btn-sm btn-neutral" onclick={() => (editMode = false)}>👁 Solo lectura</button>
+            {:else}
+                <button class="btn btn-primary btn-sm" onclick={() => (editMode = true)}>✏️ Editar</button>
+            {/if}
         </div>
     </div>
 
@@ -96,13 +108,13 @@
 
     <!-- ── TAB CONTENT ───────────────────────────────────────────────────── -->
     {#if activeTab === "general"}
-        <ZonaGeneralTab {zona} />
+        <ZonaGeneralTab {zona} {zonaId} {editMode} onsave={loadDetalle} />
     {:else if activeTab === "infra"}
-        <ZonaInfraTab {zona} {zonaId} />
+        <ZonaInfraTab {zona} {zonaId} {editMode} onsave={loadDetalle} onedit={activateEdit} />
     {:else if activeTab === "notas"}
-        <ZonaNotasTab {zona} {zonaId} />
+        <ZonaNotasTab {zona} {zonaId} {editMode} onsave={loadDetalle} onedit={activateEdit} />
     {:else if activeTab === "docs"}
-        <ZonaDocsTab {zona} {zonaId} />
+        <ZonaDocsTab {zona} {zonaId} {editMode} onsave={loadDetalle} onedit={activateEdit} />
     {/if}
 {/if}
 
