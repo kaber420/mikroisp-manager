@@ -15,10 +15,13 @@ from app.core.users import get_user_manager, UserManager
 from app.db.engine import get_session
 from app.models.user import User
 from app.schemas.user import UserCreate
+from .infra import router as infra_router
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Setup"])
+router.include_router(infra_router)
+
 
 
 class SetupRequest(BaseModel):

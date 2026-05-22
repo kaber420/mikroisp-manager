@@ -171,3 +171,34 @@ class CacheManager:
 
 # Singleton global
 cache_manager = CacheManager()
+
+
+async def reload_cache_manager():
+    """
+    Recarga dinámicamente el backend de caché (memoria/Redict)
+    y reconecta redict_manager si procede.
+    """
+    global cache_manager
+    from app.core.config import settings
+    from .redict_store import redict_manager
+    
+    # Actualizar indicador
+    cache_manager._use_redict = (settings.CACHE_BACKEND == "redict")
+    
+    if cache_manager._use_redict:
+        try:
+            await redict_manager.disconnect()
+            connected = await redict_manager.connect(settings.REDICT_URL)
+            if connected:
+                print("✅ [Cache Reload] Redict cache reconectado exitosamente.")
+            else:
+                print("⚠️ [Cache Reload] Redict no disponible. Usando caché en memoria.")
+        except Exception as e:
+            print(f"⚠️ [Cache Reload] Error reconectando Redict: {e}")
+    else:
+        try:
+            await redict_manager.disconnect()
+        except Exception:
+            pass
+        print("✅ [Cache Reload] Configurado backend de caché en memoria.")
+
