@@ -3,6 +3,7 @@
     import { getZonas } from "$lib/api";
     import { notify } from "$lib/stores/notifications";
     import DataTable from "$lib/components/DataTable.svelte";
+    import AdminToolbar from "$lib/components/AdminToolbar.svelte";
     import type { Zona } from "$lib/types/zona";
     import ZonaFormModal from "./ZonaFormModal.svelte";
     import ZonaDeleteModal from "./ZonaDeleteModal.svelte";
@@ -41,27 +42,16 @@
 <!-- ── CONTENEDOR PRINCIPAL ──────────────────────────────────────────── -->
 <div style="display:flex;flex-direction:column;gap:1.5rem;">
     <!-- ── HEADER ──────────────────────────────────────────────────────── -->
-    <div class="glass-card-flat" style="border-radius:1rem;display:flex;flex-direction:column;overflow:hidden;">
-        <div style="padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:0.75rem;">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">
-                <div>
-                    <h1 style="margin:0;font-size:1.5rem;font-weight:800;">
-                        Gestión — Zonas de Cobertura
-                    </h1>
-                    <p style="margin:0.25rem 0 0;font-size:0.85rem;opacity:0.5;">
-                        {loading
-                            ? "Cargando..."
-                            : `${zonas.length} zona${zonas.length !== 1 ? "s" : ""} registrada${zonas.length !== 1 ? "s" : ""}`}
-                    </p>
-                </div>
-                <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-                    <button class="btn btn-primary btn-sm" onclick={() => (showModal = true)}>
-                        + Nueva Zona
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <AdminToolbar
+        title="Gestión — Zonas de Cobertura"
+        subtitle={loading ? "Cargando..." : `${zonas.length} zona${zonas.length !== 1 ? "s" : ""} registrada${zonas.length !== 1 ? "s" : ""}`}
+    >
+        {#snippet actions()}
+            <button class="btn btn-primary btn-sm" onclick={() => (showModal = true)}>
+                + Nueva Zona
+            </button>
+        {/snippet}
+    </AdminToolbar>
 
     <!-- DataTable -->
     {#if !loading}

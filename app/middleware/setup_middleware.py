@@ -52,36 +52,41 @@ class SetupMiddleware(BaseHTTPMiddleware):
         
         path = request.url.path
         
+        # 1. Comprobar proactivamente si el sistema ya tiene usuarios si no está cacheado
+        if not _SYSTEM_HAS_USERS_CACHE:
+            try:
+                from app.db.engine import engine
+                from app.models.user import User
+                
+                async with AsyncSession(engine) as session:
+                    result = await session.execute(select(User).limit(1))
+                    has_users = result.first() is not None
+                    if has_users:
+                        _SYSTEM_HAS_USERS_CACHE = True
+            except Exception as e:
+                logger.error(f"Error comprobando estado de DB en middleware: {e}")
+                # En caso de fallo crítico en base de datos, dejamos que la petición continúe
+                pass
+
+        # 2. Si ya hay usuarios, desactivar por completo los endpoints de setup con 404
+        if _SYSTEM_HAS_USERS_CACHE:
+            if path == "/setup" or path == "/api/setup" or path.startswith("/api/setup/"):
+                from fastapi.responses import JSONResponse
+                return JSONResponse(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    content={"detail": "Not Found"}
+                )
+            
+            # Cualquier otra petición de la app pasa normalmente (incluye exenciones como /uploads, /docs, etc.)
+            if self._is_exempt(path):
+                return await call_next(request)
+            return await call_next(request)
+
+        # 3. Si NO hay usuarios (Modo Bootstrap / Instalación inicial)
+        # Permitimos el acceso a las rutas exentas (que incluyen /setup y /api/setup)
         if self._is_exempt(path):
             return await call_next(request)
-
-        # Si ya sabemos que hay usuarios, pasamos directo
-        if _SYSTEM_HAS_USERS_CACHE:
-            if path == "/setup":
-                return RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)
-            return await call_next(request)
-
-        has_users = False
-        try:
-            from app.db.engine import engine
-            from app.models.user import User
             
-            async with AsyncSession(engine) as session:
-                result = await session.execute(select(User).limit(1))
-                has_users = result.first() is not None
-                if has_users:
-                    _SYSTEM_HAS_USERS_CACHE = True
-                    
-        except Exception as e:
-            logger.error(f"Error comprobando estado de DB en middleware: {e}")
-            return await call_next(request)
-
-        if not has_users:
-            logger.info(f"Redirigiendo acceso a '{path}' hacia /setup porque no hay usuarios.")
-            return RedirectResponse(url="/setup", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
-
-        if path == "/setup":
-            logger.warning("Intento de acceso a /setup, pero el sistema ya configurado. Redirigiendo a /dashboard.")
-            return RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)
-
-        return await call_next(request)
+        # Si intenta acceder a cualquier otra ruta sin haber usuarios, redirigir a /setup
+        logger.info(f"Redirigiendo acceso a '{path}' hacia /setup porque no hay usuarios.")
+        return RedirectResponse(url="/setup", status_code=status.HTTP_307_TEMPORARY_REDIRECT)

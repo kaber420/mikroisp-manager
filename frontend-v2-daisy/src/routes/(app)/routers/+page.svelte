@@ -11,6 +11,7 @@
     import type { Zona } from "$lib/types/zona";
     import { notify } from "$lib/stores/notifications";
     import { goto } from "$app/navigation";
+    import AdminToolbar from "$lib/components/AdminToolbar.svelte";
 
     // Subcomponentes refactorizados
     import RouterFormModal from "$lib/components/routers/RouterFormModal.svelte";
@@ -160,87 +161,69 @@
 <!-- ── CONTENEDOR PRINCIPAL ───────────────────────────────────────────── -->
 <div style="display:flex;flex-direction:column;gap:1.5rem;">
     <!-- ── HEADER ─────────────────────────────────────────────────────────── -->
-    <div
-        class="glass-card-flat"
-        style="border-radius:1rem;display:flex;flex-direction:column;overflow:hidden;"
-    >
-        <div
-            style="padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:0.75rem;"
-        >
-            <div
-                style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;"
-            >
-                <div style="display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;">
-                    <div>
-                        <h1 style="margin:0;font-size:1.5rem;font-weight:800;letter-spacing:-0.025em;">
-                            Routers
-                        </h1>
-                    </div>
+    <AdminToolbar title="Routers">
+        {#snippet stats()}
+            {#if !loading}
+                <div style="display:flex;align-items:center;gap:0.6rem;background:oklch(from var(--color-base-content) l c h / 0.03);padding:0.35rem 0.75rem;border-radius:0.75rem;border:1px solid oklch(from var(--color-base-content) l c h / 0.05);">
+                    <!-- Total -->
+                    <span class="text-xs font-semibold text-slate-400" style="padding-right:0.25rem;">
+                        Total: <span class="text-white font-extrabold">{totalRouters}</span>
+                    </span>
                     
-                    {#if !loading}
-                        <div style="display:flex;align-items:center;gap:0.6rem;background:oklch(from var(--color-base-content) l c h / 0.03);padding:0.35rem 0.75rem;border-radius:0.75rem;border:1px solid oklch(from var(--color-base-content) l c h / 0.05);">
-                            <!-- Total -->
-                            <span class="text-xs font-semibold text-slate-400" style="padding-right:0.25rem;">
-                                Total: <span class="text-white font-extrabold">{totalRouters}</span>
-                            </span>
-                            
-                            <div style="width:1px;height:12px;background:oklch(from var(--color-base-content) l c h / 0.12);"></div>
-                            
-                            <!-- Online -->
-                            <span class="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400">
-                                <span class="relative flex h-2 w-2">
-                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                </span>
-                                {onlineRouters} <span class="font-medium text-slate-400">Online</span>
-                            </span>
-                            
-                            <div style="width:1px;height:12px;background:oklch(from var(--color-base-content) l c h / 0.12);"></div>
-                            
-                            <!-- Offline -->
-                            <span class="inline-flex items-center gap-1.5 text-xs font-bold text-rose-400">
-                                <span class="h-2 w-2 rounded-full bg-rose-500"></span>
-                                {offlineRouters} <span class="font-medium text-slate-400">Offline</span>
-                            </span>
+                    <div style="width:1px;height:12px;background:oklch(from var(--color-base-content) l c h / 0.12);"></div>
+                    
+                    <!-- Online -->
+                    <span class="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        {onlineRouters} <span class="font-medium text-slate-400">Online</span>
+                    </span>
+                    
+                    <div style="width:1px;height:12px;background:oklch(from var(--color-base-content) l c h / 0.12);"></div>
+                    
+                    <!-- Offline -->
+                    <span class="inline-flex items-center gap-1.5 text-xs font-bold text-rose-400">
+                        <span class="h-2 w-2 rounded-full bg-rose-500"></span>
+                        {offlineRouters} <span class="font-medium text-slate-400">Offline</span>
+                    </span>
 
-                            {#if totalRouters > 0}
-                                <div style="width:1px;height:12px;background:oklch(from var(--color-base-content) l c h / 0.12);"></div>
-                                <!-- Salud -->
-                                <span class="badge badge-sm badge-primary font-bold text-[10px]">
-                                    {percentRouters}% OK
-                                </span>
-                            {/if}
-                        </div>
-                    {:else}
-                        <div style="height:1.75rem;width:120px;border-radius:0.5rem;background:oklch(from var(--color-base-content) l c h / 0.08);animation:pulseSkel 1.5s infinite;"></div>
+                    {#if totalRouters > 0}
+                        <div style="width:1px;height:12px;background:oklch(from var(--color-base-content) l c h / 0.12);"></div>
+                        <!-- Salud -->
+                        <span class="badge badge-sm badge-primary font-bold text-[10px]">
+                            {percentRouters}% OK
+                        </span>
                     {/if}
                 </div>
-                <div
-                    style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;"
+            {:else}
+                <div style="height:1.75rem;width:120px;border-radius:0.5rem;background:oklch(from var(--color-base-content) l c h / 0.08);animation:pulseSkel 1.5s infinite;"></div>
+            {/if}
+        {/snippet}
+
+        {#snippet actions()}
+            <button
+                class="btn btn-primary btn-sm gap-2"
+                onclick={openCreate}
+            >
+                <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
                 >
-                    <button
-                        class="btn btn-primary btn-sm gap-2"
-                        onclick={openCreate}
-                    >
-                        <svg
-                            class="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M12 4v16m8-8H4"
-                            />
-                        </svg>
-                        Nuevo Router
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 4v16m8-8H4"
+                    />
+                </svg>
+                Nuevo Router
+            </button>
+        {/snippet}
+    </AdminToolbar>
 
     <!-- DataTable -->
     {#if !loading}

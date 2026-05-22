@@ -24,6 +24,7 @@
     import ClienteAccesoTab    from '$lib/components/clientes/ClienteAccesoTab.svelte';
     import ClientePlanModal    from '$lib/components/clientes/ClientePlanModal.svelte';
     import ClienteAccesoModal  from '$lib/components/clientes/ClienteAccesoModal.svelte';
+    import AdminToolbar        from '$lib/components/AdminToolbar.svelte';
 
     let { data }: { data: PageData } = $props();
     let client = $derived(data.client);
@@ -214,58 +215,51 @@
 
 <div style="display:flex;flex-direction:column;gap:1.5rem;">
     <!-- ── HEADER ──────────────────────────────────────────────────────── -->
-    <div class="glass-card-flat" style="border-radius:1rem;overflow:hidden;">
-        <div style="padding:1.25rem 1.5rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;justify-content:space-between;">
-            <div style="display:flex;align-items:center;gap:0.75rem;">
-                <button
-                    class="btn btn-ghost btn-sm btn-square"
-                    onclick={() => goto('/clientes')}
-                    title="Volver a clientes"
-                >
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                    </svg>
-                </button>
-                <div>
-                    <h1 style="margin:0;font-size:1.5rem;font-weight:800;">{client.name}</h1>
-                    <span class="badge {statusBadgeClass(client.service_status)} badge-sm" style="margin-top:4px;">
-                        {statusLabel(client.service_status)}
-                    </span>
-                </div>
-            </div>
+    <AdminToolbar
+        title={client.name}
+        backUrl="/clientes"
+    >
+        {#snippet stats()}
+            <span class="badge {statusBadgeClass(client.service_status)} badge-sm" style="margin-top: 4px;">
+                {statusLabel(client.service_status)}
+            </span>
+        {/snippet}
+
+        {#snippet actions()}
             <div style="font-size:0.8rem;opacity:0.5;">
                 Alta: {new Date(client.created_at).toLocaleDateString('es-MX')}
             </div>
-        </div>
+        {/snippet}
 
-        <!-- Tabs -->
-        <div class="tabs tabs-border" style="padding:0 1rem;border-top:1px solid color-mix(in oklch, currentColor 10%, transparent);">
-            <button class="tab {activeTab === 'info' ? 'tab-active' : ''}" onclick={() => switchTab('info')}>
-                <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                Información
-            </button>
-            <button class="tab {activeTab === 'servicios' ? 'tab-active' : ''}" onclick={() => switchTab('servicios')}>
-                <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0" />
-                </svg>
-                Servicios · <span class="ml-1 badge badge-sm {client.cpe_count > 0 ? 'badge-info' : 'badge-neutral'}">{client.cpe_count}</span>
-            </button>
-            <button class="tab {activeTab === 'pagos' ? 'tab-active' : ''}" onclick={() => switchTab('pagos')}>
-                <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" />
-                </svg>
-                Facturación
-            </button>
-            <button class="tab {activeTab === 'acceso' ? 'tab-active' : ''}" onclick={() => switchTab('acceso')}>
-                <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                </svg>
-                Acceso Portal
-            </button>
-        </div>
-    </div>
+        {#snippet tabs()}
+            <div class="tabs tabs-border" style="padding:0 1rem;border-top:1px solid color-mix(in oklch, currentColor 10%, transparent);">
+                <button class="tab {activeTab === 'info' ? 'tab-active' : ''}" onclick={() => switchTab('info')}>
+                    <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Información
+                </button>
+                <button class="tab {activeTab === 'servicios' ? 'tab-active' : ''}" onclick={() => switchTab('servicios')}>
+                    <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0" />
+                    </svg>
+                    Servicios · <span class="ml-1 badge badge-sm {client.cpe_count > 0 ? 'badge-info' : 'badge-neutral'}">{client.cpe_count}</span>
+                </button>
+                <button class="tab {activeTab === 'pagos' ? 'tab-active' : ''}" onclick={() => switchTab('pagos')}>
+                    <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                    </svg>
+                    Facturación
+                </button>
+                <button class="tab {activeTab === 'acceso' ? 'tab-active' : ''}" onclick={() => switchTab('acceso')}>
+                    <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                    Acceso Portal
+                </button>
+            </div>
+        {/snippet}
+    </AdminToolbar>
 
     <!-- ── TAB CONTENT ──────────────────────────────────────────────────── -->
     {#if activeTab === 'info'}

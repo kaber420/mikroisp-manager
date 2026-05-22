@@ -3,6 +3,7 @@
     import { getPlans, deletePlan } from "$lib/api";
     import type { Plan } from "$lib/types/plan";
     import PlanFormModal from "$lib/components/planes/PlanFormModal.svelte";
+    import AdminToolbar from "$lib/components/AdminToolbar.svelte";
 
     let plans: Plan[] = [];
     let loading = true;
@@ -93,52 +94,32 @@
 
 <div class="space-y-6">
     <!-- ── HEADER ─────────────────────────────────────────────────────────── -->
-    <div
-        class="glass-card-flat"
-        style="border-radius:1rem;display:flex;flex-direction:column;overflow:hidden;"
+    <AdminToolbar
+        title="Gestión de Planes"
+        subtitle="{globalCount} globales · {localCount} locales"
     >
-        <div
-            style="padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:0.75rem;"
-        >
-            <div
-                style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;"
+        {#snippet actions()}
+            <button
+                class="btn btn-primary btn-sm gap-2"
+                on:click={openCreate}
             >
-                <div>
-                    <h1 style="margin:0;font-size:1.5rem;font-weight:800;">
-                        Gestión de Planes
-                    </h1>
-                    <p
-                        style="margin:0.25rem 0 0;font-size:0.85rem;opacity:0.5;"
-                    >
-                        {globalCount} globales · {localCount} locales
-                    </p>
-                </div>
-                <div
-                    style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;"
+                <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
                 >
-                    <button
-                        class="btn btn-primary btn-sm gap-2"
-                        on:click={openCreate}
-                    >
-                        <svg
-                            class="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M12 4v16m8-8H4"
-                            />
-                        </svg>
-                        Nuevo Plan
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 4v16m8-8H4"
+                    />
+                </svg>
+                Nuevo Plan
+            </button>
+        {/snippet}
+    </AdminToolbar>
 
     <!-- Filtros y búsqueda -->
     <div class="flex flex-col sm:flex-row gap-3">
