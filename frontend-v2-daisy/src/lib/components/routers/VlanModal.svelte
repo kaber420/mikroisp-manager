@@ -41,7 +41,7 @@
     });
 
     const physicalInterfaces = $derived(
-        interfaces.filter((i) => ["ether", "wlan", "bonding"].includes(i.type)),
+        interfaces.filter((i: InterfaceData) => ["ether", "wlan", "bonding"].includes(i.type)),
     );
 
     function close() {

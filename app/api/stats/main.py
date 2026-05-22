@@ -1,9 +1,11 @@
+import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 
 logger = logging.getLogger(__name__)
-from sqlalchemy import func, text
+from sqlalchemy import func, text, desc
+from sqlalchemy.orm import selectinload, joinedload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -15,14 +17,19 @@ from ...models.router import Router
 from ...models.switch import Switch
 from ...models.user import User
 from ...models.ticket import Ticket
+from ...models.client import Client
 from ...core.constants import CPEStatus, DeviceStatus
 # Models specifically for response
 from .models import (
     CPECount, SwitchCount, TopAP, TopCPE, 
     TicketStats, RouterCount, APCount,
-    TopRouterConsumption, TopOfflineDevice
+    TopRouterConsumption, TopOfflineDevice,
+    DashboardSummaryResponse
 )
+from ..tickets.models import TicketMessageRead, TicketRead
+from ...repositories.router_repository import get_all_routers as get_all_routers_service
 from ...services.core.settings_service import SettingsService
+from ...utils.cache import cache_manager
 
 from ...repositories.log_repository import (
     count_event_logs,
@@ -380,3 +387,109 @@ async def get_dashboard_events(
         "page_size": page_size,
         "total_pages": total_pages,
     }
+
+
+async def compute_dashboard_summary_from_db(
+    session: AsyncSession,
+    current_user: User,
+) -> dict:
+    """
+    Computes all dashboard stats sequentially to prevent concurrency bugs in SQLAlchemy,
+    using eager loading for ticket relations to eliminate N+1 queries.
+    """
+    # 1. Sequential calls
+    cpes = await get_cpe_total_count(session, current_user)
+    switches = await get_switch_total_count(session, current_user)
+    tickets_stats = await get_ticket_stats(session, current_user)
+    routers = await get_router_total_count(session, current_user)
+    aps = await get_ap_total_count(session, current_user)
+    
+    top_cpes = await get_top_cpes_by_weak_signal(limit=5, session=session, current_user=current_user)
+    top_aps = await get_top_aps_by_airtime(limit=5, session=session, current_user=current_user)
+    top_routers = await get_top_routers_by_consumption(limit=5, session=session, current_user=current_user)
+    top_offline = await get_top_offline_devices(limit=5, session=session, current_user=current_user)
+    routers_list = await get_all_routers_service(session)
+
+    # 2. Recent tickets query with eager relationships loaded
+    ticket_stmt = (
+        select(Ticket)
+        .options(
+            selectinload(Ticket.messages),
+            joinedload(Ticket.client),
+            joinedload(Ticket.assigned_tech)
+        )
+        .order_by(desc(Ticket.updated_at))
+        .limit(10)
+    )
+    ticket_result = await session.exec(ticket_stmt)
+    tickets = ticket_result.all()
+
+    ticket_responses = []
+    for t in tickets:
+        msgs = [
+            TicketMessageRead(
+                id=m.id,
+                sender_type=m.sender_type,
+                sender_id=m.sender_id,
+                content=m.content,
+                created_at=m.created_at,
+                media_url=m.media_url
+            ) for m in sorted(t.messages, key=lambda x: x.created_at)
+        ]
+        ticket_responses.append(TicketRead(
+            id=t.id,
+            ticket_id=t.ticket_id,
+            subject=t.subject,
+            description=t.description,
+            status=t.status,
+            priority=t.priority,
+            client_name=t.client.name if t.client else "Unknown",
+            assigned_tech_id=t.assigned_tech_id,
+            assigned_tech_username=t.assigned_tech.username if t.assigned_tech else None,
+            created_at=t.created_at,
+            updated_at=t.updated_at,
+            ticket_type=t.ticket_type,
+            scheduled_at=t.scheduled_at,
+            coordinates=t.coordinates,
+            address_notes=t.address_notes,
+            messages=msgs
+        ))
+
+    return {
+        "stats": {
+            "cpes": cpes,
+            "switches": switches,
+            "tickets": tickets_stats,
+            "routers": routers,
+            "aps": aps
+        },
+        "tops": {
+            "signal": top_cpes,
+            "airtime": top_aps,
+            "consumption": top_routers,
+            "offline": top_offline
+        },
+        "recent_tickets": ticket_responses,
+        "routers_list": routers_list
+    }
+
+
+@router.get("/stats/dashboard-summary", response_model=DashboardSummaryResponse)
+async def get_dashboard_summary(
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(current_active_user),
+):
+    try:
+        # Intentar obtener de la caché primero
+        stats_cache = cache_manager.get_store("dashboard_stats")
+        cached_summary = await stats_cache.get_async("summary")
+        if cached_summary:
+            logger.debug("✅ Caché del resumen del Dashboard obtenida exitosamente")
+            return cached_summary
+
+        # Fallback si no hay caché calculada (ej. al arrancar el servidor)
+        logger.warning("⚠️ Caché del Dashboard vacía (fallback asíncrono en caliente)...")
+        return await compute_dashboard_summary_from_db(session, current_user)
+    except Exception as e:
+        logger.error(f"Error consolidando estadísticas del dashboard: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error al generar resumen del dashboard")

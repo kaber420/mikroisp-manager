@@ -44,6 +44,7 @@ def run_scheduler(log_queue=None):
     # Importaciones tardías para evitar problemas de circularidad
     from .services.business.billing_job import run_billing_check
     from .services.monitoring.monitor_job import run_monitor_cycle
+    from .services.monitoring.dashboard_job import run_dashboard_cache_job
 
     logger.info("Inicializando BackgroundScheduler...")
 
@@ -150,6 +151,16 @@ def run_scheduler(log_queue=None):
         trigger=CronTrigger(hour=db_h, minute=db_m),
         id="db_backup_job",
         name="Database Backup",
+        replace_existing=True,
+    )
+
+    # --- Job 5: Pre-cálculo y Caché del Dashboard ---
+    logger.info("Programando Pre-cálculo de Caché del Dashboard cada 30 segundos")
+    scheduler.add_job(
+        run_dashboard_cache_job,
+        trigger=IntervalTrigger(seconds=30),
+        id="dashboard_cache_job",
+        name="Dashboard Cache Updater",
         replace_existing=True,
     )
 

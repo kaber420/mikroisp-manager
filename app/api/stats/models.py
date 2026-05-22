@@ -1,6 +1,8 @@
 # app/api/stats/models.py
 
 from pydantic import BaseModel, ConfigDict
+from ..routers.models import RouterResponse
+from ..tickets.models import TicketRead
 
 
 # --- Modelos Pydantic ---
@@ -69,3 +71,28 @@ class APCount(BaseModel):
     total_aps: int
     online: int
     offline: int
+
+
+class DashboardStatsSummary(BaseModel):
+    cpes: CPECount
+    switches: SwitchCount
+    tickets: TicketStats
+    routers: RouterCount
+    aps: APCount
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DashboardTopsSummary(BaseModel):
+    signal: list[TopCPE]
+    airtime: list[TopAP]
+    consumption: list[TopRouterConsumption]
+    offline: list[TopOfflineDevice]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DashboardSummaryResponse(BaseModel):
+    stats: DashboardStatsSummary
+    tops: DashboardTopsSummary
+    recent_tickets: list[TicketRead]
+    routers_list: list[RouterResponse]
+    model_config = ConfigDict(from_attributes=True)

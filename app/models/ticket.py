@@ -10,8 +10,8 @@ from enum import Enum
 from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship
 
-# Forward reference for Client if needed, but for now we just store client_id
-# from app.models.client import Client
+from app.models.client import Client
+from app.models.user import User
 
 class SupportChannel(str, Enum):
     WEB_CHAT = "web_chat"
@@ -60,6 +60,8 @@ class Ticket(SQLModel, table=True):
     
     # We can add relationships here if we want to navigate object.messages
     messages: List["TicketMessage"] = Relationship(back_populates="ticket")
+    client: Optional[Client] = Relationship()
+    assigned_tech: Optional[User] = Relationship()
 
 
 class TicketMessage(SQLModel, table=True):
