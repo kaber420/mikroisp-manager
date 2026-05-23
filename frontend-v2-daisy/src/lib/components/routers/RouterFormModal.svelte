@@ -113,7 +113,7 @@
             }
         } catch (e: any) {
             modalError = e?.response?.data?.detail ?? "Error al guardar el router.";
-            notify.error(modalError);
+            notify.error(modalError || "Error al guardar el router.");
         } finally {
             modalLoading = false;
         }

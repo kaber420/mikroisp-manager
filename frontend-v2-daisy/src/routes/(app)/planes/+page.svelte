@@ -82,7 +82,8 @@
     $: globalCount = plans.filter((p) => p.router_host === null).length;
     $: localCount = plans.filter((p) => p.router_host !== null).length;
 
-    function suspensionLabel(method: string): string {
+    function suspensionLabel(method: string | null | undefined): string {
+        if (!method) return "Ninguno";
         const map: Record<string, string> = {
             queue_limit: "Throttle",
             address_list: "Lista IP",

@@ -3,12 +3,11 @@
     import type { ZonaDetail, ZonaNote, ZonaNoteCreate } from "$lib/types/zona";
     import MarkdownViewer from "$lib/components/MarkdownViewer.svelte";
 
-    let { zona, zonaId, editMode = false, onsave, onedit } = $props<{
+    let { zona, zonaId, canEdit = false, onsave } = $props<{
         zona: ZonaDetail;
         zonaId: number;
-        editMode?: boolean;
+        canEdit?: boolean;
         onsave?: () => void;
-        onedit?: () => void;
     }>();
 
     // ── Estado lectura ─────────────────────────────────────────────────────
@@ -54,7 +53,7 @@
                 content: fNoteContent.trim() || null,
                 is_encrypted: fNoteEncrypted,
             };
-            if (noteModalMode === "create") { await createZonaNote(zona.id, data); }
+            if (noteModalMode === "create") { await createZonaNote(zonaId, data); }
             else if (editNoteTarget) { await updateZonaNote(editNoteTarget.id, data); }
             showNoteModal = false;
             if (onsave) onsave();
@@ -75,67 +74,45 @@
     }
 </script>
 
-{#if editMode}
-    <!-- ── MODO EDICIÓN ──────────────────────────────────────────────────── -->
-    <div class="glass-card-flat" style="border-radius:1rem;padding:1.5rem;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-            <h3 style="margin:0;font-size:1.1rem;font-weight:700;opacity:0.9;">📝 Notas ({zona.notes.length})</h3>
-            <button class="btn btn-xs btn-outline" onclick={openCreateNote}>+ Añadir</button>
-        </div>
-
-        <div style="display:flex;flex-direction:column;gap:0.75rem;">
-            {#if zona.notes.length === 0}
-                <p style="opacity:0.4;font-size:0.875rem;text-align:center;padding:1rem 0;margin:0;">Sin notas adjuntas</p>
-            {:else}
-                <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:1rem;">
-                    {#each zona.notes as note}
-                        <div style="background:var(--color-base-100);padding:1rem;border-radius:0.75rem;border:1px solid oklch(from var(--color-base-content) l c h / 0.08);position:relative;">
-                            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.5rem;padding-right:2rem;">
-                                <span style="font-weight:600;font-size:0.9rem;opacity:0.9;">{note.title}</span>
-                                {#if note.is_encrypted}
-                                    <span class="badge badge-warning badge-xs" style="position:absolute;top:1rem;right:1rem;" title="Nota encriptada">🔒</span>
-                                {/if}
-                            </div>
-                            {#if note.content}
-                                <p style="margin:0 0 0.75rem;font-size:0.82rem;opacity:0.65;white-space:pre-wrap;">{note.content}</p>
-                            {/if}
-                            <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid oklch(from var(--color-base-content) l c h / 0.08);padding-top:0.5rem;">
-                                <span style="font-size:0.7rem;opacity:0.4;">{fmtDate(note.updated_at)}</span>
-                                <div style="display:flex;gap:0.25rem;">
-                                    <button class="btn btn-xs btn-ghost px-2" onclick={() => openEditNote(note)}>✏️</button>
-                                    <button class="btn btn-xs btn-ghost text-error px-2"
-                                        onclick={() => { deleteNoteTarget = note; showDeleteNoteModal = true; }}>🗑️</button>
-                                </div>
-                            </div>
-                        </div>
-                    {/each}
-                </div>
+<div class="glass-card-flat" style="border-radius:1rem;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;">
+    <!-- ── CABECERA ────────────────────────────────────────────────────── -->
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+        <h3 style="margin:0;font-size:1.1rem;font-weight:700;opacity:0.9;">
+            📝 Notas de la Zona
+            {#if zona.notes.length > 0}
+                <span class="badge badge-neutral ml-1">{zona.notes.length}</span>
             {/if}
-        </div>
+        </h3>
+        {#if canEdit}
+            <button class="btn btn-xs btn-primary" onclick={openCreateNote}>
+                + Nueva Nota
+            </button>
+        {/if}
     </div>
 
-{:else}
-    <!-- ── MODO LECTURA ──────────────────────────────────────────────────── -->
-    <div style="display:flex;flex-direction:column;gap:0.875rem;">
-        {#if zona.notes.length === 0}
-            <div class="glass-card-flat" style="padding:3rem;border-radius:1rem;text-align:center;opacity:0.55;">
-                <p style="font-size:2rem;margin:0 0 0.5rem;">📝</p>
-                <p style="margin:0 0 1rem;font-size:0.9rem;">Sin notas. Activa el modo edición para añadir.</p>
-                {#if onedit}
-                    <button class="btn btn-sm btn-outline" onclick={onedit}>Gestionar notas</button>
-                {/if}
-            </div>
-        {:else}
+    <!-- ── CONTENIDO ───────────────────────────────────────────────────── -->
+    {#if zona.notes.length === 0}
+        <div style="text-align:center;padding:3rem 1.5rem;opacity:0.5;">
+            <p style="font-size:2.5rem;margin:0 0 0.5rem;">📝</p>
+            <p style="margin:0;font-size:0.9rem;">Sin notas adjuntas en esta zona.</p>
+            {#if canEdit}
+                <button class="btn btn-sm btn-outline mt-4" onclick={openCreateNote}>
+                    Crear primera nota
+                </button>
+            {/if}
+        </div>
+    {:else}
+        <div style="display:flex;flex-direction:column;gap:1rem;">
             {#each zona.notes as note}
                 <!-- svelte-ignore a11y_click_events_have_key_events -->
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <div
                     class="note-card glass-card"
-                    style="padding:1.25rem 1.5rem;border-radius:0.875rem;cursor:pointer;"
+                    style="padding:1.25rem 1.5rem;border-radius:0.875rem;cursor:pointer;position:relative;"
                     onclick={() => { selectedNote = { title: note.title, content: note.content || "" }; }}
                     title="Haz clic para leer la nota completa"
                 >
-                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:0.625rem;">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:0.625rem;padding-right:4.5rem;">
                         <span style="font-weight:700;font-size:0.95rem;line-height:1.3;">{note.title}</span>
                         <div style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0;">
                             {#if note.is_encrypted}
@@ -144,6 +121,7 @@
                             <span style="font-size:0.72rem;opacity:0.4;">{fmtDate(note.updated_at)}</span>
                         </div>
                     </div>
+
                     {#if note.content && !note.is_encrypted}
                         <div style="pointer-events:none;">
                             <MarkdownViewer content={note.content} preview={true} previewLength={200} />
@@ -156,17 +134,30 @@
                     {:else}
                         <p style="font-size:0.82rem;opacity:0.4;margin:0;font-style:italic;">Sin contenido.</p>
                     {/if}
+
+                    {#if canEdit}
+                        <div style="position:absolute;top:0.8rem;right:0.8rem;display:flex;gap:0.25rem;z-index:10;">
+                            <button
+                                class="btn btn-xs btn-square btn-ghost hover:bg-base-200"
+                                title="Editar nota"
+                                onclick={(e) => { e.stopPropagation(); openEditNote(note); }}
+                            >
+                                ✏️
+                            </button>
+                            <button
+                                class="btn btn-xs btn-square btn-ghost text-error hover:bg-error/10"
+                                title="Eliminar nota"
+                                onclick={(e) => { e.stopPropagation(); deleteNoteTarget = note; showDeleteNoteModal = true; }}
+                            >
+                                🗑️
+                            </button>
+                        </div>
+                    {/if}
                 </div>
             {/each}
-
-            {#if onedit}
-                <div style="text-align:right;margin-top:0.25rem;">
-                    <button class="btn btn-sm btn-ghost" onclick={onedit}>Gestionar notas →</button>
-                </div>
-            {/if}
-        {/if}
-    </div>
-{/if}
+        </div>
+    {/if}
+</div>
 
 <!-- ── MODAL Nota Completa (lectura) ──────────────────────────────────── -->
 {#if selectedNote}

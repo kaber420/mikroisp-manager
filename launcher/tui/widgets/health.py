@@ -13,28 +13,31 @@ class HealthWidget(Static):
         self.set_interval(2.0, self.check_health)
 
     def check_health(self) -> None:
-        # Check process status
-        uvicorn_alive = False
-        p_uvicorn = self.service_manager.processes.get("uvicorn")
-        if p_uvicorn:
-            # Handle both multiprocessing.Process and subprocess.Popen
-            if hasattr(p_uvicorn, 'is_alive'):
-                uvicorn_alive = p_uvicorn.is_alive()
-            elif hasattr(p_uvicorn, 'poll'):
-                uvicorn_alive = p_uvicorn.poll() is None
+        import subprocess
 
-        scheduler_alive = False
-        p_scheduler = self.service_manager.processes.get("scheduler")
-        if p_scheduler and p_scheduler.is_alive():
-            scheduler_alive = True
-            
-        # Caddy check
-        caddy_running = is_caddy_running()
+        def get_container_state(service_name: str) -> str:
+            try:
+                res = subprocess.run(
+                    ["docker", "compose", "ps", service_name, "--format", "{{.State}}"],
+                    capture_output=True,
+                    text=True
+                )
+                state = res.stdout.strip().lower()
+                if "running" in state:
+                    return "[green]ONLINE[/]"
+                elif "exited" in state or "paused" in state:
+                    return "[yellow]STOPPED[/]"
+                elif "restarting" in state:
+                    return "[yellow]RESTARTING[/]"
+                else:
+                    return "[red]DOWN[/]"
+            except Exception:
+                return "[red]DOWN[/]"
 
-        # Formatting
-        uvicorn_status = "[green]ONLINE[/]" if uvicorn_alive else "[red]DOWN[/]"
-        scheduler_status = "[green]ONLINE[/]" if scheduler_alive else "[red]DOWN[/]"
-        caddy_status = "[green]ONLINE[/]" if caddy_running else "[red]DOWN[/]"
+        # Check container status
+        uvicorn_status = get_container_state("backend")
+        scheduler_status = get_container_state("scheduler")
+        caddy_status = get_container_state("caddy")
 
         # Static info
         server_info = self.service_manager.server_info
@@ -72,7 +75,6 @@ class HealthWidget(Static):
         else:
              bots_status = "[red]OFFLINE[/]"
              
-        # Optional details line if needed, or just keep it clean
         mode = b_stats.get("mode", "auto").upper()
         bots_detail = f"({mode})"
 
@@ -88,3 +90,4 @@ class HealthWidget(Static):
             f"[b]Bots:[/b] {bots_status} {bots_detail}"
         ]
         self.update("\n".join(lines))
+

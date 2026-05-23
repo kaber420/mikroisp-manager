@@ -56,3 +56,17 @@ export interface RouterHistoryPoint {
     total_disk?: number;
     free_disk?: number;
 }
+
+export interface InterfaceData {
+    id?: string;
+    ".id"?: string;
+    name: string;
+    type: string;
+    disabled?: boolean | string;
+    running?: boolean | string;
+    "mac-address"?: string;
+    "rx-byte"?: number;
+    "tx-byte"?: number;
+    uptime?: string;
+    comment?: string;
+}

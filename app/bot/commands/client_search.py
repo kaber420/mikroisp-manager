@@ -5,6 +5,7 @@ Comando /cliente: Permite buscar por nombre, teléfono o ID.
 """
 
 import logging
+from uuid import UUID
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ContextTypes,
@@ -127,7 +128,6 @@ def _search_clients(search_term: str) -> list:
 
 def _get_client_with_service(client_id: str):
     """Get client with their service and plan info."""
-    from uuid import UUID
     with Session(engine) as session:
         client_uuid = UUID(client_id) if isinstance(client_id, str) else client_id
         client = session.get(Client, client_uuid)

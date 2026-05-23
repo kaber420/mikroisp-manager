@@ -256,11 +256,11 @@
 
     // Normaliza un array de valores a escala 0-100 para mini-gráficas SVG
     function toSparkPoints(
-        data: (number | null)[],
+        data: (number | null | undefined)[],
         width = 200,
         height = 40,
     ): string {
-        const vals = data.filter((v) => v != null) as number[];
+        const vals = data.filter((v) => v != null && v !== undefined) as number[];
         if (vals.length < 2) return "";
         const min = Math.min(...vals);
         const max = Math.max(...vals);
@@ -269,7 +269,7 @@
             .map((v, i) => {
                 const x = (i / (data.length - 1)) * width;
                 const y =
-                    v == null ? height : height - ((v - min) / range) * height;
+                    v == null || v === undefined ? height : height - ((v - min) / range) * height;
                 return `${x.toFixed(1)},${y.toFixed(1)}`;
             })
             .join(" ");

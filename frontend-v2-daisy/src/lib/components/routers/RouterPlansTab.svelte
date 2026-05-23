@@ -57,7 +57,8 @@
         }
     }
 
-    function suspensionLabel(m: string) {
+    function suspensionLabel(m: string | null | undefined) {
+        if (!m) return "—";
         const map: Record<string, string> = {
             queue_limit: "Throttle",
             address_list: "Lista IP",

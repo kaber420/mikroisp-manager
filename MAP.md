@@ -34,7 +34,7 @@ graph TD
 ## 🛠️ Estándares Técnicos
 
 1. **Backend**: Seguir **PEP 8**. Usar `SQLModel` para modelos que son tanto de DB como de API.
-2. **API**: Documentación automática en `http://localhost:7777/docs`.
+2. **API**: Documentación automática en `http://localhost:[PORT]/docs`.
 3. **Frontend**: Componentes reutilizables en Svelte. Estilizado con **TailwindCSS** y **DaisyUI**.
 4. **Configuración**: Centralizada en `.env`. Se accede mediante `app/core/config.py`.
 

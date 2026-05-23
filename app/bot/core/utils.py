@@ -5,7 +5,6 @@ import html
 from app.core.config import settings
 from sqlmodel import select, Session
 from app.db.engine_sync import sync_engine as engine
-from app.db.engine_sync import sync_engine as engine
 from app.models.client import Client
 from app.models.bot_user import BotUser
 from datetime import datetime

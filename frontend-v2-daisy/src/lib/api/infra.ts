@@ -119,8 +119,9 @@ export async function deletePlan(id: number | string) {
 }
 
 // CPEs
-export async function getCPEs() {
-    return request('/cpes/all');
+export async function getCPEs(params: any = {}) {
+    const searchParams = new URLSearchParams(params);
+    return request(`/cpes/all?${searchParams.toString()}`);
 }
 
 export async function updateCPE(mac: string, payload: any) {

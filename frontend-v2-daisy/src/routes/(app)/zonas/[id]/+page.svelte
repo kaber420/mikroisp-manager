@@ -3,6 +3,7 @@
     import { page } from "$app/stores";
     import { getZonaDetails } from "$lib/api";
     import type { ZonaDetail } from "$lib/types/zona";
+    import { user } from "$lib/stores/auth";
     import ZonaGeneralTab from "../ZonaGeneralTab.svelte";
     import ZonaInfraTab from "../ZonaInfraTab.svelte";
     import ZonaNotasTab from "../ZonaNotasTab.svelte";
@@ -14,7 +15,8 @@
     let loading = $state(true);
     let pageError = $state<string | null>(null);
     let activeTab = $state<"general" | "infra" | "notas" | "docs">("general");
-    let editMode = $state(false);
+
+    let canEdit = $derived($user?.role === "admin" || $user?.role === "tecnico");
 
     async function loadDetalle() {
         loading = true;
@@ -27,10 +29,6 @@
         } finally {
             loading = false;
         }
-    }
-
-    function activateEdit() {
-        editMode = true;
     }
 
     onMount(loadDetalle);
@@ -70,9 +68,6 @@
         <div>
             <h2 style="font-size:1.4rem;font-weight:800;margin:0;display:flex;align-items:center;gap:0.5rem;">
                 🗺️ {zona.nombre}
-                {#if editMode}
-                    <span class="badge badge-warning badge-sm">✏️ Editando</span>
-                {/if}
             </h2>
             {#if zona.direccion}
                 <p style="margin:0.3rem 0 0;font-size:0.85rem;opacity:0.5;">📍 {zona.direccion}</p>
@@ -84,11 +79,6 @@
         </div>
         <div style="display:flex;gap:0.5rem;align-items:center;">
             <a href="/zonas" class="btn btn-ghost btn-sm">← Volver</a>
-            {#if editMode}
-                <button class="btn btn-sm btn-neutral" onclick={() => (editMode = false)}>👁 Solo lectura</button>
-            {:else}
-                <button class="btn btn-primary btn-sm" onclick={() => (editMode = true)}>✏️ Editar</button>
-            {/if}
         </div>
     </div>
 
@@ -108,13 +98,13 @@
 
     <!-- ── TAB CONTENT ───────────────────────────────────────────────────── -->
     {#if activeTab === "general"}
-        <ZonaGeneralTab {zona} {zonaId} {editMode} onsave={loadDetalle} />
+        <ZonaGeneralTab {zona} {zonaId} {canEdit} onsave={loadDetalle} />
     {:else if activeTab === "infra"}
-        <ZonaInfraTab {zona} {zonaId} {editMode} onsave={loadDetalle} onedit={activateEdit} />
+        <ZonaInfraTab {zona} {zonaId} {canEdit} onsave={loadDetalle} />
     {:else if activeTab === "notas"}
-        <ZonaNotasTab {zona} {zonaId} {editMode} onsave={loadDetalle} onedit={activateEdit} />
+        <ZonaNotasTab {zona} {zonaId} {canEdit} onsave={loadDetalle} />
     {:else if activeTab === "docs"}
-        <ZonaDocsTab {zona} {zonaId} {editMode} onsave={loadDetalle} onedit={activateEdit} />
+        <ZonaDocsTab {zona} {zonaId} {canEdit} onsave={loadDetalle} />
     {/if}
 {/if}
 

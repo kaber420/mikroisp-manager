@@ -1,0 +1,32 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Instalar dependencias del sistema necesarias para construir/compilar dependencias de git y librerías criptográficas
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    gcc \
+    g++ \
+    libffi-dev \
+    libssl-dev \
+    make \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar requerimientos e instalar dependencias de Python
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Copiar el código fuente de la aplicación
+COPY app/ ./app/
+COPY data/ ./data/
+
+# Variables de entorno por defecto
+ENV PYTHONPATH=/app
+ENV UVICORN_PORT=7777
+ENV UVICORN_WORKERS=1
+
+EXPOSE 7777
+
+# Comando por defecto para arrancar FastAPI
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7777"]

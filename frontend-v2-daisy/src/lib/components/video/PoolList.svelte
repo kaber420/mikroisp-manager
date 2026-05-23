@@ -1,10 +1,40 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     
-    let { pools = [], onSelect } = $props<{
-        pools: any[];
-        onSelect: (pool: any) => void;
+    let { 
+        pools = $bindable([]), 
+        onSelect,
+        techId = "",
+        isConnected = $bindable(false),
+        isLoading = $bindable(false)
+    } = $props<{
+        pools?: any[];
+        onSelect?: (pool: any) => void;
+        techId?: string;
+        isConnected?: boolean;
+        isLoading?: boolean;
     }>();
+
+    export function refreshPool() {
+        fetchPools();
+    }
+
+    async function fetchPools() {
+        isLoading = true;
+        try {
+            isConnected = true;
+            // Simulated fetch
+            pools = [];
+        } catch (e) {
+            isConnected = false;
+        } finally {
+            isLoading = false;
+        }
+    }
+
+    onMount(() => {
+        fetchPools();
+    });
 </script>
 
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

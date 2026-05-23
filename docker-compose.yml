@@ -1,19 +1,112 @@
 services:
   redict:
     image: registry.redict.io/redict:7.3.0
-    container_name: umanager_redict
+    container_name: omniwisp_redict
     restart: always
-    ports:
-      - "6379:6379"
+    networks:
+      - omniwisp-network
     volumes:
       - redict_data:/data
     command: redict-server --save 60 1 --loglevel warning
     healthcheck:
       test: ["CMD", "redict-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: omniwisp_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-umanager}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
+      POSTGRES_DB: ${POSTGRES_DB:-umanager_db}
+    networks:
+      - omniwisp-network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-umanager} -d ${POSTGRES_DB:-umanager_db}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: omniwisp_livekit
+    restart: always
+    command: --dev --bind 0.0.0.0
+    ports:
+      - "7880:7880"       # HTTP API / WebSocket (acceso LAN del WISP)
+      - "7881:7881/tcp"   # RTC TCP
+      - "7882:7882/udp"   # RTC UDP
+    networks:
+      - omniwisp-network
+    environment:
+      - "LIVEKIT_KEYS=${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-devsecret}"
+
+  backend:
+    image: omniwisp-backend:latest
+    container_name: omniwisp_backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redict:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-umanager}:${POSTGRES_PASSWORD:-secret}@postgres:5432/${POSTGRES_DB:-umanager_db}
+      - DATABASE_URL_SYNC=postgresql://${POSTGRES_USER:-umanager}:${POSTGRES_PASSWORD:-secret}@postgres:5432/${POSTGRES_DB:-umanager_db}
+      - REDICT_URL=redis://redict:6379/0
+      - CACHE_BACKEND=redict
+      - LIVEKIT_URL=ws://livekit:7880
+    networks:
+      - omniwisp-network
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    expose:
+      - "7777"
+
+  scheduler:
+    image: omniwisp-backend:latest
+    container_name: omniwisp_scheduler
+    restart: always
+    command: ["python", "-m", "app.scheduler"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-umanager}:${POSTGRES_PASSWORD:-secret}@postgres:5432/${POSTGRES_DB:-umanager_db}
+      - DATABASE_URL_SYNC=postgresql://${POSTGRES_USER:-umanager}:${POSTGRES_PASSWORD:-secret}@postgres:5432/${POSTGRES_DB:-umanager_db}
+    networks:
+      - omniwisp-network
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+
+  frontend:
+    image: omniwisp-frontend:latest
+    container_name: omniwisp_frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - omniwisp-network
+
+networks:
+  omniwisp-network:
+    driver: bridge
 
 volumes:
   redict_data:
+    driver: local
+  postgres_data:
     driver: local

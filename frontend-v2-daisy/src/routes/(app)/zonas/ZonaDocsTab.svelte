@@ -2,12 +2,11 @@
     import { uploadZonaDocumento, deleteZonaDocumento } from "$lib/api";
     import type { ZonaDetail, ZonaDocumento } from "$lib/types/zona";
 
-    let { zona, zonaId, editMode = false, onsave, onedit } = $props<{
+    let { zona, zonaId, canEdit = false, onsave } = $props<{
         zona: ZonaDetail;
         zonaId: number;
-        editMode?: boolean;
+        canEdit?: boolean;
         onsave?: () => void;
-        onedit?: () => void;
     }>();
 
     // ── Estado lectura ─────────────────────────────────────────────────────
@@ -56,7 +55,7 @@
         if (!deleteDocTarget) return;
         deletingDoc = true;
         try {
-            await deleteZonaDocumento(deleteDocTarget.id);
+            await deleteZonaDocumento(deleteDocTarget.id.toString());
             showDeleteDocModal = false; deleteDocTarget = null;
             if (onsave) onsave();
         } catch { showDeleteDocModal = false; }
@@ -64,89 +63,79 @@
     }
 </script>
 
-{#if editMode}
-    <!-- ── MODO EDICIÓN ──────────────────────────────────────────────────── -->
-    <div class="glass-card-flat" style="border-radius:1rem;padding:1.5rem;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-            <h3 style="margin:0;font-size:1.1rem;font-weight:700;opacity:0.9;">📄 Documentos ({zona.documentos.length})</h3>
+<div class="glass-card-flat" style="border-radius:1rem;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;">
+    <!-- ── CABECERA ────────────────────────────────────────────────────── -->
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+        <h3 style="margin:0;font-size:1.1rem;font-weight:700;opacity:0.9;">
+            📄 Documentos e Imágenes
+            {#if zona.documentos.length > 0}
+                <span class="badge badge-neutral ml-1">{zona.documentos.length}</span>
+            {/if}
+        </h3>
+        {#if canEdit}
             <div style="display:flex;align-items:center;gap:0.5rem;">
                 {#if uploadingDoc}<span class="loading loading-spinner loading-sm text-primary"></span>{/if}
                 <input type="file" bind:this={fileInput} onchange={uploadDoc} style="display:none;"
                     accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" />
-                <button class="btn btn-xs btn-outline" disabled={uploadingDoc} onclick={() => fileInput?.click()}>Subir</button>
+                <button class="btn btn-xs btn-primary" disabled={uploadingDoc} onclick={() => fileInput?.click()}>
+                    + Subir Documento
+                </button>
             </div>
-        </div>
-
-        <div style="display:flex;flex-direction:column;gap:0.5rem;">
-            {#if zona.documentos.length === 0}
-                <p style="opacity:0.4;font-size:0.875rem;text-align:center;padding:1rem 0;margin:0;">Sin documentos adjuntos</p>
-            {:else}
-                <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:0.75rem;">
-                    {#each zona.documentos as doc}
-                        <div style="display:flex;align-items:center;gap:0.75rem;background:var(--color-base-100);padding:0.75rem 1rem;border-radius:0.75rem;border:1px solid oklch(from var(--color-base-content) l c h / 0.08);">
-                            <span style="font-size:1.25rem;opacity:0.7;">
-                                {doc.tipo === "pdf" ? "📕" : doc.tipo === "image" ? "🖼️" : "📎"}
-                            </span>
-                            <div style="flex:1;min-width:0;">
-                                <p style="margin:0;font-weight:600;font-size:0.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:0.9;">{doc.nombre_original}</p>
-                                <p style="margin:0;font-size:0.7rem;opacity:0.5;">{doc.tipo.toUpperCase()} • {fmtDate(doc.creado_en)}</p>
-                            </div>
-                            <button class="btn btn-xs btn-square btn-ghost text-error"
-                                onclick={() => { deleteDocTarget = doc; showDeleteDocModal = true; }}>🗑️</button>
-                        </div>
-                    {/each}
-                </div>
-            {/if}
-        </div>
-    </div>
-
-{:else}
-    <!-- ── MODO LECTURA ──────────────────────────────────────────────────── -->
-    <div style="display:flex;flex-direction:column;gap:1rem;">
-        {#if zona.documentos.length === 0}
-            <div class="glass-card-flat" style="padding:3rem;border-radius:1rem;text-align:center;opacity:0.55;">
-                <p style="font-size:2rem;margin:0 0 0.5rem;">📄</p>
-                <p style="margin:0 0 1rem;font-size:0.9rem;">Sin documentos adjuntos.</p>
-                {#if onedit}
-                    <button class="btn btn-sm btn-outline" onclick={onedit}>Subir documentos</button>
-                {/if}
-            </div>
-        {:else}
-            <div class="doc-grid">
-                {#each zona.documentos as doc}
-                    <!-- svelte-ignore a11y_click_events_have_key_events -->
-                    <!-- svelte-ignore a11y_no_static_element_interactions -->
-                    <div class="doc-card glass-card" onclick={() => { selectedDoc = doc; }} title={doc.nombre_original}>
-                        <div class="doc-thumb">
-                            {#if isImage(doc.tipo)}
-                                <img src={docUrl(doc)} alt={doc.nombre_original} class="doc-thumb-img" loading="lazy" />
-                                <div class="doc-thumb-overlay"><span style="font-size:1.5rem;">🔍</span></div>
-                            {:else}
-                                <div class="doc-icon-bg"><span class="doc-icon-emoji">{getDocIcon(doc.tipo)}</span></div>
-                                <div class="doc-thumb-overlay"><span style="font-size:1.5rem;">⬇️</span></div>
-                            {/if}
-                            <span class="badge badge-sm badge-neutral"
-                                style="position:absolute;top:0.5rem;right:0.5rem;opacity:0.9;text-transform:uppercase;font-size:0.6rem;letter-spacing:0.04em;">
-                                {doc.tipo}
-                            </span>
-                        </div>
-                        <div class="doc-info">
-                            <p class="doc-name" title={doc.nombre_original}>{doc.nombre_original}</p>
-                            {#if doc.descripcion}<p class="doc-desc" title={doc.descripcion}>{doc.descripcion}</p>{/if}
-                            <p class="doc-date">{fmtDate(doc.creado_en)}</p>
-                        </div>
-                    </div>
-                {/each}
-            </div>
-
-            {#if onedit}
-                <div style="text-align:right;">
-                    <button class="btn btn-sm btn-ghost" onclick={onedit}>Gestionar documentos →</button>
-                </div>
-            {/if}
         {/if}
     </div>
-{/if}
+
+    <!-- ── CONTENIDO ───────────────────────────────────────────────────── -->
+    {#if zona.documentos.length === 0}
+        <div style="text-align:center;padding:3rem 1.5rem;opacity:0.5;">
+            <p style="font-size:2.5rem;margin:0 0 0.5rem;">📄</p>
+            <p style="margin:0;font-size:0.9rem;">Sin documentos ni imágenes adjuntos.</p>
+            {#if canEdit}
+                <button class="btn btn-sm btn-outline mt-4" disabled={uploadingDoc} onclick={() => fileInput?.click()}>
+                    Subir primer documento
+                </button>
+            {/if}
+        </div>
+    {:else}
+        <div class="doc-grid">
+            {#each zona.documentos as doc}
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div class="doc-card glass-card" onclick={() => { selectedDoc = doc; }} title={doc.nombre_original}>
+                    <div class="doc-thumb">
+                        {#if isImage(doc.tipo)}
+                            <img src={docUrl(doc)} alt={doc.nombre_original} class="doc-thumb-img" loading="lazy" />
+                            <div class="doc-thumb-overlay"><span style="font-size:1.5rem;">🔍</span></div>
+                        {:else}
+                            <div class="doc-icon-bg"><span class="doc-icon-emoji">{getDocIcon(doc.tipo)}</span></div>
+                            <div class="doc-thumb-overlay"><span style="font-size:1.5rem;">⬇️</span></div>
+                        {/if}
+
+                        <span class="badge badge-sm badge-neutral"
+                            style="position:absolute;top:0.5rem;right:0.5rem;opacity:0.9;text-transform:uppercase;font-size:0.6rem;letter-spacing:0.04em;">
+                            {doc.tipo}
+                        </span>
+
+                        {#if canEdit}
+                            <button
+                                class="btn btn-xs btn-circle btn-error shadow-sm"
+                                style="position:absolute;top:0.5rem;left:0.5rem;z-index:10;opacity:0.9;font-size:0.75rem;padding:0;width:1.55rem;height:1.55rem;min-height:1.55rem;"
+                                title="Eliminar documento"
+                                onclick={(e) => { e.stopPropagation(); deleteDocTarget = doc; showDeleteDocModal = true; }}
+                            >
+                                🗑️
+                            </button>
+                        {/if}
+                    </div>
+                    <div class="doc-info">
+                        <p class="doc-name" title={doc.nombre_original}>{doc.nombre_original}</p>
+                        {#if doc.descripcion}<p class="doc-desc" title={doc.descripcion}>{doc.descripcion}</p>{/if}
+                        <p class="doc-date">{fmtDate(doc.creado_en)}</p>
+                    </div>
+                </div>
+            {/each}
+        </div>
+    {/if}
+</div>
 
 <!-- ── MODAL Preview Documento (lectura) ─────────────────────────────── -->
 {#if selectedDoc}

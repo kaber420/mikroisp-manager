@@ -7,3 +7,14 @@ export interface Queue {
     comment?: string;
     disabled?: boolean | string;
 }
+
+export interface SimpleQueue {
+    id?: string;
+    ".id"?: string;
+    name: string;
+    target?: string;
+    "max-limit"?: string;
+    parent?: string;
+    comment?: string;
+    disabled?: boolean | string;
+}

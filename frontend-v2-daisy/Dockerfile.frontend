@@ -1,0 +1,11 @@
+FROM nginx:alpine
+
+# Eliminar config default de nginx
+RUN rm /etc/nginx/conf.d/default.conf
+
+# Copiar config de nginx y el build generado localmente
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY build /usr/share/nginx/html
+
+EXPOSE 80
+

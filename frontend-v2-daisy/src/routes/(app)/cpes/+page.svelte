@@ -54,14 +54,14 @@
     }
 
     // --- Helpers (usados en snippets de DataTable) ---
-    function statusLabel(s: string | null) {
+    function statusLabel(s: string | null | undefined) {
         return (
             { active: "Activo", offline: "Caído", disabled: "Deshabilitado" }[s ?? ""] ??
             s ??
             "—"
         );
     }
-    function statusClass(s: string | null) {
+    function statusClass(s: string | null | undefined) {
         return (
             {
                 active: "badge-success",
@@ -80,8 +80,8 @@
             ? parseFloat(data.publicSettings.cpe_signal_danger_threshold)
             : -71,
     );
-    function signalClass(sig: number | null): string {
-        if (sig === null) return "text-base-content opacity-40";
+    function signalClass(sig: number | null | undefined): string {
+        if (sig === null || sig === undefined) return "text-base-content opacity-40";
         if (sig <= dangerLevel) return "text-error font-semibold";
         if (sig <= warningLevel) return "text-warning font-semibold";
         return "text-success font-semibold";
@@ -91,23 +91,16 @@
     }
 </script>
 
-<div style="display:flex;flex-direction:column;gap:1.5rem;">
+<div class="flex flex-col gap-6">
     <!-- ── HEADER ─────────────────────────────────────────────────────────── -->
-    <div
-        class="glass-card-flat"
-        style="border-radius:1rem;display:flex;flex-direction:column;overflow:hidden;"
-    >
-        <div
-            style="padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:0.75rem;"
-        >
-            <div
-                style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;"
-            >
+    <div class="glass-card-flat rounded-2xl flex flex-col overflow-hidden">
+        <div class="px-6 py-5 flex flex-col gap-3">
+            <div class="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                    <h1 style="margin:0;font-size:1.5rem;font-weight:800;">
+                    <h1 class="m-0 text-2xl font-extrabold">
                         Network CPEs
                     </h1>
-                    <p style="margin:0.25rem 0 0;font-size:0.85rem;opacity:0.5;">
+                    <p class="mt-1 text-sm opacity-50">
                         {data.cpes.total} CPE{data.cpes.total !== 1 ? "s" : ""} registrados
                     </p>
                 </div>
@@ -126,10 +119,9 @@
     >
         {#snippet filters()}
             <select
-                class="select select-bordered select-sm"
+                class="select select-bordered select-sm rounded-lg text-sm"
                 bind:value={filterStatus}
                 onchange={applyFilter}
-                style="border-radius:0.5rem;font-size:0.875rem;"
             >
                 <option value="all">Todos los estados</option>
                 <option value="active">Activos</option>

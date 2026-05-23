@@ -12,7 +12,6 @@ try:
 except ImportError:
     httpx = None
     HTTPX_AVAILABLE = False
-import os
 from datetime import datetime, timedelta
 from app.core.config import settings
 from typing import Dict, List, Optional, Any
@@ -203,7 +202,6 @@ def crear_ticket(
                 )
                 session.add(client)
                 session.commit()
-                session.refresh(client)
                 session.refresh(client)
             
             # --- Rate Limiting Check ---

@@ -3,10 +3,10 @@
     import { notify } from "$lib/stores/notifications";
     import type { ZonaDetail } from "$lib/types/zona";
 
-    let { zona, zonaId, editMode = false, onsave } = $props<{
+    let { zona, zonaId, canEdit = false, onsave } = $props<{
         zona: ZonaDetail;
         zonaId: number;
-        editMode?: boolean;
+        canEdit?: boolean;
         onsave?: () => void;
     }>();
 
@@ -15,6 +15,7 @@
     }
 
     // ── Estado de edición ──────────────────────────────────────────────────
+    let isEditing = $state(false);
     let fNombre = $state(zona.nombre);
     let fDireccion = $state(zona.direccion ?? "");
     let fCoordenadas = $state(zona.coordenadas_gps ?? "");
@@ -42,6 +43,7 @@
                 rack_layout: rack,
             });
             notify.success("Datos generales guardados.");
+            isEditing = false;
             if (onsave) onsave();
         } catch (e: any) {
             errorMsg = e instanceof SyntaxError
@@ -54,11 +56,14 @@
 </script>
 
 <div class="glass-card-flat" style="border-radius:1rem;padding:1.5rem;">
-    {#if editMode}
+    {#if isEditing}
         <!-- ── MODO EDICIÓN ──────────────────────────────────────────── -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
-            <h3 style="margin:0;font-size:1.1rem;font-weight:700;opacity:0.9;">📋 Datos Generales</h3>
-            {#if saving}<span class="loading loading-spinner loading-sm text-primary"></span>{/if}
+            <h3 style="margin:0;font-size:1.1rem;font-weight:700;opacity:0.9;">📋 Editar Datos Generales</h3>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+                {#if saving}<span class="loading loading-spinner loading-sm text-primary"></span>{/if}
+                <button type="button" class="btn btn-xs btn-neutral" onclick={() => (isEditing = false)}>Cancelar</button>
+            </div>
         </div>
 
         <form onsubmit={(e) => { e.preventDefault(); save(); }} style="display:flex;flex-direction:column;gap:1.25rem;">
@@ -98,6 +103,13 @@
 
     {:else}
         <!-- ── MODO LECTURA ──────────────────────────────────────────── -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+            <h3 style="margin:0;font-size:1.1rem;font-weight:700;opacity:0.9;">📋 Datos Generales</h3>
+            {#if canEdit}
+                <button type="button" class="btn btn-xs btn-outline btn-primary" onclick={() => (isEditing = true)}>✏️ Editar</button>
+            {/if}
+        </div>
+
         <table style="width:100%;border-collapse:collapse;">
             <tbody>
                 {#each [

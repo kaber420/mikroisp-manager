@@ -8,7 +8,7 @@
         items?: T[] | null;
         
         // Server-side mode
-        loadData?: (page: number, pageSize: number, search: string) => Promise<{ items: T[], total: number, total_pages: number }>;
+        loadData?: ((page: number, pageSize: number, search: string) => Promise<{ items: T[], total: number, total_pages: number }>) | null;
         initialItems?: T[];
         initialTotal?: number;
         initialPage?: number;
@@ -30,16 +30,29 @@
         header,
         row,
         filters
-    } = $props<Props>();
+    }: Props = $props();
 
-    // Internal state - use untrack to avoid state_referenced_locally warnings if intended
-    let currentPage = $state(initialPage);
-    let totalPages = $state(initialTotalPages);
-    let totalItems = $state(initialTotal);
-    let currentItems = $state(items || initialItems);
+    // Internal state - use $effect to keep synchronized with props
+    let currentPage = $state(1);
+    let totalPages = $state(1);
+    let totalItems = $state(0);
+    let currentItems = $state<T[]>([]);
     let pageSize = $state(10);
     let searchQuery = $state("");
     let loading = $state(false);
+
+    $effect(() => {
+        currentPage = initialPage;
+    });
+    $effect(() => {
+        totalPages = initialTotalPages;
+    });
+    $effect(() => {
+        totalItems = initialTotal;
+    });
+    $effect(() => {
+        currentItems = items || initialItems;
+    });
 
     // Sync items and apply client-side search filtering if no remote loadData is active
     $effect(() => {

@@ -5,12 +5,16 @@
     import DataTable from "$lib/components/DataTable.svelte";
     import AdminToolbar from "$lib/components/AdminToolbar.svelte";
     import type { Zona } from "$lib/types/zona";
+    import { user } from "$lib/stores/auth";
     import ZonaFormModal from "./ZonaFormModal.svelte";
     import ZonaDeleteModal from "./ZonaDeleteModal.svelte";
 
     // ── Estado principal ───────────────────────────────────────────────────
     let zonas = $state<Zona[]>([]);
     let loading = $state(true);
+
+    // ── Permisos ───────────────────────────────────────────────────────────
+    let canEdit = $derived($user?.role === "admin" || $user?.role === "tecnico");
 
     // ── Modal Crear ────────────────────────────────────────────────────────
     let showModal = $state(false);
@@ -47,9 +51,11 @@
         subtitle={loading ? "Cargando..." : `${zonas.length} zona${zonas.length !== 1 ? "s" : ""} registrada${zonas.length !== 1 ? "s" : ""}`}
     >
         {#snippet actions()}
-            <button class="btn btn-primary btn-sm" onclick={() => (showModal = true)}>
-                + Nueva Zona
-            </button>
+            {#if canEdit}
+                <button class="btn btn-primary btn-sm" onclick={() => (showModal = true)}>
+                    + Nueva Zona
+                </button>
+            {/if}
         {/snippet}
     </AdminToolbar>
 
@@ -76,17 +82,21 @@
                         </a>
                     </td>
                     <td class="dt-td" style="text-align:center;">
-                        <div style="display:flex;gap:0.375rem;justify-content:center;">
-                            <a
-                                class="btn btn-xs btn-ghost"
-                                href="/zonas/{z.id}/editar"
-                                title="Editar zona">✏️</a
-                            >
-                            <button
-                                class="btn btn-xs btn-ghost text-error"
-                                title="Eliminar zona"
-                                onclick={() => openDelete(z)}>🗑️</button
-                            >
+                        <div style="display:flex;gap:0.375rem;justify-content:center;align-items:center;">
+                            {#if canEdit}
+                                <a
+                                    class="btn btn-xs btn-ghost"
+                                    href="/zonas/{z.id}"
+                                    title="Editar zona">✏️</a
+                                >
+                                <button
+                                    class="btn btn-xs btn-ghost text-error"
+                                    title="Eliminar zona"
+                                    onclick={() => openDelete(z)}>🗑️</button
+                                >
+                            {:else}
+                                <span class="badge badge-ghost badge-sm opacity-60">Solo lectura</span>
+                            {/if}
                         </div>
                     </td>
                 </tr>

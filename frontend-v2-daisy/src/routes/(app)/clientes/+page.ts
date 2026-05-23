@@ -4,7 +4,7 @@ import type { PageLoad } from './$types';
 
 export const load: PageLoad = async () => {
     try {
-        const clients = await getClients(1, 10);
+        const clients = await getClients({ page: 1, page_size: 10 });
         return { clients };
     } catch (e: any) {
         if (e?.response?.status === 401) {

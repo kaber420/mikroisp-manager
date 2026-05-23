@@ -3,12 +3,11 @@
     import { notify } from "$lib/stores/notifications";
     import type { ZonaDetail, ZonaInfra } from "$lib/types/zona";
 
-    let { zona, zonaId, editMode = false, onsave, onedit } = $props<{
+    let { zona, zonaId, canEdit = false, onsave } = $props<{
         zona: ZonaDetail;
         zonaId: number;
-        editMode?: boolean;
+        canEdit?: boolean;
         onsave?: () => void;
-        onedit?: () => void;
     }>();
 
     function fmt(val: string | null | undefined): string {
@@ -23,6 +22,7 @@
     }
 
     // ── Estado de edición ──────────────────────────────────────────────────
+    let isEditing = $state(false);
     let fIpGestion = $state(zona.infraestructura?.direccion_ip_gestion ?? "");
     let fGateway = $state(zona.infraestructura?.gateway_predeterminado ?? "");
     let fDns = $state(zona.infraestructura?.servidores_dns ?? "");
@@ -56,6 +56,7 @@
             };
             await updateZonaInfra(zonaId, payload);
             notify.success("Infraestructura guardada.");
+            isEditing = false;
             if (onsave) onsave();
         } catch (e: any) {
             errorMsg = e?.response?.data?.detail ?? "Error al guardar infraestructura.";
@@ -66,11 +67,14 @@
 </script>
 
 <div class="glass-card-flat" style="border-radius:1rem;padding:1.5rem;">
-    {#if editMode}
+    {#if isEditing}
         <!-- ── MODO EDICIÓN ──────────────────────────────────────────── -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
-            <h3 style="margin:0;font-size:1.1rem;font-weight:700;opacity:0.9;">🔌 Infraestructura de Red</h3>
-            {#if saving}<span class="loading loading-spinner loading-sm text-primary"></span>{/if}
+            <h3 style="margin:0;font-size:1.1rem;font-weight:700;opacity:0.9;">🔌 Editar Infraestructura de Red</h3>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+                {#if saving}<span class="loading loading-spinner loading-sm text-primary"></span>{/if}
+                <button type="button" class="btn btn-xs btn-neutral" onclick={() => (isEditing = false)}>Cancelar</button>
+            </div>
         </div>
 
         <form onsubmit={(e) => { e.preventDefault(); save(); }} style="display:flex;flex-direction:column;gap:1.25rem;">
@@ -115,6 +119,13 @@
 
     {:else if zona.infraestructura}
         <!-- ── MODO LECTURA ──────────────────────────────────────────── -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+            <h3 style="margin:0;font-size:1.1rem;font-weight:700;opacity:0.9;">🔌 Infraestructura de Red</h3>
+            {#if canEdit}
+                <button type="button" class="btn btn-xs btn-outline btn-primary" onclick={() => (isEditing = true)}>✏️ Editar</button>
+            {/if}
+        </div>
+
         {@const infra = zona.infraestructura}
         <table style="width:100%;border-collapse:collapse;">
             <tbody>
@@ -139,8 +150,8 @@
         <div style="text-align:center;padding:2.5rem;opacity:0.5;">
             <p style="font-size:2rem;margin:0 0 0.5rem;">🔌</p>
             <p style="margin:0;font-size:0.9rem;">Sin datos de infraestructura configurados.</p>
-            {#if onedit}
-                <button class="btn btn-sm btn-outline mt-4" onclick={onedit}>Configurar infraestructura</button>
+            {#if canEdit}
+                <button class="btn btn-sm btn-outline mt-4" onclick={() => (isEditing = true)}>Configurar infraestructura</button>
             {/if}
         </div>
     {/if}

@@ -5,19 +5,28 @@
         show = $bindable(false), 
         router = null, 
         isProvisioning = false,
-        onprovision = (data: any) => {} 
-    } = $props();
+        onprovision,
+        onProvision
+    } = $props<{
+        show: boolean;
+        router?: any;
+        isProvisioning?: boolean;
+        onprovision?: (data: any) => void;
+        onProvision?: (data: any) => void;
+    }>();
 
     let newApiUser = $state("omni_admin");
     let newApiPassword = $state("");
     let method = $state("ssh"); // ssh (vía script), api-ssl o api
 
     function handleSubmit() {
-        onprovision({
+        const payload = {
             newApiUser,
             newApiPassword: newApiPassword || undefined,
             method
-        });
+        };
+        if (onprovision) onprovision(payload);
+        if (onProvision) onProvision(payload);
     }
 
     // Reset when opening

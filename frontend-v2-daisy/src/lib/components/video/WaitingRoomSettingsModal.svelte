@@ -1,22 +1,28 @@
 <script lang="ts">
     import { untrack } from 'svelte';
 
-    let { show = $bindable(false), settings, onSave } = $props<{
-        show: boolean;
-        settings: any;
-        onSave: (newSettings: any) => void;
+    let { 
+        showModal = $bindable(false), 
+        settings = { autoJoin: false, welcomeMessage: "" }, 
+        onSave 
+    } = $props<{
+        showModal: boolean;
+        settings?: any;
+        onSave?: (newSettings: any) => void;
     }>();
 
     // Fix state_referenced_locally by using untrack or just a simple copy if reactive sync is not needed
     let localSettings = $state({ ...settings });
 
     function handleSave() {
-        onSave(localSettings);
-        show = false;
+        if (onSave) {
+            onSave(localSettings);
+        }
+        showModal = false;
     }
 </script>
 
-{#if show}
+{#if showModal}
     <div class="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
         <div class="glass-card max-w-md w-full p-6 space-y-6 bg-base-100 rounded-2xl">
             <h3 class="text-xl font-bold">Ajustes de Sala de Espera</h3>
@@ -38,9 +44,10 @@
             </div>
 
             <div class="flex justify-end gap-3 mt-8">
-                <button class="btn btn-ghost" onclick={() => show = false}>Cancelar</button>
+                <button class="btn btn-ghost" onclick={() => showModal = false}>Cancelar</button>
                 <button class="btn btn-primary" onclick={handleSave}>Guardar Cambios</button>
             </div>
         </div>
     </div>
 {/if}
+

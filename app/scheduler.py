@@ -178,3 +178,8 @@ def run_scheduler(log_queue=None):
         logger.info("Deteniendo scheduler...")
         scheduler.shutdown()
         logger.info("Scheduler detenido")
+
+
+if __name__ == "__main__":
+    run_scheduler()
+

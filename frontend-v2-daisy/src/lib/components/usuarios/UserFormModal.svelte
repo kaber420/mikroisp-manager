@@ -102,7 +102,7 @@
             }
         } catch (e: any) {
             modalError = e?.response?.data?.detail ?? "Error al guardar el usuario.";
-            notify.error(modalError);
+            notify.error(modalError || "Error al guardar el usuario.");
         } finally {
             modalLoading = false;
         }

@@ -38,14 +38,24 @@
 </script>
 
 {#if show && cpe}
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
-        style="position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+        tabindex="-1"
         onclick={(e) => {
             if (e.target === e.currentTarget) show = false;
+        }}
+        onkeydown={(e) => {
+            if (e.key === 'Escape') show = false;
         }}
     >
         <div
             class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 w-full max-w-sm"
+            role="document"
+            onclick={(e) => e.stopPropagation()}
+            onkeydown={(e) => e.stopPropagation()}
         >
             <div class="flex items-center justify-between p-5 border-b border-base-200">
                 <h3 class="text-lg font-bold text-error">Eliminar CPE</h3>
@@ -75,8 +85,7 @@
                     onclick={confirmDelete}
                     disabled={deleting}
                 >
-                    {#if deleting}<span class="loading loading-spinner loading-xs"></span
-                        >{/if}
+                    {#if deleting}<span class="loading loading-spinner loading-xs"></span>{/if}
                     Eliminar
                 </button>
             </div>

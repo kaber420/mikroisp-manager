@@ -1,6 +1,10 @@
 <script lang="ts">
     let { show = false } = $props();
-    let isOpen = $state(show);
+    let isOpen = $state(false);
+
+    $effect(() => {
+        isOpen = show;
+    });
 
     export function open() { isOpen = true; }
 </script>

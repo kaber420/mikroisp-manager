@@ -35,7 +35,11 @@
         isProvisioning = true;
         provisionResult = null;
         try {
-            const res = await provisionAP(ap.host, data.newApiUser, data.newApiPassword, data.method);
+            const res = await provisionAP(ap.host, {
+                new_api_user: data.newApiUser,
+                new_api_password: data.newApiPassword || "",
+                method: data.method
+            });
             provisionResult = { status: "success", message: res.message || "AP aprovisionado exitosamente." };
             ap.is_provisioned = true;
             showProvisionModal = false;

@@ -91,7 +91,7 @@
     }
 
     async function loadClients(page: number, pageSize: number, search: string) {
-        const res = await getClients(page, pageSize, search);
+        const res = await getClients({ page, page_size: pageSize, search });
         return {
             items: res.items,
             total: res.total,
@@ -216,25 +216,27 @@
 </div>
 
 {#if showModal}
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
-        style="position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;"
+        class="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto"
         role="dialog"
         aria-modal="true"
         tabindex="-1"
         onclick={() => (showModal = false)}
+        onkeydown={(e) => {
+            if (e.key === 'Escape') showModal = false;
+        }}
     >
         <div
-            style="background:var(--color-base-100);border-radius:1rem;width:100%;max-width:520px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.4);overflow:hidden;margin:auto;"
+            class="bg-base-100 rounded-2xl w-full max-w-[520px] shadow-2xl overflow-hidden m-auto"
             role="document"
             onclick={(e) => e.stopPropagation()}
+            onkeydown={(e) => e.stopPropagation()}
         >
             <!-- Header del modal -->
             <div
-                style="padding:1.25rem 1.5rem;border-bottom:1px solid oklch(from var(--color-base-content) l c h / 0.12);display:flex;align-items:center;justify-content:space-between;"
+                class="px-6 py-5 border-b border-base-content/10 flex items-center justify-between"
             >
-                <h3 style="margin:0;font-size:1.1rem;font-weight:700;">
+                <h3 class="m-0 text-lg font-bold">
                     ➕ Nuevo Cliente
                 </h3>
                 <button
@@ -249,7 +251,7 @@
                     e.preventDefault();
                     saveClient();
                 }}
-                style="padding:1.5rem;display:flex;flex-direction:column;gap:1rem;"
+                class="p-6 flex flex-col gap-4"
             >
                 <!-- Nombre -->
                 <label class="form-control w-full">
@@ -279,7 +281,7 @@
                 </label>
 
                 <!-- Teléfono + WhatsApp -->
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                <div class="grid grid-cols-2 gap-3">
                     <label class="form-control w-full">
                         <div class="label">
                             <span class="label-text font-semibold">Teléfono</span>
@@ -305,7 +307,7 @@
                 </div>
 
                 <!-- Email + Día Billing -->
-                <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:0.75rem;">
+                <div class="grid grid-cols-[1.5fr_1fr] gap-3">
                     <label class="form-control w-full">
                         <div class="label">
                             <span class="label-text font-semibold">Email</span>
@@ -372,7 +374,7 @@
 
                 <!-- Botones -->
                 <div
-                    style="display:flex;gap:0.5rem;justify-content:flex-end;padding-top:0.5rem;border-top:1px solid oklch(from var(--color-base-content) l c h / 0.08);"
+                    class="flex gap-2 justify-end pt-4 border-t border-base-content/8"
                 >
                     <button
                         type="button"
