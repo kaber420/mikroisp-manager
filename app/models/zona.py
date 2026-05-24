@@ -21,6 +21,9 @@ class Zona(SQLModel, table=True):
     documentos: list["ZonaDocumento"] = Relationship(back_populates="zona")
     notes: list["ZonaNote"] = Relationship(back_populates="zona")
     clients: list["Client"] = Relationship(back_populates="zona")
+    autodoc: Optional["ZonaAutodoc"] = Relationship(
+        back_populates="zona", sa_relationship_kwargs={"uselist": False}
+    )
 
 
 # Modelos Satélite
@@ -62,3 +65,17 @@ class ZonaNote(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     zona: Zona | None = Relationship(back_populates="notes")
+
+
+class ZonaAutodoc(SQLModel, table=True):
+    __tablename__ = "zona_autodocumentacion"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    zona_id: int = Field(foreign_key="zonas.id", unique=True, index=True, nullable=False)
+    content_markdown: str = Field(nullable=False, description="Ficha técnica de texto Markdown autogenerada")
+    ports_layout: Optional[list[dict[str, Any]]] = Field(default=None, sa_column=Column(JSON), description="Estructura JSON de puertos")
+    last_updated: datetime = Field(default_factory=datetime.utcnow, description="Última sincronización")
+    content_hash: str = Field(nullable=False, description="Hash SHA256 para redundancia")
+
+    zona: Optional[Zona] = Relationship(back_populates="autodoc")
+

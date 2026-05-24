@@ -23,7 +23,7 @@ from app.models.setting import Setting
 from app.models.switch import Switch
 from app.models.ticket import Ticket
 from app.models.user import User
-from app.models.zona import Zona
+from app.models.zona import Zona, ZonaAutodoc
 from app.models.stats import RouterStats, APStats, CPEStats, EventLog, DisconnectionEvent
 from app.models.waiting_room import WaitingRoomConfig
 

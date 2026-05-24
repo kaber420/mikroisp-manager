@@ -154,3 +154,15 @@ export async function deployInfraStack(payload: any) {
         body: JSON.stringify(payload)
     });
 }
+
+// PoP Autodocumentación y Puertos
+export async function getZonaAutodoc(zonaId: number | string) {
+    return request(`/zonas/${zonaId}/autodoc`);
+}
+
+export async function syncZonaAutodoc(zonaId: number | string) {
+    return request(`/zonas/${zonaId}/autodoc/sync`, {
+        method: 'POST'
+    });
+}
+

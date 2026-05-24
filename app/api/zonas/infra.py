@@ -6,13 +6,14 @@ Provides live router interface data for SVG diagram rendering.
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlmodel import Session, select
 
 from app.core.security import require_technician
 from ...repositories import switch_repository
 from ...db.engine_sync import get_sync_session
 from ...models.router import Router
+from ...models.zona import ZonaAutodoc
 from ...models.user import User
 from ...services.network import switch_service
 from ...services.network.router_service import (
@@ -174,3 +175,63 @@ async def get_switch_ports(
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching switch data: {str(e)}")
+
+
+@router.get("/zonas/{zona_id}/autodoc", response_model=dict[str, Any])
+def get_pop_autodocumentation(
+    zona_id: int,
+    session: Session = Depends(get_sync_session),
+    current_user: User = Depends(require_technician)
+):
+    """
+    Retorna la ficha técnica precalculada del PoP en Markdown y JSON.
+    Carga instantánea sin queries de red a dispositivos.
+    """
+    autodoc = session.exec(
+        select(ZonaAutodoc).where(ZonaAutodoc.zona_id == zona_id)
+    ).first()
+    
+    if not autodoc:
+        raise HTTPException(
+            status_code=404, 
+            detail="Ficha técnica no encontrada. Presione 'Sincronizar estructura'."
+        )
+        
+    return {
+        "zona_id": autodoc.zona_id,
+        "last_updated": autodoc.last_updated,
+        "markdown": autodoc.content_markdown,
+        "ports": autodoc.ports_layout or []
+    }
+
+
+@router.post("/zonas/{zona_id}/autodoc/sync", status_code=202)
+async def trigger_manual_autodoc_sync(
+    zona_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_technician)
+):
+    """
+    Forzar una sincronización estructural única sobre los dispositivos físicos de la zona.
+    Útil después de cablear un puerto o configurar una VLAN en MikroTik.
+    """
+    from ...services.monitoring.autodoc_service import sync_zona_autodoc
+    from ...db.engine_sync import sync_engine
+    
+    # Tarea en segundo plano para no bloquear el HTTP request del usuario
+    def run_sync_in_background():
+        with Session(sync_engine) as session:
+            import asyncio
+            try:
+                # Ejecutar el método async en un loop de hilo aislado
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(sync_zona_autodoc(zona_id, session))
+                loop.close()
+            except Exception as e:
+                import logging
+                logging.getLogger("AutodocAPI").error(f"Error en sincronización en segundo plano para Zona {zona_id}: {e}")
+
+    background_tasks.add_task(run_sync_in_background)
+    return {"message": "Sincronización estructural iniciada en segundo plano."}
+

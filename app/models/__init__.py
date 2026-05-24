@@ -8,7 +8,7 @@ from .switch import Switch
 from .service import ClientService
 from .setting import Setting
 from .user import User
-from .zona import Zona, ZonaDocumento, ZonaInfra, ZonaNote
+from .zona import Zona, ZonaDocumento, ZonaInfra, ZonaNote, ZonaAutodoc
 from .ticket import Ticket, TicketMessage
 from .preference import UserPreference, UserPreferenceBase, UserPreferenceCreate, UserPreferenceRead, UserPreferenceUpdate
 from .portal_announcement import PortalAnnouncement
@@ -29,6 +29,7 @@ __all__ = [
     "ZonaDocumento",
     "ZonaInfra",
     "ZonaNote",
+    "ZonaAutodoc",
     "Ticket",
     "TicketMessage",
     "UserPreference",
