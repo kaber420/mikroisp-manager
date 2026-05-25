@@ -1,7 +1,7 @@
 # app/services/zone_service.py
 """
 ZoneService: Service layer for Zone CRUD operations.
-Inherits from BaseCRUDService and adds zone-specific logic (encryption, dependency checks).
+Inherits from AsyncBaseCRUDService and adds zone-specific logic (encryption, dependency checks).
 """
 
 import os
@@ -20,61 +20,65 @@ from ...core.exceptions import (
     ZoneNotFoundError,
 )
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, select
+from sqlalchemy.orm import selectinload
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from ...models.zona import Zona, ZonaDocumento, ZonaInfra, ZonaNote
 from ...utils.security import decrypt_data, encrypt_data
-from ..core.base_service import BaseCRUDService
+from ..core.base_service import AsyncBaseCRUDService
 
 
-class ZoneService(BaseCRUDService[Zona]):
+class ZoneService(AsyncBaseCRUDService[Zona]):
     """
     Service for Zone CRUD operations.
-    Inherits generic methods from BaseCRUDService and adds zone-specific logic:
+    Inherits generic methods from AsyncBaseCRUDService and adds zone-specific logic:
     - Encryption/decryption of sensitive notes
     - Dependency checks before deletion (APs, Routers)
     - FileNotFoundError exceptions for backward compatibility with controllers
     """
 
-    def __init__(self, session: Session):
+    def __init__(self, session: AsyncSession):
         super().__init__(session, Zona)
 
     # --- Overridden CRUD methods for backward compatibility ---
 
-    def create_zona(self, nombre: str) -> Zona:
+    async def create_zona(self, nombre: str) -> Zona:
         """Create a new zone with uniqueness validation."""
-        existing = self.session.exec(select(Zona).where(Zona.nombre == nombre)).first()
+        existing_result = await self.session.exec(select(Zona).where(Zona.nombre == nombre))
+        existing = existing_result.first()
         if existing:
             raise DuplicateError(f"El nombre de la zona '{nombre}' ya existe.")
 
         new_zona = Zona(nombre=nombre)
         self.session.add(new_zona)
         try:
-            self.session.commit()
-            self.session.refresh(new_zona)
+            await self.session.commit()
+            await self.session.refresh(new_zona)
             return new_zona
         except IntegrityError:
-            self.session.rollback()
+            await self.session.rollback()
             raise DuplicateError(f"El nombre de la zona '{nombre}' ya existe.")
 
-    def get_all_zonas(self) -> list[Zona]:
+    async def get_all_zonas(self) -> list[Zona]:
         """Get all zones ordered by name. Uses inherited get_all with custom ordering."""
-        return self.session.exec(select(Zona).order_by(Zona.nombre)).all()
+        result = await self.session.exec(select(Zona).order_by(Zona.nombre))
+        return result.all()
 
-    def get_zona(self, zona_id: int) -> Zona:
+    async def get_zona(self, zona_id: int) -> Zona:
         """
         Get zone by ID.
         Raises FileNotFoundError for backward compatibility with controllers.
         """
-        zona = super().get_by_id(zona_id)
+        zona = await super().get_by_id(zona_id)
         return zona
 
-    def update_zona(self, zona_id: int, update_data: dict[str, Any]) -> Zona:
+    async def update_zona(self, zona_id: int, update_data: dict[str, Any]) -> Zona:
         """
         Update zone details.
         Raises FileNotFoundError for backward compatibility.
         """
-        zona = self.session.get(Zona, zona_id)
+        zona = await self.session.get(Zona, zona_id)
         if not zona:
             raise ZoneNotFoundError("Zona no encontrada.")
 
@@ -83,14 +87,14 @@ class ZoneService(BaseCRUDService[Zona]):
 
         try:
             self.session.add(zona)
-            self.session.commit()
-            self.session.refresh(zona)
+            await self.session.commit()
+            await self.session.refresh(zona)
         except IntegrityError:
-            self.session.rollback()
+            await self.session.rollback()
             raise DuplicateError("El nombre de la zona ya existe.")
         return zona
 
-    def delete_zona(self, zona_id: int):
+    async def delete_zona(self, zona_id: int):
         """
         Delete zone with dependency checks (APs, Routers).
         Raises FileNotFoundError for backward compatibility.
@@ -99,31 +103,39 @@ class ZoneService(BaseCRUDService[Zona]):
         from ...models.router import Router
 
         # Check for APs in zone
-        res_aps = self.session.exec(
+        res_aps_result = await self.session.exec(
             select(AP).where(AP.zona_id == zona_id).limit(1)
-        ).first()
+        )
+        res_aps = res_aps_result.first()
         if res_aps:
             raise DeletionBlockedError("No se puede eliminar la zona porque contiene APs.")
 
         # Check for Routers in zone
-        res_routers = self.session.exec(
+        res_routers_result = await self.session.exec(
             select(Router).where(Router.zona_id == zona_id).limit(1)
-        ).first()
+        )
+        res_routers = res_routers_result.first()
         if res_routers:
             raise DeletionBlockedError("No se puede eliminar la zona porque contiene Routers.")
 
-        zona = self.session.get(Zona, zona_id)
+        zona = await self.session.get(Zona, zona_id)
         if not zona:
             raise ZoneNotFoundError("Zona no encontrada para eliminar.")
 
-        self.session.delete(zona)
-        self.session.commit()
+        await self.session.delete(zona)
+        await self.session.commit()
 
     # --- Zone Details and Documentation Methods ---
 
-    def get_zona_details(self, zona_id: int) -> Zona:
+    async def get_zona_details(self, zona_id: int) -> Zona:
         """Get zone with all details and decrypted notes."""
-        zona = self.session.get(Zona, zona_id)
+        statement = select(Zona).where(Zona.id == zona_id).options(
+            selectinload(Zona.notes),
+            selectinload(Zona.documentos),
+            selectinload(Zona.infraestructura)
+        )
+        result = await self.session.exec(statement)
+        zona = result.first()
         if not zona:
             raise ZoneNotFoundError("Zona no encontrada.")
 
@@ -134,9 +146,10 @@ class ZoneService(BaseCRUDService[Zona]):
 
         return zona
 
-    def update_infraestructura(self, zona_id: int, infra_data: dict[str, Any]) -> ZonaInfra:
+    async def update_infraestructura(self, zona_id: int, infra_data: dict[str, Any]) -> ZonaInfra:
         """Update or create infrastructure data for a zone."""
-        infra = self.session.exec(select(ZonaInfra).where(ZonaInfra.zona_id == zona_id)).first()
+        infra_result = await self.session.exec(select(ZonaInfra).where(ZonaInfra.zona_id == zona_id))
+        infra = infra_result.first()
 
         if infra:
             for key, value in infra_data.items():
@@ -146,8 +159,8 @@ class ZoneService(BaseCRUDService[Zona]):
             infra = ZonaInfra(zona_id=zona_id, **infra_data)
             self.session.add(infra)
 
-        self.session.commit()
-        self.session.refresh(infra)
+        await self.session.commit()
+        await self.session.refresh(infra)
         return infra
 
     # Allowed file extensions whitelist
@@ -190,13 +203,13 @@ class ZoneService(BaseCRUDService[Zona]):
             descripcion=descripcion,
         )
         self.session.add(new_doc)
-        self.session.commit()
-        self.session.refresh(new_doc)
+        await self.session.commit()
+        await self.session.refresh(new_doc)
         return new_doc
 
-    def delete_documento(self, doc_id: int):
+    async def delete_documento(self, doc_id: int):
         """Delete a document and its file."""
-        doc = self.session.get(ZonaDocumento, doc_id)
+        doc = await self.session.get(ZonaDocumento, doc_id)
         if not doc:
             raise NotFoundError("Documento no encontrado.")
 
@@ -204,12 +217,12 @@ class ZoneService(BaseCRUDService[Zona]):
         if os.path.exists(file_path):
             os.remove(file_path)
 
-        self.session.delete(doc)
-        self.session.commit()
+        await self.session.delete(doc)
+        await self.session.commit()
 
     # --- Note Methods ---
 
-    def create_note_for_zona(
+    async def create_note_for_zona(
         self, zona_id: int, title: str, content: str, is_encrypted: bool
     ) -> ZonaNote:
         """Create a note for a zone with optional encryption."""
@@ -219,17 +232,17 @@ class ZoneService(BaseCRUDService[Zona]):
             zona_id=zona_id, title=title, content=final_content, is_encrypted=is_encrypted
         )
         self.session.add(new_note)
-        self.session.commit()
-        self.session.refresh(new_note)
+        await self.session.commit()
+        await self.session.refresh(new_note)
 
         if new_note.is_encrypted and new_note.content:
             new_note.content = decrypt_data(new_note.content)
 
         return new_note
 
-    def get_note(self, note_id: int) -> ZonaNote:
+    async def get_note(self, note_id: int) -> ZonaNote:
         """Get a note by ID with decryption."""
-        note = self.session.get(ZonaNote, note_id)
+        note = await self.session.get(ZonaNote, note_id)
         if not note:
             raise NotFoundError("Nota no encontrada.")
 
@@ -237,9 +250,9 @@ class ZoneService(BaseCRUDService[Zona]):
             note.content = decrypt_data(note.content)
         return note
 
-    def update_note(self, note_id: int, title: str, content: str, is_encrypted: bool) -> ZonaNote:
+    async def update_note(self, note_id: int, title: str, content: str, is_encrypted: bool) -> ZonaNote:
         """Update a note with optional encryption."""
-        note = self.session.get(ZonaNote, note_id)
+        note = await self.session.get(ZonaNote, note_id)
         if not note:
             raise NotFoundError("Nota no encontrada para actualizar.")
 
@@ -251,18 +264,18 @@ class ZoneService(BaseCRUDService[Zona]):
         note.updated_at = datetime.utcnow()
 
         self.session.add(note)
-        self.session.commit()
-        self.session.refresh(note)
+        await self.session.commit()
+        await self.session.refresh(note)
 
         if note.is_encrypted and note.content:
             note.content = decrypt_data(note.content)
         return note
 
-    def delete_note(self, note_id: int):
+    async def delete_note(self, note_id: int):
         """Delete a note by ID."""
-        note = self.session.get(ZonaNote, note_id)
+        note = await self.session.get(ZonaNote, note_id)
         if not note:
             raise NotFoundError("Nota no encontrada para eliminar.")
 
-        self.session.delete(note)
-        self.session.commit()
+        await self.session.delete(note)
+        await self.session.commit()

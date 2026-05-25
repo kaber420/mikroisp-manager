@@ -126,3 +126,81 @@ class BaseCRUDService(Generic[ModelType]):
         record = self.get_by_id(id)  # Raises HTTPException if not found
         self.session.delete(record)
         self.session.commit()
+
+
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+
+class AsyncBaseCRUDService(Generic[ModelType]):
+    """
+    Base class providing generic asynchronous CRUD operations.
+    """
+
+    def __init__(self, session: AsyncSession, model: type[ModelType]):
+        """
+        Initialize the service with an async database session and model class.
+        """
+        self.session = session
+        self.model = model
+
+    async def get_all(self) -> list[ModelType]:
+        """Retrieve all records of the model asynchronously."""
+        statement = select(self.model)
+        result = await self.session.exec(statement)
+        return result.all()
+
+    async def get_by_id(self, id: int) -> ModelType:
+        """
+        Retrieve a single record by its primary key asynchronously.
+        """
+        record = await self.session.get(self.model, id)
+        if not record:
+            raise NotFoundError(f"{self.model.__name__} no encontrado")
+        return record
+
+    async def create(self, data: dict[str, Any]) -> ModelType:
+        """
+        Create a new record asynchronously.
+        """
+        try:
+            new_record = self.model(**data)
+            self.session.add(new_record)
+            await self.session.commit()
+            await self.session.refresh(new_record)
+            return new_record
+        except IntegrityError:
+            await self.session.rollback()
+            raise DuplicateError(f"{self.model.__name__} duplicado o viola restricción de unicidad")
+        except Exception:
+            await self.session.rollback()
+            raise ValidationError(f"Error creando {self.model.__name__}")
+
+    async def update(self, id: int, data: dict[str, Any]) -> ModelType:
+        """
+        Update an existing record asynchronously.
+        """
+        record = await self.get_by_id(id)
+
+        for key, value in data.items():
+            setattr(record, key, value)
+
+        try:
+            self.session.add(record)
+            await self.session.commit()
+            await self.session.refresh(record)
+            return record
+        except IntegrityError:
+            await self.session.rollback()
+            raise DuplicateError(f"{self.model.__name__} viola restricción de unicidad")
+        except Exception:
+            await self.session.rollback()
+            raise ValidationError(f"Error actualizando {self.model.__name__}")
+
+    async def delete(self, id: int) -> None:
+        """
+        Delete a record by its primary key asynchronously.
+        """
+        record = await self.get_by_id(id)
+        await self.session.delete(record)
+        await self.session.commit()
+

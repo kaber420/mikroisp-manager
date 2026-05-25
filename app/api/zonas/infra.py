@@ -8,10 +8,12 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlmodel import Session, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.security import require_technician
 from ...repositories import switch_repository
-from ...db.engine_sync import get_sync_session
+from ...db.engine import get_session
+from ...db.engine_sync import sync_engine
 from ...models.router import Router
 from ...models.zona import ZonaAutodoc
 from ...models.user import User
@@ -27,9 +29,9 @@ router = APIRouter(tags=["Zone Infrastructure"])
 
 
 @router.get("/zonas/{zona_id}/infra/routers")
-def get_zone_routers(
+async def get_zone_routers(
     zona_id: int,
-    session: Session = Depends(get_sync_session),
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
 ) -> list[dict[str, Any]]:
     """
@@ -37,7 +39,8 @@ def get_zone_routers(
     Returns basic info for each router (host, hostname, model, status).
     """
     statement = select(Router).where(Router.zona_id == zona_id)
-    routers = session.exec(statement).all()
+    result = await session.exec(statement)
+    routers = result.all()
 
     return [
         {
@@ -53,9 +56,9 @@ def get_zone_routers(
 
 
 @router.get("/zonas/infra/router/{host}/ports")
-def get_router_ports(
+async def get_router_ports(
     host: str,
-    session: Session = Depends(get_sync_session),
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
 ) -> dict[str, Any]:
     """
@@ -63,7 +66,7 @@ def get_router_ports(
     Returns structured data: physical ports, VLANs, bridges, and their relationships.
     """
     # Get router credentials
-    router_creds = session.get(Router, host)
+    router_creds = await session.get(Router, host)
     if not router_creds:
         raise HTTPException(status_code=404, detail=f"Router {host} not found")
 
@@ -104,19 +107,16 @@ def get_router_ports(
 @router.get("/zonas/{zona_id}/infra/switches")
 async def get_zone_switches(
     zona_id: int,
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
 ) -> list[dict[str, Any]]:
     """
     Get all switches linked to a specific zone.
     Returns basic info for each switch (host, hostname, model, status).
     """
-    from ...repositories import switch_repository
-    from ...db.engine import async_session_maker
-
     # Get all switches and filter by zona_id
-    async with async_session_maker() as session:
-        all_switches = await switch_repository.get_all_switches(session)
-        zone_switches = [s for s in all_switches if s.zona_id == zona_id]
+    all_switches = await switch_repository.get_all_switches(session)
+    zone_switches = [s for s in all_switches if s.zona_id == zona_id]
 
     return [
         {
@@ -135,16 +135,14 @@ async def get_zone_switches(
 @router.get("/zonas/infra/switch/{host}/ports")
 async def get_switch_ports(
     host: str,
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician),
 ) -> dict[str, Any]:
     """
     Fetch live interface data from a switch for SVG rendering.
     Returns structured data: physical ports, VLANs, bridges, and their relationships.
     """
-    from ...db.engine import async_session_maker
-
-    async with async_session_maker() as session:
-        switch_data = await switch_repository.get_switch_by_host(session, host)
+    switch_data = await switch_repository.get_switch_by_host(session, host)
 
     if not switch_data:
         raise HTTPException(status_code=404, detail=f"Switch {host} not found")
@@ -178,18 +176,19 @@ async def get_switch_ports(
 
 
 @router.get("/zonas/{zona_id}/autodoc", response_model=dict[str, Any])
-def get_pop_autodocumentation(
+async def get_pop_autodocumentation(
     zona_id: int,
-    session: Session = Depends(get_sync_session),
+    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_technician)
 ):
     """
     Retorna la ficha técnica precalculada del PoP en Markdown y JSON.
     Carga instantánea sin queries de red a dispositivos.
     """
-    autodoc = session.exec(
+    result = await session.exec(
         select(ZonaAutodoc).where(ZonaAutodoc.zona_id == zona_id)
-    ).first()
+    )
+    autodoc = result.first()
     
     if not autodoc:
         raise HTTPException(
@@ -216,7 +215,6 @@ async def trigger_manual_autodoc_sync(
     Útil después de cablear un puerto o configurar una VLAN en MikroTik.
     """
     from ...services.monitoring.autodoc_service import sync_zona_autodoc
-    from ...db.engine_sync import sync_engine
     
     # Tarea en segundo plano para no bloquear el HTTP request del usuario
     def run_sync_in_background():
@@ -234,4 +232,3 @@ async def trigger_manual_autodoc_sync(
 
     background_tasks.add_task(run_sync_in_background)
     return {"message": "Sincronización estructural iniciada en segundo plano."}
-

@@ -49,8 +49,6 @@ class MonitorService:
         """
         async with session_maker() as session:
             aps = await get_enabled_aps_for_monitor(session)
-
-        async with session_maker() as session:
             routers = await get_enabled_routers_from_db(session)
 
         return {
@@ -110,7 +108,7 @@ class MonitorService:
                 if previous_status == DeviceStatus.OFFLINE:
                     message = f"✅ *AP RECUPERADO*\n\nEl AP *{hostname}* (`{host}`) ha vuelto a estar en línea."
                     await add_event_log(session, host, "ap", "success", f"El AP {hostname} ({host}) está en línea nuevamente.")
-                    await asyncio.to_thread(send_telegram_alert, message)
+                    await send_telegram_alert(message)
             else:
                 await self._handle_offline_ap(session, host, previous_status)
 
@@ -128,7 +126,7 @@ class MonitorService:
             hostname = ap_info.get("hostname") if (ap_info and ap_info.get("hostname")) else host
             message = f"❌ *ALERTA: AP CAÍDO*\n\nNo se pudo establecer conexión con el AP *{hostname}* (`{host}`)."
             await add_event_log(session, host, "ap", "danger", f"El AP {hostname} ({host}) ha perdido conexión.")
-            await asyncio.to_thread(send_telegram_alert, message)
+            await send_telegram_alert(message)
 
     async def check_router(self, session: AsyncSession, router: Router):
         """
@@ -189,7 +187,7 @@ class MonitorService:
             if previous_status == DeviceStatus.OFFLINE:
                 message = f"✅ *ROUTER RECUPERADO*\n\nEl Router *{hostname}* (`{host}`) ha vuelto a estar en línea."
                 await add_event_log(session, host, "router", "success", f"Router {hostname} ({host}) recuperado.")
-                await asyncio.to_thread(send_telegram_alert, message)
+                await send_telegram_alert(message)
         else:
             current_status = DeviceStatus.OFFLINE
             logger.warning(f"Estado de Router {host}: OFFLINE")
@@ -208,4 +206,4 @@ class MonitorService:
                     "danger",
                     f"Router {hostname} ({host}) ha dejado de responder.",
                 )
-                await asyncio.to_thread(send_telegram_alert, message)
+                await send_telegram_alert(message)

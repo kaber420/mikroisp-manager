@@ -24,7 +24,8 @@ BACKUP_COUNT = 5
 # Ensure log directory exists
 os.makedirs(LOG_DIR, exist_ok=True)
 
-# Configure dedicated audit logger
+# Configure dedicated audit logger and standard logger
+logger = logging.getLogger(__name__)
 audit_logger = logging.getLogger("audit")
 audit_logger.setLevel(logging.INFO)
 audit_logger.propagate = False  # Don't duplicate to root logger
@@ -121,10 +122,10 @@ def log_action(
             session.commit()
             
     except Exception as e:
-        print(f"⚠️ Could not save audit log to DB: {e}")
+        logger.error(f"⚠️ Could not save audit log to DB: {e}")
 
-    # Also print to console for visibility during development
+    # Also log to console for visibility during development
     emoji = "✅" if status == "success" else "❌"
-    print(
+    logger.info(
         f"📝 [AUDIT] {emoji} {action.upper()} {resource_type}/{resource_id} by {log_entry['user']} from {client_ip}"
     )

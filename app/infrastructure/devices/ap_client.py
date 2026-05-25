@@ -1,6 +1,8 @@
 # ap_client.py
-
+import logging
 import httpx
+
+logger = logging.getLogger(__name__)
 
 # httpx maneja certificados autofirmados con verify=False, no es necesario
 # desactivar warnings de urllib3 porque httpx no usa urllib3.
@@ -61,17 +63,17 @@ class UbiquitiClient:
             if csrf_token:
                 self.session.headers["X-CSRF-ID"] = csrf_token
                 self._is_authenticated = True
-                print(f"Autenticación exitosa en {self.base_url}")
+                logger.info(f"Autenticación exitosa en {self.base_url}")
                 return True
 
-            print(f"Error de autenticación en {self.base_url}: No se recibió el token CSRF.")
+            logger.error(f"Error de autenticación en {self.base_url}: No se recibió el token CSRF.")
             return False
 
         except httpx.RequestError as e:
-            print(f"Error de red durante la autenticación en {self.base_url}: {e}")
+            logger.error(f"Error de red durante la autenticación en {self.base_url}: {e}")
             return False
         except httpx.HTTPStatusError as e:
-            print(f"Error de autenticación en {self.base_url}: {e}")
+            logger.error(f"Error de autenticación en {self.base_url}: {e}")
             return False
 
     def get_status_data(self) -> dict | None:
@@ -90,7 +92,7 @@ class UbiquitiClient:
                 # Si la sesión expiró, el AP puede devolver 200 OK con la página de login.
                 # O puede devolver 401/403.
                 if response.status_code in [401, 403]:
-                    print(f"Sesión para {self.base_url} expirada o no válida. Re-autenticando...")
+                    logger.warning(f"Sesión para {self.base_url} expirada o no válida. Re-autenticando...")
                     return None  # Indica que se necesita re-autenticación
 
                 response.raise_for_status()
@@ -99,7 +101,7 @@ class UbiquitiClient:
                 # A veces, incluso con 200 OK, la respuesta es la página de login (HTML).
                 # Un 'status.cgi' válido siempre tiene la clave 'host'.
                 if "host" not in data:
-                    print(
+                    logger.warning(
                         f"Respuesta inesperada de {self.base_url}. Posiblemente la sesión expiró. Re-autenticando..."
                     )
                     return None  # Indica que se necesita re-autenticación
@@ -107,18 +109,18 @@ class UbiquitiClient:
                 return data
 
             except httpx.RequestError as e:
-                print(f"Error de red al obtener datos de estado de {self.base_url}: {e}")
+                logger.error(f"Error de red al obtener datos de estado de {self.base_url}: {e}")
                 raise  # Relanzamos para que el llamador sepa que hubo un error de red
             except ValueError:
                 # Esto ocurre si la respuesta no es JSON, típicamente la página de login.
-                print(f"La respuesta de {self.base_url} no es un JSON válido. Re-autenticando...")
+                logger.warning(f"La respuesta de {self.base_url} no es un JSON válido. Re-autenticando...")
                 return None  # Indica que se necesita re-autenticación
 
         try:
             # Si no estamos autenticados, autenticamos primero.
             if not self._is_authenticated:
                 if not self._authenticate():
-                    print(
+                    logger.error(
                         f"Fallo en la autenticación inicial para {self.base_url}, no se pueden obtener datos."
                     )
                     return None
@@ -128,14 +130,14 @@ class UbiquitiClient:
 
             # Si _get_data devolvió None, la sesión expiró. Intentamos re-autenticar y re-intentar.
             if data is None:
-                print("Re-intentando obtener datos después de la re-autenticación...")
+                logger.info("Re-intentando obtener datos después de la re-autenticación...")
                 if not self._authenticate():
-                    print(f"Fallo en la re-autenticación para {self.base_url}.")
+                    logger.error(f"Fallo en la re-autenticación para {self.base_url}.")
                     return None
 
                 data = _get_data()  # Re-intentamos la llamada
                 if data is None:
-                    print(
+                    logger.error(
                         f"No se pudieron obtener datos de {self.base_url} después de re-autenticar."
                     )
                     return None
@@ -153,9 +155,9 @@ class UbiquitiClient:
         logout_url = self.base_url + "/api/auth/logout"
         try:
             self.session.post(logout_url)
-            print(f"Sesión cerrada para {self.base_url}")
+            logger.info(f"Sesión cerrada para {self.base_url}")
         except httpx.RequestError as e:
-            print(f"Error al cerrar la sesión en {self.base_url}: {e}")
+            logger.error(f"Error al cerrar la sesión en {self.base_url}: {e}")
         finally:
             self.session.close()
             self._is_authenticated = False

@@ -1,5 +1,6 @@
 import logging
 import time
+import random
 from sqlalchemy import create_engine, text
 from app.core.config import settings
 
@@ -22,7 +23,8 @@ def probe_database_connection() -> bool:
     db_host_log = settings.DATABASE_URL_SYNC.split("@")[-1]
     
     max_attempts = 10
-    sleep_interval = 5
+    base_delay = 1.0
+    max_delay = 15.0
 
     for attempt in range(1, max_attempts + 1):
         logger.info(f"🔍 Probing database connection (Attempt {attempt}/{max_attempts}): {db_host_log}")
@@ -39,6 +41,11 @@ def probe_database_connection() -> bool:
         except Exception as e:
             logger.warning(f"⚠️ Database connection attempt {attempt} failed: {e}")
             if attempt < max_attempts:
+                # Calcular delay exponencial con jitter (+/- 20%)
+                base_backoff = min(base_delay * (2 ** (attempt - 1)), max_delay)
+                jitter = random.uniform(-0.2 * base_backoff, 0.2 * base_backoff)
+                sleep_interval = max(0.1, base_backoff + jitter)
+                logger.info(f"⏳ Retrying in {sleep_interval:.2f} seconds...")
                 time.sleep(sleep_interval)
             else:
                 logger.critical(f"❌ DATABASE CONNECTION FAILED after {max_attempts} attempts.")

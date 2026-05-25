@@ -7,6 +7,12 @@ from app.core.config import settings
 # Cargar variables de entorno desde .env ANTES de cualquier otra cosa
 load_dotenv()
 
+# --- CONFIGURACIÓN DE LOGS CENTRALIZADA ---
+from app.core.logging_config import setup_logging
+setup_logging(settings.APP_ENV)
+import logging
+logger = logging.getLogger("app.main")
+
 # --- PERFORMANCE: Instalar uvloop en Linux/macOS ---
 import sys
 if sys.platform != "win32":
@@ -14,7 +20,7 @@ if sys.platform != "win32":
         import asyncio
         import uvloop
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-        print("✅ uvloop instalado como event loop")
+        logger.info("✅ uvloop instalado como event loop")
     except ImportError:
         pass  # uvloop no instalado, usamos el loop por defecto
 
@@ -80,7 +86,7 @@ async def lifespan(app: FastAPI):
     """Initialize database tables and background services on application startup, and cleanup on shutdown"""
     from .core.bootstrap import bootstrap_system
     bootstrap_system()
-    print("✅ System bootstrapped (DB & Admin)")
+    logger.info("✅ System bootstrapped (DB & Admin)")
 
     # --- Redict Cache: Conectar si está habilitado ---
     if settings.CACHE_BACKEND == "redict":
@@ -89,12 +95,12 @@ async def lifespan(app: FastAPI):
         redict_url = settings.REDICT_URL
         connected = await redict_manager.connect(redict_url)
         if connected:
-            print("✅ Redict cache conectado")
+            logger.info("✅ Redict cache conectado")
             # Iniciar listener Pub/Sub para notificaciones en tiempo real
             asyncio.create_task(manager.start_redict_listener())
-            print("✅ Redict Pub/Sub listener iniciado")
+            logger.info("✅ Redict Pub/Sub listener iniciado")
         else:
-            print("⚠️ Redict no disponible, usando cache en memoria")
+            logger.warning("⚠️ Redict no disponible, usando cache en memoria")
 
     # --- Cache V2: Iniciar MonitorScheduler ---
     # Este scheduler consulta routers suscritos y llena el cache
@@ -102,14 +108,14 @@ async def lifespan(app: FastAPI):
     from .services.monitoring.monitor_scheduler import monitor_scheduler
 
     asyncio.create_task(monitor_scheduler.run())
-    print("✅ MonitorScheduler iniciado (Cache V2)")
+    logger.info("✅ MonitorScheduler iniciado (Cache V2)")
 
     # --- Cache V2: Iniciar APMonitorScheduler ---
     # Mismo patrón para APs
     from .services.monitoring.ap_monitor_scheduler import ap_monitor_scheduler
 
     asyncio.create_task(ap_monitor_scheduler.run())
-    print("✅ APMonitorScheduler iniciado (Cache V2)")
+    logger.info("✅ APMonitorScheduler iniciado (Cache V2)")
 
 
     # --- Cache V2: Iniciar SwitchMonitorScheduler ---
@@ -117,7 +123,7 @@ async def lifespan(app: FastAPI):
     from .services.monitoring.switch_monitor_scheduler import switch_monitor_scheduler
 
     asyncio.create_task(switch_monitor_scheduler.run())
-    print("✅ SwitchMonitorScheduler iniciado (Cache V2)")
+    logger.info("✅ SwitchMonitorScheduler iniciado (Cache V2)")
 
     # --- BOT MANAGER (Hybrid Architecture) ---
     from .services.core.bot_manager import bot_manager
@@ -136,7 +142,7 @@ async def lifespan(app: FastAPI):
 
         if redict_manager.is_connected:
             await redict_manager.disconnect()
-            print("✅ Redict desconectado")
+            logger.info("✅ Redict desconectado")
 
     # Detener Bots
     from .services.core.bot_manager import bot_manager
@@ -237,7 +243,7 @@ class TrustedOriginMiddleware(BaseHTTPMiddleware):
                 # or internal tool vs a browser without origin headers (suspicious)
                 has_auth = request.headers.get("authorization") is not None
                 if not has_auth:
-                    print(
+                    logger.warning(
                         f"🛡️ [Origin Shield] BLOCKED: Missing Origin/Referer for {request.method} {request.url.path}"
                     )
                     return JSONResponse(
@@ -271,7 +277,7 @@ class TrustedOriginMiddleware(BaseHTTPMiddleware):
                 if request.headers.get("authorization"):
                     return await call_next(request)
 
-                print(f"🛡️ [Origin Shield] BLOCKED request from untrusted origin: {request_origin}")
+                logger.warning(f"🛡️ [Origin Shield] BLOCKED request from untrusted origin: {request_origin}")
                 return JSONResponse(
                     status_code=status.HTTP_403_FORBIDDEN,
                     content={"detail": "Forbidden: Invalid origin"},
@@ -285,6 +291,10 @@ app.add_middleware(TrustedOriginMiddleware)
 # --- SETUP MIDDLEWARE ---
 from app.middleware.setup_middleware import SetupMiddleware
 app.add_middleware(SetupMiddleware)
+
+# --- REQUEST ID MIDDLEWARE ---
+from app.middleware.request_id import RequestIdMiddleware
+app.add_middleware(RequestIdMiddleware)
 
 
 
@@ -589,7 +599,7 @@ async def bot_webhook(bot_type: str, token: str, request: Request):
         await bot_manager.process_update(bot_type, token, data)
         return {"status": "ok"}
     except Exception as e:
-        print(f"⚠️ Webhook Error: {e}")
+        logger.error(f"⚠️ Webhook Error: {e}")
         return {"status": "error", "detail": str(e)}
 
 # --- FRONTEND SPA FALLBACK ---

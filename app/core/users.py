@@ -5,7 +5,10 @@ Replaces manual JWT handling from app/auth.py with library-managed auth.
 """
 
 import uuid
+import logging
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
@@ -81,17 +84,17 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
 
     async def on_after_register(self, user: User, request: Request | None = None):
         """Called after successful user registration"""
-        print(f"✅ User registered: {user.username} ({user.email})")
+        logger.info(f"✅ User registered: {user.username} ({user.email})")
 
     async def on_after_login(self, user: User, request: Request | None = None, response=None):
         """Called after successful login"""
-        print(f"🔐 User logged in: {user.username}")
+        logger.info(f"🔐 User logged in: {user.username}")
 
     async def on_after_forgot_password(
         self, user: User, token: str, request: Request | None = None
     ):
         """Called after password reset request"""
-        print(f"🔑 Password reset requested for: {user.username}")
+        logger.info(f"🔑 Password reset requested for: {user.username}")
 
 
 # --- Custom User Database Adapter (Username-based lookup) ---
